@@ -2385,7 +2385,7 @@ function renderLogin(app){
         <button class="btn btn-primary" onclick="attemptLogin()">دخول</button>
       </div>
       <p class="file-hint" style="margin-top:16px;">حسابات تجريبية جاهزة: سكرتير المركز (1/1)، مدير المركز (2/2)، سكرتير الشركة (3/3)، المدير التنفيذي (4/4)، المحاسب (5/5)، مدير النظام (admin/admin).</p>
-      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-16 11:28</p>
+      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-16 12:00</p>
     </div>
   `;
 }
@@ -2738,12 +2738,9 @@ function renderAppRequestView(req){
         <div style="font-size:14px;font-weight:600;color:var(--text);margin-top:5px;">معد الطلب: ${req.createdBy}</div>
       </div>
       <div class="app-req-meta">
-        <span style="font-size:15px;font-weight:700;color:var(--red);">رقم الطلب: ${req.number}</span>
-        <div style="margin-top:2px;">
-          <span style="font-size:15px;font-weight:600;color:var(--text);">${req.dateHijri||'—'}</span>
-          <span style="font-size:15px;font-weight:600;color:var(--text);margin-right:4px;">${req.dateGreg||'—'}</span>
-        </div>
-        <div style="border-bottom:1px solid var(--line);margin-top:4px;"></div>
+        <span style="font-size:15px;font-weight:700;color:var(--red);">رقم الطلب: <span dir="ltr" style="unicode-bidi:isolate;">${req.number}</span></span>
+        <span style="font-size:15px;font-weight:600;color:var(--text);text-decoration:underline;">${req.dateHijri||'—'}</span>
+        <span style="font-size:15px;font-weight:600;color:var(--text);text-decoration:underline;">${req.dateGreg||'—'}</span>
       </div>
     </div>
 
