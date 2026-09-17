@@ -180,6 +180,12 @@
   .actions-row{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
   .file-hint{font-size:12px;color:var(--muted);margin-top:4px;}
   .add-beneficiary{color:var(--blue);font-size:13.5px;cursor:pointer;margin-top:10px;display:inline-block;}
+  .calc-btn{color:var(--blue);font-size:11.5px;cursor:pointer;font-weight:500;margin-right:8px;}
+  .calc-btn:hover{text-decoration:underline;}
+  .calc-box{
+    background:var(--paper);border:1px solid var(--line);border-radius:6px;
+    padding:12px 14px;margin:-6px 0 12px;
+  }
   .remove-b{color:var(--red);font-size:12px;cursor:pointer;float:left;}
   .total-box{
     background:var(--ink);color:#fff;border-radius:6px;padding:14px 18px;
@@ -459,7 +465,12 @@ function dbBeneficiaryToState(b){
   return {name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', idFileName:'', idFileData:b.id_file_data||'', bankFileName:'', bankFileData:b.bank_file_data||'', companyId:b.company_id};
 }
 function dbCompanyToState(c){
-  return {id:c.id, nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'', primaryColor:c.primary_color||'#C0392B', code:c.code, hqCode:c.hq_code||'HQ'};
+  return {
+    id:c.id, nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'',
+    primaryColor:c.primary_color||'#C0392B', code:c.code, hqCode:c.hq_code||'HQ',
+    salutationText: c.salutation_text || 'الإخوة / الإدارة المالية',
+    referenceText: c.reference_text || 'بالإشارة إلى الموضوع أعلاه'
+  };
 }
 
 async function loadAll(){
@@ -488,7 +499,8 @@ async function loadAll(){
     createdAtRaw:r.created_at, isRecurring: !!r.is_recurring,
     beneficiaries:(r.request_beneficiaries||[]).map(b=>({
       name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', statement:b.statement||'', notes:b.notes||'',
-      amount:Number(b.amount), deduction:Number(b.deduction||0), deductionNote:b.deduction_note||''
+      amount:Number(b.amount), deduction:Number(b.deduction||0), deductionNote:b.deduction_note||'',
+      extra:Number(b.extra||0), extraNote:b.extra_note||''
     })),
     history:(r.request_history||[]).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).map(h=>({
       step:h.step, actor:h.actor, userId:h.user_id, action:h.action, note:h.note||'', time:h.time, signatureOverride:h.signature_override||''
@@ -859,7 +871,7 @@ function newDraft(){
   state.editingReqId = null;
   state.draft = {
     reason:'', number: null, isRecurring:false,
-    beneficiaries:[{name:'', nameEn:'', iban:'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true}]
+    beneficiaries:[{name:'', nameEn:'', iban:'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', extra:'', extraNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true}]
   };
   state.view='newRequest';
   render();
@@ -869,7 +881,7 @@ function discardDraftAndStartFresh(){
   state.editingReqId = null;
   state.draft = {
     reason:'', number: null, isRecurring:false,
-    beneficiaries:[{name:'', nameEn:'', iban:'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true}]
+    beneficiaries:[{name:'', nameEn:'', iban:'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', extra:'', extraNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true}]
   };
   render();
 }
@@ -893,7 +905,7 @@ function duplicateFromRequest(id){
     reason: req.reason, number: null, isRecurring: !!req.isRecurring,
     beneficiaries: req.beneficiaries.map(b=>({
       name:b.name, nameEn:b.nameEn, iban:b.iban, civilId:b.civilId, statement:b.statement, notes:b.notes,
-      amount:b.amount, deduction:b.deduction, deductionNote:b.deductionNote,
+      amount:b.amount, deduction:b.deduction, deductionNote:b.deductionNote, extra:b.extra||0, extraNote:b.extraNote,
       idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:false
     }))
   };
@@ -938,7 +950,7 @@ function renderDuplicateList(app){
       <div class="list-item" onclick="duplicateFromRequest('${r.id}')">
         <div class="li-main">
           <b>${r.reason} — ${r.number}</b>
-          <span>${r.beneficiaries.map(b=>b.name).join('، ')} · ${Number(r.totalAmount).toLocaleString()} د.ك</span>
+          <span>${r.beneficiaries.map(b=>b.name).join('، ')} · ${fmtKWDHtml(r.totalAmount)} د.ك</span>
         </div>
         ${r.isRecurring ? `<span class="badge badge-approved">متكرر</span>` : ''}
       </div>
@@ -1012,6 +1024,10 @@ function syncDraftFromDOM(){
     const dedNoteEl = b.querySelector('.b-deductionNote');
     if(dedEl) item.deduction = dedEl.value;
     if(dedNoteEl) item.deductionNote = dedNoteEl.value;
+    const extraEl = b.querySelector('.b-extra');
+    const extraNoteEl = b.querySelector('.b-extraNote');
+    if(extraEl) item.extra = extraEl.value;
+    if(extraNoteEl) item.extraNote = extraNoteEl.value;
   });
 }
 
@@ -1058,14 +1074,46 @@ function updateTotalPreview(){
     const amount = parseFloat(b.querySelector('.b-amount').value) || 0;
     const dedEl = b.querySelector('.b-deduction');
     const deduction = dedEl ? (parseFloat(dedEl.value) || 0) : 0;
-    total += Math.max(amount - deduction, 0);
+    const extraEl = b.querySelector('.b-extra');
+    const extra = extraEl ? (parseFloat(extraEl.value) || 0) : 0;
+    total += Math.max(amount - deduction + extra, 0);
   });
-  document.getElementById('totalPreview').textContent = total.toLocaleString('en-US',{minimumFractionDigits:3}) + ' د.ك';
+  document.getElementById('totalPreview').innerHTML = fmtKWDHtml(total) + ' د.ك';
+}
+
+function toggleCalcBox(i, type){
+  const box = document.getElementById('calcBox-'+type+'-'+i);
+  if(box) box.style.display = box.style.display==='none' ? 'block' : 'none';
+}
+
+function applyDeductionCalc(i){
+  const blocks = document.querySelectorAll('.beneficiary-block');
+  const block = blocks[i];
+  if(!block) return;
+  const amount = parseFloat(block.querySelector('.b-amount').value) || 0;
+  const days = parseFloat(document.getElementById('calcDeductionDays-'+i).value) || 0;
+  const result = (amount / 26) * days;
+  block.querySelector('.b-deduction').value = result.toFixed(3);
+  toggleCalcBox(i, 'deduction');
+  updateTotalPreview();
+}
+
+function applyExtraCalc(i){
+  const blocks = document.querySelectorAll('.beneficiary-block');
+  const block = blocks[i];
+  if(!block) return;
+  const amount = parseFloat(block.querySelector('.b-amount').value) || 0;
+  const hours = parseFloat(document.getElementById('calcExtraHours-'+i).value) || 0;
+  const multiplier = parseFloat(document.getElementById('calcExtraType-'+i).value) || 1.25;
+  const result = (amount / 26 / 8) * hours * multiplier;
+  block.querySelector('.b-extra').value = result.toFixed(3);
+  toggleCalcBox(i, 'extra');
+  updateTotalPreview();
 }
 
 function addBeneficiaryRow(){
   syncDraftFromDOM();
-  state.draft.beneficiaries.push({name:'', nameEn:'', iban:'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true});
+  state.draft.beneficiaries.push({name:'', nameEn:'', iban:'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', extra:'', extraNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true});
   render();
 }
 function removeBeneficiaryRow(i){
@@ -1104,6 +1152,7 @@ async function submitDraftInner(){
     if(!name) return;
     const amount = parseFloat(b.amount);
     const deduction = parseFloat(b.deduction) || 0;
+    const extra = parseFloat(b.extra) || 0;
     if(isNaN(amount) || amount<=0){ hasInvalidAmount = true; }
     if(deduction < 0 || deduction > amount){ badDeduction = true; }
     if(!(b.statement||'').trim()){ missingStatement = true; }
@@ -1114,6 +1163,7 @@ async function submitDraftInner(){
       statement:(b.statement||'').trim(), notes:(b.notes||'').trim(),
       amount: isNaN(amount)?0:amount,
       deduction: deduction, deductionNote: (b.deductionNote||'').trim(),
+      extra: extra, extraNote: (b.extraNote||'').trim(),
       _idFileName: b.idFileName||'', _idFileData: b.idFileData||'',
       _bankFileName: b.bankFileName||'', _bankFileData: b.bankFileData||''
     });
@@ -1140,8 +1190,8 @@ async function submitDraftInner(){
     await dbCheck(await db.from('beneficiaries_master').upsert(payload, {onConflict:'name'}), 'حفظ بيانات المستفيد');
   }
 
-  const total = beneficiaries.reduce((s,b)=>s + Math.max(b.amount - b.deduction, 0), 0);
-  const beneRows = beneficiaries.map(b=>({name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, statement:b.statement, notes:b.notes, amount:b.amount, deduction:b.deduction, deduction_note:b.deductionNote}));
+  const total = beneficiaries.reduce((s,b)=>s + Math.max(b.amount - b.deduction + (b.extra||0), 0), 0);
+  const beneRows = beneficiaries.map(b=>({name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, statement:b.statement, notes:b.notes, amount:b.amount, deduction:b.deduction, deduction_note:b.deductionNote, extra:b.extra||0, extra_note:b.extraNote}));
 
   if(state.editingReqId){
     const req = state.requests.find(r=>r.id===state.editingReqId);
@@ -1462,6 +1512,49 @@ async function confirmDeletePassword(){
   else if(type==='user') await executeDeleteUser(id);
   else if(type==='company') await executeDeleteCompany(id);
 }
+
+function openDocTextsModal(){
+  state.editingDocTexts = true;
+  render();
+}
+function closeDocTextsModal(){
+  state.editingDocTexts = false;
+  render();
+}
+function renderDocTextsModal(){
+  const company = state.companies.find(c=>c.id===state.currentCompanyId);
+  if(!company) return '';
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeDocTextsModal();">
+      <div class="modal-box">
+        <h2>نصوص الطباعة الثابتة</h2>
+        <p class="sub" style="margin-bottom:14px;">تُطبّق على كل الطلبات القادمة لشركة "${company.nameAr}"</p>
+        <label>نص المخاطبة (بدل "الإخوة / الإدارة المالية")</label>
+        <input id="docTextSalutation" type="text" value="${company.salutationText}">
+        <label>نص الإشارة (بدل "بالإشارة إلى الموضوع أعلاه")</label>
+        <input id="docTextReference" type="text" value="${company.referenceText}">
+        <div class="actions-row">
+          <button class="btn btn-primary" onclick="saveDocTexts()">حفظ</button>
+          <button class="btn btn-ghost" onclick="closeDocTextsModal()">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function saveDocTexts(){
+  const company = state.companies.find(c=>c.id===state.currentCompanyId);
+  if(!company) return;
+  const salutation = document.getElementById('docTextSalutation').value.trim() || 'الإخوة / الإدارة المالية';
+  const reference = document.getElementById('docTextReference').value.trim() || 'بالإشارة إلى الموضوع أعلاه';
+  const result = await db.from('companies').update({salutation_text:salutation, reference_text:reference}).eq('id', company.id);
+  if(!(await dbCheck(result, 'حفظ نصوص الطباعة'))) return;
+  company.salutationText = salutation;
+  company.referenceText = reference;
+  state.editingDocTexts = false;
+  showToast('تم حفظ نصوص الطباعة', 'success');
+  render();
+}
+
 function renderDeleteConfirmModal(){
   const d = state.pendingDelete;
   if(!d) return '';
@@ -1587,8 +1680,11 @@ function renderSignatureArea(req){
 }
 
 function renderLetterBody(req){
+  const docCompany = state.companies.find(c=>c.id===req.companyId);
+  const salutationText = docCompany ? docCompany.salutationText : 'الإخوة / الإدارة المالية';
+  const referenceText = docCompany ? docCompany.referenceText : 'بالإشارة إلى الموضوع أعلاه';
   const rows = req.beneficiaries.map((b,i)=>{
-    const net = b.amount - (b.deduction||0);
+    const net = b.amount - (b.deduction||0) + (b.extra||0);
     const ibanClean = (b.iban||'').replace(/\s+/g,'');
     return `
     <tr>
@@ -1604,10 +1700,12 @@ function renderLetterBody(req){
       <td>
         <div class="cell-right">${fmtKWD(b.amount)}</div>
         ${b.deduction>0 ? `<div class="cell-left">${fmtKWD(b.deduction)} خصم</div>` : ''}
+        ${b.extra>0 ? `<div class="cell-left">${fmtKWD(b.extra)} إضافي</div>` : ''}
       </td>
       <td>
         ${b.notes ? `<div class="cell-right" style="font-size:11px;">${b.notes}</div>` : ''}
         ${b.deduction>0 && b.deductionNote ? `<div class="cell-right" style="font-size:10.5px;">${b.deductionNote}</div>` : ''}
+        ${b.extra>0 && b.extraNote ? `<div class="cell-right" style="font-size:10.5px;">${b.extraNote}</div>` : ''}
       </td>
       <td class="num"><b>${fmtKWD(net)}</b></td>
     </tr>`;
@@ -1619,14 +1717,14 @@ function renderLetterBody(req){
       <div>${req.dateGreg||''}</div>
     </div>
     <div class="doc-salutation">
-      <span>الإخوة / الإدارة المالية</span>
+      <span>${salutationText}</span>
       <span class="mohtaramin">المحترمين</span>
     </div>
     <p class="doc-greeting">تحية طيبة وبعد،...</p>
     <div class="doc-reqno">طلب رقم: <span class="doc-red">${req.number}</span></div>
     <div class="doc-subject-bar">طلب صرف – <span>${req.reason}</span></div>
     <p class="doc-body-text">نهديكم أطيب تحياتنا متمنين لكم دوام الصحة والعافية.</p>
-    <p class="doc-body-text">بالإشارة إلى الموضوع أعلاه، يرجى التكرم بالموافقة على صرف <span class="doc-red">${req.reason}</span> وفق الجدول الآتي:</p>
+    <p class="doc-body-text">${referenceText}، يرجى التكرم بالموافقة على صرف <span class="doc-red">${req.reason}</span> وفق الجدول الآتي:</p>
     <table class="amount-table">
       <colgroup>
         <col style="width:4.7%;"><col style="width:33%;"><col style="width:24.7%;">
@@ -1712,6 +1810,7 @@ function render(){
 
   if(state.rejectModalReqId){ app.insertAdjacentHTML('beforeend', renderRejectModal()); }
   if(state.pendingDelete){ app.insertAdjacentHTML('beforeend', renderDeleteConfirmModal()); }
+  if(state.editingDocTexts){ app.insertAdjacentHTML('beforeend', renderDocTextsModal()); }
   if(state.manualSignReqId){ app.insertAdjacentHTML('beforeend', renderManualSignModal()); setupManualSignCanvas(); }
 }
 
@@ -1806,11 +1905,11 @@ function renderAnalytics(app){
       <table class="amount-table">
         <thead><tr><th>الجهة</th><th>عدد الطلبات المصروفة</th><th>إجمالي المصروف (د.ك)</th></tr></thead>
         <tbody>
-          ${rows.map(b=>`<tr><td>${b.name}</td><td>${b.count}</td><td class="num">${b.total.toLocaleString()}</td></tr>`).join('')}
+          ${rows.map(b=>`<tr><td>${b.name}</td><td>${b.count}</td><td class="num">${fmtKWDHtml(b.total)}</td></tr>`).join('')}
         </tbody>
       </table>
       <div class="amount-box" style="margin-top:14px;">
-        <span class="amount-num">الإجمالي الكلي: ${grandTotal.toLocaleString()} د.ك</span>
+        <span class="amount-num">الإجمالي الكلي: ${fmtKWDHtml(grandTotal)} د.ك</span>
         <span class="amount-words">(${grandCount} طلب مصروف)</span>
       </div>
       <div class="actions-row">
@@ -2403,7 +2502,7 @@ function renderLogin(app){
         <button class="btn btn-primary" onclick="attemptLogin()">دخول</button>
       </div>
       <p class="file-hint" style="margin-top:16px;">حسابات تجريبية جاهزة: سكرتير المركز (1/1)، مدير المركز (2/2)، سكرتير الشركة (3/3)، المدير التنفيذي (4/4)، المحاسب (5/5)، مدير النظام (admin/admin).</p>
-      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-17 08:10</p>
+      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-17 10:12</p>
     </div>
   `;
 }
@@ -2524,7 +2623,7 @@ function renderDashboard(app){
               <span class="req-field-value">${r.dateGreg||'—'}</span>
               <span class="req-field-value">${paidEntry ? paidEntry.time : '—'}</span>
               <span class="req-field-value">${r.beneficiaries.length}</span>
-              <span class="req-field-value" style="font-weight:700;color:var(--ink);">${Number(r.totalAmount).toLocaleString()} د.ك</span>
+              <span class="req-field-value" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(r.totalAmount)} د.ك</span>
               <span>${statusBadge(r.status)}</span>
             </div>`;
           }).join('')}
@@ -2569,7 +2668,7 @@ function renderDashboard(app){
       <div class="stat-card" style="cursor:pointer;${statusFilter==='all'?'border-color:var(--ink);':''}" onclick="state.dashStatusFilter='all'; render();"><span class="stat-num">${totalCount}</span><span class="stat-label">إجمالي الطلبات</span></div>
       <div class="stat-card" style="cursor:pointer;${statusFilter==='paid'?'border-color:var(--green);':''}" onclick="state.dashStatusFilter='paid'; render();"><span class="stat-num" style="color:var(--green);">${paidCount}</span><span class="stat-label">معتمدة ومصروفة</span></div>
       <div class="stat-card" style="cursor:pointer;${statusFilter==='pending'?'border-color:var(--amber);':''}" onclick="state.dashStatusFilter='pending'; render();"><span class="stat-num" style="color:var(--amber);">${pendingCount}</span><span class="stat-label">قيد الانتظار</span></div>
-      <div class="stat-card" style="cursor:pointer;${statusFilter==='paid'?'border-color:var(--blue);':''}" onclick="state.dashStatusFilter='paid'; render();"><span class="stat-num" style="color:var(--blue);font-size:16px;">${paidSum.toLocaleString()} د.ك</span><span class="stat-label">إجمالي المصروف</span></div>
+      <div class="stat-card" style="cursor:pointer;${statusFilter==='paid'?'border-color:var(--blue);':''}" onclick="state.dashStatusFilter='paid'; render();"><span class="stat-num" style="color:var(--blue);font-size:16px;">${fmtKWDHtml(paidSum)} د.ك</span><span class="stat-label">إجمالي المصروف</span></div>
     </div>
   `;
 
@@ -2594,7 +2693,7 @@ function renderNewRequest(app){
     <h1>${state.editingReqId ? 'تعديل الطلب' : 'طلب صرف جديد'}</h1>
     <p class="sub">رقم الطلب: <b>${d.number || 'سيُحدَّد تلقائياً عند الإرسال'}</b></p>
     <div class="card">
-      <label>عنوان الطلب</label>
+      <label>عنوان الطلب <span class="calc-btn" onclick="openDocTextsModal()">تعديل نصوص الطباعة</span></label>
       <input id="reasonInput" type="text" value="${d.reason||''}" placeholder="مثال: رواتب شهر 8-2026 أو عهدة">
 
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;">
@@ -2636,7 +2735,7 @@ function renderNewRequest(app){
             <div class="row">
               <div>
                 <label>البيان *</label>
-                <input class="b-statement" type="text" value="${b.statement||''}" placeholder="مثال: مستحقات شهر أغسطس">
+                <textarea class="b-statement" rows="2" placeholder="مثال: مستحقات شهر أغسطس">${b.statement||''}</textarea>
               </div>
               <div>
                 <label>ملاحظات (اختياري)</label>
@@ -2648,16 +2747,43 @@ function renderNewRequest(app){
                 <label>المبلغ (د.ك)</label>
                 <input class="b-amount" type="number" value="${b.amount||''}" placeholder="0.000" oninput="updateTotalPreview()">
               </div>
-              <div>
-                <label>خصم (اختياري)</label>
-                <input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" oninput="updateTotalPreview()">
-              </div>
             </div>
             <div class="row">
+              <div>
+                <label>خصم (اختياري) <span class="calc-btn" onclick="toggleCalcBox(${i},'deduction')">حساب الخصم</span></label>
+                <input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" oninput="updateTotalPreview()">
+              </div>
               <div>
                 <label>بيان الخصم (اختياري)</label>
                 <input class="b-deductionNote" type="text" value="${b.deductionNote||''}" placeholder="سبب الخصم إن وُجد">
               </div>
+            </div>
+            <div id="calcBox-deduction-${i}" class="calc-box" style="display:none;">
+              <label>عدد أيام الغياب</label>
+              <input id="calcDeductionDays-${i}" type="number" placeholder="مثال: 3">
+              <p class="file-hint">الحساب: (المبلغ ÷ 26) × عدد الأيام</p>
+              <button type="button" class="btn btn-primary btn-sm" onclick="applyDeductionCalc(${i})">تطبيق</button>
+            </div>
+            <div class="row">
+              <div>
+                <label>إضافي (اختياري) <span class="calc-btn" onclick="toggleCalcBox(${i},'extra')">حساب الإضافي</span></label>
+                <input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" oninput="updateTotalPreview()">
+              </div>
+              <div>
+                <label>بيان الإضافي (اختياري)</label>
+                <input class="b-extraNote" type="text" value="${b.extraNote||''}" placeholder="سبب الإضافي إن وُجد">
+              </div>
+            </div>
+            <div id="calcBox-extra-${i}" class="calc-box" style="display:none;">
+              <label>عدد ساعات الإضافي</label>
+              <input id="calcExtraHours-${i}" type="number" placeholder="مثال: 5">
+              <label>نوع اليوم</label>
+              <select id="calcExtraType-${i}">
+                <option value="1.25">يوم عمل (×1.25)</option>
+                <option value="1.5">يوم عطلة (×1.5)</option>
+              </select>
+              <p class="file-hint">الحساب: (المبلغ ÷ 26 ÷ 8) × عدد الساعات × المعامل</p>
+              <button type="button" class="btn btn-primary btn-sm" onclick="applyExtraCalc(${i})">تطبيق</button>
             </div>
             ${known && !showUpload ? `
             <div class="row">
@@ -2712,7 +2838,7 @@ function attachDraftAutoSave(){
 
 function renderAppRequestView(req){
   const rows = req.beneficiaries.map((b,i)=>{
-    const net = b.amount - (b.deduction||0);
+    const net = b.amount - (b.deduction||0) + (b.extra||0);
     const ibanClean = (b.iban||'').replace(/\s+/g,'');
     return `
     <tr>
@@ -2729,10 +2855,12 @@ function renderAppRequestView(req){
       <td>
         <div class="cell-right">${fmtKWDHtml(b.amount)}</div>
         ${b.deduction>0 ? `<div class="cell-left" style="font-size:15px;color:var(--muted);">${fmtKWDHtml(b.deduction)}</div>` : ''}
+        ${b.extra>0 ? `<div class="cell-left" style="font-size:15px;color:var(--green);">+${fmtKWDHtml(b.extra)}</div>` : ''}
       </td>
       <td>
         <div class="cell-right" style="font-size:11px;color:var(--muted);">${b.notes || ''}</div>
         ${b.deduction>0 ? `<div class="cell-right" style="font-size:15px;">خصم${b.deductionNote ? ' ' + b.deductionNote : ''}</div>` : ''}
+        ${b.extra>0 ? `<div class="cell-right" style="font-size:15px;color:var(--green);">إضافي${b.extraNote ? ' ' + b.extraNote : ''}</div>` : ''}
       </td>
       <td class="num" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(net)}</td>
     </tr>`;
