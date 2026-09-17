@@ -106,8 +106,8 @@
     border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:20px;
   }
   .app-req-number{font-size:13px;color:var(--blue);font-weight:600;}
-  .app-req-meta{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);text-align:left;}
-  .app-table{width:100%;border-collapse:collapse;margin-bottom:18px;}
+  .app-req-meta{display:flex;flex-direction:column;gap:1px;font-size:12.5px;color:var(--muted);text-align:left;}
+  .app-table{width:100%;table-layout:fixed;border-collapse:collapse;margin-bottom:18px;}
   .table-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:4px;}
   .scroll-hint{display:none;text-align:center;font-size:11px;color:var(--muted);margin:-2px 0 14px;}
   .app-table th{
@@ -156,6 +156,7 @@
   .step.rejected .dot{background:var(--red);}
   .step p{font-size:12px;color:var(--muted);margin:0;}
   .step-approver{display:block;font-size:10.5px;color:var(--text);font-weight:600;margin-top:2px;}
+  .step-approve-time{display:block;font-size:9px;color:var(--muted);margin-top:1px;}
   .step.done p, .step.current p{color:var(--text);font-weight:500;}
   .sign-box{
     display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:6px;
@@ -2397,7 +2398,7 @@ function renderLogin(app){
         <button class="btn btn-primary" onclick="attemptLogin()">دخول</button>
       </div>
       <p class="file-hint" style="margin-top:16px;">حسابات تجريبية جاهزة: سكرتير المركز (1/1)، مدير المركز (2/2)، سكرتير الشركة (3/3)، المدير التنفيذي (4/4)، المحاسب (5/5)، مدير النظام (admin/admin).</p>
-      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-16 17:33</p>
+      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-17 01:58</p>
     </div>
   `;
 }
@@ -2721,42 +2722,15 @@ function renderAppRequestView(req){
         <div class="cell-left" style="font-size:10.5px;">${ibanClean || '—'}</div>
       </td>
       <td>
-        <div class="amt-cell-flex">
-          <div class="cell-right">${fmtKWDHtml(b.amount)}</div>
-          ${b.deduction>0 ? `<div class="cell-left" style="font-size:11.5px;color:var(--muted);">${fmtKWDHtml(b.deduction)}</div>` : ''}
-        </div>
+        <div class="cell-right">${fmtKWDHtml(b.amount)}</div>
+        ${b.deduction>0 ? `<div class="cell-left" style="font-size:15px;color:var(--muted);">${fmtKWDHtml(b.deduction)}</div>` : ''}
       </td>
       <td>
-        <div class="amt-cell-flex">
-          <div class="cell-right" style="font-size:11px;color:var(--muted);">${b.notes || ''}</div>
-          ${b.deduction>0 ? `<div class="cell-right">خصم${b.deductionNote ? ' ' + b.deductionNote : ''}</div>` : ''}
-        </div>
+        <div class="cell-right" style="font-size:11px;color:var(--muted);">${b.notes || ''}</div>
+        ${b.deduction>0 ? `<div class="cell-right" style="font-size:15px;">خصم${b.deductionNote ? ' ' + b.deductionNote : ''}</div>` : ''}
       </td>
       <td class="num" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(net)}</td>
     </tr>`;
-  }).join('');
-
-  const stepLabelsMap = STEPPER_DISPLAY.map(s=>{
-    if(s==='sec_center'){
-      const h = req.history.find(h=>h.action==='إنشاء الطلب');
-      return `<div class="approval-row"><span style="color:var(--green);font-weight:700;">✓</span><b>${STEP_LABELS[s]}</b><span style="color:var(--muted);font-size:12.5px;">${h ? h.actor + ' — ' + h.time : req.createdBy}</span></div>`;
-    }
-    let entries, rejected;
-    if(s==='accountant'){
-      entries = req.history.filter(h=>h.step==='accountant' && (h.action==='تم التحويل' || h.action==='تم عمل اللازم'));
-      rejected = req.history.find(h=>h.step==='accountant' && h.action==='رفض الطلب');
-    } else if(s==='paid'){
-      entries = req.history.filter(h=>h.action==='تم الصرف');
-      rejected = null;
-    } else {
-      entries = req.history.filter(h=>h.step===s && h.action==='اعتماد');
-      rejected = req.history.find(h=>h.step===s && h.action==='رفض الطلب');
-    }
-    const last = entries[entries.length-1];
-    let icon='⏳', color='var(--muted)', text='بانتظار الدور';
-    if(rejected){ icon='✕'; color='var(--red)'; text='مرفوض — ' + rejected.note; }
-    else if(last){ icon='✓'; color='var(--green)'; text=last.actor + ' — ' + last.time; }
-    return `<div class="approval-row"><span style="color:${color};font-weight:700;">${icon}</span><b>${STEP_LABELS[s]}</b><span style="color:var(--muted);font-size:12.5px;">${text}</span></div>`;
   }).join('');
 
   return `
@@ -2774,8 +2748,12 @@ function renderAppRequestView(req){
 
     <div class="table-scroll-wrap">
       <table class="app-table">
+        <colgroup>
+          <col style="width:5%;"><col style="width:26%;"><col style="width:24%;">
+          <col style="width:13%;"><col style="width:19%;"><col style="width:13%;">
+        </colgroup>
         <thead><tr>
-          <th style="width:36px;">#</th><th>المستفيد</th><th>البيان / رقم الهوية / الآيبان</th><th>المبلغ</th><th>ملاحظات</th><th>الإجمالي</th>
+          <th>#</th><th>المستفيد</th><th>البيان / رقم الهوية / الآيبان</th><th>المبلغ</th><th>ملاحظات</th><th>الإجمالي</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -2786,29 +2764,31 @@ function renderAppRequestView(req){
       <span style="font-size:13px;font-weight:600;">${amountToArabicWords(req.totalAmount)}</span>
       <span>الإجمالي: ${fmtKWDHtml(req.totalAmount)} د.ك</span>
     </div>
-
-    <div class="approval-list">
-      <h2 style="font-size:14.5px;margin-bottom:10px;">حالة الاعتمادات</h2>
-      ${stepLabelsMap}
-    </div>
   `;
 }
 
 function renderDetail(app){
   const req = state.requests.find(r=>r.id===state.activeReqId);
 
-  function stepApproverName(s){
-    if(s==='sec_center') return req.createdBy;
+  function stepApproverInfo(s){
+    if(s==='sec_center'){
+      const h = req.history.find(h=>h.action==='إنشاء الطلب');
+      return {name: req.createdBy, time: h ? h.time : ''};
+    }
+    let rejected = null;
+    if(s==='accountant') rejected = req.history.find(h=>h.step==='accountant' && h.action==='رفض الطلب');
+    else if(s!=='paid') rejected = req.history.find(h=>h.step===s && h.action==='رفض الطلب');
+    if(rejected) return {name:'✕ مرفوض', time: rejected.note, rejected:true};
     if(s==='accountant'){
       const h = req.history.find(h=>h.step==='accountant' && (h.action==='تم التحويل' || h.action==='تم عمل اللازم'));
-      return h ? h.actor : '';
+      return h ? {name:h.actor, time:h.time} : null;
     }
     if(s==='paid'){
       const h = req.history.find(h=>h.action==='تم الصرف');
-      return h ? h.actor : '';
+      return h ? {name:h.actor, time:h.time} : null;
     }
     const h = req.history.find(h=>h.step===s && h.action==='اعتماد');
-    return h ? h.actor : '';
+    return h ? {name:h.actor, time:h.time} : null;
   }
 
   let idx;
@@ -2826,8 +2806,8 @@ function renderDetail(app){
     } else if(i===idx){
       cls += ' current';
     }
-    const name = stepApproverName(s);
-    return `<div class="${cls}"><div class="dot">${i+1}</div><p>${STEP_LABELS[s]}</p>${name ? `<span class="step-approver">${name}</span>` : ''}</div>`;
+    const info = stepApproverInfo(s);
+    return `<div class="${cls}"><div class="dot">${i+1}</div><p>${STEP_LABELS[s]}</p>${info ? `<span class="step-approver" style="${info.rejected?'color:var(--red);':''}">${info.name}</span><span class="step-approve-time">${info.time}</span>` : ''}</div>`;
   }).join('');
 
   const canAct = canActOn(req);
