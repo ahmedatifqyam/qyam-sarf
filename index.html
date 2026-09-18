@@ -115,6 +115,7 @@
     border-bottom:2px solid var(--line);padding:8px 10px;background:var(--paper);
   }
   .app-table td{padding:10px;border-bottom:1px solid #F0EEE7;font-size:13.5px;vertical-align:top;}
+  .app-table tr.sub-row td{padding:4px 10px;font-size:11px;}
   .amt-cell-flex{display:flex;flex-direction:column;justify-content:space-between;height:100%;min-height:34px;}
   .app-table td.num{text-align:center;}
   .app-total-box{
@@ -180,8 +181,20 @@
   .actions-row{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
   .file-hint{font-size:12px;color:var(--muted);margin-top:4px;}
   .add-beneficiary{color:var(--blue);font-size:13.5px;cursor:pointer;margin-top:10px;display:inline-block;}
-  .calc-btn{color:var(--blue);font-size:11.5px;cursor:pointer;font-weight:500;margin-right:8px;}
-  .calc-btn:hover{text-decoration:underline;}
+  .field-with-btn{display:flex;gap:6px;align-items:stretch;}
+  .field-with-btn input{flex:1;min-width:0;}
+  .btn-inline{
+    background:var(--ink);color:#fff;border:none;border-radius:6px;
+    padding:0 10px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+    flex-shrink:0;width:110px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,0.25);transition:box-shadow .15s, transform .1s;
+  }
+  .btn-inline:hover{box-shadow:0 3px 10px rgba(0,0,0,0.35);transform:translateY(-1px);}
+  .calc-btn{
+    color:var(--blue);background:var(--blue-bg);font-size:11.5px;cursor:pointer;font-weight:600;
+    margin-right:8px;border:1px solid var(--blue);border-radius:5px;padding:4px 10px;
+    display:inline-block;
+  }
+  .calc-btn:hover{background:var(--blue);color:#fff;}
   .calc-box{
     background:var(--paper);border:1px solid var(--line);border-radius:6px;
     padding:12px 14px;margin:-6px 0 12px;
@@ -189,7 +202,7 @@
   .remove-b{color:var(--red);font-size:12px;cursor:pointer;float:left;}
   .total-box{
     background:var(--ink);color:#fff;border-radius:6px;padding:14px 18px;
-    display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-size:15px;
+    margin-top:16px;font-size:15px;
   }
   .total-box b{font-size:20px;}
   .letterhead{
@@ -494,7 +507,7 @@ async function loadAll(){
 
   const {data: reqData} = await db.from('requests').select('*, request_beneficiaries(*), request_history(*)').order('created_at', {ascending:true});
   state.requests = (reqData||[]).map(r=>({
-    id:r.id, number:r.number, reason:r.reason, totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
+    id:r.id, number:r.number, reason:r.reason, detailedReason:r.detailed_reason||'', totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
     centerId:r.center_id, companyId:r.company_id, createdBy:r.created_by, createdById:r.created_by_id, dateGreg:r.date_greg, dateHijri:r.date_hijri,
     createdAtRaw:r.created_at, isRecurring: !!r.is_recurring,
     beneficiaries:(r.request_beneficiaries||[]).map(b=>({
@@ -870,7 +883,7 @@ function newDraft(){
   }
   state.editingReqId = null;
   state.draft = {
-    reason:'', number: null, isRecurring:false,
+    reason:'', detailedReason:'', number: null, isRecurring:false,
     beneficiaries:[{name:'', nameEn:'', iban:'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', extra:'', extraNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true}]
   };
   state.view='newRequest';
@@ -880,7 +893,7 @@ function discardDraftAndStartFresh(){
   clearDraftStorage();
   state.editingReqId = null;
   state.draft = {
-    reason:'', number: null, isRecurring:false,
+    reason:'', detailedReason:'', number: null, isRecurring:false,
     beneficiaries:[{name:'', nameEn:'', iban:'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', extra:'', extraNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true}]
   };
   render();
@@ -902,7 +915,7 @@ function duplicateFromRequest(id){
   if(!req) return;
   state.editingReqId = null;
   state.draft = {
-    reason: req.reason, number: null, isRecurring: !!req.isRecurring,
+    reason: req.reason, detailedReason: req.detailedReason||'', number: null, isRecurring: !!req.isRecurring,
     beneficiaries: req.beneficiaries.map(b=>({
       name:b.name, nameEn:b.nameEn, iban:b.iban, civilId:b.civilId, statement:b.statement, notes:b.notes,
       amount:b.amount, deduction:b.deduction, deductionNote:b.deductionNote, extra:b.extra||0, extraNote:b.extraNote,
@@ -963,7 +976,7 @@ function editRequest(id){
   if(!req || !isEditable(req)) return;
   state.editingReqId = id;
   state.draft = {
-    reason: req.reason, number: req.number,
+    reason: req.reason, detailedReason: req.detailedReason||'', number: req.number,
     beneficiaries: req.beneficiaries.map(b=>({...b, idFileName:'', idFileData:'', bankFileName:'', bankFileData:''}))
   };
   state.view='newRequest';
@@ -1007,6 +1020,8 @@ function isEditable(req){
 function syncDraftFromDOM(){
   const reasonEl = document.getElementById('reasonInput');
   if(reasonEl) state.draft.reason = reasonEl.value;
+  const detailedEl = document.getElementById('detailedReasonInput');
+  if(detailedEl) state.draft.detailedReason = detailedEl.value;
   const recEl = document.getElementById('recurringCheck');
   if(recEl) state.draft.isRecurring = recEl.checked;
   document.querySelectorAll('.beneficiary-block').forEach((b,i)=>{
@@ -1079,6 +1094,8 @@ function updateTotalPreview(){
     total += Math.max(amount - deduction + extra, 0);
   });
   document.getElementById('totalPreview').innerHTML = fmtKWDHtml(total) + ' د.ك';
+  const wordsEl = document.getElementById('totalPreviewWords');
+  if(wordsEl) wordsEl.textContent = total>0 ? amountToArabicWords(total) : '';
 }
 
 function toggleCalcBox(i, type){
@@ -1141,6 +1158,7 @@ async function submitDraftInner(){
   syncDraftFromDOM();
   const d = state.draft;
   const reasonInput = d.reason.trim();
+  const detailedReasonInput = (d.detailedReason||'').trim();
   if(!reasonInput){ showToast('الرجاء إدخال عنوان الطلب','error'); return; }
   const beneficiaries = [];
   let hasInvalidAmount = false;
@@ -1197,7 +1215,7 @@ async function submitDraftInner(){
     const req = state.requests.find(r=>r.id===state.editingReqId);
     const newStatus = req.origin==='company' ? 'ceo' : 'mgr_center';
     const histEntry = {step: req.origin==='company'?'sec_company':'sec_center', actor: state.user.name, userId: state.user.id, action:'تعديل الطلب', note:'', time: fmtDate()};
-    if(!(await dbCheck(await db.from('requests').update({reason:reasonInput, total_amount:total, status:newStatus}).eq('id', req.id), 'تحديث بيانات الطلب'))) return;
+    if(!(await dbCheck(await db.from('requests').update({reason:reasonInput, detailed_reason:detailedReasonInput||null, total_amount:total, status:newStatus}).eq('id', req.id), 'تحديث بيانات الطلب'))) return;
 
     const {data: oldRows} = await db.from('request_beneficiaries').select('id').eq('request_id', req.id);
     const oldIds = (oldRows||[]).map(r=>r.id);
@@ -1218,6 +1236,7 @@ async function submitDraftInner(){
     }
     await dbCheck(await db.from('request_history').insert({request_id:req.id, step:histEntry.step, actor:histEntry.actor, user_id:histEntry.userId, action:histEntry.action, note:histEntry.note, time:histEntry.time}), 'حفظ سجل التعديل');
     req.reason = reasonInput;
+    req.detailedReason = detailedReasonInput;
     req.beneficiaries = beneficiaries;
     req.totalAmount = total;
     req.status = newStatus;
@@ -1238,6 +1257,7 @@ async function submitDraftInner(){
     id: 'r'+Date.now(),
     number: assignedNumber,
     reason: reasonInput,
+    detailedReason: detailedReasonInput,
     totalAmount: total,
     beneficiaries,
     status: origin==='company' ? 'ceo' : 'mgr_center',
@@ -1253,7 +1273,7 @@ async function submitDraftInner(){
     history: [{step:creationStep, actor: state.user.name, userId: state.user.id, action:'إنشاء الطلب', note:'', time: fmtDate()}]
   };
   const reqInsert = await db.from('requests').insert({
-    id:req.id, number:req.number, reason:req.reason, total_amount:req.totalAmount, status:req.status,
+    id:req.id, number:req.number, reason:req.reason, detailed_reason:req.detailedReason||null, total_amount:req.totalAmount, status:req.status,
     origin:req.origin, center_id:req.centerId, company_id:req.companyId, created_by:req.createdBy, created_by_id:req.createdById,
     date_greg:req.dateGreg, date_hijri:req.dateHijri, is_recurring:req.isRecurring
   });
@@ -1699,7 +1719,7 @@ function renderLetterBody(req){
     <div class="doc-reqno">طلب رقم: <span class="doc-red">${req.number}</span></div>
     <div class="doc-subject-bar">طلب صرف – <span>${req.reason}</span></div>
     <p class="doc-body-text">نهديكم أطيب تحياتنا متمنين لكم دوام الصحة والعافية.</p>
-    <p class="doc-body-text">بالإشارة إلى الموضوع أعلاه، ${referenceText} <span class="doc-red">${req.reason}</span> وفق الجدول الآتي:</p>
+    <p class="doc-body-text">بالإشارة إلى الموضوع أعلاه، ${referenceText} <span class="doc-red">${req.detailedReason || req.reason}</span> وفق الجدول الآتي:</p>
     <table class="amount-table">
       <colgroup>
         <col style="width:4.7%;"><col style="width:33%;"><col style="width:24.7%;">
@@ -2476,7 +2496,7 @@ function renderLogin(app){
         <button class="btn btn-primary" onclick="attemptLogin()">دخول</button>
       </div>
       <p class="file-hint" style="margin-top:16px;">حسابات تجريبية جاهزة: سكرتير المركز (1/1)، مدير المركز (2/2)، سكرتير الشركة (3/3)، المدير التنفيذي (4/4)، المحاسب (5/5)، مدير النظام (admin/admin).</p>
-      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-17 10:53</p>
+      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-18 02:15</p>
     </div>
   `;
 }
@@ -2667,8 +2687,11 @@ function renderNewRequest(app){
     <h1>${state.editingReqId ? 'تعديل الطلب' : 'طلب صرف جديد'}</h1>
     <p class="sub">رقم الطلب: <b>${d.number || 'سيُحدَّد تلقائياً عند الإرسال'}</b></p>
     <div class="card">
-      <label>عنوان الطلب <span class="calc-btn" onclick="toggleDocTextsBox()">تعديل نصوص الطباعة</span></label>
-      <input id="reasonInput" type="text" value="${d.reason||''}" placeholder="مثال: رواتب شهر 8-2026 أو عهدة">
+      <label>عنوان الطلب</label>
+      <div class="field-with-btn">
+        <input id="reasonInput" type="text" value="${d.reason||''}" placeholder="مثال: رواتب شهر 8-2026 أو عهدة">
+        <button type="button" class="btn-inline" style="width:170px;" onclick="toggleDocTextsBox()">تعديل نصوص الطباعة</button>
+      </div>
       <div id="docTextsBox" class="calc-box" style="display:none;">
         <p class="file-hint">بالإشارة إلى الموضوع أعلاه، <b>[الجزء القابل للتعديل]</b> [عنوان الطلب] وفق الجدول الآتي:</p>
         <label>نص الطلب (بدل "يرجى التكرم بالموافقة على صرف")</label>
@@ -2677,7 +2700,11 @@ function renderNewRequest(app){
         <input id="docTextSalutation" type="text" value="${(state.companies.find(c=>c.id===state.currentCompanyId)||{}).salutationText || 'الإخوة / الإدارة المالية'}">
         <p class="file-hint">يُطبّق على كل الطلبات القادمة لهذه الشركة.</p>
         <button type="button" class="btn btn-primary btn-sm" onclick="saveDocTexts()">حفظ</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleDocTextsBox()">إلغاء</button>
       </div>
+
+      <label style="margin-top:14px;">سبب الطلب التفصيلي (اختياري — يُستخدم بالخطاب الرسمي بدل العنوان)</label>
+      <textarea id="detailedReasonInput" rows="2" placeholder="اتركه فارغاً لاستخدام عنوان الطلب نفسه">${d.detailedReason||''}</textarea>
 
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;">
         <input id="recurringCheck" type="checkbox" style="width:auto;" ${d.isRecurring ? 'checked' : ''}>
@@ -2733,8 +2760,11 @@ function renderNewRequest(app){
             </div>
             <div class="row">
               <div>
-                <label>خصم (اختياري) <span class="calc-btn" onclick="toggleCalcBox(${i},'deduction')">حساب الخصم</span></label>
-                <input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" oninput="updateTotalPreview()">
+                <label>خصم (اختياري)</label>
+                <div class="field-with-btn">
+                  <input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" oninput="updateTotalPreview()">
+                  <button type="button" class="btn-inline" onclick="toggleCalcBox(${i},'deduction')">حساب الخصم</button>
+                </div>
               </div>
               <div>
                 <label>بيان الخصم (اختياري)</label>
@@ -2746,11 +2776,15 @@ function renderNewRequest(app){
               <input id="calcDeductionDays-${i}" type="number" placeholder="مثال: 3">
               <p class="file-hint">الحساب: (المبلغ ÷ 26) × عدد الأيام</p>
               <button type="button" class="btn btn-primary btn-sm" onclick="applyDeductionCalc(${i})">تطبيق</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleCalcBox(${i},'deduction')">إلغاء</button>
             </div>
             <div class="row">
               <div>
-                <label>إضافي (اختياري) <span class="calc-btn" onclick="toggleCalcBox(${i},'extra')">حساب الإضافي</span></label>
-                <input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" oninput="updateTotalPreview()">
+                <label>إضافي (اختياري)</label>
+                <div class="field-with-btn">
+                  <input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" oninput="updateTotalPreview()">
+                  <button type="button" class="btn-inline" onclick="toggleCalcBox(${i},'extra')">حساب الإضافي</button>
+                </div>
               </div>
               <div>
                 <label>بيان الإضافي (اختياري)</label>
@@ -2767,6 +2801,7 @@ function renderNewRequest(app){
               </select>
               <p class="file-hint">الحساب: (المبلغ ÷ 26 ÷ 8) × عدد الساعات × المعامل</p>
               <button type="button" class="btn btn-primary btn-sm" onclick="applyExtraCalc(${i})">تطبيق</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleCalcBox(${i},'extra')">إلغاء</button>
             </div>
             ${known && !showUpload ? `
             <div class="row">
@@ -2791,9 +2826,13 @@ function renderNewRequest(app){
       </div>
       <span class="add-beneficiary" onclick="addBeneficiaryRow()">+ إضافة مستفيد آخر</span>
 
-      <div class="total-box">
-        <span>الإجمالي (يُحسب تلقائياً)</span>
-        <b id="totalPreview">0.000 د.ك</b>
+      <div class="total-box" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:nowrap;">
+        <div style="flex-shrink:0;">
+          <div style="font-size:19px;font-weight:700;">الإجمالي</div>
+          <div style="font-size:11px;font-weight:400;color:#B8C0CC;margin-top:2px;">(يُحسب تلقائياً)</div>
+        </div>
+        <span id="totalPreviewWords" style="flex:1;text-align:center;font-size:12px;font-weight:400;color:#D8DEE6;overflow:hidden;"></span>
+        <b id="totalPreview" style="font-size:24px;flex-shrink:0;">0.000 د.ك</b>
       </div>
 
       <div class="actions-row">
@@ -2823,30 +2862,40 @@ function renderAppRequestView(req){
   const rows = req.beneficiaries.map((b,i)=>{
     const net = b.amount - (b.deduction||0) + (b.extra||0);
     const ibanClean = (b.iban||'').replace(/\s+/g,'');
+    const rowCount = 1 + (b.deduction>0?1:0) + (b.extra>0?1:0);
+    const extraRows = [];
+    if(b.deduction>0){
+      const isLast = !(b.extra>0);
+      extraRows.push(`
+    <tr class="sub-row">
+      <td class="cell-right" style="${isLast?'':'border-bottom:none;'}">-${fmtKWDHtml(b.deduction)}</td>
+      <td class="cell-right" style="color:var(--red);${isLast?'':'border-bottom:none;'}">خصم${b.deductionNote ? ' ' + b.deductionNote : ''}</td>
+    </tr>`);
+    }
+    if(b.extra>0){
+      extraRows.push(`
+    <tr class="sub-row">
+      <td class="cell-right">+${fmtKWDHtml(b.extra)}</td>
+      <td class="cell-right" style="color:var(--green);">إضافي${b.extraNote ? ' ' + b.extraNote : ''}</td>
+    </tr>`);
+    }
+    const mainBorder = rowCount>1 ? 'border-bottom:none;' : '';
     return `
     <tr>
-      <td class="num">${i+1}</td>
-      <td>
+      <td class="num" rowspan="${rowCount}">${i+1}</td>
+      <td rowspan="${rowCount}">
         <div class="cell-right">${b.name}</div>
         ${b.nameEn ? `<div class="cell-left">${b.nameEn}</div>` : ''}
       </td>
-      <td>
+      <td rowspan="${rowCount}">
         <div class="cell-right">${b.statement || '—'}</div>
         <div class="cell-left" style="font-size:11px;">${b.civilId || '—'}</div>
         <div class="cell-left" style="font-size:10.5px;">${ibanClean || '—'}</div>
       </td>
-      <td>
-        <div class="cell-right">${fmtKWDHtml(b.amount)}</div>
-        ${b.deduction>0 ? `<div class="cell-left" style="font-size:15px;color:var(--muted);">${fmtKWDHtml(b.deduction)}</div>` : ''}
-        ${b.extra>0 ? `<div class="cell-left" style="font-size:15px;color:var(--green);">+${fmtKWDHtml(b.extra)}</div>` : ''}
-      </td>
-      <td>
-        <div class="cell-right" style="font-size:11px;color:var(--muted);">${b.notes || ''}</div>
-        ${b.deduction>0 ? `<div class="cell-right" style="font-size:15px;">خصم${b.deductionNote ? ' ' + b.deductionNote : ''}</div>` : ''}
-        ${b.extra>0 ? `<div class="cell-right" style="font-size:15px;color:var(--green);">إضافي${b.extraNote ? ' ' + b.extraNote : ''}</div>` : ''}
-      </td>
-      <td class="num" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(net)}</td>
-    </tr>`;
+      <td class="cell-right" style="${mainBorder}">${fmtKWDHtml(b.amount)}</td>
+      <td class="cell-right" style="${mainBorder}">${b.notes || ''}</td>
+      <td class="num" rowspan="${rowCount}" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(net)}</td>
+    </tr>${extraRows.join('')}`;
   }).join('');
 
   return `
@@ -2871,7 +2920,7 @@ function renderAppRequestView(req){
           <col style="width:13%;"><col style="width:19%;"><col style="width:13%;">
         </colgroup>
         <thead><tr>
-          <th>#</th><th>المستفيد</th><th>البيان / رقم الهوية / الآيبان</th><th>المبلغ</th><th>ملاحظات</th><th>الإجمالي</th>
+          <th style="text-align:center;">#</th><th>المستفيد</th><th>البيان / رقم الهوية / الآيبان</th><th>المبلغ</th><th>ملاحظات</th><th style="text-align:center;">الإجمالي</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
