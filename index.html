@@ -151,6 +151,18 @@
   .doc{
     background:#fff;border:1px solid var(--line);border-radius:8px;padding:28px;margin-bottom:20px;
   }
+  .doc-cancelled{position:relative;opacity:0.75;}
+  .doc-cancelled::before{
+    content:"ملغى";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);
+    font-size:80px;font-weight:800;color:rgba(178,58,46,0.18);z-index:5;pointer-events:none;
+    white-space:nowrap;
+  }
+  .doc-cancelled .app-req-header, .doc-cancelled .amount-table, .doc-cancelled .app-total-box{text-decoration:line-through;text-decoration-color:rgba(178,58,46,0.5);text-decoration-thickness:2px;}
+  .print-watermark{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);
+    font-size:110px;font-weight:800;color:rgba(178,58,46,0.25);z-index:100;
+    pointer-events:none;white-space:nowrap;font-family:'Times New Roman',serif;
+  }
   .app-req-header{
     display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;
     border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:20px;
@@ -296,12 +308,12 @@
   .req-table-head span:hover{color:var(--blue);}
   .req-card{
     display:grid; grid-template-columns: 1.3fr 1.5fr 0.8fr 0.8fr 0.6fr 1.1fr 1.1fr; gap:10px; align-items:center;
-    background:var(--card);border:2px solid var(--line);border-radius:8px;
-    padding:16px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;
+    background:var(--card);border:2px solid var(--line);border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,0.08);
+    padding:8px 16px;margin-bottom:8px;cursor:pointer;transition:border-color .15s, box-shadow .15s;
   }
   .req-card > *{min-width:0;}
-  .req-card .badge{overflow:hidden;text-overflow:ellipsis;max-width:100%;display:inline-block;vertical-align:middle;}
-  .req-card:hover{border-color:var(--blue);}
+  .req-card .badge{overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;width:100%;text-align:center;box-sizing:border-box;}
+  .req-card:hover{border-color:var(--blue);box-shadow:0 3px 10px rgba(0,0,0,0.12);}
   .req-field-value{font-size:13px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .req-field-wrap{white-space:normal;word-break:break-word;text-overflow:clip;line-height:1.4;}
   .mini-preview{
@@ -416,11 +428,11 @@
     display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:22px;
   }
   .stat-card{
-    background:var(--card);border:2px solid var(--line);border-radius:8px;padding:16px;
-    display:flex;flex-direction:column;gap:4px;
+    background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 14px;
+    display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;height:80px;box-sizing:border-box;
   }
-  .stat-num{font-size:24px;font-weight:700;color:var(--ink);}
-  .stat-label{font-size:12.5px;color:var(--muted);}
+  .stat-num{font-size:24px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;}
+  .stat-label{font-size:18px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .spinner{
     width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--blue);
     border-radius:50%;animation:spin .8s linear infinite;margin:60px auto;
@@ -599,6 +611,7 @@ async function loadAll(){
     id:r.id, number:r.number, reason:r.reason, detailedReason:r.detailed_reason||'', totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
     centerId:r.center_id, companyId:r.company_id, createdBy:r.created_by, createdById:r.created_by_id, dateGreg:r.date_greg, dateHijri:r.date_hijri,
     createdAtRaw:r.created_at, isRecurring: !!r.is_recurring,
+    isCancelled: !!r.is_cancelled, cancelledAt: r.cancelled_at, cancelledById: r.cancelled_by_id, cancelReason: r.cancel_reason,
     beneficiaries:(r.request_beneficiaries||[]).map(b=>({
       name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', statement:b.statement||'', notes:b.notes||'',
       amount:Number(b.amount), deduction:Number(b.deduction||0), deductionNote:b.deduction_note||'',
@@ -901,6 +914,12 @@ function renderTopbar(){
         ${state.myCompanyIds.map(id=>{ const c = state.companies.find(x=>x.id===id); return `<option value="${id}" ${id===state.currentCompanyId?'selected':''}>${c?c.nameAr:id}</option>`; }).join('')}
       </select>`
     : (state.currentCompanyId ? `<span class="role-chip" style="background:#2E4356;">${(state.companies.find(c=>c.id===state.currentCompanyId)||{}).nameAr||''}</span>` : '');
+  const impersonateSwitcher = (state.user.role==='admin' && !state.impersonatingFromAdmin)
+    ? `<select onchange="if(this.value) impersonateUser(this.value);" style="border-radius:6px;padding:8px 10px;font-size:13px;border:1px solid #2E4356;background:#2E4356;color:#fff;max-width:180px;">
+        <option value="">تصفّح كمستخدم آخر...</option>
+        ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${u.name} — ${findRole(u.role).name}</option>`).join('')}
+      </select>`
+    : '';
   const searchResultsHtml = (state.searchResults && state.searchResults.length>0) ? `
     <div class="search-results">
       ${state.searchResults.map(r=>`
@@ -913,6 +932,7 @@ function renderTopbar(){
   el.innerHTML = `
     ${impersonateBanner}
     ${companySwitcher}
+    ${impersonateSwitcher}
     <div class="search-box" style="position:relative;">
       <input id="searchInput" type="text" placeholder="ابحث برقم الطلب أو العنوان أو اسم المستفيد" onkeydown="if(event.key==='Enter') doSearch();">
       <button onclick="doSearch()">بحث</button>
@@ -1150,7 +1170,27 @@ async function setRequestStatus(req, newStatus){
 function deleteRequest(id){
   const req = state.requests.find(r=>r.id===id);
   if(!req || !isEditable(req)) return;
-  requestDeleteConfirm(`حذف الطلب رقم ${req.number} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`, 'request', id);
+  requestDeleteConfirm(`إبطال الطلب رقم ${req.number}؟ سيبقى محفوظاً بالأرشيف ويمكن استرجاعه لاحقاً.`, 'cancel_request', id);
+}
+async function executeCancelRequest(id){
+  const updates = {is_cancelled:true, cancelled_at:new Date().toISOString(), cancelled_by_id: state.user.id};
+  const result = await db.from('requests').update(updates).eq('id', id);
+  if(!(await dbCheck(result, 'إبطال الطلب'))) return;
+  const req = state.requests.find(r=>r.id===id);
+  if(req){ req.isCancelled = true; req.cancelledAt = updates.cancelled_at; req.cancelledById = state.user.id; }
+  state.view='dashboard';
+  showToast('تم إبطال الطلب ونقله للأرشيف', 'success');
+  render();
+}
+async function restoreRequest(id){
+  const req = state.requests.find(r=>r.id===id);
+  if(!req) return;
+  const updates = {is_cancelled:false, cancelled_at:null, cancelled_by_id:null};
+  const result = await db.from('requests').update(updates).eq('id', id);
+  if(!(await dbCheck(result, 'استرجاع الطلب'))) return;
+  req.isCancelled = false; req.cancelledAt = null; req.cancelledById = null;
+  showToast('تم استرجاع الطلب', 'success');
+  render();
 }
 async function executeDeleteRequest(id){
   const delResult = await db.from('requests').delete().eq('id', id);
@@ -1403,10 +1443,10 @@ async function submitDraftInner(){
     return;
   }
 
-  const origin = state.user.role==='sec_company' ? 'company' : 'center';
+  const creatorUser = state.users.find(u=>u.id===state.user.id);
+  const origin = (creatorUser && creatorUser.centerId) ? 'center' : 'company';
   const creationStep = origin==='company' ? 'sec_company' : 'sec_center';
   const dates = getDocDates();
-  const creatorUser = state.users.find(u=>u.id===state.user.id);
   const assignedNumber = genReqNumber();
   const req = {
     id: 'r'+Date.now(),
@@ -1685,6 +1725,7 @@ async function confirmDeletePassword(){
   const {type, id} = state.pendingDelete;
   state.pendingDelete = null;
   if(type==='request') await executeDeleteRequest(id);
+  else if(type==='cancel_request') await executeCancelRequest(id);
   else if(type==='center') await executeDeleteCenter(id);
   else if(type==='role') await executeDeleteCustomRole(id);
   else if(type==='user') await executeDeleteUser(id);
@@ -1766,7 +1807,8 @@ const STATUS_ORDER = {
   mgr_center: 1, sec_company: 2, ceo: 3,
   accountant: 4, processing: 5, paid: 6, rejected_returned: 7
 };
-function statusBadge(status){
+function statusBadge(status, isCancelled){
+  if(isCancelled) return `<span class="badge" style="background:#E3E0D6;color:#7B7A72;">ملغى</span>`;
   if(status==='paid') return `<span class="badge badge-paid">تم الصرف</span>`;
   if(status==='processing') return `<span class="badge badge-approved">قيد التنفيذ البنكي</span>`;
   if(status==='rejected_returned') return `<span class="badge badge-rejected">مرفوض - يحتاج تعديل</span>`;
@@ -2049,8 +2091,10 @@ function renderPrintPreview(app){
 
   const totalPages = letterPages.length + attachmentChunks.length;
 
+  const cancelledWatermark = req.isCancelled ? `<div class="print-watermark">ملغى</div>` : '';
   const mainPages = letterPages.map((pageHtml, idx)=>`
     <div class="doc-page with-letterhead" style="background-image:url('${letterhead}')">
+      ${cancelledWatermark}
       ${pageHtml}
       <div class="page-number">صفحة ${idx+1} من ${totalPages}</div>
     </div>`).join('');
@@ -2090,6 +2134,7 @@ function render(){
   else if(state.view==='newRequestChoice') renderNewRequestChoice(app);
   else if(state.view==='duplicateList') renderDuplicateList(app);
   else if(state.view==='printPreview') renderPrintPreview(app);
+  else if(state.view==='cancelledArchive') renderCancelledArchive(app);
 
   if(state.rejectModalReqId){ app.insertAdjacentHTML('beforeend', renderRejectModal()); }
   if(state.pendingDelete){ app.insertAdjacentHTML('beforeend', renderDeleteConfirmModal()); }
@@ -2390,6 +2435,33 @@ function confirmSignatureCanvas(){
 }
 
 
+function renderCancelledArchive(app){
+  const cancelled = state.requests.filter(r=>r.isCancelled && r.companyId===state.currentCompanyId)
+    .sort((a,b)=> new Date(b.cancelledAt||0) - new Date(a.cancelledAt||0));
+  const rows = cancelled.map(r=>{
+    const canceller = state.users.find(u=>u.id===r.cancelledById);
+    const cd = r.cancelledAt ? new Date(r.cancelledAt) : null;
+    const dateStr = cd ? `${cd.getFullYear()}/${String(cd.getMonth()+1).padStart(2,'0')}/${String(cd.getDate()).padStart(2,'0')}` : '—';
+    return `
+      <div class="list-item">
+        <div class="li-main">
+          <b>${r.number}</b>
+          <span class="sub" style="display:block;">${r.reason} — ${fmtKWDHtml(r.totalAmount)} د.ك</span>
+          <span class="sub" style="display:block;font-size:11.5px;">أُبطل بواسطة ${canceller ? canceller.name : '—'} بتاريخ ${dateStr}</span>
+        </div>
+        <div class="actions-row" style="margin:0;">
+          <button class="btn btn-ghost btn-sm" onclick="openRequest('${r.id}')">عرض</button>
+          <button class="btn btn-approve btn-sm" onclick="restoreRequest('${r.id}')">استرجاع</button>
+        </div>
+      </div>`;
+  }).join('');
+  app.innerHTML = `
+    <span class="back-link no-print" onclick="state.view='admin'; render();">→ رجوع</span>
+    <h1>أرشيف الطلبات الملغاة</h1>
+    <p class="sub">${cancelled.length} طلب ملغى محفوظ بالأرشيف.</p>
+    ${cancelled.length===0 ? `<div class="empty">لا توجد طلبات ملغاة حالياً</div>` : rows}
+  `;
+}
 function renderAdmin(app){
   const CENTER_ROLES = ['sec_center','mgr_center'];
   const companyScopedCenters = state.centers.filter(c=>c.companyId===state.currentCompanyId);
@@ -2397,6 +2469,12 @@ function renderAdmin(app){
   app.innerHTML = `
     <h1>لوحة تحكم مدير النظام</h1>
     <p class="sub">إدارة الشركات والمراكز والمستخدمين. الشركة المعروضة حالياً: <b>${(state.companies.find(c=>c.id===state.currentCompanyId)||{}).nameAr||'—'}</b> (بدّلها من الأعلى)</p>
+
+    <div class="card">
+      <h2 style="margin:0 0 10px;">أرشيف الطلبات الملغاة</h2>
+      <p class="sub" style="margin:0 0 10px;">الطلبات اللي تم إبطالها تبقى محفوظة هنا بدل حذفها نهائياً، ويمكن استرجاعها بأي وقت.</p>
+      <button class="btn btn-ghost" onclick="state.view='cancelledArchive'; render();">فتح الأرشيف</button>
+    </div>
 
     <div class="card">
       <h2>إضافة شركة جديدة</h2>
@@ -2834,7 +2912,7 @@ function renderLogin(app){
         <button class="btn btn-primary" onclick="attemptLogin()">دخول</button>
       </div>
       <p class="file-hint" style="margin-top:16px;">حسابات تجريبية جاهزة: سكرتير المركز (1/1)، مدير المركز (2/2)، سكرتير الشركة (3/3)، المدير التنفيذي (4/4)، المحاسب (5/5)، مدير النظام (admin/admin).</p>
-      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-23 17:40</p>
+      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-23 21:48</p>
     </div>
   `;
 }
@@ -2860,18 +2938,18 @@ function renderDashboard(app){
   if(role==='sec_center'){
     visibleRequests = state.requests.filter(r=>r.createdById===myId && r.origin!=='company');
   } else if(role==='accountant'){
-    visibleRequests = state.requests.filter(r=>['accountant','processing','paid'].includes(r.status));
+    visibleRequests = state.requests.filter(r=>['accountant','processing','paid'].includes(r.status) || r.createdById===myId);
   } else if(role==='sec_company'){
     const own = state.requests.filter(r=>r.origin==='company' && r.createdById===myId);
     const reviewing = state.requests.filter(r=>r.origin!=='company' && (r.status==='sec_company' || r.history.some(h=>h.step==='sec_company')));
     visibleRequests = own.concat(reviewing);
   } else if(role==='mgr_center'){
     visibleRequests = state.requests.filter(r=>
-      r.origin!=='company' && r.centerId===myCenterId &&
-      (r.status==='mgr_center' || r.history.some(h=>h.step==='mgr_center'))
+      (r.origin!=='company' && r.centerId===myCenterId &&
+      (r.status==='mgr_center' || r.history.some(h=>h.step==='mgr_center'))) || r.createdById===myId
     );
   } else {
-    visibleRequests = state.requests.filter(r=>r.status===role || r.history.some(h=>h.step===role));
+    visibleRequests = state.requests.filter(r=>r.status===role || r.history.some(h=>h.step===role) || r.createdById===myId);
   }
 
   visibleRequests = visibleRequests.filter(r=>r.companyId===state.currentCompanyId);
@@ -2890,10 +2968,8 @@ function renderDashboard(app){
     listHtml = `<div class="empty">لا توجد طلبات لعرضها حالياً</div>`;
   }
 
-  const newBtn = (role==='sec_center' || role==='sec_company')
-    ? `<button class="btn btn-primary" onclick="openNewRequestChoice()">+ طلب صرف جديد</button>`
-    : '';
-  const listTitle = (role==='sec_center' || role==='sec_company') ? 'طلباتي' : 'الطلبات المطلوب اتخاذ إجراء بشأنها';
+  const newBtn = `<button class="btn btn-primary" onclick="openNewRequestChoice()">+ طلب صرف جديد</button>`;
+  const listTitle = (role==='sec_center' || role==='sec_company') ? 'طلباتي' : 'الطلبات';
 
   const periodMode = state.dashPeriodMode || 'all';
   const now = new Date();
@@ -2985,12 +3061,12 @@ function renderDashboard(app){
             return `
             <div class="req-card" onclick="openRequest('${r.id}')">
               <span class="req-field-value req-field-wrap" style="font-weight:700;">${r.number}</span>
-              <span class="req-field-value req-field-wrap">${r.reason}</span>
+              <span class="req-field-value req-field-wrap"${r.isCancelled ? ' style="text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px;color:var(--muted);"' : ''}>${r.reason}</span>
               <span class="req-field-value">${r.dateGreg ? `<div>${r.dateGreg}</div><div style="font-size:11px;color:var(--muted);">${createdTimePart}</div>` : '—'}</span>
               <span class="req-field-value">${paidEntry ? `<div>${paidDatePart}</div><div style="font-size:11px;color:var(--muted);">${paidTimePart}</div>` : '—'}</span>
               <span class="req-field-value" style="padding-right:22px;">${r.beneficiaries.length}</span>
               <span class="req-field-value" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(r.totalAmount)} د.ك</span>
-              <span>${statusBadge(r.status)}</span>
+              <span>${statusBadge(r.status, r.isCancelled)}</span>
             </div>`;
           }).join('')}
         </div>
@@ -3409,15 +3485,20 @@ function renderDetail(app){
 
   app.innerHTML = `
     <span class="back-link no-print" onclick="state.view='dashboard'; render();">→ رجوع للقائمة</span>
-    <div class="doc">
+    ${req.isCancelled ? `
+      <div class="note-box no-print" style="background:#F3F2ED;border-color:#B8B4A8;">
+        <b>هذا الطلب ملغى</b> — تم إبطاله ${req.cancelledAt ? 'بتاريخ ' + new Date(req.cancelledAt).toLocaleDateString('en-GB') : ''}.
+        ${state.user.role==='admin' ? `<button class="btn btn-approve btn-sm" style="margin-right:10px;" onclick="restoreRequest('${req.id}')">استرجاع الطلب</button>` : ''}
+      </div>` : ''}
+    <div class="doc${req.isCancelled ? ' doc-cancelled' : ''}">
       <div class="top-action-bar no-print">
         <div class="header-actions-flex">
           <div class="doc-actions-col">
             ${isDocView ? `<button class="btn btn-ghost" onclick="openPrintPreview('${req.id}')">معاينة الطلب / تحميل PDF</button>` : ''}
-            ${(req.createdById===state.user.id && isEditable(req)) ? `
+            ${(req.createdById===state.user.id && isEditable(req) && !req.isCancelled) ? `
               <div class="doc-actions-row">
                 <button class="btn btn-ghost btn-sm" onclick="editRequest('${req.id}')">تعديل الطلب</button>
-                <button class="btn btn-reject btn-sm" onclick="deleteRequest('${req.id}')">حذف الطلب</button>
+                <button class="btn btn-reject btn-sm" onclick="deleteRequest('${req.id}')">إبطال الطلب</button>
               </div>` : ''}
           </div>
           <div class="stepper" style="margin:0;">${stepperHtml}</div>
