@@ -365,7 +365,7 @@
     max-width:720px;margin:0 auto 14px;display:flex;justify-content:space-between;align-items:center;
   }
   .sign-final-block{display:flex;gap:4px;margin-top:2px;height:26mm;align-items:stretch;padding-top:2px;overflow:visible;}
-  .sign-final-block-v2{position:relative;width:200mm;height:70mm;margin:2px auto 0;overflow:visible;}
+  .sign-final-block-v2{position:relative;width:184.8mm;height:70mm;margin:2px auto 0;overflow:visible;}
   .sign-mini-overlay{position:absolute;bottom:0;left:0;width:200mm;height:30mm;overflow:visible;}
   .sf-left-col{flex:0 0 33.33%;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;position:relative;}
   .sf-mid-col-wrap{flex:0 0 33.33%;display:flex;}
@@ -2251,7 +2251,7 @@ function renderRequestQRCode(req, extraClass){
   }
 }
 function renderSignatureArea(req){
-  const PX_TO_MM = 0.25; // نفس مقياس محرر التصميم (40px = 1سم)
+  const PX_TO_MM = 0.2310; // مقياس محرر التصميم (40px=1سم) مُصغّر ليطابق عرض منطقة المحتوى الفعلية (184.8مم) بدل 200مم بدون أي فائض يتجاوز حدود الصفحة
   const boxesHtml = SIG_DESIGNER_ROLES.map(role=>{
     const step = ROLE_TO_STEP[role];
     const approveEntry = req.history.find(h=>h.step===step && h.action==='اعتماد');
@@ -2949,8 +2949,15 @@ function defaultSigDesignerConfig(role, context){
 async function loadSigDesignerConfig(){
   const role = state.sigDesignerRole;
   const context = state.sigDesignerContext || 'final';
-  const {data} = await db.from('signature_layout_configs').select('*').eq('role', role).eq('context', context).maybeSingle();
-  state.sigDesignerConfig = (data && data.config && Object.keys(data.config).length) ? data.config : defaultSigDesignerConfig(role, context);
+  try{
+    const {data, error} = await db.from('signature_layout_configs').select('*').eq('role', role).eq('context', context).maybeSingle();
+    if(error) throw error;
+    state.sigDesignerConfig = (data && data.config && Object.keys(data.config).length) ? data.config : defaultSigDesignerConfig(role, context);
+  }catch(e){
+    console.error('تعذر تحميل تكوين محرر التوقيعات (تأكد من تشغيل آخر نسخة من ملف SQL)', e);
+    state.sigDesignerConfig = defaultSigDesignerConfig(role, context);
+    showToast('تعذر تحميل التكوين المحفوظ من قاعدة البيانات — تأكد من تشغيل آخر تحديث SQL. يمكنك المتابعة بالإعدادات الافتراضية.', 'error');
+  }
   render();
 }
 async function saveSigDesignerConfig(){
@@ -2990,6 +2997,8 @@ function renderSigDesigner(app){
   if(!state.sigDesignerContext) state.sigDesignerContext = 'final';
   const context = state.sigDesignerContext;
   const heightCm = SIG_DESIGNER_CONTEXTS[context].heightCm;
+  state.sigDesignerCanvasW = 20*SIG_DESIGNER_SCALE;
+  state.sigDesignerCanvasH = heightCm*SIG_DESIGNER_SCALE;
   if(!state.sigDesignerConfig) state.sigDesignerConfig = defaultSigDesignerConfig(state.sigDesignerRole, context);
   const cfg = state.sigDesignerConfig;
   const boxTypes = ['stamp','signature','name','title','date'];
@@ -3035,15 +3044,10 @@ function renderSigDesigner(app){
 
   app.innerHTML = `
     <span class="back-link no-print" onclick="state.view='admin'; render();">→ رجوع</span>
-    <h1>تصميم مواقع التوقيعات والأختام</h1>
+    <h1>تصميم مواقع التوقيعات — ${SIG_DESIGNER_CONTEXTS[context].label}</h1>
     <p class="sub">حرّك المربعات واسحب زاويتها السفلى لتكبيرها/تصغيرها. التراكب مسموح. المقاس الفعلي: 20×${heightCm} سم.</p>
 
     <div class="row" style="align-items:flex-end;margin-bottom:16px;">
-      <div><label>مكان الظهور</label>
-        <select onchange="switchSigDesignerContext(this.value)">
-          ${Object.keys(SIG_DESIGNER_CONTEXTS).map(c=>`<option value="${c}" ${c===context?'selected':''}>${SIG_DESIGNER_CONTEXTS[c].label}</option>`).join('')}
-        </select>
-      </div>
       <div><label>الدور الوظيفي</label>
         <select onchange="switchSigDesignerRole(this.value)">
           ${SIG_DESIGNER_ROLES.map(r=>`<option value="${r}" ${r===state.sigDesignerRole?'selected':''}>${findRole(r).name}</option>`).join('')}
@@ -3084,12 +3088,14 @@ document.addEventListener('mousemove', function(e){
   const b = state.sigDesignerConfig[d.boxType];
   const dx = e.clientX - d.startClientX;
   const dy = e.clientY - d.startClientY;
+  const canvasW = state.sigDesignerCanvasW || (20*SIG_DESIGNER_SCALE);
+  const canvasH = state.sigDesignerCanvasH || (7*SIG_DESIGNER_SCALE);
   if(d.mode==='move'){
-    b.x = Math.max(0, d.startX + dx);
-    b.y = Math.max(0, d.startY + dy);
+    b.x = Math.min(Math.max(0, d.startX + dx), canvasW - b.w);
+    b.y = Math.min(Math.max(0, d.startY + dy), canvasH - b.h);
   } else {
-    b.w = Math.max(20, d.startW + dx);
-    b.h = Math.max(20, d.startH + dy);
+    b.w = Math.min(Math.max(20, d.startW + dx), canvasW - b.x);
+    b.h = Math.min(Math.max(20, d.startH + dy), canvasH - b.y);
   }
   const boxEl = document.querySelector(`.sig-designer-box[data-box-type="${d.boxType}"]`);
   if(boxEl){
@@ -3147,9 +3153,15 @@ function renderAdmin(app){
     </div>
 
     <div class="card">
-      <h2 style="margin:0 0 10px;">تصميم مواقع التوقيعات والأختام</h2>
-      <p class="sub" style="margin:0 0 10px;">محرر مرئي لتحديد موقع وحجم اسم/توقيع/ختم/وظيفة كل دور بمستند الطباعة.</p>
-      <button class="btn btn-ghost" onclick="state.view='sigDesigner'; state.sigDesignerRole='dept_manager'; loadSigDesignerConfig(); render();">فتح المحرر</button>
+      <h2 style="margin:0 0 10px;">تصميم مواقع التوقيعات — الصفحة الأخيرة الكاملة</h2>
+      <p class="sub" style="margin:0 0 10px;">محرر مرئي لتحديد موقع وحجم اسم/توقيع/ختم/وظيفة كل دور بصفحة الإجمالي والتوقيعات الكاملة.</p>
+      <button class="btn btn-ghost" onclick="state.view='sigDesigner'; state.sigDesignerContext='final'; state.sigDesignerRole='dept_manager'; state.sigDesignerConfig=null; loadSigDesignerConfig();">فتح محرر الصفحة الأخيرة</button>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 10px;">تصميم مواقع التوقيعات — الشريط المصغّر (الصفحات الوسطى)</h2>
+      <p class="sub" style="margin:0 0 10px;">محرر مرئي مستقل لشريط التوقيع المصغّر اللي يظهر أسفل الصفحات الوسطى (قبل الأخيرة).</p>
+      <button class="btn btn-ghost" onclick="state.view='sigDesigner'; state.sigDesignerContext='mini'; state.sigDesignerRole='dept_manager'; state.sigDesignerConfig=null; loadSigDesignerConfig();">فتح محرر الشريط المصغّر</button>
     </div>
 
     <div class="card">
@@ -3653,7 +3665,7 @@ function renderLogin(app){
         <button class="btn btn-primary" onclick="attemptLogin()">دخول</button>
       </div>
       <p class="file-hint" style="margin-top:16px;">حسابات تجريبية جاهزة: سكرتير المركز (1/1)، مدير المركز (2/2)، سكرتير الشركة (3/3)، المدير التنفيذي (4/4)، المحاسب (5/5)، مدير النظام (admin/admin).</p>
-      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-27 11:21</p>
+      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-09-27 13:05</p>
     </div>
   `;
 }
