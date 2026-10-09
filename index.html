@@ -187,6 +187,8 @@
   .btn-primary:hover{opacity:.9;}
   .btn-approve{background:#fff;color:var(--green);border:2px solid var(--green);box-shadow:0 1px 4px rgba(0,0,0,0.08);}
   .btn-reject{background:#fff;color:var(--red);border:2px solid var(--red);box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+  .btn-warning{background:#fff7ed;color:#c2410c;border:2px solid #ea8c1e;box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+  .btn-warning:hover{background:#ffedd5;}
   .btn-ghost{background:#fff;color:var(--text);border:2px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,0.08);}
   .row{display:flex;gap:12px;flex-wrap:wrap;}
   .row > *{flex:1;min-width:180px;}
@@ -1186,7 +1188,7 @@ async function refreshNow(manual){
     }
     if(fresh.length===1){
       const i = fresh[0];
-      showToast(i.kind==='pending' ? 'وصلك طلب جديد بانتظار اعتمادك' : i.kind==='rejected' ? 'رُفض طلبك '+i.number : i.kind==='paid' ? 'تم صرف طلبك '+i.number : i.kind==='structure' ? i.title : 'تم اعتماد طلبك '+i.number, (i.kind==='rejected' || i.kind==='structure') ? 'error' : 'success');
+      showToast(i.kind==='pending' ? 'وصلك طلب جديد بانتظار اعتمادك' : i.kind==='path_reset' ? 'أُعيد مسار طلب — يحتاج اعتمادك: '+i.number : i.kind==='rejected' ? 'رُفض طلبك '+i.number : i.kind==='paid' ? 'تم صرف طلبك '+i.number : i.kind==='structure' ? i.title : 'تم اعتماد طلبك '+i.number, (i.kind==='rejected' || i.kind==='structure') ? 'error' : (i.kind==='path_reset' ? 'warn' : 'success'));
     } else if(fresh.length>1){ showToast('وصلك '+fresh.length+' إشعارات جديدة', 'success'); }
     if(fresh.length) playNotifSound();
     if(changed) state._viewStale = true;
@@ -1369,12 +1371,31 @@ function computeNotifications(){
     items.push({key:'e:'+r.id+':'+ts, kind, reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey('e:'+r.id+':'+ts)), overdue:false,
       title, sub:r.number+' — '+r.reason+' — بواسطة '+h.actor+extra});
   });
+  // إشعار path_reset — يظهر للمعتمِدين السابقين عندما يُعيد الأدمن المسار والاعتماد
+  if(state.user){
+    const horizon = Date.now() - 30*86400000;
+    state.requests.filter(r=>r.companyId===state.currentCompanyId && !r.isCancelled).forEach(r=>{
+      (r.history||[]).forEach(h=>{
+        if(h.action!=='path_reset') return;
+        if(!h.note || !h.note.startsWith('notif_target:')) return;
+        const targetId = h.note.replace('notif_target:','');
+        if(targetId !== state.user.id) return;
+        const ts = tsOf(h.createdAt);
+        if(ts < horizon) return;
+        const key = 'pr:'+r.id+':'+ts;
+        items.push({key, kind:'path_reset', reqId:r.id, number:r.number, ts,
+          isNew:(ts>seen || isFreshKey(key)), overdue:false,
+          title:'⟳ أُعيد مسار طلب — يحتاج اعتمادك',
+          sub:r.number+' — '+r.reason+' — '+(r.createdBy||'')});
+      });
+    });
+  }
   items.push(...computeAdminStructureItems());
   items.sort((a,b)=> (a.kind==='pending'?0:1)-(b.kind==='pending'?0:1) || (b.overdue-a.overdue) || (b.ts-a.ts));
-  const pendingCount = items.filter(i=>i.kind==='pending').length;
-  const unreadEvents = items.filter(i=>i.kind!=='pending' && i.kind!=='structure' && i.isNew).length;
+  const pendingCount = items.filter(i=>i.kind==='pending' || i.kind==='path_reset').length;
+  const unreadEvents = items.filter(i=>i.kind!=='pending' && i.kind!=='path_reset' && i.kind!=='structure' && i.isNew).length;
   const structureIssues = items.filter(i=>i.kind==='structure').length;
-  const newPending = items.filter(i=>i.kind==='pending' && i.isNew).length;
+  const newPending = items.filter(i=>(i.kind==='pending'||i.kind==='path_reset') && i.isNew).length;
   return {items:items.slice(0,40), pendingCount, unreadEvents, newPending, structureIssues, unread:unreadEvents+newPending+structureIssues, badge:pendingCount+unreadEvents+structureIssues};
 }
 function updateBellBadge(n){
@@ -1400,7 +1421,7 @@ function renderBellPanel(){
   if(!p) return;
   if(!state.bellOpen || !state.user){ p.classList.remove('open'); p.innerHTML=''; return; }
   const n = computeNotifications();
-  const icon = {pending:'📝', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩'};
+  const icon = {pending:'📝', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳'};
   const rows = n.items.map(i=>`
     <div class="bell-item${i.isNew?' new':''}" onclick="openNotifItem('${i.reqId}','${i.kind}')">
       <span class="bell-ico">${icon[i.kind]}</span>
@@ -3252,6 +3273,76 @@ async function rebuildRequestPath(req){
   showToast('تم إعادة بناء مسار الاعتماد حسب "من يعتمد طلبه" الحالي', 'success');
   render();
 }
+// ============================================================
+// إعادة المسار والاعتماد — تُستخدم عندما اعتمد أحد أو وصل الطلب للذيل
+// ============================================================
+async function rebuildRequestPathAndReset(req){
+  if(!confirm('سيتم إعادة بناء مسار الاعتماد وإلغاء جميع الاعتمادات السابقة.\nهل أنت متأكد؟')) return;
+
+  const creator = state.users.find(u=>u.id===req.createdById);
+  if(!creator){ showToast('تعذر إيجاد صاحب الطلب', 'error'); return; }
+  const {steps: newSteps, error: chainError} = buildDecisionChain(creator);
+  if(chainError){
+    showToast('تعذّر إعادة البناء: '+chainError, 'error');
+    return;
+  }
+
+  // جمع المعتمدين السابقين (من اعتمد فعلياً أو كان في الذيل)
+  const prevApprovers = (req.approvalSteps||[])
+    .filter(s=>s.actedAt || s.status==='approved')
+    .map(s=>s.approverId)
+    .filter((v,i,a)=>a.indexOf(v)===i);
+
+  // حذف مسار الاعتماد القديم
+  const delResult = await db.from('request_approval_steps').delete().eq('request_id', req.id);
+  if(!(await dbCheck(delResult, 'حذف مسار الاعتماد القديم'))) return;
+
+  // بناء مسار جديد
+  const stepRows = newSteps.map((s,i)=>({
+    id:'as_'+req.id+'_r'+Date.now()+'_'+i,
+    request_id:req.id,
+    approver_id:s.approverId,
+    sequence_order:i+1,
+    role_label:'pending_decision',
+    status:'pending'
+  }));
+  if(stepRows.length){
+    const insResult = await db.from('request_approval_steps').insert(stepRows);
+    if(!(await dbCheck(insResult, 'بناء مسار الاعتماد الجديد'))) return;
+  }
+  req.approvalSteps = stepRows.map(s=>({
+    id:s.id, approverId:s.approver_id, sequenceOrder:s.sequence_order,
+    roleLabel:s.role_label, status:'pending', actedAt:null, note:''
+  }));
+
+  // إضافة سجل تاريخي
+  await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id,
+    action:'إعادة المسار والاعتماد',
+    note:'تم إعادة بناء مسار الاعتماد وإلغاء الاعتمادات السابقة. المعتمدون السابقون: '+
+      (prevApprovers.map(id=>{ const u=state.users.find(x=>x.id===id); return u?u.name:id; }).join('، ')||'—'),
+    time: fmtDate()
+  });
+
+  // إضافة إشعار path_reset لكل معتمد سابق في تاريخ الطلب
+  for(const approverId of prevApprovers){
+    await pushHistory(req, {
+      step:'path_reset_notify',
+      actor: state.user.name,
+      userId: state.user.id,
+      action:'path_reset',
+      note:'notif_target:'+approverId,
+      time: fmtDate()
+    });
+  }
+
+  // تحديث الحالة للـ pending_decision
+  const newStatus = stepRows.length ? 'pending_decision' : 'pending_transfer_request';
+  await setRequestStatus(req, newStatus);
+
+  showToast('تم إعادة بناء المسار — '+(prevApprovers.length ? 'أُرسل إشعار للمعتمدين السابقين' : 'لم يكن هناك اعتمادات سابقة'), 'success');
+  render();
+}
+
 async function submitBankTransfer(){
   const req = state.requests.find(r=>r.id===state.transferFormReqId);
   if(!req) return;
@@ -4578,22 +4669,25 @@ function defaultSeqConfig(context, N, i, dir){
   const q = (fx,fy,fw,fh)=>({x:R.x+fx*R.w, y:R.y+fy*R.h, w:fw*R.w, h:fh*R.h});
   const r1 = v=>Math.round(v*10)/10;
   if(context==='mini'){
+    // mini: التوقيع ظاهر ويملأ الصندوق، بقية العناصر مرتّبة (title→name→sig→stamp→date→step) لكن مخفية
     return {
-      title:     {visible:false, ...q(.04,.03,.92,.2),  fontSize:r1(7*k),   fontWeight:'700'},
-      name:      {visible:false, ...q(.04,.23,.92,.2),  fontSize:r1(6.5*k), fontWeight:'400'},
-      step:      {visible:false, ...q(.04,.43,.92,.12), fontSize:r1(5.5*k), fontWeight:'400'},
-      signature: {visible:true,  ...q(.05,.05,.9,.9)},
-      stamp:     {visible:false, ...q(.1,.45,.8,.5)},
-      date:      {visible:false, ...q(.04,.85,.92,.14), fontSize:5, fontWeight:'400'}
+      title:     {visible:false, ...q(.04,.02,.92,.18), fontSize:r1(7*k),   fontWeight:'700'},
+      name:      {visible:false, ...q(.04,.21,.92,.18), fontSize:r1(6.5*k), fontWeight:'400'},
+      signature: {visible:true,  ...q(.05,.05,.90,.90)},
+      stamp:     {visible:false, ...q(.05,.50,.90,.30)},
+      date:      {visible:false, ...q(.04,.82,.92,.12), fontSize:5,          fontWeight:'400'},
+      step:      {visible:false, ...q(.04,.94,.92,.05), fontSize:r1(5*k),   fontWeight:'400'}
     };
   }
+  // ترتيب: المسمى → الاسم → التوقيع → الختم → التاريخ → اسم الخطوة
+  // كل العناصر في الـ80% العلوي (0.0→0.80)، 20% سفلي فراغ
   return {
-    title:     {visible:true, ...q(.04,.02,.92,.15), fontSize:r1(11*k), fontWeight:'700'},
-    name:      {visible:true, ...q(.04,.17,.92,.14), fontSize:r1(9*k),  fontWeight:'400'},
-    step:      {visible:true, ...q(.04,.31,.92,.10), fontSize:r1(7*k),  fontWeight:'400'},
-    signature: {visible:true, ...q(.06,.42,.56,.38)},
-    stamp:     {visible:true, ...q(.50,.42,.46,.40)},
-    date:      {visible:true, ...q(.04,.84,.92,.13), fontSize:r1(7*k),  fontWeight:'400'}
+    title:     {visible:true,  ...q(.04,.02,.92,.14), fontSize:r1(11*k), fontWeight:'700'},
+    name:      {visible:true,  ...q(.04,.17,.92,.13), fontSize:r1(9*k),  fontWeight:'400'},
+    signature: {visible:true,  ...q(.05,.31,.90,.26)},
+    stamp:     {visible:true,  ...q(.05,.58,.90,.19)},
+    date:      {visible:true,  ...q(.04,.78,.92,.10), fontSize:r1(7*k),  fontWeight:'400'},
+    step:      {visible:true,  ...q(.04,.88,.92,.10), fontSize:r1(6.5*k),fontWeight:'400'}
   };
 }
 // يُكمل أي عنصر ناقص (مثل «اسم الخطوة» بتكوين قديم) من الافتراضي دون المساس بما ضُبط
@@ -4676,20 +4770,26 @@ function defaultSigDesignerConfig(role, context){
   const slotW = (20*SIG_DESIGNER_SCALE) / SIG_DESIGNER_ROLES.length; // عرض كل دور بالبكسل
   const ox = idx * slotW;
   if(context==='mini'){
+    // mini: ترتيب المسمى→الاسم→التوقيع→الختم→التاريخ→الخطوة
+    // التوقيع والاسم فقط ظاهران افتراضيًا
     return {
-      title:     {visible:false, x:ox+6, y:2,  w:slotW-12, h:14, fontSize:7},
-      name:      {visible:true,  x:ox+6, y:2,  w:slotW-12, h:14, fontSize:8},
-      signature: {visible:true,  x:ox+10, y:18, w:slotW-20, h:40},
-      stamp:     {visible:false, x:ox+10, y:18, w:slotW-20, h:40},
-      date:      {visible:false, x:ox+6, y:60, w:slotW-12, h:12, fontSize:6}
+      title:     {visible:false, x:ox+6,  y:2,  w:slotW-12, h:13, fontSize:7},
+      name:      {visible:true,  x:ox+6,  y:2,  w:slotW-12, h:14, fontSize:8},
+      signature: {visible:true,  x:ox+10, y:18, w:slotW-20, h:72},
+      stamp:     {visible:false, x:ox+10, y:52, w:slotW-20, h:32},
+      date:      {visible:false, x:ox+6,  y:86, w:slotW-12, h:10, fontSize:6},
+      step:      {visible:false, x:ox+6,  y:97, w:slotW-12, h:10, fontSize:6}
     };
   }
+  // final: 80% علوي (y 0→224px)، 20% فراغ سفلي (224→280px)
+  // ترتيب: المسمى → الاسم → التوقيع → الختم → التاريخ → اسم الخطوة
   return {
-    title:     {visible:true, x:ox+10, y:8,   w:slotW-20, h:20, fontSize:12},
-    name:      {visible:true, x:ox+10, y:30,  w:slotW-20, h:22, fontSize:13},
-    signature: {visible:true, x:ox+15, y:54,  w:slotW-30, h:75},
-    stamp:     {visible:true, x:ox+15, y:132, w:slotW-30, h:110},
-    date:      {visible:true, x:ox+10, y:246, w:slotW-20, h:20, fontSize:9}
+    title:     {visible:true, x:ox+10, y:4,   w:slotW-20, h:22, fontSize:12},
+    name:      {visible:true, x:ox+10, y:28,  w:slotW-20, h:20, fontSize:13},
+    signature: {visible:true, x:ox+15, y:50,  w:slotW-30, h:72},
+    stamp:     {visible:true, x:ox+15, y:124, w:slotW-30, h:72},
+    date:      {visible:true, x:ox+10, y:198, w:slotW-20, h:16, fontSize:9},
+    step:      {visible:false,x:ox+10, y:214, w:slotW-20, h:14, fontSize:8}
   };
 }
 async function loadSigDesignerConfig(){
@@ -4753,7 +4853,16 @@ async function setSigCompanyField(field, col, val){
   co[field] = val; state.sigDesignerRole = null; state.sigDesignerConfig = null;
   loadSigDesignerConfig();
 }
-function setSigSeqN(n){ state.sigSeqN = +n; state.sigDesignerRole = null; state.sigDesignerConfig = null; loadSigDesignerConfig(); }
+function setSigSeqN(n){
+  const newN = +n;
+  // حافظ على رقم الموضع الحالي لو كان ضمن العدد الجديد
+  const curM = SIG_SEQ_RX.exec(state.sigDesignerRole||'');
+  const curPos = curM ? +curM[2] : 1;
+  state.sigSeqN = newN;
+  state.sigDesignerRole = (curPos<=newN) ? seqKey(newN, curPos) : seqKey(newN, 1);
+  state.sigDesignerConfig = null;
+  loadSigDesignerConfig();
+}
 function setSigDesignerTextStyle(type, prop, val){
   if(!state.sigDesignerConfig || !state.sigDesignerConfig[type]) return;
   state.sigDesignerConfig[type][prop] = val;
@@ -4763,61 +4872,46 @@ function setSigDesignerTextStyle(type, prop, val){
 
 // تطبيق وزن/حجم/نوع خط عنصر نصي على كل المواضع بنفس السياق
 
-async function applyBoxGeomToAll(type, context){
-  const ctx = context || state.sigDesignerContext || 'final';
-  const cfg = state.sigDesignerConfig;
-  if(!cfg || !cfg[type]) return;
-  const geom = {x:cfg[type].x, y:cfg[type].y, w:cfg[type].w, h:cfg[type].h};
-  const keys = sigDesignerKeys();
+async function applySlotToAllCounts(){
+  const ctx = state.sigDesignerContext || 'final';
+  const curKey = state.sigDesignerRole; if(!curKey) return;
+  const m = SIG_SEQ_RX.exec(curKey); if(!m){ showToast('هذا الأمر للتوقيعات بالتسلسل فقط','error'); return; }
+  const N = +m[1], pos = +m[2];
+  const cfg = state.sigDesignerConfig; if(!cfg) return;
+  // استخرج إعدادات كل العناصر: visible + x,y,w,h داخل الصندوق + خط
+  const elemCfg = {};
+  ['stamp','signature','name','title','step','date'].forEach(t=>{
+    if(cfg[t]) elemCfg[t] = {visible:cfg[t].visible, x:cfg[t].x, y:cfg[t].y, w:cfg[t].w, h:cfg[t].h,
+      fontSize:cfg[t].fontSize, fontWeight:cfg[t].fontWeight, fontFamily:cfg[t].fontFamily};
+  });
   const updates = [];
-  for(const key of keys){
-    if(key===state.sigDesignerRole) continue;
+  for(let n=3; n<=10; n++){
+    if(n===N) continue;
+    const targetKey = seqKey(n, pos);
     const ctxCfgs = (state.sigLayoutConfigs && state.sigLayoutConfigs[ctx]) || {};
-    const rc = (ctxCfgs[key] && Object.keys(ctxCfgs[key]).length)
-      ? JSON.parse(JSON.stringify(ctxCfgs[key]))
-      : defaultSeqConfig(ctx, state.sigSeqN||6, keys.indexOf(key)+1, currentSigCompany().signatureDir||'ltr');
-    if(!rc[type]) rc[type]={visible:false,x:0,y:0,w:40,h:20};
-    rc[type] = {...rc[type], ...geom};
-    updates.push({id:'sig_'+ctx+'_'+key, role:key, context:ctx, config:rc, updated_at:new Date().toISOString()});
+    const rc = (ctxCfgs[targetKey] && Object.keys(ctxCfgs[targetKey]).length)
+      ? JSON.parse(JSON.stringify(ctxCfgs[targetKey]))
+      : defaultSeqConfig(ctx, n, pos, currentSigCompany().signatureDir||'ltr');
+    ['stamp','signature','name','title','step','date'].forEach(t=>{
+      if(elemCfg[t]) rc[t] = {...(rc[t]||{}), ...elemCfg[t]};
+    });
+    updates.push({id:'sig_'+ctx+'_'+targetKey, role:targetKey, context:ctx, config:rc, updated_at:new Date().toISOString()});
   }
   if(updates.length){
     const r = await db.from('signature_layout_configs').upsert(updates);
-    if(!(await dbCheck(r,'تطبيق الحجم/الموضع على الكل'))) return;
+    if(!(await dbCheck(r,'تطبيق الإعدادات على كل الأعداد'))) return;
     if(!state.sigLayoutConfigs[ctx]) state.sigLayoutConfigs[ctx]={};
     updates.forEach(u=>{ state.sigLayoutConfigs[ctx][u.role]=u.config; });
   }
-  showToast('تم تطبيق حجم/موضع "'+sigDesignerBoxLabel(type)+'" على كل المواضع','success');
-}
-async function applyTextStyleToAll(type, context){
-  const curKey = state.sigDesignerRole; const ctx = context || state.sigDesignerContext || 'final';
-  const cfg = state.sigDesignerConfig;
-  if(!cfg || !cfg[type]) return;
-  const style = {fontSize: cfg[type].fontSize, fontWeight: cfg[type].fontWeight, fontFamily: cfg[type].fontFamily};
-  const keys = sigDesignerKeys();
-  const updates = [];
-  for(const key of keys){
-    if(key===curKey) continue;
-    const ctxConfigs = (state.sigLayoutConfigs && state.sigLayoutConfigs[ctx]) || {};
-    const rc = (ctxConfigs[key] && Object.keys(ctxConfigs[key]).length)
-      ? JSON.parse(JSON.stringify(ctxConfigs[key]))
-      : defaultSeqConfig(ctx, state.sigSeqN||6, sigDesignerKeys().indexOf(key)+1, currentSigCompany().signatureDir||'ltr');
-    if(!rc[type]) rc[type]={visible:false,x:0,y:0,w:40,h:20};
-    rc[type] = {...rc[type], ...style};
-    updates.push({id:'sig_'+ctx+'_'+key, role:key, context:ctx, config:rc, updated_at:new Date().toISOString()});
-  }
-  if(updates.length){
-    const r = await db.from('signature_layout_configs').upsert(updates);
-    if(!(await dbCheck(r,'تطبيق على الكل'))) return;
-    if(!state.sigLayoutConfigs[ctx]) state.sigLayoutConfigs[ctx]={};
-    updates.forEach(u=>{ state.sigLayoutConfigs[ctx][u.role]=u.config; });
-  }
-  showToast('تم تطبيق إعدادات "'+sigDesignerBoxLabel(type)+'" على كل المواضع','success');
+  state.sigDesignerConfigFor = null;
+  showToast('تم تطبيق الموضع '+pos+' على كل الأعداد ('+(n=>n-1)(10)+' موضع محدَّث)','success');
 }
 async function applyAllStylesToAll(){
   const cfg = state.sigDesignerConfig; const ctx = state.sigDesignerContext||'final';
   if(!cfg) return;
   const TEXT_TYPES2=['name','title','step','date'];
   for(const t of TEXT_TYPES2){ await applyTextStyleToAll(t,ctx); }
+  state.sigDesignerConfigFor = null;
   showToast('تم تطبيق كل التحكمات على كل المواضع','success');
 }
 async function saveSeqDefaultsAll(){
@@ -4861,9 +4955,7 @@ function renderSigDesigner(app){
         <select onchange="setSigDesignerTextStyle('${t}','fontWeight',this.value)" style="padding:3px 4px;font-size:12px;width:auto;min-height:0;" title="وزن الخط">
           <option value="700" ${(cfg[t].fontWeight||'400')==='700'?'selected':''}>عريض</option><option value="400" ${(cfg[t].fontWeight||'400')!=='700'?'selected':''}>عادي</option></select>
         <select onchange="setSigDesignerTextStyle('${t}','fontFamily',this.value)" style="padding:3px 4px;font-size:12px;width:auto;min-height:0;max-width:150px;" title="نوع الخط">
-          ${SIG_FONTS.map(f=>`<option value="${escH(f.v)}" ${(cfg[t].fontFamily||'')===f.v?'selected':''}>${escH(f.label)}${f.sure?' ✓':''}</option>`).join('')}</select>
-        <button type="button" class="btn btn-ghost btn-xs" onclick="applyTextStyleToAll('${t}')" title="تطبيق وزن/حجم/نوع خط هذا العنصر على كل المواضع" style="font-size:11px;padding:3px 7px;">↓ خط·كل</button>` : ''}
-      <button type="button" class="btn btn-ghost btn-xs" onclick="applyBoxGeomToAll('${t}')" title="تطبيق حجم وموضع هذا العنصر على كل المواضع" style="font-size:11px;padding:3px 7px;">⊞ حجم·كل</button>
+          ${SIG_FONTS.map(f=>`<option value="${escH(f.v)}" ${(cfg[t].fontFamily||'')===f.v?'selected':''}>${escH(f.label)}${f.sure?' ✓':''}</option>`).join('')}</select>` : ''}
     </div>`; }).join('');
 
   const boxesHtml = boxTypes.filter(t=>cfg[t].visible).map(t=>{
@@ -4915,7 +5007,7 @@ function renderSigDesigner(app){
       ${seq ? `<p class="sub" style="margin:6px 0 0;font-size:12px;">المنشئ بأقصى اليمين بنفس مقاس الصناديق وعناصره أصغر. كل خطوة صندوق (حتى لو وقّعها الشخص نفسه). فوق 5 صناديق تنزل الزائدة لسطر ثانٍ. لكل عدد توقيعات تخطيطه الخاص.</p>` : ''}
     </div>
 
-    <div class="row" style="align-items:flex-end;margin-bottom:8px;gap:8px;flex-wrap:wrap;">
+    <div class="row" style="align-items:flex-end;margin-bottom:16px;">
       <div><label>${seq ? 'الموضع' : 'الدور الوظيفي'}</label>
         <select id="sigRoleSel" onchange="switchSigDesignerRole(this.value)">
           ${keys.map(r=>`<option value="${r}" ${r===state.sigDesignerRole?'selected':''}>${escH(sigRoleLabel(r))}</option>`).join('')}
@@ -4926,7 +5018,7 @@ function renderSigDesigner(app){
         معاينة الكل (عرض كل ${seq?'المواضع':'الأدوار'} مع بعض)
       </label>
       ${seq ? `<button type="button" class="btn btn-ghost btn-md" onclick="saveSeqDefaultsAll()">توليد وحفظ التخطيط الافتراضي لكل المواضع</button>
-        <button type="button" class="btn btn-primary btn-md" onclick="applyAllStylesToAll()" title="يطبّق وزن وحجم ونوع خط كل العناصر النصية من هذا الموضع على كل المواضع">↓ تطبيق التحكمات على كل المواضع</button>` : ''}
+        <button type="button" class="btn btn-primary btn-md" onclick="applySlotToAllCounts()" title="يطبّق رؤية وحجم وموضع وخط عناصر هذا الموضع على نفس الموضع في كل الأعداد الأخرى">↓ طبّق هذا الموضع على كل الأعداد</button>` : ''}
     </div>
 
     <div style="margin-bottom:14px;">${checkboxesHtml}</div>
@@ -6945,7 +7037,7 @@ function renderLogin(app){
         <button class="btn btn-primary btn-md" onclick="attemptLogin()">دخول</button>
       </div>
       <p class="file-hint" style="margin-top:16px;">حسابات تجريبية جاهزة: سكرتير المركز (1/1)، مدير المركز (2/2)، سكرتير الشركة (3/3)، المدير التنفيذي (4/4)، المحاسب (5/5)، مدير النظام (admin/admin).</p>
-      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-10-07 16:30</p>
+      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-10-07 17:45</p>
     </div>
   `;
 }
@@ -7582,7 +7674,18 @@ function renderDetail(app){
     idx = decisionSteps.length + (ti>=0 ? ti : 0);
   }
 
-  const stepperHtml = displaySteps.map((d,i)=>{
+  // المنشئ — يظهر دائماً قبل سلسلة الاعتماد بدون رقم
+  const creatorUser = state.users.find(u=>u.id===req.createdById);
+  const creatorName = req.createdBy || (creatorUser && creatorUser.name) || '';
+  const creatorTime = (req.history&&req.history[0]&&req.history[0].time) || '';
+  const creatorStepHtml = `<div class="step done" style="min-width:80px;">
+    <div class="dot" style="background:var(--primary,#1a56db);font-size:9px;width:26px;height:26px;line-height:26px;">✎</div>
+    <p style="font-size:10px;color:var(--muted,#888);">منشئ الطلب</p>
+    <span class="step-approver">${escH(creatorName)}</span>
+    <span class="step-approve-time">${escH(creatorTime)}</span>
+  </div>`;
+
+  const stepperHtml = creatorStepHtml + displaySteps.map((d,i)=>{
     let cls='step';
     if(req.status==='rejected'){
       cls += (i < req.history.filter(h=>h.action==='اعتماد').length) ? ' done' : '';
@@ -7625,11 +7728,21 @@ function renderDetail(app){
       </div>`;
   }
 
-  const canRebuildPath = state.user.role==='admin' && (req.status==='pending_decision' || OLD_DECISION_STATUSES.includes(req.status)) && !req.isCancelled;
+  // هل الطلب وصل للذيل التنفيذي أو اعتمده أحد؟
+  const isInTail = TAIL_FLOW.includes(req.status) && req.status !== 'completed';
+  const hasAnyApproval = (req.approvalSteps||[]).some(s=>s.actedAt || s.status==='approved');
+  const canRebuildPath = state.user.role==='admin' && (req.status==='pending_decision' || OLD_DECISION_STATUSES.includes(req.status)) && !req.isCancelled && !isInTail && !hasAnyApproval;
+  const canRebuildAndReset = state.user.role==='admin' && !req.isCancelled && req.status!=='completed' && (isInTail || hasAnyApproval);
   if(canRebuildPath){
     actionsHtml += `
       <div class="actions-row no-print" style="margin-top:8px;" data-bar-actions data-bar-key="rebuild_path">
         <button class="btn btn-ghost btn-md2" onclick="rebuildRequestPathFix()"><span class="bl1">إعادة بناء المسار</span><span class="bl2">حسب المدير الحالي</span></button>
+      </div>`;
+  }
+  if(canRebuildAndReset){
+    actionsHtml += `
+      <div class="actions-row no-print" style="margin-top:8px;" data-bar-actions data-bar-key="rebuild_reset">
+        <button class="btn btn-warning btn-md2" onclick="rebuildResetFix()" title="يُعيد بناء المسار ويُلغي الاعتمادات السابقة ويُرسل إشعاراً للمعتمدين"><span class="bl1">⟳ إعادة المسار والاعتماد</span><span class="bl2">${isInTail ? 'الطلب وصل للتنفيذ — إعادة للاعتماد' : 'هناك اعتماد سابق — إعادة للاعتماد'}</span></button>
       </div>`;
   }
 
@@ -7715,6 +7828,7 @@ function renderDetail(app){
   window.approveEscalateFix = (targetId)=>{ state.pendingEscalate = {reqId:req.id, targetId}; approve(req); };
   window.resubmitFix = ()=>resubmit(req);
   window.rebuildRequestPathFix = ()=>rebuildRequestPath(req);
+  window.rebuildResetFix = ()=>rebuildRequestPathAndReset(req);
 }
 
 // ===================== أثر الضغط على الأزرار: انشغال + منع الضغط المزدوج + ✓ عند النجاح =====================
