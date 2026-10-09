@@ -1802,28 +1802,31 @@ async function renderVerifyPage(reqId){
     // نسخة نص خالص بدون HTML (للمقارنة وعرض الإجمالي في الشريط الداكن)
     function fmtAmtPlain(val){ const n=Number(val||0); const p=n.toFixed(3).split('.'); return `${Number(p[0]).toLocaleString('en')}.${p[1]}`; }
 
+    // هل يوجد أي مستفيد لديه خصم أو إضافي؟ — لتحديد هيكل الجدول بالكامل
+    const anyAdjustments = benes.some(b => Number(b.deduction||0) > 0 || Number(b.extra||0) > 0);
     const beneRowsHtml = benes.map((b,i)=>{
       const amount = Number(b.amount||0), ded = Number(b.deduction||0), extra = Number(b.extra||0);
       const net = amount - ded + extra;
       const bg = i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)';
-      const hasAdjustments = ded > 0 || extra > 0;
-      // عمود الإجمالي دائماً يمين مع tabular-nums لمحاذاة الفلوس
+      // الإجمالي: tabular-nums لمحاذاة الفلوس تحت بعضها
       const netHtml = `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(net)}</b> <span style="font-size:10px;color:var(--muted);">د.ك</span>`;
-      if(hasAdjustments){
-        // إذا يوجد خصم أو إضافي: 4 أعمدة (# | الاسم | حسابات | إجمالي)
-        let calcParts = fmtAmt(amount);
-        if(ded>0)   calcParts += ` <span style="color:var(--red);">− ${fmtAmt(ded)}</span>`;
-        if(extra>0) calcParts += ` <span style="color:var(--green);">+ ${fmtAmt(extra)}</span>`;
-        calcParts += ` <span style="color:var(--muted);">=</span>`;
+      if(anyAdjustments){
+        // جدول الكل بـ 4 أعمدة متناسقة — عمود الحسابات RTL: الإجمالي = + الإضافي − الخصم المبلغ
+        // نعرض: المبلغ − الخصم + الإضافي = بترتيب LTR واضح
+        let calcCell = `<span style="font-variant-numeric:tabular-nums;">${fmtAmt(amount)}</span>`;
+        if(ded>0)   calcCell += ` <span style="color:var(--red);">−&nbsp;${fmtAmt(ded)}</span>`;
+        if(extra>0) calcCell += ` <span style="color:var(--green);">+&nbsp;${fmtAmt(extra)}</span>`;
+        // إذا لا يوجد تعديل لهذا الصف تحديداً، نعرض خلية فارغة ليتحاذى الإجمالي
+        const calcDisplay = (ded>0||extra>0) ? `${calcCell} <span style="color:var(--muted);">=</span>` : '';
         return `
           <tr style="background:${bg};">
             <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
             <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
-            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:left;direction:ltr;color:var(--muted);border-left:1px solid var(--line);">${calcParts}</td>
+            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:left;direction:ltr;color:var(--muted);border-left:1px solid var(--line);">${calcDisplay}</td>
             <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
           </tr>`;
       } else {
-        // لا خصم ولا إضافي: 3 أعمدة فقط (# | الاسم | المبلغ)
+        // لا توجد تعديلات في أي صف: عمودان فقط (# | الاسم | المبلغ)
         return `
           <tr style="background:${bg};">
             <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
@@ -1891,24 +1894,26 @@ async function renderVerifyPage(reqId){
           <div style="font-size:11.5px;color:var(--muted);">تحقق من صحة سند الصرف</div>
         </div>
 
-        <!-- معلومات الطلب -->
-        <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);">
-            <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">رقم الطلب</b>
-            <span style="font-size:13px;font-weight:700;text-align:right;direction:ltr;">${esc(r.number)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);gap:12px;">
-            <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">البيان</b>
-            <span style="font-size:13px;text-align:right;">${esc(r.reason)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);">
-            <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">التاريخ</b>
-            <span style="font-size:12.5px;">${esc(r.date_greg||'')}${r.date_hijri?' ('+esc(r.date_hijri)+' هـ)':''}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;">
-            <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">الحالة</b>
-            <span style="font-size:13px;font-weight:700;color:${statusColor};">${statusLabel}</span>
-          </div>
+        <!-- معلومات الطلب — جدول بعمودين: التسمية يمين، القيمة يسار (في RTL: العمود الأول=يمين) -->
+        <div style="background:var(--paper);border-radius:12px;padding:4px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr style="border-bottom:1px solid var(--line);">
+              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;width:90px;vertical-align:baseline;">رقم الطلب</td>
+              <td style="padding:8px 0;font-size:13px;font-weight:700;direction:ltr;text-align:right;vertical-align:baseline;">${esc(r.number)}</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--line);">
+              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;vertical-align:baseline;">البيان</td>
+              <td style="padding:8px 0;font-size:13px;text-align:right;vertical-align:baseline;">${esc(r.reason)}</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--line);">
+              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;vertical-align:baseline;">التاريخ</td>
+              <td style="padding:8px 0;font-size:12.5px;text-align:right;vertical-align:baseline;">${esc(r.date_greg||'')}${r.date_hijri?' ('+esc(r.date_hijri)+' هـ)':''}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;vertical-align:baseline;">الحالة</td>
+              <td style="padding:8px 0;font-size:13px;font-weight:700;color:${statusColor};text-align:right;vertical-align:baseline;">${statusLabel}</td>
+            </tr>
+          </table>
         </div>
 
         <!-- المستفيدون -->
