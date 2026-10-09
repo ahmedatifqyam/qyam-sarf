@@ -1811,17 +1811,17 @@ async function renderVerifyPage(reqId){
       const netHtml = `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(net)}</b> <span style="font-size:10px;color:var(--muted);">د.ك</span>`;
       if(anyAdjustments){
         // عمود الحسابات: المبلغ ← الخصم ← الإضافي (بدون =) — محاذاة يسار، direction:rtl لترتيب يمين→يسار
+        // عمود الحسابات: المبلغ − الخصم + الإضافي بـ direction:ltr (يبدأ من اليسار بصرياً: المبلغ أولاً)
         let calcParts = [];
         calcParts.push(`<span style="font-variant-numeric:tabular-nums;color:var(--ink);">${fmtAmt(amount)}</span>`);
         if(ded>0)   calcParts.push(`<span style="color:var(--red);">−&nbsp;${fmtAmt(ded)}</span>`);
         if(extra>0) calcParts.push(`<span style="color:var(--green);">+&nbsp;${fmtAmt(extra)}</span>`);
-        // إذا لا يوجد تعديل لهذا الصف: خلية فارغة لمحاذاة عمود الإجمالي
         const calcDisplay = (ded>0||extra>0) ? calcParts.join(' ') : '';
         return `
           <tr style="background:${bg};">
             <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
             <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
-            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:left;direction:rtl;color:var(--muted);border-left:1px solid var(--line);">${calcDisplay}</td>
+            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:left;direction:ltr;color:var(--muted);border-left:1px solid var(--line);">${calcDisplay}</td>
             <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
           </tr>`;
       } else {
@@ -1855,30 +1855,37 @@ async function renderVerifyPage(reqId){
 
     const approvalsHtml = approvals.map(h=>{
       const roleId = STATUS_ROLE_MAP[h.step];
-      const stepName = roleId ? findRole(roleId).name : stepLabelAr(h.step);
+      const rawStep = roleId ? findRole(roleId).name : stepLabelAr(h.step);
+      // إخفاء "قيد اعتماد القرار" واستبدالها بـ "معتمد"
+      const stepName = (rawStep === 'قيد اعتماد القرار' || h.step === 'pending_decision') ? 'معتمد' : rawStep;
       return `
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px;">
-          <div style="text-align:right;">
-            <div style="font-weight:600;font-size:13px;">${esc(h.actor)}</div>
-            <div style="font-size:11px;color:var(--muted);">${esc(stepName)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;">
+          <div style="text-align:right;flex:1;">
+            <span style="font-weight:600;font-size:13px;">${esc(h.actor)}</span>
+            ${stepName ? `<span style="font-size:11px;color:var(--muted);margin-right:6px;">· ${esc(stepName)}</span>` : ''}
           </div>
-          <div style="font-size:11px;color:var(--muted);text-align:left;direction:ltr;white-space:nowrap;">${esc(toWesternDigits(h.time||''))}</div>
+          <div style="font-size:11px;color:var(--muted);text-align:left;direction:ltr;white-space:nowrap;flex-shrink:0;">${esc(toWesternDigits(h.time||''))}</div>
         </div>`;
     }).join('');
 
-    // سجل الطلب الكامل
-    const allHistory = (r.request_history||[]).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-    const actionColor = a => a==='اعتماد'?'var(--green)':a==='رفض'?'var(--red)':a==='إلغاء'?'var(--muted)':'var(--amber)';
-    const historyHtml = allHistory.map(h=>`
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;">
+    // سجل الطلب — نخفي أحداث "تخطّى تلقائي" الداخلية
+    const allHistory = (r.request_history||[]).slice()
+      .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))
+      .filter(h => h.action !== 'تخطّى تلقائي' && h.action !== 'تخطى تلقائي');
+    const actionColor = a => a==='اعتماد'?'var(--green)':a==='رفض'?'var(--red)':a==='إلغاء'?'var(--muted)':a==='تم الصرف'?'var(--green)':'var(--amber)';
+    const historyHtml = allHistory.map(h=>{
+      const stepLabel = stepLabelAr(h.step);
+      return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;">
         <div style="text-align:right;flex:1;min-width:0;">
           <span style="font-weight:600;color:${actionColor(h.action)};font-size:12px;">${esc(h.action)}</span>
           ${h.actor ? `<span style="font-size:12px;"> — ${esc(h.actor)}</span>` : ''}
-          ${h.step ? `<div style="font-size:10.5px;color:var(--muted);">${esc(stepLabelAr(h.step))}</div>` : ''}
-          ${h.note ? `<div style="font-size:10.5px;color:var(--muted);font-style:italic;">${esc(h.note)}</div>` : ''}
+          ${stepLabel ? `<span style="font-size:11px;color:var(--muted);"> · ${esc(stepLabel)}</span>` : ''}
+          ${h.note ? `<div style="font-size:10.5px;color:var(--muted);font-style:italic;margin-top:2px;">${esc(h.note)}</div>` : ''}
         </div>
-        <div style="font-size:10.5px;color:var(--muted);text-align:left;direction:ltr;white-space:nowrap;flex-shrink:0;">${esc(toWesternDigits(h.time||''))}</div>
-      </div>`).join('');
+        <div style="font-size:11px;color:var(--muted);text-align:left;direction:ltr;white-space:nowrap;flex-shrink:0;">${esc(toWesternDigits(h.time||''))}</div>
+      </div>`;
+    }).join('');
 
     // إجمالي صافي المستفيدين
     const totalNet = benes.reduce((s,b)=>s+Number(b.amount||0)-Number(b.deduction||0)+Number(b.extra||0),0);
