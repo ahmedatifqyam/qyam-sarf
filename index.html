@@ -1787,38 +1787,38 @@ async function renderVerifyPage(reqId){
       app.innerHTML = `<div class="card" style="max-width:420px;margin:60px auto;text-align:center;"><h2 style="color:var(--red);">⚠️ طلب غير موجود</h2><p class="sub">لم يتم العثور على أي طلب بهذا الرمز. قد يكون الرمز غير صحيح أو الطلب تم حذفه.</p></div>`;
       return;
     }
-    const {data: company} = await db.from('companies').select('name_ar, logo_data').eq('id', r.company_id).maybeSingle();
+    const {data: company} = await db.from('companies').select('name_ar, logo_data, brand_logo_data').eq('id', r.company_id).maybeSingle();
     const statusLabel = r.is_cancelled ? 'ملغى' : (r.status==='completed' ? 'تم الصرف' : (r.status==='rejected' ? 'مرفوض' : 'قيد الاعتماد'));
     const statusColor = r.is_cancelled ? '#56554F' : (r.status==='completed' ? 'var(--green)' : (r.status==='rejected' ? 'var(--red)' : 'var(--amber)'));
 
     const benes = r.request_beneficiaries || [];
 
-    // دالة مساعدة: يفصل المبلغ إلى جزء صحيح وكسر (فلوس) مع تصغير الفلس
-    function fmtAmtSplit(val){
+    // دالة مساعدة: تنسيق المبلغ بأرقام إنجليزية مع تصغير الكسر (الفلوس)
+    function fmtAmt(val){
       const n = Number(val||0);
       const parts = n.toFixed(3).split('.');
-      return `${Number(parts[0]).toLocaleString('ar-KW')}<span style="font-size:0.72em;font-weight:400;">.${parts[1]}</span>`;
+      return `${Number(parts[0]).toLocaleString('en')}<span style="font-size:0.8em;font-weight:400;">.${parts[1]}</span>`;
     }
-
-    // دالة تحويل رقم لأرقام عربية
-    function toArabicNums(str){ return String(str).replace(/\d/g, d=>'٠١٢٣٤٥٦٧٨٩'[d]); }
-    function fmtAmtSplitAr(val){
-      const n = Number(val||0);
-      const parts = n.toFixed(3).split('.');
-      const intPart = toArabicNums(Number(parts[0]).toLocaleString('en'));
-      return `${intPart}<span style="font-size:0.72em;font-weight:400;">.${toArabicNums(parts[1])}</span>`;
-    }
+    // نسخة نص خالص بدون HTML (للمقارنة وعرض الإجمالي في الشريط الداكن)
+    function fmtAmtPlain(val){ const n=Number(val||0); const p=n.toFixed(3).split('.'); return `${Number(p[0]).toLocaleString('en')}.${p[1]}`; }
 
     const beneRowsHtml = benes.map((b,i)=>{
       const amount = Number(b.amount||0), ded = Number(b.deduction||0), extra = Number(b.extra||0);
       const net = amount - ded + extra;
       const bg = i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)';
-      const rowNum = toArabicNums(i+1);
+      // عمود الحسابات: المبلغ − الخصم + الإضافي = (محاذة يسار، direction ltr)
+      let calcParts = fmtAmt(amount);
+      if(ded>0)   calcParts += ` <span style="color:var(--red);">− ${fmtAmt(ded)}</span>`;
+      if(extra>0) calcParts += ` <span style="color:var(--green);">+ ${fmtAmt(extra)}</span>`;
+      calcParts += ` <span style="color:var(--muted);">=</span>`;
+      // عمود الإجمالي: محاذة يمين، الأرقام تحت بعضها (font-variant-numeric: tabular-nums)
+      const netHtml = `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(net)}</b>`;
       return `
         <tr style="background:${bg};">
-          <td style="padding:7px 6px;color:var(--muted);font-size:12px;width:22px;text-align:center;">${rowNum}</td>
-          <td style="padding:7px 6px;font-size:13px;font-weight:600;">${esc(b.name)}</td>
-          <td style="padding:7px 6px;font-size:12px;white-space:nowrap;text-align:right;direction:rtl;">${fmtAmtSplitAr(amount)}${ded>0?` <span style="color:var(--red);">−${fmtAmtSplitAr(ded)}</span>`:''}${extra>0?` <span style="color:var(--green);">+${fmtAmtSplitAr(extra)}</span>`:''}<span style="color:var(--muted);margin:0 3px;">=</span><b>${fmtAmtSplitAr(net)}</b></td>
+          <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
+          <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
+          <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:left;direction:ltr;color:var(--muted);border-left:1px solid var(--line);">${calcParts}</td>
+          <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml} <span style="font-size:10px;color:var(--muted);">د.ك</span></td>
         </tr>`;
     }).join('');
 
@@ -1875,7 +1875,7 @@ async function renderVerifyPage(reqId){
 
         <!-- رأس الصفحة: شعار + اسم الشركة -->
         <div style="background:var(--paper);border-radius:12px;padding:20px 24px;text-align:center;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
-          ${company && company.logo_data ? `<img src="${company.logo_data}" style="max-height:64px;max-width:180px;margin-bottom:10px;object-fit:contain;">` : ''}
+          ${company && (company.brand_logo_data || company.logo_data) ? `<img src="${company.brand_logo_data || company.logo_data}" style="max-height:64px;max-width:180px;margin-bottom:10px;object-fit:contain;">` : ''}
           <div style="font-size:18px;font-weight:700;margin-bottom:2px;">${esc(company ? company.name_ar : 'نظام الصرف')}</div>
           <div style="font-size:11.5px;color:var(--muted);">تحقق من صحة سند الصرف</div>
         </div>
@@ -1884,10 +1884,10 @@ async function renderVerifyPage(reqId){
         <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
           <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);">
             <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">رقم الطلب</b>
-            <span style="font-size:13px;font-weight:700;text-align:left;direction:ltr;">${esc(r.number)}</span>
+            <span style="font-size:13px;font-weight:700;text-align:right;direction:ltr;">${esc(r.number)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);gap:12px;">
-            <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">العنوان</b>
+            <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">البيان</b>
             <span style="font-size:13px;text-align:right;">${esc(r.reason)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);">
@@ -1904,13 +1904,21 @@ async function renderVerifyPage(reqId){
         <div style="background:var(--paper);border-radius:12px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
           <div style="padding:12px 16px;font-weight:700;font-size:13.5px;border-bottom:1px solid var(--line);">المستفيدون (${benes.length})</div>
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <tbody>${beneRowsHtml || '<tr><td colspan="2" style="padding:12px;text-align:center;color:var(--muted);">لا يوجد مستفيدون</td></tr>'}</tbody>
+            <thead>
+              <tr style="background:var(--bg,#f1f3f7);font-size:11px;color:var(--muted);border-bottom:1px solid var(--line);">
+                <th style="padding:5px 8px;font-weight:600;text-align:center;width:20px;">#</th>
+                <th style="padding:5px 8px;font-weight:600;text-align:right;">الاسم</th>
+                <th style="padding:5px 8px;font-weight:600;text-align:left;direction:ltr;">المبلغ − الخصم + الإضافي =</th>
+                <th style="padding:5px 8px;font-weight:600;text-align:right;">الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody>${beneRowsHtml || '<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--muted);">لا يوجد مستفيدون</td></tr>'}</tbody>
           </table>
           <!-- الإجمالي والتفقيط بنفس الخلفية الداكنة -->
           <div style="background:var(--ink,#1B2733);color:#fff;padding:12px 16px 10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <b style="font-size:14px;">الإجمالي الكلي</b>
-              <b style="font-size:16px;direction:rtl;">${(()=>{const n=totalNet.toFixed(3).split('.');return `${toArabicNums(Number(n[0]).toLocaleString('en'))}<span style="font-size:0.72em;font-weight:400;">.${toArabicNums(n[1])}</span> د.ك`;})()}</b>
+              <b style="font-size:16px;direction:ltr;font-variant-numeric:tabular-nums;">${fmtAmt(totalNet)} <span style="font-size:0.75em;font-weight:400;">د.ك</span></b>
             </div>
             <div style="font-size:13px;color:rgba(255,255,255,0.75);border-top:1px solid rgba(255,255,255,0.15);padding-top:7px;">${amountToArabicWords(totalNet)}</div>
           </div>
