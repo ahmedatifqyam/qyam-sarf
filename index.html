@@ -1871,10 +1871,11 @@ async function renderVerifyPage(reqId){
     // سجل الطلب — نخفي أحداث "تخطّى تلقائي" الداخلية
     const allHistory = (r.request_history||[]).slice()
       .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))
-      .filter(h => h.action !== 'تخطّى تلقائي' && h.action !== 'تخطى تلقائي');
+      .filter(h => h.action !== 'تخطّى تلقائي' && h.action !== 'تخطى تلقائي' && h.action !== 'تخطٍّ تلقائي' && h.action !== 'تخطٍ تلقائي');
     const actionColor = a => a==='اعتماد'?'var(--green)':a==='رفض'?'var(--red)':a==='إلغاء'?'var(--muted)':a==='تم الصرف'?'var(--green)':'var(--amber)';
     const historyHtml = allHistory.map(h=>{
-      const stepLabel = stepLabelAr(h.step);
+      const rawStepLabel = stepLabelAr(h.step);
+      const stepLabel = (rawStepLabel === 'قيد اعتماد القرار' || h.step === 'pending_decision') ? 'معتمد' : rawStepLabel;
       return `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;">
         <div style="text-align:right;flex:1;min-width:0;">
