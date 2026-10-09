@@ -1808,25 +1808,24 @@ async function renderVerifyPage(reqId){
       const amount = Number(b.amount||0), ded = Number(b.deduction||0), extra = Number(b.extra||0);
       const net = amount - ded + extra;
       const bg = i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)';
-      // الإجمالي: tabular-nums لمحاذاة الفلوس تحت بعضها
       const netHtml = `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(net)}</b> <span style="font-size:10px;color:var(--muted);">د.ك</span>`;
       if(anyAdjustments){
-        // جدول الكل بـ 4 أعمدة متناسقة — عمود الحسابات RTL: الإجمالي = + الإضافي − الخصم المبلغ
-        // نعرض: المبلغ − الخصم + الإضافي = بترتيب LTR واضح
-        let calcCell = `<span style="font-variant-numeric:tabular-nums;">${fmtAmt(amount)}</span>`;
-        if(ded>0)   calcCell += ` <span style="color:var(--red);">−&nbsp;${fmtAmt(ded)}</span>`;
-        if(extra>0) calcCell += ` <span style="color:var(--green);">+&nbsp;${fmtAmt(extra)}</span>`;
-        // إذا لا يوجد تعديل لهذا الصف تحديداً، نعرض خلية فارغة ليتحاذى الإجمالي
-        const calcDisplay = (ded>0||extra>0) ? `${calcCell} <span style="color:var(--muted);">=</span>` : '';
+        // عمود الحسابات: المبلغ ← الخصم ← الإضافي (بدون =) — محاذاة يسار، direction:rtl لترتيب يمين→يسار
+        let calcParts = [];
+        calcParts.push(`<span style="font-variant-numeric:tabular-nums;color:var(--ink);">${fmtAmt(amount)}</span>`);
+        if(ded>0)   calcParts.push(`<span style="color:var(--red);">−&nbsp;${fmtAmt(ded)}</span>`);
+        if(extra>0) calcParts.push(`<span style="color:var(--green);">+&nbsp;${fmtAmt(extra)}</span>`);
+        // إذا لا يوجد تعديل لهذا الصف: خلية فارغة لمحاذاة عمود الإجمالي
+        const calcDisplay = (ded>0||extra>0) ? calcParts.join(' ') : '';
         return `
           <tr style="background:${bg};">
             <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
             <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
-            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:left;direction:ltr;color:var(--muted);border-left:1px solid var(--line);">${calcDisplay}</td>
+            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:right;direction:rtl;color:var(--muted);border-left:1px solid var(--line);">${calcDisplay}</td>
             <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
           </tr>`;
       } else {
-        // لا توجد تعديلات في أي صف: عمودان فقط (# | الاسم | المبلغ)
+        // لا توجد تعديلات: 3 أعمدة فقط (# | الاسم | الإجمالي)
         return `
           <tr style="background:${bg};">
             <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
