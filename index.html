@@ -1792,17 +1792,23 @@ async function renderVerifyPage(reqId){
     const statusColor = r.is_cancelled ? '#56554F' : (r.status==='completed' ? 'var(--green)' : (r.status==='rejected' ? 'var(--red)' : 'var(--amber)'));
 
     const benes = r.request_beneficiaries || [];
+
+    // دالة مساعدة: يفصل المبلغ إلى جزء صحيح وكسر (فلوس) مع تصغير الفلس
+    function fmtAmtSplit(val){
+      const n = Number(val||0);
+      const parts = n.toFixed(3).split('.');
+      return `${Number(parts[0]).toLocaleString('ar-KW')}<span style="font-size:0.72em;font-weight:400;">.${parts[1]}</span>`;
+    }
+
     const beneRowsHtml = benes.map((b,i)=>{
       const amount = Number(b.amount||0), ded = Number(b.deduction||0), extra = Number(b.extra||0);
       const net = amount - ded + extra;
+      const bg = i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)';
       return `
-        <tr style="border-bottom:1px solid var(--line);">
-          <td style="padding:8px 4px;color:var(--muted);width:24px;">${i+1}</td>
-          <td style="padding:8px 4px;text-align:right;">${esc(b.name)}</td>
-          <td style="padding:8px 4px;text-align:left;white-space:nowrap;">
-            <div style="font-weight:700;">${fmtKWD(net)}</div>
-            ${(ded>0||extra>0) ? `<div style="font-size:10.5px;color:var(--muted);">${fmtKWD(amount)}${ded>0?` <span style="color:var(--red);">-${fmtKWD(ded)}</span>`:''}${extra>0?` <span style="color:var(--green);">+${fmtKWD(extra)}</span>`:''}</div>` : ''}
-          </td>
+        <tr style="background:${bg};">
+          <td style="padding:7px 6px;color:var(--muted);font-size:12px;width:22px;text-align:center;">${i+1}</td>
+          <td style="padding:7px 6px;font-size:13px;font-weight:600;">${esc(b.name)}</td>
+          <td style="padding:7px 6px;font-size:12px;white-space:nowrap;text-align:left;direction:ltr;">${fmtAmtSplit(amount)}${ded>0?` <span style="color:var(--red);">−${fmtAmtSplit(ded)}</span>`:''}${extra>0?` <span style="color:var(--green);">+${fmtAmtSplit(extra)}</span>`:''}<span style="color:var(--muted);margin:0 3px;">=</span><b>${fmtAmtSplit(net)}</b></td>
         </tr>`;
     }).join('');
 
@@ -1815,44 +1821,98 @@ async function renderVerifyPage(reqId){
     const approvalsHtml = approvals.map(h=>{
       const roleId = STATUS_ROLE_MAP[h.step];
       return `
-        <div class="row" style="justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px;">
           <div style="text-align:right;">
-            <div style="font-weight:600;">${esc(h.actor)}</div>
-            <div style="font-size:11px;color:var(--muted);">${roleId ? esc(findRole(roleId).name) : ''}</div>
+            <div style="font-weight:600;font-size:13px;">${esc(h.actor)}</div>
+            <div style="font-size:11px;color:var(--muted);">${roleId ? esc(findRole(roleId).name) : (h.step ? esc(h.step) : '')}</div>
           </div>
-          <div style="font-size:11px;color:var(--muted);text-align:left;direction:ltr;">${esc(toWesternDigits(h.time||''))}</div>
+          <div style="font-size:11px;color:var(--muted);text-align:left;direction:ltr;white-space:nowrap;">${esc(toWesternDigits(h.time||''))}</div>
         </div>`;
     }).join('');
 
-    app.innerHTML = `
-      <div class="card" style="max-width:480px;margin:40px auto;text-align:center;">
-        ${company && company.logo_data ? `<img src="${company.logo_data}" style="max-height:60px;margin-bottom:12px;">` : ''}
-        <h2 style="margin:0 0 4px;">${esc(company ? company.name_ar : 'نظام الصرف')}</h2>
-        <p class="sub" style="margin:0 0 20px;">تحقق من صحة سند الصرف</p>
+    // سجل الطلب الكامل
+    const allHistory = (r.request_history||[]).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+    const actionColor = a => a==='اعتماد'?'var(--green)':a==='رفض'?'var(--red)':a==='إلغاء'?'var(--muted)':'var(--amber)';
+    const historyHtml = allHistory.map(h=>`
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;">
+        <div style="text-align:right;flex:1;min-width:0;">
+          <span style="font-weight:600;color:${actionColor(h.action)};font-size:12px;">${esc(h.action)}</span>
+          ${h.actor ? `<span style="font-size:12px;"> — ${esc(h.actor)}</span>` : ''}
+          ${h.step ? `<div style="font-size:10.5px;color:var(--muted);">${esc(h.step)}</div>` : ''}
+          ${h.note ? `<div style="font-size:10.5px;color:var(--muted);font-style:italic;">${esc(h.note)}</div>` : ''}
+        </div>
+        <div style="font-size:10.5px;color:var(--muted);text-align:left;direction:ltr;white-space:nowrap;flex-shrink:0;">${esc(toWesternDigits(h.time||''))}</div>
+      </div>`).join('');
 
-        <div style="background:var(--paper);border-radius:10px;padding:20px;text-align:right;">
-          <div class="row" style="justify-content:space-between;margin-bottom:10px;"><b>رقم الطلب</b><span>${esc(r.number)}</span></div>
-          <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:12px;"><b>السبب</b><span style="text-align:left;">${esc(r.reason)}</span></div>
-          <div class="row" style="justify-content:space-between;margin-bottom:10px;"><b>التاريخ</b><span>${esc(r.date_greg||'')} ${r.date_hijri?'('+esc(r.date_hijri)+' هـ)':''}</span></div>
-          <div class="row" style="justify-content:space-between;"><b>الحالة</b><span style="color:${statusColor};font-weight:700;">${statusLabel}</span></div>
+    // إجمالي صافي المستفيدين
+    const totalNet = benes.reduce((s,b)=>s+Number(b.amount||0)-Number(b.deduction||0)+Number(b.extra||0),0);
+
+    app.innerHTML = `
+      <div style="max-width:500px;margin:32px auto;padding:0 12px;direction:rtl;font-family:inherit;">
+
+        <!-- رأس الصفحة: شعار + اسم الشركة -->
+        <div style="background:var(--paper);border-radius:12px;padding:20px 24px;text-align:center;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+          ${company && company.logo_data ? `<img src="${company.logo_data}" style="max-height:64px;max-width:180px;margin-bottom:10px;object-fit:contain;">` : ''}
+          <div style="font-size:18px;font-weight:700;margin-bottom:2px;">${esc(company ? company.name_ar : 'نظام الصرف')}</div>
+          <div style="font-size:11.5px;color:var(--muted);">تحقق من صحة سند الصرف</div>
         </div>
 
-        <div style="background:var(--paper);border-radius:10px;padding:16px 20px;text-align:right;margin-top:14px;">
-          <div style="font-weight:700;margin-bottom:8px;">المستفيدون (${benes.length})</div>
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">${beneRowsHtml || '<tr><td class="sub">—</td></tr>'}</table>
-          <div style="border-top:2px solid var(--ink);margin-top:10px;padding-top:10px;">
-            <div class="row" style="justify-content:space-between;"><b>الإجمالي</b><b>${fmtKWD(r.total_amount)} د.ك</b></div>
-            <div style="font-size:11.5px;color:var(--muted);margin-top:4px;">${amountToArabicWords(Number(r.total_amount||0))}</div>
+        <!-- معلومات الطلب -->
+        <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);">
+            <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">رقم الطلب</b>
+            <span style="font-size:13px;font-weight:700;text-align:left;direction:ltr;">${esc(r.number)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);gap:12px;">
+            <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">العنوان</b>
+            <span style="font-size:13px;text-align:right;">${esc(r.reason)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);">
+            <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">التاريخ</b>
+            <span style="font-size:12.5px;">${esc(r.date_greg||'')}${r.date_hijri?' ('+esc(r.date_hijri)+' هـ)':''}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;">
+            <b style="font-size:12.5px;white-space:nowrap;flex-shrink:0;">الحالة</b>
+            <span style="font-size:13px;font-weight:700;color:${statusColor};">${statusLabel}</span>
           </div>
         </div>
 
+        <!-- المستفيدون -->
+        <div style="background:var(--paper);border-radius:12px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+          <div style="padding:12px 16px;font-weight:700;font-size:13.5px;border-bottom:1px solid var(--line);">المستفيدون (${benes.length})</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="background:var(--bg,#f1f3f7);font-size:11px;color:var(--muted);">
+                <th style="padding:6px;font-weight:600;text-align:center;width:22px;">#</th>
+                <th style="padding:6px;font-weight:600;text-align:right;">الاسم</th>
+                <th style="padding:6px;font-weight:600;text-align:left;direction:ltr;">المبلغ − الخصم + الإضافي = الصافي</th>
+              </tr>
+            </thead>
+            <tbody>${beneRowsHtml || '<tr><td colspan="3" style="padding:12px;text-align:center;color:var(--muted);">لا يوجد مستفيدون</td></tr>'}</tbody>
+          </table>
+          <!-- الإجمالي -->
+          <div style="background:var(--ink,#1B2733);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
+            <b style="font-size:14px;">الإجمالي الكلي</b>
+            <b style="font-size:16px;direction:ltr;text-align:left;">${(()=>{const n=totalNet.toFixed(3).split('.');return `${Number(n[0]).toLocaleString('ar-KW')}<span style="font-size:0.72em;font-weight:400;">.${n[1]}</span> د.ك`;})()}</b>
+          </div>
+          <div style="padding:8px 16px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);">${amountToArabicWords(totalNet)}</div>
+        </div>
+
+        <!-- الاعتمادات -->
         ${approvalsHtml ? `
-        <div style="background:var(--paper);border-radius:10px;padding:16px 20px;text-align:right;margin-top:14px;">
-          <div style="font-weight:700;margin-bottom:10px;">الاعتمادات</div>
+        <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+          <div style="font-weight:700;font-size:13.5px;margin-bottom:10px;">الاعتمادات</div>
           ${approvalsHtml}
         </div>` : ''}
 
-        <p class="sub" style="margin-top:16px;font-size:11px;">هذه الصفحة تعرض البيانات المباشرة من قاعدة بيانات النظام، وتؤكد أن السند أصلي وغير معدَّل.</p>
+        <!-- سجل الطلب الكامل -->
+        ${historyHtml ? `
+        <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+          <div style="font-weight:700;font-size:13.5px;margin-bottom:8px;">سجل الطلب</div>
+          ${historyHtml}
+        </div>` : ''}
+
+        <p style="margin-top:12px;font-size:11px;color:var(--muted);text-align:center;">هذه الصفحة تعرض البيانات المباشرة من قاعدة بيانات النظام، وتؤكد أن السند أصلي وغير معدَّل.</p>
       </div>`;
   }catch(e){
     console.error('خطأ بصفحة التحقق', e);
@@ -4197,7 +4257,17 @@ function render(){
 // يضمن وجود الشريط السفلي داخل #app (صفحة الهيكل تُرسم أحياناً بعد الانتظار أو تُعاد جزئياً فتمسح الشريط)
 function ensureBottomBar(){
   const app = document.getElementById('app'); if(!app) return;
-  if(app.querySelector('.global-floating-bar')) { syncBottomBarMetrics(); return; }
+  // عند صفحة إنشاء/تعديل الطلب: أخفِ global-floating-bar وأظهر sticky-submit-bar فقط
+  if(state.view==='newRequest'){
+    const gfb = document.querySelector('.global-floating-bar');
+    if(gfb) gfb.style.display='none';
+    syncBottomBarMetrics();
+    return;
+  }
+  // في باقي الصفحات: أظهر global-floating-bar وأخفِ sticky-submit-bar
+  const gfb = document.querySelector('.global-floating-bar');
+  if(gfb) gfb.style.display='';
+  if(app.querySelector('.global-floating-bar')) { moveRowsToBottomBar(); syncBottomBarMetrics(); return; }
   const html = renderGlobalFloatingBar();
   if(html) app.insertAdjacentHTML('beforeend', html);
   moveRowsToBottomBar();
@@ -6001,11 +6071,45 @@ async function renderOrgTree(app){
   const companies = state.companies;
   const orgUnits = state.centers.filter(c=>c.scope==='org');
   const issues = companies.map(c=>({company:c, issues:computeStructureIssues(c.id)})).filter(x=>x.issues.length);
-  const issuesHtml = issues.length ? issues.map(x=>`
+  // فصل الأخطاء الحرجة عن التحذيرات الاستشارية
+  const criticalIssues = issues.map(x=>({company:x.company, issues:x.issues.filter(i=>i.level==='error')})).filter(x=>x.issues.length);
+  const warnIssues = issues.map(x=>({company:x.company, issues:x.issues.filter(i=>i.level==='warn')})).filter(x=>x.issues.length);
+  const criticalHtml = criticalIssues.length ? criticalIssues.map(x=>`
     <div style="margin-bottom:8px;">
       <b style="font-size:13px;">${escH(x.company.nameAr)}:</b>
-      ${x.issues.map(i=>`<div style="font-size:12.5px;color:${i.level==='error'?'var(--red)':'var(--amber)'};padding-right:14px;">${i.level==='error'?'⛔':'⚠️'} ${highlightIssueText(i.text)}</div>`).join('')}
-    </div>`).join('') : `<div style="font-size:13px;color:var(--green);">✓ لا توجد ملاحظات على الهيكل حالياً</div>`;
+      ${x.issues.map(i=>`<div style="font-size:12.5px;color:var(--red);padding-right:14px;">⛔ ${highlightIssueText(i.text)}</div>`).join('')}
+    </div>`).join('') : `<div style="font-size:13px;color:var(--green);">✓ لا توجد أخطاء حرجة في الهيكل</div>`;
+  const warnHtml = warnIssues.length ? warnIssues.map(x=>`
+    <div style="margin-bottom:8px;">
+      <b style="font-size:13px;">${escH(x.company.nameAr)}:</b>
+      ${x.issues.map(i=>`<div style="font-size:12.5px;color:var(--amber);padding-right:14px;">⚠️ ${highlightIssueText(i.text)}</div>`).join('')}
+    </div>`).join('') : `<div style="font-size:13px;color:var(--green);">✓ لا توجد ملاحظات هيكلية</div>`;
+  const issuesHtml = `
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:12px;">
+      <button type="button" id="structureTabErrors" onclick="
+        document.getElementById('structureTabErrors').classList.add('active');
+        document.getElementById('structureTabWarns').classList.remove('active');
+        document.getElementById('structurePanelErrors').style.display='';
+        document.getElementById('structurePanelWarns').style.display='none';
+      " class="active" style="background:none;border:none;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink);">
+        ⛔ أخطاء${criticalIssues.length ? ` (${criticalIssues.reduce((s,x)=>s+x.issues.length,0)})` : ''}
+      </button>
+      <button type="button" id="structureTabWarns" onclick="
+        document.getElementById('structureTabWarns').classList.add('active');
+        document.getElementById('structureTabErrors').classList.remove('active');
+        document.getElementById('structurePanelWarns').style.display='';
+        document.getElementById('structurePanelErrors').style.display='none';
+      " style="background:none;border:none;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--muted);">
+        ⚠️ ملاحظات${warnIssues.length ? ` (${warnIssues.reduce((s,x)=>s+x.issues.length,0)})` : ''}
+      </button>
+    </div>
+    <style>
+      #structureTabErrors.active{color:var(--red)!important;border-bottom-color:var(--red)!important;}
+      #structureTabWarns.active{color:var(--amber)!important;border-bottom-color:var(--amber)!important;}
+    </style>
+    <div id="structurePanelErrors">${criticalHtml}</div>
+    <div id="structurePanelWarns" style="display:none;">${warnHtml}</div>
+  `;
 
   const previewUserOptions = state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('');
 
