@@ -1806,20 +1806,31 @@ async function renderVerifyPage(reqId){
       const amount = Number(b.amount||0), ded = Number(b.deduction||0), extra = Number(b.extra||0);
       const net = amount - ded + extra;
       const bg = i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)';
-      // عمود الحسابات: المبلغ − الخصم + الإضافي = (محاذة يسار، direction ltr)
-      let calcParts = fmtAmt(amount);
-      if(ded>0)   calcParts += ` <span style="color:var(--red);">− ${fmtAmt(ded)}</span>`;
-      if(extra>0) calcParts += ` <span style="color:var(--green);">+ ${fmtAmt(extra)}</span>`;
-      calcParts += ` <span style="color:var(--muted);">=</span>`;
-      // عمود الإجمالي: محاذة يمين، الأرقام تحت بعضها (font-variant-numeric: tabular-nums)
-      const netHtml = `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(net)}</b>`;
-      return `
-        <tr style="background:${bg};">
-          <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
-          <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
-          <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:left;direction:ltr;color:var(--muted);border-left:1px solid var(--line);">${calcParts}</td>
-          <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml} <span style="font-size:10px;color:var(--muted);">د.ك</span></td>
-        </tr>`;
+      const hasAdjustments = ded > 0 || extra > 0;
+      // عمود الإجمالي دائماً يمين مع tabular-nums لمحاذاة الفلوس
+      const netHtml = `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(net)}</b> <span style="font-size:10px;color:var(--muted);">د.ك</span>`;
+      if(hasAdjustments){
+        // إذا يوجد خصم أو إضافي: 4 أعمدة (# | الاسم | حسابات | إجمالي)
+        let calcParts = fmtAmt(amount);
+        if(ded>0)   calcParts += ` <span style="color:var(--red);">− ${fmtAmt(ded)}</span>`;
+        if(extra>0) calcParts += ` <span style="color:var(--green);">+ ${fmtAmt(extra)}</span>`;
+        calcParts += ` <span style="color:var(--muted);">=</span>`;
+        return `
+          <tr style="background:${bg};">
+            <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
+            <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
+            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:left;direction:ltr;color:var(--muted);border-left:1px solid var(--line);">${calcParts}</td>
+            <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
+          </tr>`;
+      } else {
+        // لا خصم ولا إضافي: 3 أعمدة فقط (# | الاسم | المبلغ)
+        return `
+          <tr style="background:${bg};">
+            <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
+            <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
+            <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
+          </tr>`;
+      }
     }).join('');
 
     // نجمع آخر اعتماد لكل مستخدم على حدة (لا حسب اسم الخطوة، لأن خطوات القرار بالمحرك الجديد تتشارك نفس الاسم)
@@ -1904,15 +1915,7 @@ async function renderVerifyPage(reqId){
         <div style="background:var(--paper);border-radius:12px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
           <div style="padding:12px 16px;font-weight:700;font-size:13.5px;border-bottom:1px solid var(--line);">المستفيدون (${benes.length})</div>
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead>
-              <tr style="background:var(--bg,#f1f3f7);font-size:11px;color:var(--muted);border-bottom:1px solid var(--line);">
-                <th style="padding:5px 8px;font-weight:600;text-align:center;width:20px;">#</th>
-                <th style="padding:5px 8px;font-weight:600;text-align:right;">الاسم</th>
-                <th style="padding:5px 8px;font-weight:600;text-align:left;direction:ltr;">المبلغ − الخصم + الإضافي =</th>
-                <th style="padding:5px 8px;font-weight:600;text-align:right;">الإجمالي</th>
-              </tr>
-            </thead>
-            <tbody>${beneRowsHtml || '<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--muted);">لا يوجد مستفيدون</td></tr>'}</tbody>
+            <tbody>${beneRowsHtml || '<tr><td colspan="3" style="padding:12px;text-align:center;color:var(--muted);">لا يوجد مستفيدون</td></tr>'}</tbody>
           </table>
           <!-- الإجمالي والتفقيط بنفس الخلفية الداكنة -->
           <div style="background:var(--ink,#1B2733);color:#fff;padding:12px 16px 10px;">
@@ -3859,8 +3862,10 @@ function renderRequestQRCode(req, extraClass){
   if(!svg) return '';
   return `
     <div class="request-qr-block${extraClass ? ' '+extraClass : ''}">
-      <div class="request-qr-img">${svg}</div>
-      <div class="request-qr-caption">امسح للتحقق من بيانات السند<br>${req.number}</div>
+      <a href="${verifyUrl}" target="_blank" rel="noopener" style="display:block;cursor:pointer;text-decoration:none;" title="انقر لفتح صفحة التحقق">
+        <div class="request-qr-img">${svg}</div>
+      </a>
+      <div class="request-qr-caption">انقر أو امسح للتحقق من بيانات السند<br>${req.number}</div>
     </div>`;
   }catch(e){
     console.error('تعذر عرض رمز QR', e);
