@@ -924,14 +924,18 @@ function maybeCheckDeadlines(){
   state._dlAt = Date.now();
   checkDeadlines().then(n=>{ if(n) render(); });
 }
-function deadlineSelectHtml(id, current, defaultLabel, onchange){
-  const vals = [...DEADLINE_PRESETS]; if(current>0 && !vals.includes(current)) vals.push(current);
-  vals.sort((x,y)=>x-y);
-  return `<select id="${id}" ${onchange?`onchange="${onchange}"`:''}>
-    <option value="" ${current===null||current===undefined?'selected':''}>${defaultLabel}</option>
-    <option value="0" ${current===0?'selected':''}>بدون مهلة</option>
-    ${vals.map(v=>`<option value="${v}" ${current===v?'selected':''}>${v===2?'يومان':v+' أيام'}</option>`).join('')}
-  </select>`;
+function deadlineSelectHtml(id, current, defaultLabel, onchange, inputWidth){
+  // حقل رقمي حر: المستخدم يكتب عدد الأيام مباشرة (1-365)، أو يتركه فارغاً = بدون مهلة
+  const val = (current!==null && current!==undefined && current>0) ? current : '';
+  const ph = defaultLabel.includes('افتراضي') ? defaultLabel : 'بدون مهلة';
+  const w = inputWidth || '150px';
+  return `<div style="display:flex;align-items:center;gap:6px;">
+    <input type="number" id="${id}" min="1" max="365" value="${val}"
+      placeholder="${ph}"
+      ${onchange?`onchange="${onchange}"`:''}
+      style="width:${w};text-align:center;font-size:15px;" />
+    <span style="color:var(--muted);font-size:13px;">أيام (فارغ = بدون مهلة)</span>
+  </div>`;
 }
 
 function managerForCompany(u, companyId){
@@ -1120,6 +1124,13 @@ async function loadAll(){
     if(!state.sigLayoutConfigs[ctx]) state.sigLayoutConfigs[ctx] = {};
     state.sigLayoutConfigs[ctx][c.role] = c.config;
   });
+
+  // بنود الميزانية والإيرادات
+  const {data: biData} = await db.from('budget_items').select('*').order('created_at', {ascending:true});
+  state.budgetItems = biData||[];
+
+  const {data: brData} = await db.from('budget_revenues').select('*').order('revenue_date', {ascending:false});
+  state.budgetRevenues = brData||[];
 }
 
 
@@ -4451,6 +4462,7 @@ function renderAnalytics(app){
 
   state.requests.forEach(r=>{
     if(r.status!=='completed') return;
+    if(r.isCancelled) return;
     if(!r.createdAtRaw) return;
     const d = new Date(r.createdAtRaw);
     if(d.getFullYear()!==Number(selYear)) return;
@@ -5226,6 +5238,10 @@ const ADMIN_NAV = [
     {key:'users', label:'المستخدمون', kind:'tab'},
     {key:'impersonate', label:'تصفّح كمستخدم آخر', kind:'tab'}
   ]},
+  {cat:'الميزانية والإيرادات', items:[
+    {key:'budgetItems', label:'بنود الميزانية', kind:'tab'},
+    {key:'budgetRevenues', label:'الإيرادات', kind:'tab'}
+  ]},
   {cat:'الطلبات والتحليلات', items:[
     {key:'exec', label:'التحليلات واللوحة التنفيذية', head:'التحليلات المالية واللوحة التنفيذية', kind:'exec'},
     {key:'cancelledArchive', label:'أرشيف الطلبات الملغاة', kind:'view'}
@@ -5436,13 +5452,259 @@ function renderAdmin(app){
       </div>
     </div>
 `
-  }[state.adminSubTab] || (state.adminSubTab==='branding' ? renderBrandingPanel() : state.adminSubTab==='printSetup' ? renderPrintSetupPanel() : '');
+  }[state.adminSubTab] || (state.adminSubTab==='branding' ? renderBrandingPanel() : state.adminSubTab==='printSetup' ? renderPrintSetupPanel() : state.adminSubTab==='budgetItems' ? renderBudgetItemsTab() : state.adminSubTab==='budgetRevenues' ? renderBudgetRevenuesTab() : '');
 
   app.innerHTML = `
     <h1>لوحة تحكم مدير النظام</h1>
     ${adminSectionHeadHtml()}${subTabContent}
   `;
 }
+// ══════════════════════════════════════════════════════════
+// بنود الميزانية — عرض وإدارة
+// ══════════════════════════════════════════════════════════
+const BUDGET_TYPE_LABELS = {company:'الشركة', center:'مركز', project:'مشروع', club:'نادي/وحدة'};
+const BUDGET_TYPE_ICONS  = {company:'🏢', center:'🏛️', project:'📋', club:'⚽'};
+const PROFIT_MODE_LABELS = {none:'لا يُحتسب ربح', percent:'نسبة %', fixed:'مبلغ ثابت', both:'نسبة + مبلغ ثابت'};
+
+function renderBudgetItemsTab(){
+  const items = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId);
+  const editId = state.editingBudgetItemId;
+
+  const typeOpts = Object.entries(BUDGET_TYPE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  const profitOpts = Object.entries(PROFIT_MODE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+
+  // خيارات الوحدة الأم (بنود أخرى من نفس الشركة)
+  function parentOpts(excludeId=''){
+    return `<option value="">— تحت الشركة مباشرة —</option>`
+      + items.filter(b=>b.id!==excludeId).map(b=>`<option value="${b.id}">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('');
+  }
+
+  function editForm(b){
+    const pm = b.profit_mode||'none';
+    return `<div class="card" style="border:2px solid var(--blue);margin-bottom:16px;">
+      <h3 style="margin:0 0 14px;">تعديل البند: ${escH(b.name)}</h3>
+      <div class="row">
+        <div><label>اسم البند</label><input id="ebiName" type="text" value="${escH(b.name)}"></div>
+        <div><label>النوع</label><select id="ebiType">${Object.entries(BUDGET_TYPE_LABELS).map(([v,l])=>`<option value="${v}"${b.type===v?' selected':''}>${l}</option>`).join('')}</select></div>
+      </div>
+      <div class="row">
+        <div><label>يتبع</label><select id="ebiParent">${parentOpts(b.id).replace(`value="${b.parent_id||''}"`,`value="${b.parent_id||''}" selected`)}</select></div>
+        <div><label>آلية الأرباح للشركة</label><select id="ebiMode" onchange="onBudgetProfitModeChange('e')">${Object.entries(PROFIT_MODE_LABELS).map(([v,l])=>`<option value="${v}"${pm===v?' selected':''}>${l}</option>`).join('')}</select></div>
+      </div>
+      <div class="row" id="ebiPctRow" style="display:${pm==='percent'||pm==='both'?'flex':'none'};">
+        <div><label>النسبة %</label><input id="ebiPct" type="number" min="0" max="100" step="0.01" value="${b.profit_percent||0}"></div>
+      </div>
+      <div class="row" id="ebiFixRow" style="display:${pm==='fixed'||pm==='both'?'flex':'none'};">
+        <div><label>المبلغ الثابت</label><input id="ebiFix" type="number" min="0" step="0.001" value="${b.profit_fixed||0}"></div>
+      </div>
+      <div class="row">
+        <div><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="ebiRecurring" style="width:auto;" ${b.is_recurring?'checked':''}> متجدد شهرياً</label></div>
+        <div><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="ebiActive" style="width:auto;" ${b.is_active!==false?'checked':''}> نشط</label></div>
+      </div>
+      <div><label>ملاحظات</label><input id="ebiNotes" type="text" value="${escH(b.notes||'')}"></div>
+      <div class="actions-row">
+        <button class="btn btn-primary btn-md" onclick="saveBudgetItem('${b.id}')">حفظ التعديلات</button>
+        <button class="btn btn-ghost btn-md" onclick="state.editingBudgetItemId=null; render();">إلغاء</button>
+      </div>
+    </div>`;
+  }
+
+  return `
+    <div class="card" style="margin-top:20px;">
+      <h2>إضافة بند جديد</h2>
+      <div class="row">
+        <div><label>اسم البند</label><input id="nbiName" type="text" placeholder="مثال: نادي ديمة"></div>
+        <div><label>النوع</label><select id="nbiType">${typeOpts}</select></div>
+      </div>
+      <div class="row">
+        <div><label>يتبع</label><select id="nbiParent">${parentOpts()}</select></div>
+        <div><label>آلية الأرباح للشركة</label><select id="nbiMode" onchange="onBudgetProfitModeChange('n')">${profitOpts}</select></div>
+      </div>
+      <div class="row" id="nbiPctRow" style="display:none;">
+        <div><label>النسبة %</label><input id="nbiPct" type="number" min="0" max="100" step="0.01" value="0"></div>
+      </div>
+      <div class="row" id="nbiFixRow" style="display:none;">
+        <div><label>المبلغ الثابت</label><input id="nbiFix" type="number" min="0" step="0.001" value="0"></div>
+      </div>
+      <div class="row">
+        <div><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="nbiRecurring" style="width:auto;"> متجدد شهرياً</label></div>
+      </div>
+      <div><label>ملاحظات</label><input id="nbiNotes" type="text" placeholder="اختياري"></div>
+      <div class="actions-row">
+        <button class="btn btn-primary btn-md" onclick="addBudgetItem()">إضافة البند</button>
+      </div>
+    </div>
+
+    <h2 style="margin-top:20px;">بنود الميزانية (${items.length})</h2>
+    ${editId ? editForm(items.find(b=>b.id===editId)||{}) : ''}
+    ${items.length===0 ? `<div class="empty">لا توجد بنود مضافة بعد</div>` : items.map(b=>{
+      const parentName = b.parent_id ? (items.find(p=>p.id===b.parent_id)||{}).name||'—' : null;
+      const bal = typeof b._balance === 'number' ? b._balance.toFixed(3)+' د.ك' : '—';
+      return `<div class="list-item">
+        <div class="li-main">
+          <b>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</b>
+          <span>${BUDGET_TYPE_LABELS[b.type]||b.type}${parentName ? ' · يتبع: '+escH(parentName) : ''}${b.is_recurring?' · متجدد':''}${!b.is_active?' · <span style="color:var(--muted)">غير نشط</span>':''}</span>
+          <span>آلية الأرباح: ${PROFIT_MODE_LABELS[b.profit_mode]||'—'}${b.profit_mode==='percent'||b.profit_mode==='both' ? ' ('+b.profit_percent+'%)' : ''}${b.profit_mode==='fixed'||b.profit_mode==='both' ? ' + '+b.profit_fixed+' د.ك' : ''}</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button class="btn btn-ghost btn-xs" onclick="state.editingBudgetItemId='${b.id}'; render();">تعديل</button>
+          <button class="btn btn-reject btn-xs" onclick="deleteBudgetItem('${b.id}')">حذف</button>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function onBudgetProfitModeChange(prefix){
+  const mode = document.getElementById(prefix+'biMode')?.value||'none';
+  const pctRow = document.getElementById(prefix+'biPctRow');
+  const fixRow = document.getElementById(prefix+'biFixRow');
+  if(pctRow) pctRow.style.display = (mode==='percent'||mode==='both') ? 'flex' : 'none';
+  if(fixRow) fixRow.style.display = (mode==='fixed'  ||mode==='both') ? 'flex' : 'none';
+}
+
+async function addBudgetItem(){
+  const name = (document.getElementById('nbiName')?.value||'').trim();
+  if(!name){ showToast('اكتب اسم البند','error'); return; }
+  const item = {
+    id: 'bi_'+Date.now(),
+    company_id: state.currentCompanyId,
+    parent_id: document.getElementById('nbiParent')?.value || null,
+    name,
+    type: document.getElementById('nbiType')?.value || 'project',
+    is_recurring: document.getElementById('nbiRecurring')?.checked||false,
+    is_active: true,
+    profit_mode: document.getElementById('nbiMode')?.value || 'none',
+    profit_percent: parseFloat(document.getElementById('nbiPct')?.value||0)||0,
+    profit_fixed:   parseFloat(document.getElementById('nbiFix')?.value||0)||0,
+    notes: document.getElementById('nbiNotes')?.value||''
+  };
+  if(!item.parent_id) item.parent_id = null;
+  const r = await db.from('budget_items').insert(item);
+  if(!(await dbCheck(r,'إضافة البند'))) return;
+  state.budgetItems = state.budgetItems||[];
+  state.budgetItems.push(item);
+  showToast('تمت إضافة البند','success');
+  render();
+}
+
+async function saveBudgetItem(id){
+  const b = (state.budgetItems||[]).find(x=>x.id===id);
+  if(!b) return;
+  const name = (document.getElementById('ebiName')?.value||'').trim();
+  if(!name){ showToast('اكتب اسم البند','error'); return; }
+  const pm = document.getElementById('ebiMode')?.value||'none';
+  const updates = {
+    name,
+    type:           document.getElementById('ebiType')?.value||b.type,
+    parent_id:      document.getElementById('ebiParent')?.value||null,
+    profit_mode:    pm,
+    profit_percent: parseFloat(document.getElementById('ebiPct')?.value||0)||0,
+    profit_fixed:   parseFloat(document.getElementById('ebiFix')?.value||0)||0,
+    is_recurring:   document.getElementById('ebiRecurring')?.checked||false,
+    is_active:      document.getElementById('ebiActive')?.checked!==false,
+    notes:          document.getElementById('ebiNotes')?.value||''
+  };
+  if(!updates.parent_id) updates.parent_id = null;
+  const r = await db.from('budget_items').update(updates).eq('id',id);
+  if(!(await dbCheck(r,'تعديل البند'))) return;
+  Object.assign(b, updates);
+  state.editingBudgetItemId = null;
+  showToast('تم حفظ البند','success');
+  render();
+}
+
+async function deleteBudgetItem(id){
+  const b = (state.budgetItems||[]).find(x=>x.id===id);
+  requestDeleteConfirm(`حذف البند "${b?b.name:''}" نهائياً؟`, 'budget_item', id);
+}
+async function confirmDeleteBudgetItem(id){
+  const r = await db.from('budget_items').delete().eq('id',id);
+  if(!(await dbCheck(r,'حذف البند'))) return;
+  state.budgetItems = (state.budgetItems||[]).filter(x=>x.id!==id);
+  showToast('تم حذف البند','success');
+  render();
+}
+
+// ══════════════════════════════════════════════════════════
+// الإيرادات — عرض وإدارة
+// ══════════════════════════════════════════════════════════
+const REVENUE_SOURCE_LABELS = {transfer:'تحويل بنكي', payment_link:'رابط دفع', cash:'نقداً', other:'أخرى'};
+
+function renderBudgetRevenuesTab(){
+  const items = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId && b.is_active!==false);
+  const revs  = (state.budgetRevenues||[]).filter(r=> items.some(b=>b.id===r.budget_item_id));
+  revs.sort((a,b)=> (b.revenue_date||'').localeCompare(a.revenue_date||''));
+
+  const itemOpts = `<option value="">— اختر البند —</option>`+items.map(b=>`<option value="${b.id}">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('');
+  const sourceOpts = `<option value="">— اختياري —</option>`+Object.entries(REVENUE_SOURCE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+
+  return `
+    <div class="card" style="margin-top:20px;">
+      <h2>تسجيل إيراد جديد</h2>
+      <div class="row">
+        <div><label>البند</label><select id="nrevItem">${itemOpts}</select></div>
+        <div><label>المبلغ (د.ك)</label><input id="nrevAmount" type="number" min="0.001" step="0.001" placeholder="0.000"></div>
+      </div>
+      <div class="row">
+        <div><label>تاريخ الإيراد</label><input id="nrevDate" type="date" value="${new Date().toISOString().slice(0,10)}" dir="ltr"></div>
+        <div><label>مصدر الإيراد</label><select id="nrevSource">${sourceOpts}</select></div>
+      </div>
+      <div><label>وصف / بيان</label><input id="nrevDesc" type="text" placeholder="اختياري"></div>
+      <div class="actions-row">
+        <button class="btn btn-primary btn-md" onclick="addBudgetRevenue()">تسجيل الإيراد</button>
+      </div>
+    </div>
+
+    <h2 style="margin-top:20px;">الإيرادات المسجلة (${revs.length})</h2>
+    ${revs.length===0 ? `<div class="empty">لا توجد إيرادات مسجلة بعد</div>` : revs.map(r=>{
+      const bname = (items.find(b=>b.id===r.budget_item_id)||{}).name||'—';
+      const src = r.source_type ? REVENUE_SOURCE_LABELS[r.source_type]||r.source_type : '';
+      return `<div class="list-item">
+        <div class="li-main">
+          <b>${(+r.amount).toFixed(3)} د.ك</b>
+          <span>البند: ${escH(bname)}${src ? ' · '+src : ''}</span>
+          <span>${r.revenue_date||''}${r.description ? ' · '+escH(r.description) : ''}</span>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-reject btn-xs" onclick="deleteBudgetRevenue('${r.id}')">حذف</button>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+async function addBudgetRevenue(){
+  const itemId = document.getElementById('nrevItem')?.value||'';
+  if(!itemId){ showToast('اختر البند','error'); return; }
+  const amount = parseFloat(document.getElementById('nrevAmount')?.value||0);
+  if(!amount||amount<=0){ showToast('أدخل مبلغاً صحيحاً','error'); return; }
+  const rev = {
+    id: 'rev_'+Date.now(),
+    budget_item_id: itemId,
+    amount,
+    revenue_date: document.getElementById('nrevDate')?.value || new Date().toISOString().slice(0,10),
+    source_type:  document.getElementById('nrevSource')?.value || null,
+    description:  document.getElementById('nrevDesc')?.value||'',
+    entered_by_id: state.user?.id || null
+  };
+  if(!rev.source_type) rev.source_type = null;
+  const r = await db.from('budget_revenues').insert(rev);
+  if(!(await dbCheck(r,'تسجيل الإيراد'))) return;
+  state.budgetRevenues = state.budgetRevenues||[];
+  state.budgetRevenues.push(rev);
+  showToast('تم تسجيل الإيراد','success');
+  render();
+}
+
+async function deleteBudgetRevenue(id){
+  const r = await db.from('budget_revenues').delete().eq('id',id);
+  if(!(await dbCheck(r,'حذف الإيراد'))) return;
+  state.budgetRevenues = (state.budgetRevenues||[]).filter(x=>x.id!==id);
+  showToast('تم حذف الإيراد','success');
+  render();
+}
+
 function filterAdminNav(q){
   q = (q||'').trim();
   document.querySelectorAll('#adminNavList [data-nav-group]').forEach(group=>{
@@ -5535,7 +5797,7 @@ function renderCompanyEditForm(){
       <div class="card" style="background:var(--paper);margin-top:10px;">
         <label>⏱ مهلة الاعتماد الافتراضية للمعتمدين (يمكن تخصيصها لكل معتمد)</label>
         <div class="row">
-          <div>${deadlineSelectHtml('editCoDeadline', (c.defaultDeadlineDays>0 ? c.defaultDeadlineDays : null), 'بدون مهلة').replace('<option value="0"','<option hidden value="0"')}</div>
+          <div>${deadlineSelectHtml('editCoDeadline', (c.defaultDeadlineDays>0 ? c.defaultDeadlineDays : null), 'بدون مهلة', null, '120px')}</div>
           <div><select id="editCoEscMode">
             <option value="manager" ${(c.defaultEscalateMode||'manager')==='manager'?'selected':''}>عند انتهائها يُحال إلى: المدير المباشر للمعتمد</option>
             <option value="next" ${c.defaultEscalateMode==='next'?'selected':''}>عند انتهائها يُحال إلى: من يعتمد بعده</option>
@@ -7026,7 +7288,7 @@ function renderUserEditForm(){
         <div class="card" style="background:var(--paper);margin:10px 0 0;">
           <p class="sub" style="margin:0 0 8px;font-size:12px;">⏱ مهلة الاعتماد: إن تأخر هذا الشخص عن الاعتماد تُحال خطوته تلقائياً (يبقى هو قادراً على الاعتماد، والأسبق منهما يحسم). تُحسب بأيام ${coU.deadlineDayMode==='calendar'?'تقويمية':'عمل (بدون الجمعة والسبت)'} حسب إعداد الشركة.</p>
           <div class="row">
-            <div><label>مهلة الاعتماد</label>${deadlineSelectHtml('editUserDeadline', u.approvalDeadlineDays, '— افتراضي الشركة ('+dflt+') —')}</div>
+            <div><label>مهلة الاعتماد</label>${deadlineSelectHtml('editUserDeadline', u.approvalDeadlineDays, '— افتراضي الشركة ('+dflt+') —', null, '220px')}</div>
             <div><label>عند انتهائها يُحال إلى</label>
               <select id="editUserEscMode" onchange="document.getElementById('editUserEscUserWrap').style.display = this.value==='user' ? 'block':'none';">
                 <option value="" ${!u.escalateMode?'selected':''}>— افتراضي الشركة (${modeName}) —</option>
