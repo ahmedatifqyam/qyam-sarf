@@ -5322,7 +5322,8 @@ const ADMIN_NAV = [
   ]},
   {cat:'الميزانية والإيرادات', items:[
     {key:'budgetItems', label:'بنود الميزانية', kind:'tab'},
-    {key:'budgetRevenues', label:'الإيرادات', kind:'tab'}
+    {key:'budgetRevenues', label:'الإيرادات', kind:'tab'},
+    {key:'budgetReport', label:'تقرير الميزانية', kind:'tab'}
   ]},
   {cat:'الطلبات والتحليلات', items:[
     {key:'exec', label:'التحليلات واللوحة التنفيذية', head:'التحليلات المالية واللوحة التنفيذية', kind:'exec'},
@@ -5534,7 +5535,7 @@ function renderAdmin(app){
       </div>
     </div>
 `
-  }[state.adminSubTab] || (state.adminSubTab==='branding' ? renderBrandingPanel() : state.adminSubTab==='printSetup' ? renderPrintSetupPanel() : state.adminSubTab==='budgetItems' ? renderBudgetItemsTab() : state.adminSubTab==='budgetRevenues' ? renderBudgetRevenuesTab() : '');
+  }[state.adminSubTab] || (state.adminSubTab==='branding' ? renderBrandingPanel() : state.adminSubTab==='printSetup' ? renderPrintSetupPanel() : state.adminSubTab==='budgetItems' ? renderBudgetItemsTab() : state.adminSubTab==='budgetRevenues' ? renderBudgetRevenuesTab() : state.adminSubTab==='budgetReport' ? renderBudgetReportTab() : '');
 
   app.innerHTML = `
     <h1>لوحة تحكم مدير النظام</h1>
@@ -5730,6 +5731,108 @@ async function confirmDeleteBudgetItem(id){
   state.budgetItems = (state.budgetItems||[]).filter(x=>x.id!==id);
   showToast('تم حذف البند','success');
   render();
+}
+
+// ══════════════════════════════════════════════════════════
+// تقرير الميزانية
+// ══════════════════════════════════════════════════════════
+function renderBudgetReportTab(){
+  const allItems = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId);
+  const types = [...new Set(allItems.map(b=>b.type))];
+  const filterType = state.budgetReportTypeFilter||'';
+  const items = filterType ? allItems.filter(b=>b.type===filterType) : allItems;
+
+  // إجمالي الشركة
+  let totalRev=0, totalProfit=0, totalSpent=0, totalBal=0;
+  items.forEach(b=>{
+    const revs = (state.budgetRevenues||[]).filter(r=>r.budget_item_id===b.id);
+    const rev = revs.reduce((s,r)=>s+(Number(r.amount)||0),0);
+    let profit=0;
+    if(b.profit_mode==='percent') profit=rev*(b.profit_percent||0)/100;
+    else if(b.profit_mode==='fixed') profit=Math.min(rev,b.profit_fixed||0);
+    else if(b.profit_mode==='both') profit=rev*(b.profit_percent||0)/100+(b.profit_fixed||0);
+    const spent=(state.requests||[]).filter(r=>r.budgetItemId===b.id&&['approved','pending_decision'].includes(r.status)&&!r.isCancelled).reduce((s,r)=>s+(Number(r.totalAmount)||0),0);
+    const bal=rev-profit-spent;
+    totalRev+=rev; totalProfit+=profit; totalSpent+=spent; totalBal+=bal;
+  });
+
+  const typeFilterOpts = `<option value="">كل الأنواع</option>`+types.map(t=>`<option value="${t}"${filterType===t?' selected':''}>${BUDGET_TYPE_ICONS[t]||''} ${BUDGET_TYPE_LABELS[t]||t}</option>`).join('');
+
+  const cards = items.map(b=>{
+    const revs=(state.budgetRevenues||[]).filter(r=>r.budget_item_id===b.id);
+    const rev=revs.reduce((s,r)=>s+(Number(r.amount)||0),0);
+    let profit=0;
+    if(b.profit_mode==='percent') profit=rev*(b.profit_percent||0)/100;
+    else if(b.profit_mode==='fixed') profit=Math.min(rev,b.profit_fixed||0);
+    else if(b.profit_mode==='both') profit=rev*(b.profit_percent||0)/100+(b.profit_fixed||0);
+    const net=rev-profit;
+    const spent=(state.requests||[]).filter(r=>r.budgetItemId===b.id&&['approved','pending_decision'].includes(r.status)&&!r.isCancelled).reduce((s,r)=>s+(Number(r.totalAmount)||0),0);
+    const bal=net-spent;
+    const pct=net>0?Math.min(100,Math.round(spent/net*100)):0;
+    const barColor=pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
+    const balColor=bal>50?'var(--green)':bal>0?'var(--amber)':'var(--red)';
+    const parentName=b.parent_id?(allItems.find(p=>p.id===b.parent_id)||{}).name:null;
+    return `
+    <div class="card" style="margin-bottom:16px;padding:16px 20px;">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:15px;font-weight:700;">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${BUDGET_TYPE_LABELS[b.type]||b.type}${parentName?' · يتبع: '+escH(parentName):''}${!b.is_active?' · <span style="color:var(--red);">غير نشط</span>':''}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <span style="padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(34,197,94,.1);color:var(--green);border:1px solid var(--green);">الإيرادات: ${rev.toFixed(3)} د.ك</span>
+          ${profit>0?`<span style="padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(245,158,11,.1);color:var(--amber);border:1px solid var(--amber);">الأرباح: ${profit.toFixed(3)} د.ك</span>`:''}
+          <span style="padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(239,68,68,.1);color:var(--red);border:1px solid var(--red);">المصروف: ${spent.toFixed(3)} د.ك</span>
+          <span style="padding:5px 12px;border-radius:8px;font-size:13px;font-weight:800;background:${bal>50?'rgba(34,197,94,.1)':bal>0?'rgba(245,158,11,.1)':'rgba(239,68,68,.1)'};color:${balColor};border:1px solid ${balColor};">الرصيد: ${bal.toFixed(3)} د.ك</span>
+        </div>
+      </div>
+      <div style="margin-top:6px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;">
+          <span>نسبة الاستهلاك</span>
+          <span>${pct}%</span>
+        </div>
+        <div style="background:var(--line);border-radius:999px;height:8px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:999px;transition:width .4s;"></div>
+        </div>
+      </div>
+      ${revs.length===0?`<div style="margin-top:10px;font-size:12px;color:var(--muted);">لا توجد إيرادات مسجلة</div>`:''}
+    </div>`;
+  }).join('');
+
+  return `
+  <div style="margin-top:20px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <h3 style="margin:0;font-size:16px;">تقرير الميزانية</h3>
+      <select onchange="state.budgetReportTypeFilter=this.value; render();" style="min-width:160px;">${typeFilterOpts}</select>
+      <span style="color:var(--muted);font-size:13px;">${items.length} بند</span>
+    </div>
+
+    <!-- بطاقات الإجمالي -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+      <div class="card" style="padding:14px 16px;text-align:center;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">إجمالي الإيرادات</div>
+        <div style="font-size:18px;font-weight:800;color:var(--green);">${totalRev.toFixed(3)}</div>
+        <div style="font-size:11px;color:var(--muted);">د.ك</div>
+      </div>
+      <div class="card" style="padding:14px 16px;text-align:center;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">إجمالي الأرباح</div>
+        <div style="font-size:18px;font-weight:800;color:var(--amber);">${totalProfit.toFixed(3)}</div>
+        <div style="font-size:11px;color:var(--muted);">د.ك</div>
+      </div>
+      <div class="card" style="padding:14px 16px;text-align:center;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">إجمالي المصروف</div>
+        <div style="font-size:18px;font-weight:800;color:var(--red);">${totalSpent.toFixed(3)}</div>
+        <div style="font-size:11px;color:var(--muted);">د.ك</div>
+      </div>
+      <div class="card" style="padding:14px 16px;text-align:center;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">إجمالي الرصيد</div>
+        <div style="font-size:18px;font-weight:800;color:${totalBal>0?'var(--green)':'var(--red)'};">${totalBal.toFixed(3)}</div>
+        <div style="font-size:11px;color:var(--muted);">د.ك</div>
+      </div>
+    </div>
+
+    ${items.length===0 ? '<div class="empty">لا توجد بنود</div>' : cards}
+  </div>`;
 }
 
 // ══════════════════════════════════════════════════════════
