@@ -1062,6 +1062,7 @@ function mapRequestRow(r){
     createdAtRaw:r.created_at, isRecurring: !!r.is_recurring,
     isCancelled: !!r.is_cancelled, cancelledAt: r.cancelled_at, cancelledById: r.cancelled_by_id, cancelReason: r.cancel_reason,
     bankTransferRef: r.bank_transfer_ref||'', bankTransferAt: r.bank_transfer_at, fastTracked: !!r.fast_tracked, limitExceeded: !!r.limit_exceeded,
+    budgetItemId: r.budget_item_id||null,
     beneficiaries:(r.request_beneficiaries||[]).map(b=>({
       name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', statement:b.statement||'', notes:b.notes||'',
       amount:Number(b.amount), deduction:Number(b.deduction||0), deductionNote:b.deduction_note||'',
@@ -2780,6 +2781,8 @@ function syncDraftFromDOM(){
   if(detailedEl) state.draft.detailedReason = detailedEl.value;
   const recEl = document.getElementById('recurringCheck');
   if(recEl) state.draft.isRecurring = recEl.checked;
+  const biEl = document.getElementById('budgetItemSelect');
+  if(biEl) state.draft.budgetItemId = biEl.value || null;
   document.querySelectorAll('.beneficiary-block').forEach((b,i)=>{
     const item = state.draft.beneficiaries[i];
     if(!item) return;
@@ -2804,6 +2807,50 @@ function syncDraftFromDOM(){
 
 function isKnownBeneficiary(name){
   return state.beneficiaries.some(x=>x.name===name && x.companyId===state.currentCompanyId);
+}
+
+// حساب رصيد بند الميزانية محلياً
+async function logBudgetOverrun(requestId, budgetItemId, stage, requestedAmount, availableBalance){
+  try {
+    await sb.from('budget_overrun_log').insert({
+      request_id: requestId,
+      budget_item_id: budgetItemId,
+      stage,
+      actor_id: state.user?.id || null,
+      actor_name: state.user?.name || null,
+      requested_amount: requestedAmount,
+      available_balance: availableBalance
+    });
+  } catch(e){ console.warn('logBudgetOverrun error', e); }
+}
+
+function computeBudgetItemBalance(itemId){
+  const item = (state.budgetItems||[]).find(b=>b.id===itemId);
+  if(!item) return null;
+  const revenues = (state.budgetRevenues||[]).filter(r=>r.budget_item_id===itemId);
+  const totalRev = revenues.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  let profit = 0;
+  if(item.profit_mode==='percent') profit = totalRev*(item.profit_percent||0)/100;
+  else if(item.profit_mode==='fixed') profit = Math.min(totalRev, item.profit_fixed||0);
+  else if(item.profit_mode==='both') profit = totalRev*(item.profit_percent||0)/100 + (item.profit_fixed||0);
+  const spent = (state.requests||[]).filter(r=>r.budgetItemId===itemId && ['approved','pending_decision'].includes(r.status) && !r.isCancelled)
+    .reduce((s,r)=>s+(Number(r.totalAmount)||0),0);
+  return totalRev - profit - spent;
+}
+
+function onBudgetItemSelectChange(){
+  syncDraftFromDOM();
+  const sel = document.getElementById('budgetItemSelect');
+  const box = document.getElementById('budgetItemBalanceBox');
+  if(!sel||!box) return;
+  const itemId = sel.value;
+  if(!itemId){ box.style.display='none'; return; }
+  const bal = computeBudgetItemBalance(itemId);
+  if(bal==null){ box.style.display='none'; return; }
+  const color = bal>50 ? 'var(--green)' : bal>0 ? 'var(--amber)' : 'var(--red)';
+  const bg = bal>50 ? 'rgba(34,197,94,.08)' : bal>0 ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)';
+  box.style.cssText = `display:block;margin-top:6px;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;background:${bg};color:${color};border:1px solid ${color};`;
+  box.textContent = `الرصيد المتاح: ${bal.toFixed(3)} د.ك`;
 }
 
 function onBeneficiaryNameChange(index, value){
@@ -3001,6 +3048,8 @@ async function submitDraftInner(){
   const reasonInput = d.reason.trim();
   const detailedReasonInput = (d.detailedReason||'').trim();
   if(!reasonInput){ showToast('الرجاء إدخال عنوان الطلب','error'); return; }
+  const budgetItemId = d.budgetItemId || null;
+  if(!budgetItemId){ showToast('الرجاء اختيار بند الميزانية','error'); return; }
   const beneficiaries = [];
   let hasInvalidAmount = false;
   let missingStatement = false;
@@ -3114,6 +3163,19 @@ async function submitDraftInner(){
   const roleLabelFor = ()=>'pending_decision';
   chain = chain.map(s=>({roleLabel: roleLabelFor(), approverId: s.approverId}));
   const initialStatus = chain.length>0 ? 'pending_decision' : 'pending_transfer_request';
+  // تحذير تجاوز الرصيد عند الإرسال
+  if(budgetItemId){
+    const submitBal = computeBudgetItemBalance(budgetItemId);
+    if(submitBal != null && total > submitBal){
+      const bi = (state.budgetItems||[]).find(b=>b.id===budgetItemId);
+      const biName = bi ? bi.name : '';
+      const confirmed = confirm(`⚠️ تجاوز رصيد الميزانية\n\nالبند: ${biName}\nالمبلغ المطلوب: ${total.toFixed(3)} د.ك\nالرصيد المتاح: ${submitBal.toFixed(3)} د.ك\n\nهل تريد الاستمرار في إرسال الطلب؟`);
+      if(!confirmed) return;
+      // سيُسجَّل التجاوز بعد حفظ الطلب (بعد معرفة الـ id)
+      state._pendingOverrunLog = { budgetItemId, stage:'submit', requestedAmount: total, availableBalance: submitBal };
+    }
+  }
+
   const dates = getDocDates();
   const assignedNumber = genReqNumber();
   const req = {
@@ -3135,13 +3197,15 @@ async function submitDraftInner(){
     fastTracked: isFastTracked,
     limitExceeded: checkLimitExceeded(creatorUser ? creatorUser.centerId : null, total, beneficiaries),
     companyId: state.currentCompanyId,
+    budgetItemId: budgetItemId,
     history: [{step:'created', actor: state.user.name, userId: state.user.id, action:'إنشاء الطلب', note:'', time: fmtDate()}],
     approvalSteps: []
   };
   const reqInsert = await db.from('requests').insert({
     id:req.id, number:req.number, reason:req.reason, detailed_reason:req.detailedReason||null, total_amount:req.totalAmount, status:req.status,
     origin:req.origin, center_id:req.centerId, company_id:req.companyId, created_by:req.createdBy, created_by_id:req.createdById,
-    date_greg:req.dateGreg, date_hijri:req.dateHijri, is_recurring:req.isRecurring, fast_tracked:req.fastTracked, limit_exceeded:req.limitExceeded
+    date_greg:req.dateGreg, date_hijri:req.dateHijri, is_recurring:req.isRecurring, fast_tracked:req.fastTracked, limit_exceeded:req.limitExceeded,
+    budget_item_id: budgetItemId
   });
   if(!(await dbCheck(reqInsert, 'إنشاء الطلب'))) return;
   const stepRows = chain.map((s,i)=>({id:'as_'+req.id+'_'+i, request_id:req.id, approver_id:s.approverId, sequence_order:i+1, role_label:s.roleLabel, status:'pending', kind:'primary', activated_at: i===0 ? new Date().toISOString() : null}));
@@ -3163,6 +3227,12 @@ async function submitDraftInner(){
   await dbCheck(await db.from('request_history').insert({request_id:req.id, step:h0.step, actor:h0.actor, user_id:h0.userId, action:h0.action, note:h0.note, time:h0.time}), 'حفظ سجل الإنشاء');
   state.requests.push(req);
   clearDraftStorage();
+  // تسجيل تجاوز الرصيد إن وُجد
+  if(state._pendingOverrunLog){
+    const ol = state._pendingOverrunLog;
+    logBudgetOverrun(req.id, ol.budgetItemId, ol.stage, ol.requestedAmount, ol.availableBalance);
+    state._pendingOverrunLog = null;
+  }
   showToast('تم إرسال الطلب بنجاح', 'success');
   state.view='dashboard';
   state.activeReqId = req.id;
@@ -3252,6 +3322,18 @@ function canActOn(req){
 }
 
 async function approve(req){
+  // تحذير تجاوز رصيد الميزانية عند الاعتماد
+  if(req.budgetItemId && req.status==='pending_decision'){
+    const approveBal = computeBudgetItemBalance(req.budgetItemId);
+    if(approveBal != null && (Number(req.totalAmount)||0) > approveBal){
+      const bi = (state.budgetItems||[]).find(b=>b.id===req.budgetItemId);
+      const biName = bi ? bi.name : '';
+      const confirmed = confirm(`⚠️ تنبيه: رصيد البند غير كافٍ\n\nالبند: ${biName}\nمبلغ الطلب: ${(Number(req.totalAmount)||0).toFixed(3)} د.ك\nالرصيد المتاح: ${approveBal.toFixed(3)} د.ك\n\nهل تريد الاستمرار في الاعتماد؟`);
+      if(!confirmed) return;
+      logBudgetOverrun(req.id, req.budgetItemId, 'approve', Number(req.totalAmount)||0, approveBal);
+    }
+  }
+
   const me = state.users.find(u=>u.id===state.user.id);
   const needsSignature = ['dept_manager','senior_manager','executive_manager','cfo'].includes(state.user.role);
   const canManualSign = ['dept_manager','senior_manager','executive_manager','cfo','accountant'].includes(state.user.role);
@@ -5559,7 +5641,10 @@ function renderBudgetItemsTab(){
     ${editId ? editForm(items.find(b=>b.id===editId)||{}) : ''}
     ${items.length===0 ? `<div class="empty">لا توجد بنود مضافة بعد</div>` : items.map(b=>{
       const parentName = b.parent_id ? (items.find(p=>p.id===b.parent_id)||{}).name||'—' : null;
-      const bal = typeof b._balance === 'number' ? b._balance.toFixed(3)+' د.ك' : '—';
+      const bal = computeBudgetItemBalance(b.id);
+      const balColor = bal==null ? 'var(--muted)' : bal>50 ? 'var(--green)' : bal>0 ? 'var(--amber)' : 'var(--red)';
+      const balBg   = bal==null ? 'rgba(0,0,0,.04)' : bal>50 ? 'rgba(34,197,94,.1)' : bal>0 ? 'rgba(245,158,11,.1)' : 'rgba(239,68,68,.1)';
+      const balStr  = bal!=null ? bal.toFixed(3)+' د.ك' : '—';
       return `<div class="list-item">
         <div class="li-main">
           <b>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</b>
@@ -5567,6 +5652,7 @@ function renderBudgetItemsTab(){
           <span>آلية الأرباح: ${PROFIT_MODE_LABELS[b.profit_mode]||'—'}${b.profit_mode==='percent'||b.profit_mode==='both' ? ' ('+b.profit_percent+'%)' : ''}${b.profit_mode==='fixed'||b.profit_mode==='both' ? ' + '+b.profit_fixed+' د.ك' : ''}</span>
         </div>
         <div style="display:flex;gap:10px;align-items:center;">
+          <span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;background:${balBg};color:${balColor};border:1px solid ${balColor};white-space:nowrap;">الرصيد: ${balStr}</span>
           <button class="btn btn-ghost btn-xs" onclick="state.editingBudgetItemId='${b.id}'; render();">تعديل</button>
           <button class="btn btn-reject btn-xs" onclick="deleteBudgetItem('${b.id}')">حذف</button>
         </div>
@@ -7744,6 +7830,17 @@ function renderNewRequest(app){
         هل يتكرر هذا الطلب مستقبلاً؟ (مثل رواتب شهرية أو عهدة متكررة)
       </label>
 
+      <label style="margin-top:14px;">بند الميزانية <span style="color:var(--red);">*</span></label>
+      <select id="budgetItemSelect" onchange="onBudgetItemSelectChange()" style="width:100%;">
+        <option value="">— اختر البند —</option>
+        ${(state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId).map(b=>{
+          const bal = computeBudgetItemBalance(b.id);
+          const balStr = bal!=null ? ` (الرصيد: ${bal.toFixed(3)} د.ك)` : '';
+          return `<option value="${b.id}"${(d.budgetItemId===b.id)?' selected':''}>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${balStr}</option>`;
+        }).join('')}
+      </select>
+      <div id="budgetItemBalanceBox" style="display:none;margin-top:6px;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;"></div>
+
       <label>المستفيدون (شخص أو أكثر، أو جهة)</label>
       <div id="beneficiaryList">
         ${d.beneficiaries.map((b,i)=>{
@@ -7958,6 +8055,17 @@ function renderAppRequestView(req){
       </div>
     </div>
 
+    ${(()=>{
+      const bi = req.budgetItemId ? (state.budgetItems||[]).find(b=>b.id===req.budgetItemId) : null;
+      if(!bi) return '';
+      const bal = computeBudgetItemBalance(bi.id);
+      const balColor = bal==null ? 'var(--muted)' : bal>50 ? 'var(--green)' : bal>0 ? 'var(--amber)' : 'var(--red)';
+      return `<div style="display:flex;align-items:center;gap:12px;padding:8px 14px;background:rgba(0,0,0,.03);border:1px solid var(--line);border-radius:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <span style="font-weight:600;font-size:13px;">📂 بند الميزانية:</span>
+        <span style="font-size:13px;">${BUDGET_TYPE_ICONS[bi.type]||''} ${escH(bi.name)} (${BUDGET_TYPE_LABELS[bi.type]||bi.type})</span>
+        ${bal!=null ? `<span style="margin-right:auto;font-weight:700;font-size:13px;color:${balColor};">رصيد البند: ${bal.toFixed(3)} د.ك</span>` : ''}
+      </div>`;
+    })()}
     <div class="table-scroll-wrap">
       <table class="app-table">
         <colgroup>
