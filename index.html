@@ -5462,8 +5462,16 @@ function renderAdmin(app){
 // ══════════════════════════════════════════════════════════
 // بنود الميزانية — عرض وإدارة
 // ══════════════════════════════════════════════════════════
-const BUDGET_TYPE_LABELS = {company:'الشركة', center:'مركز', project:'مشروع', club:'نادي/وحدة'};
-const BUDGET_TYPE_ICONS  = {company:'🏢', center:'🏛️', project:'📋', club:'⚽'};
+const BUDGET_TYPE_LABELS = {
+  company:'الشركة', center:'مركز', club:'نادي/وحدة', project:'مشروع',
+  department:'إدارة', program:'برنامج', trip:'رحلة',
+  entity:'جهة', client:'عميل'
+};
+const BUDGET_TYPE_ICONS = {
+  company:'🏢', center:'🏛️', club:'⚽', project:'📋',
+  department:'💼', program:'🎓', trip:'🕌',
+  entity:'🏗️', client:'👤'
+};
 const PROFIT_MODE_LABELS = {none:'لا يُحتسب ربح', percent:'نسبة %', fixed:'مبلغ ثابت', both:'نسبة + مبلغ ثابت'};
 
 function renderBudgetItemsTab(){
@@ -5473,10 +5481,22 @@ function renderBudgetItemsTab(){
   const typeOpts = Object.entries(BUDGET_TYPE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
   const profitOpts = Object.entries(PROFIT_MODE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
 
-  // خيارات الوحدة الأم (بنود أخرى من نفس الشركة)
-  function parentOpts(excludeId=''){
-    return `<option value="">— تحت الشركة مباشرة —</option>`
-      + items.filter(b=>b.id!==excludeId).map(b=>`<option value="${b.id}">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('');
+  // خيارات "يتبع" مع تدرج المستويات
+  function parentOpts(excludeId='', selectedId=''){
+    // بناء شجرة مرتبة
+    const eligible = items.filter(b=>b.id!==excludeId);
+    const roots = eligible.filter(b=>!b.parent_id);
+    const childrenOf = id => eligible.filter(b=>b.parent_id===id);
+    const rows = [];
+    function walk(list, depth){
+      list.forEach(b=>{
+        const pad = '    '.repeat(depth);
+        rows.push(`<option value="${b.id}"${b.id===selectedId?' selected':''}>${pad}${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`);
+        walk(childrenOf(b.id), depth+1);
+      });
+    }
+    walk(roots, 0);
+    return `<option value=""${!selectedId?' selected':''}>— تحت الشركة مباشرة —</option>` + rows.join('');
   }
 
   function editForm(b){
