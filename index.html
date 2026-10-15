@@ -1895,8 +1895,8 @@ async function renderVerifyPage(reqId){
       const bg = i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)';
       const netHtml = `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(net)}</b> <span style="font-size:10px;color:var(--muted);">د.ك</span>`;
       if(anyAdjustments){
-        // عمود الحسابات: المبلغ ← الخصم ← الإضافي (بدون =) — محاذاة يسار، direction:rtl لترتيب يمين→يسار
-        // عمود الحسابات: المبلغ − الخصم + الإضافي بـ direction:ltr (يبدأ من اليسار بصرياً: المبلغ أولاً)
+        // عمود الحسابات بـ direction:rtl: أول عنصر في المصفوفة يظهر أقصى اليمين.
+        // فالترتيب البصري من اليمين: المبلغ ← − الخصم ← + الإضافي
         let calcParts = [];
         calcParts.push(`<span style="font-variant-numeric:tabular-nums;color:var(--ink);">${fmtAmt(amount)}</span>`);
         if(ded>0)   calcParts.push(`<span style="color:var(--red);">−&nbsp;${fmtAmt(ded)}</span>`);
@@ -1906,7 +1906,7 @@ async function renderVerifyPage(reqId){
           <tr style="background:${bg};">
             <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
             <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
-            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:left;direction:ltr;color:var(--muted);border-left:1px solid var(--line);">${calcDisplay}</td>
+            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:right;direction:rtl;color:var(--muted);border-left:1px solid var(--line);">${calcDisplay}</td>
             <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
           </tr>`;
       } else {
