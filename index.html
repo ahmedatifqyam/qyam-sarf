@@ -127,7 +127,7 @@
   .nav-caret{margin-right:auto;font-size:11px;opacity:.7;}
   .nav-sub{padding:2px 0 6px;}
   .nav-subcat{font-size:11px;font-weight:700;color:#7f93a8;margin:4px 14px 0;line-height:1.5;}
-  .admin-nav-item{display:block;padding:3px 12px 3px 8px;margin:0;line-height:1.5;border-radius:7px;cursor:pointer;font-size:13px;color:#cfd8e3;margin-right:22px;border-right:3px solid transparent;}
+  .admin-nav-item{display:block;padding:7px 12px 7px 8px;margin:1px 0;line-height:1.5;border-radius:7px;cursor:pointer;font-size:13.5px;color:#cfd8e3;margin-right:18px;border-right:3px solid transparent;}
   .admin-nav-item:hover{background:rgba(255,255,255,.08);color:#fff;}
   .admin-nav-item.active{background:rgba(255,255,255,.13);color:#fff;font-weight:600;border-right-color:#D4AF37;}
   .app-nav[data-mode="collapsed"] .nav-label, .app-nav[data-mode="collapsed"] .nav-title, .app-nav[data-mode="collapsed"] .nav-caret,
@@ -146,6 +146,21 @@
     .shell-main{padding-right:0 !important;padding-left:0 !important;}
   }
   .admin-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;padding-bottom:8px;border-bottom:2px solid var(--line);}
+  /* ===== رأس لوحة التحكم: صف عنوان + صفّا تبويبات (RTL: الأول = أقصى اليمين) ===== */
+  .adm-head{display:flex;align-items:baseline;gap:12px;margin:0 0 12px;}
+  .adm-head h1{margin:0;font-size:22px;line-height:1.3;}
+  .adm-head .adm-sec{font-size:15px;font-weight:700;color:var(--muted);white-space:nowrap;}
+  .adm-head .admin-co-badge{align-self:center;}
+  .adm-tabs2{display:flex;align-items:stretch;gap:4px;overflow-x:auto;scrollbar-width:thin;
+    background:var(--card);border:1px solid var(--line);border-radius:8px;
+    padding:7px 8px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+  .adm-tabs2::-webkit-scrollbar{height:4px;}
+  .adm-tabs2::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+  .adm-t2{flex:0 0 auto;padding:7px 14px;font-size:13px;font-weight:600;font-family:inherit;white-space:nowrap;
+    cursor:pointer;border:1px solid transparent;background:transparent;color:var(--muted);border-radius:6px;}
+  .adm-t2:hover{background:var(--paper);color:var(--text);}
+  .adm-t2.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+  @media(max-width:640px){ .adm-head{flex-wrap:wrap;gap:6px;} .adm-head h1{font-size:19px;} }
   .admin-section-head h2{margin:0;font-size:19px;}
   .admin-co-badge{background:var(--blue-bg);color:var(--blue);font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;white-space:nowrap;}
 
@@ -190,6 +205,14 @@
   .btn-warning{background:#fff7ed;color:#c2410c;border:2px solid #ea8c1e;box-shadow:0 1px 4px rgba(0,0,0,0.08);}
   .btn-warning:hover{background:#ffedd5;}
   .btn-ghost{background:#fff;color:var(--text);border:2px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+  /* ===== شريط أدوات تقرير الميزانية — سطر واحد صارم ===== */
+  .rep-bar{display:flex;align-items:center;gap:6px;margin-bottom:14px;}
+  .rep-bar > *{flex:0 0 auto;}
+  .rep-bar select{width:auto !important;min-width:118px;padding:0 28px 0 10px;height:34px;font-size:12.5px;}
+  .rep-bar .btn{width:auto !important;min-width:0;min-height:34px;padding:0 12px;font-size:12.5px;white-space:nowrap;border-width:1px;box-shadow:none;}
+  .rep-bar .rep-spacer{flex:1 1 auto;min-width:0;}
+  .rep-seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;height:34px;}
+  .rep-seg button{padding:0 13px;font-size:12.5px;font-weight:700;cursor:pointer;border:none;white-space:nowrap;font-family:inherit;}
   .row{display:flex;gap:12px;flex-wrap:wrap;}
   .row > *{flex:1;min-width:180px;}
   .beneficiary-block{border:2px solid var(--line);border-radius:8px;padding:16px;margin-top:16px;background:var(--card);}
@@ -689,6 +712,14 @@
   .tree-measure-box .tree-row, .tree-measure-box div[style*="padding-right"]{white-space:normal !important;}
   @media print{
     .db-badge, .imp-float{display:none !important;}
+    /* طباعة تقرير الميزانية */
+    .no-print{display:none !important;}
+    .print-header{display:block !important;}
+    .app-nav,.topbar,.admin-tabs-bar,.nav-backdrop{display:none !important;}
+    .shell-main{padding-right:0 !important;}
+    .summary-cards{grid-template-columns:repeat(4,1fr) !important;}
+    /* عند الطباعة: إظهار كل صفوف جدول التقرير بغض النظر عن حالة الطي */
+    .bri-row{display:table-row !important;}
     body.printing-tree #app > h1:first-child, body.printing-tree .admin-section-head, body.printing-tree .org-tree-print-head p.sub{display:none !important;}
     body.printing-tree .print-only{display:block !important;}
     body.printing-tree .org-tree-print-head{padding:12mm 12mm 0 !important;}
@@ -1051,7 +1082,8 @@ function dbCompanyToState(c){
     cfoDelegationMode: c.cfo_delegation_mode || 'normal',
     defaultDeadlineDays:(c.default_deadline_days===undefined||c.default_deadline_days===null ? null : Number(c.default_deadline_days)), defaultEscalateMode:c.default_escalate_mode||'manager', deadlineDayMode:c.deadline_day_mode||'work',
     cfoDelegateUserId:c.cfo_delegate_user_id||null, cfoDelegateUntil:c.cfo_delegate_until||'',
-    signatureMode:c.signature_mode||'seq', signatureDir:c.signature_dir||'ltr'
+    signatureMode:c.signature_mode||'seq', signatureDir:c.signature_dir||'ltr',
+    currency_symbol: c.currency_symbol || 'د.ك'
   };
 }
 
@@ -1282,6 +1314,19 @@ function renderBrand(){
     <div class="brand-group brand-co-group">${slot(coLogoSrc,'brand-cologo','أضف شعار الشركة')}<span class="brand-sub" title="${escH(coText)}"><span>${escH(coText)}</span></span></div>` : ''}`;
 }
 function escH(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ─── تنسيق المبالغ: الجزء الصحيح عادي، الكسر (فلس) بخط أصغر ───
+// fmtKWD(v)        → HTML: "1,234<small>.567</small> د.ك"
+// fmtKWDPlain(v)   → نص خالص: "1,234.567 د.ك"  (للـ alert والـ CSV)
+function fmtKWD(val, opts){
+  const n = Number(val||0);
+  const parts = n.toFixed(3).split('.');
+  const whole = Number(parts[0]).toLocaleString('en');
+  const frac  = parts[1];
+  const unit  = opts&&opts.noUnit ? '' : ' <span style="font-size:0.75em;color:var(--muted);">د.ك</span>';
+  return `${whole}<span style="font-size:0.72em;opacity:.85;">.${frac}</span>${unit}`;
+}
+function fmtKWDPlain(val){ const n=Number(val||0); const p=n.toFixed(3).split('.'); return `${Number(p[0]).toLocaleString('en')}.${p[1]} د.ك`; }
 function tsOf(v){ const t = v ? new Date(v).getTime() : NaN; return isNaN(t) ? 0 : t; }
 function lastEventAt(r){ let t = tsOf(r.createdAtRaw); (r.history||[]).forEach(h=>{ const x = tsOf(h.createdAt); if(x>t) t = x; }); return t; }
 function arDays(n){ n = Math.max(1, Math.round(n)); return n===1 ? 'يوم' : n===2 ? 'يومين' : (n<=10 ? n+' أيام' : n+' يوماً'); }
@@ -1805,14 +1850,9 @@ async function renderVerifyPage(reqId){
 
     const benes = r.request_beneficiaries || [];
 
-    // دالة مساعدة: تنسيق المبلغ بأرقام إنجليزية مع تصغير الكسر (الفلوس)
-    function fmtAmt(val){
-      const n = Number(val||0);
-      const parts = n.toFixed(3).split('.');
-      return `${Number(parts[0]).toLocaleString('en')}<span style="font-size:0.8em;font-weight:400;">.${parts[1]}</span>`;
-    }
-    // نسخة نص خالص بدون HTML (للمقارنة وعرض الإجمالي في الشريط الداكن)
-    function fmtAmtPlain(val){ const n=Number(val||0); const p=n.toFixed(3).split('.'); return `${Number(p[0]).toLocaleString('en')}.${p[1]}`; }
+    // استخدام الدوال العامة مباشرة
+    const fmtAmt = (val) => fmtKWD(val,{noUnit:true});
+    const fmtAmtPlain = (val) => { const n=Number(val||0); const p=n.toFixed(3).split('.'); return `${Number(p[0]).toLocaleString('en')}.${p[1]}`; };
 
     // هل يوجد أي مستفيد لديه خصم أو إضافي؟ — لتحديد هيكل الجدول بالكامل
     const anyAdjustments = benes.some(b => Number(b.deduction||0) > 0 || Number(b.extra||0) > 0);
@@ -2223,13 +2263,9 @@ function amountToArabicWords(amount){
   return 'فقط ' + text + ' لا غير';
 }
 
-function fmtKWD(n){
-  return Number(n||0).toLocaleString('en-US', {minimumFractionDigits:3, maximumFractionDigits:3});
-}
-function fmtKWDHtml(n){
-  const parts = fmtKWD(n).split('.');
-  return `${parts[0]}<span style="font-size:0.7em;">.${parts[1]}</span>`;
-}
+// fmtKWD و fmtKWDHtml معرّفتان مرة واحدة فقط عند سطر 1295
+// هذا النص بديل فارغ لتجنب التعريف المزدوج — الدالتان موجودتان أعلاه
+function fmtKWDHtml(n){ return fmtKWD(n,{noUnit:true}); }
 
 function getDocDates(){
   const now = new Date();
@@ -2362,10 +2398,11 @@ function renderAppNav(){
   const itemHtml = it=>{
     if(it.group){
       const open = inAdminArea() && !collapsed;
-      const sub = ADMIN_NAV.map(g=>`
-        <div class="nav-subcat">${escH(g.cat)}</div>
-        ${g.items.map(i=>`<div class="admin-nav-item${adminNavIsActive(i)?' active':''}" data-nav-item data-nav-label="${escH(i.label)}" onclick="${navClick(adminNavAction(i))}">${escH(i.label)}</div>`).join('')}
-      `).join('');
+      // الشريط الجانبي: البنود العامة الخمسة فقط — تبويباتها تظهر داخل الصفحة
+      const curG = inAdminArea() ? activeAdminGroup() : null;
+      const sub = ADMIN_NAV.map(g=>
+        `<div class="admin-nav-item${curG && curG.gkey===g.gkey ? ' active':''}" data-nav-item data-nav-label="${escH(g.cat)}" onclick="${navClick(`openAdminGroup('${g.gkey}')`)}">${escH(g.cat)}</div>`
+      ).join('');
       const headJs = collapsed ? `navPeekOpen();` : navClick(`state.view='admin'; render(); window.scrollTo(0,0);`);
       return `<div class="nav-group">
         <div class="nav-item${it.active?' active':''}" title="${escH(it.label)}" onclick="${headJs}"><span class="nav-ico">${it.ico}</span><span class="nav-label">${escH(it.label)}</span><span class="nav-caret">${open?'▲':'▼'}</span></div>
@@ -2838,6 +2875,45 @@ function computeBudgetItemBalance(itemId){
   return totalRev - profit - spent;
 }
 
+// جمع IDs كل الفروع (بأي عمق) لبند معين
+function getDescendantIds(itemId, allItems){
+  const children = allItems.filter(b=>b.parent_id===itemId);
+  return children.reduce((acc,c)=>[...acc, c.id, ...getDescendantIds(c.id, allItems)], []);
+}
+
+// حساب الرصيد المجمّع للبند + كل فروعه
+function computeBudgetItemBalanceTotal(itemId){
+  const allItems = state.budgetItems||[];
+  const ids = [itemId, ...getDescendantIds(itemId, allItems)];
+  let total = 0;
+  let hasAny = false;
+  for(const id of ids){
+    const b = computeBudgetItemBalance(id);
+    if(b !== null){ total += b; hasAny = true; }
+  }
+  return hasAny ? total : null;
+}
+
+// بيانات مجمّعة لبند (إيرادات + أرباح + مصروف) شاملة الفروع
+function computeBudgetItemStats(itemId, includeChildren){
+  const allItems = state.budgetItems||[];
+  const ids = includeChildren ? [itemId, ...getDescendantIds(itemId, allItems)] : [itemId];
+  let rev=0, profit=0, spent=0;
+  for(const id of ids){
+    const item = allItems.find(b=>b.id===id);
+    if(!item) continue;
+    const revs = (state.budgetRevenues||[]).filter(r=>r.budget_item_id===id);
+    const r = revs.reduce((s,x)=>s+(Number(x.amount)||0),0);
+    let p=0;
+    if(item.profit_mode==='percent') p=r*(item.profit_percent||0)/100;
+    else if(item.profit_mode==='fixed') p=Math.min(r,item.profit_fixed||0);
+    else if(item.profit_mode==='both') p=r*(item.profit_percent||0)/100+(item.profit_fixed||0);
+    const s=(state.requests||[]).filter(x=>x.budgetItemId===id&&['approved','pending_decision'].includes(x.status)&&!x.isCancelled).reduce((a,x)=>a+(Number(x.totalAmount)||0),0);
+    rev+=r; profit+=p; spent+=s;
+  }
+  return {rev, profit, spent, bal: rev-profit-spent, net: rev-profit};
+}
+
 function onBudgetItemSelectChange(){
   syncDraftFromDOM();
   const sel = document.getElementById('budgetItemSelect');
@@ -2850,7 +2926,7 @@ function onBudgetItemSelectChange(){
   const color = bal>50 ? 'var(--green)' : bal>0 ? 'var(--amber)' : 'var(--red)';
   const bg = bal>50 ? 'rgba(34,197,94,.08)' : bal>0 ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)';
   box.style.cssText = `display:block;margin-top:6px;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;background:${bg};color:${color};border:1px solid ${color};`;
-  box.textContent = `الرصيد المتاح: ${bal.toFixed(3)} د.ك`;
+  box.innerHTML = `الرصيد المتاح: ${fmtKWD(bal)}`;
 }
 
 function onBeneficiaryNameChange(index, value){
@@ -5311,34 +5387,48 @@ function renderCancelledArchive(app){
 }
 // ---- فئات الشريط الجانبي لمدير النظام: مشتركة بين صفحة الأدمن وكل الصفحات المستقلة المرتبطة بها، حتى يبقى التنقل ثابتاً أينما كنت ----
 const ADMIN_NAV = [
-  {cat:'الهيكل والصلاحيات', items:[
-    {key:'orgTree', label:'الهيكل التنظيمي', kind:'view'},
-    {key:'jobLevels', label:'سلّم المستويات الوظيفية', kind:'view'},
+  // ١ المنشأة — ما هي المنشأة: كياناتها وشكل هيكلها
+  {gkey:'org', tab:'المنشأة', cat:'المنشأة', items:[
     {key:'companies', label:'الشركات', kind:'tab'},
     {key:'centers', label:'الوحدات التنظيمية', kind:'tab'},
-    {key:'roles', label:'الأدوار الوظيفية', kind:'tab'},
+    {key:'orgTree', label:'الهيكل التنظيمي', kind:'view'}
+  ]},
+  // ٢ المستخدمون والصلاحيات — من يعمل فيها وماذا يملك
+  {gkey:'people', tab:'المستخدمون والصلاحيات', cat:'المستخدمون والصلاحيات', items:[
     {key:'users', label:'المستخدمون', kind:'tab'},
-    {key:'impersonate', label:'تصفّح كمستخدم آخر', kind:'tab'}
+    {key:'roles', label:'الأدوار الوظيفية', kind:'tab'},
+    {key:'jobLevels', label:'سلّم المستويات الوظيفية', tab:'المستويات الوظيفية', kind:'view'},
+    {key:'impersonate', label:'تصفّح كمستخدم آخر', tab:'تصفّح كمستخدم', kind:'tab'}
   ]},
-  {cat:'الميزانية والإيرادات', items:[
-    {key:'budgetItems', label:'بنود الميزانية', kind:'tab'},
+  // ٣ المالية — المال: تخطيطه وصرفه وتحليله
+  {gkey:'finance', tab:'المالية', cat:'المالية', items:[
+    {key:'budgetItems', label:'بنود الميزانية', tab:'البنود', kind:'tab'},
     {key:'budgetRevenues', label:'الإيرادات', kind:'tab'},
-    {key:'budgetReport', label:'تقرير الميزانية', kind:'tab'}
+    {key:'budgetReport', label:'تقرير الميزانية', tab:'التقرير', kind:'tab'},
+    {key:'exec', label:'التحليلات واللوحة التنفيذية', tab:'اللوحة التنفيذية', head:'التحليلات المالية واللوحة التنفيذية', kind:'exec'},
+    {key:'cancelledArchive', label:'أرشيف الطلبات الملغاة', tab:'أرشيف الملغاة', kind:'view'}
   ]},
-  {cat:'الطلبات والتحليلات', items:[
-    {key:'exec', label:'التحليلات واللوحة التنفيذية', head:'التحليلات المالية واللوحة التنفيذية', kind:'exec'},
-    {key:'cancelledArchive', label:'أرشيف الطلبات الملغاة', kind:'view'}
-  ]},
-  {cat:'الطباعة والمستندات', items:[
-    {key:'printSetup', label:'الترويسة والتذييل', kind:'tab'},
-    {key:'sigFinal', label:'التوقيعات: الصفحة الأخيرة', head:'تصميم مواقع التوقيعات — الصفحة الأخيرة', kind:'sigFinal'},
-    {key:'sigMini', label:'التوقيعات: الشريط المصغّر', head:'تصميم مواقع التوقيعات — الشريط المصغّر', kind:'sigMini'}
-  ]},
-  {cat:'إعدادات النظام', items:[
+  // ٤ الهوية والمستندات — كيف يبدو النظام على الشاشة وعلى الورق
+  {gkey:'brand', tab:'الهوية والمستندات', cat:'الهوية والمستندات', items:[
     {key:'branding', label:'الهوية والشعارات', kind:'tab'},
-    {key:'barSettings', label:'الشريط السفلي العام', kind:'view'}
+    {key:'printSetup', label:'الترويسة والتذييل', kind:'tab'},
+    {key:'sigFinal', label:'التوقيعات: الصفحة الأخيرة', tab:'توقيعات: الصفحة الأخيرة', head:'تصميم مواقع التوقيعات — الصفحة الأخيرة', kind:'sigFinal'},
+    {key:'sigMini', label:'التوقيعات: الشريط المصغّر', tab:'توقيعات: الشريط المصغّر', head:'تصميم مواقع التوقيعات — الشريط المصغّر', kind:'sigMini'},
+    {key:'barSettings', label:'الشريط السفلي العام', tab:'الشريط السفلي', kind:'view'}
   ]}
 ];
+// المجموعة النشطة: تُستنتج من البند المفتوح؛ وإن لم يُعرف أي بند يبقى آخر اختيار
+function activeAdminGroup(){
+  for(const g of ADMIN_NAV){ if(g.items.some(it=>adminNavIsActive(it))) return g; }
+  return ADMIN_NAV.find(g=>g.gkey===state.adminGroup) || ADMIN_NAV[0];
+}
+function openAdminGroup(gkey){
+  const g = ADMIN_NAV.find(x=>x.gkey===gkey); if(!g) return;
+  state.adminGroup = gkey;
+  // لو البند المفتوح يتبع هذه المجموعة أصلاً، لا تنقل المستخدم
+  if(g.items.some(it=>adminNavIsActive(it))){ render(); window.scrollTo(0,0); return; }
+  new Function(adminNavAction(g.items[0]))();
+}
 function adminNavAction(item){
   const top = `window.scrollTo(0,0);`; // كل تبويب يفتح من أعلى الصفحة
   if(item.kind==='view') return `state.view='${item.key}'; render(); ${top}`;
@@ -5351,6 +5441,22 @@ function adminNavAction(item){
 function adminSectionHeadHtml(){
   for(const g of ADMIN_NAV){ for(const it of g.items){ if(adminNavIsActive(it)) return `<div class="admin-section-head"><h2>${escH(it.head||it.label)}</h2><span class="admin-co-badge" title="الشركة الحالية — بدّلها من الأعلى">${escH((state.companies.find(c=>c.id===state.currentCompanyId)||{}).nameAr||'—')}</span></div>`; } }
   return '';
+}
+// رأس لوحة التحكم: صف عنوان + صف البنود العامة + صف تبويبات البند المفتوح
+// ملاحظة RTL: العنصر الأول في الكود يظهر أقصى اليمين، وmargin-right:auto يدفع لليسار
+function adminHeaderHtml(){
+  const grp = activeAdminGroup();
+  const coName = (state.companies.find(c=>c.id===state.currentCompanyId)||{}).nameAr || '—';
+  const subTabs = grp.items.map(it=>
+    `<button class="adm-t2${adminNavIsActive(it)?' active':''}" onclick="${adminNavAction(it)}">${escH(it.tab||it.label)}</button>`
+  ).join('');
+  return `
+    <div class="adm-head">
+      <h1>لوحة تحكم مدير النظام</h1>
+      <span class="adm-sec">${escH(grp.cat)}</span>
+      <span class="admin-co-badge" style="margin-right:auto;" title="الشركة الحالية — بدّلها من الأعلى">${escH(coName)}</span>
+    </div>
+    <div class="adm-tabs2">${subTabs}</div>`;
 }
 function adminNavIsActive(item){
   if(item.kind==='tab') return state.view==='admin' && state.adminSubTab===item.key;
@@ -5380,7 +5486,7 @@ function wrapWithAdminSidebar(contentHtml){
   // التنقل صار بالشريط الجانبي العام؛ هنا عنوان موحّد + حذف رابط "رجوع" والعنوان الداخلي القديم
   let stripped = contentHtml.replace(/<span class="back-link[^"]*"[^>]*>→ رجوع<\/span>/g, '');
   stripped = stripped.replace(/<h1[^>]*>[\s\S]*?<\/h1>/, '');
-  return `<h1 style="margin:0 0 4px;">لوحة تحكم مدير النظام</h1>${adminSectionHeadHtml()}${stripped}`;
+  return `${adminHeaderHtml()}${stripped}`;
 }
 function renderAdmin(app){
   const CENTER_ROLES = ['employee','dept_manager'];
@@ -5538,8 +5644,7 @@ function renderAdmin(app){
   }[state.adminSubTab] || (state.adminSubTab==='branding' ? renderBrandingPanel() : state.adminSubTab==='printSetup' ? renderPrintSetupPanel() : state.adminSubTab==='budgetItems' ? renderBudgetItemsTab() : state.adminSubTab==='budgetRevenues' ? renderBudgetRevenuesTab() : state.adminSubTab==='budgetReport' ? renderBudgetReportTab() : '');
 
   app.innerHTML = `
-    <h1>لوحة تحكم مدير النظام</h1>
-    ${adminSectionHeadHtml()}${subTabContent}
+    ${adminHeaderHtml()}${subTabContent}
   `;
 }
 // ══════════════════════════════════════════════════════════
@@ -5642,18 +5747,23 @@ function renderBudgetItemsTab(){
     ${editId ? editForm(items.find(b=>b.id===editId)||{}) : ''}
     ${items.length===0 ? `<div class="empty">لا توجد بنود مضافة بعد</div>` : items.map(b=>{
       const parentName = b.parent_id ? (items.find(p=>p.id===b.parent_id)||{}).name||'—' : null;
+      const hasChildren = items.some(x=>x.parent_id===b.id);
       const bal = computeBudgetItemBalance(b.id);
-      const balColor = bal==null ? 'var(--muted)' : bal>50 ? 'var(--green)' : bal>0 ? 'var(--amber)' : 'var(--red)';
-      const balBg   = bal==null ? 'rgba(0,0,0,.04)' : bal>50 ? 'rgba(34,197,94,.1)' : bal>0 ? 'rgba(245,158,11,.1)' : 'rgba(239,68,68,.1)';
-      const balStr  = bal!=null ? bal.toFixed(3)+' د.ك' : '—';
+      const balTotal = hasChildren ? computeBudgetItemBalanceTotal(b.id) : null;
+      function balBadge(v, label){
+        const c = v==null?'var(--muted)':v>50?'var(--green)':v>0?'var(--amber)':'var(--red)';
+        const bg= v==null?'rgba(0,0,0,.04)':v>50?'rgba(34,197,94,.1)':v>0?'rgba(245,158,11,.1)':'rgba(239,68,68,.1)';
+        const s = v!=null?fmtKWD(v):'—';
+        return `<span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;background:${bg};color:${c};border:1px solid ${c};white-space:nowrap;">${label}: ${s}</span>`;
+      }
       return `<div class="list-item">
         <div class="li-main">
           <b>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</b>
           <span>${BUDGET_TYPE_LABELS[b.type]||b.type}${parentName ? ' · يتبع: '+escH(parentName) : ''}${b.is_recurring?' · متجدد':''}${!b.is_active?' · <span style="color:var(--muted)">غير نشط</span>':''}</span>
           <span>آلية الأرباح: ${PROFIT_MODE_LABELS[b.profit_mode]||'—'}${b.profit_mode==='percent'||b.profit_mode==='both' ? ' ('+b.profit_percent+'%)' : ''}${b.profit_mode==='fixed'||b.profit_mode==='both' ? ' + '+b.profit_fixed+' د.ك' : ''}</span>
         </div>
-        <div style="display:flex;gap:10px;align-items:center;">
-          <span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;background:${balBg};color:${balColor};border:1px solid ${balColor};white-space:nowrap;">الرصيد: ${balStr}</span>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          ${hasChildren ? balBadge(bal,'رصيده') + balBadge(balTotal,'الإجمالي مع الفروع') : balBadge(bal,'الرصيد')}
           <button class="btn btn-ghost btn-xs" onclick="state.editingBudgetItemId='${b.id}'; render();">تعديل</button>
           <button class="btn btn-reject btn-xs" onclick="deleteBudgetItem('${b.id}')">حذف</button>
         </div>
@@ -5736,102 +5846,360 @@ async function confirmDeleteBudgetItem(id){
 // ══════════════════════════════════════════════════════════
 // تقرير الميزانية
 // ══════════════════════════════════════════════════════════
+// ── طي/فتح بنود التقرير ──
+function budgetReportToggle(id){
+  if(!state.budgetReportCollapsed) state.budgetReportCollapsed = new Set();
+  if(state.budgetReportCollapsed.has(id)) state.budgetReportCollapsed.delete(id);
+  else state.budgetReportCollapsed.add(id);
+  render();
+}
+function budgetReportCollapseAll(){
+  const allItems = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId);
+  const parentIds = new Set(allItems.filter(b=>b.parent_id).map(b=>b.parent_id));
+  state.budgetReportCollapsed = new Set([...parentIds]);
+  render();
+}
+function budgetReportExpandAll(){
+  state.budgetReportCollapsed = new Set();
+  render();
+}
+
+function exportBudgetReportCSV(){
+  const allItems = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId);
+  function flatRows(parentId, depth){
+    return allItems.filter(b=>b.parent_id===(parentId||null)).flatMap(b=>{
+      const hc = allItems.some(x=>x.parent_id===b.id);
+      const own = computeBudgetItemStats(b.id,false);
+      const tot = hc ? computeBudgetItemStats(b.id,true) : own;
+      const prefix = '  '.repeat(depth);
+      const row = [
+        `"${prefix}${b.name}"`,
+        `"${BUDGET_TYPE_LABELS[b.type]||b.type}"`,
+        own.rev.toFixed(3),
+        own.profit.toFixed(3),
+        own.spent.toFixed(3),
+        own.bal.toFixed(3),
+        hc ? tot.rev.toFixed(3) : '',
+        hc ? tot.spent.toFixed(3) : '',
+        hc ? tot.bal.toFixed(3) : '',
+        b.is_active!==false ? 'نشط' : 'غير نشط'
+      ];
+      return [row.join(','), ...flatRows(b.id, depth+1)];
+    });
+  }
+  const header = ['البند','النوع','إيراداته','أرباحه','مصروفه','رصيده','إيرادات مجمّعة','مصروف مجمّع','رصيد مجمّع','الحالة'].join(',');
+  const csv = '﻿' + header + '\n' + flatRows(null,0).join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `تقرير_الميزانية_${new Date().toLocaleDateString('en-CA')}.csv`;
+  a.click();
+}
+
+function printBudgetReport(){
+  window.print();
+}
+
 function renderBudgetReportTab(){
   const allItems = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId);
   const types = [...new Set(allItems.map(b=>b.type))];
   const filterType = state.budgetReportTypeFilter||'';
-  const items = filterType ? allItems.filter(b=>b.type===filterType) : allItems;
 
-  // إجمالي الشركة
-  let totalRev=0, totalProfit=0, totalSpent=0, totalBal=0;
-  items.forEach(b=>{
-    const revs = (state.budgetRevenues||[]).filter(r=>r.budget_item_id===b.id);
-    const rev = revs.reduce((s,r)=>s+(Number(r.amount)||0),0);
-    let profit=0;
-    if(b.profit_mode==='percent') profit=rev*(b.profit_percent||0)/100;
-    else if(b.profit_mode==='fixed') profit=Math.min(rev,b.profit_fixed||0);
-    else if(b.profit_mode==='both') profit=rev*(b.profit_percent||0)/100+(b.profit_fixed||0);
-    const spent=(state.requests||[]).filter(r=>r.budgetItemId===b.id&&['approved','pending_decision'].includes(r.status)&&!r.isCancelled).reduce((s,r)=>s+(Number(r.totalAmount)||0),0);
-    const bal=rev-profit-spent;
-    totalRev+=rev; totalProfit+=profit; totalSpent+=spent; totalBal+=bal;
-  });
+  // فلترة مع الحفاظ على الهيكل الشجري
+  let displayItems = allItems;
+  if(filterType){
+    const matchIds = new Set(allItems.filter(b=>b.type===filterType).map(b=>b.id));
+    function addParents(id){ const b=allItems.find(x=>x.id===id); if(b?.parent_id&&!matchIds.has(b.parent_id)){ matchIds.add(b.parent_id); addParents(b.parent_id); } }
+    [...matchIds].forEach(id=>addParents(id));
+    displayItems = allItems.filter(b=>matchIds.has(b.id));
+  }
+
+  // إجمالي الشركة من البنود الجذرية فقط
+  const rootItems = allItems.filter(b=>!b.parent_id);
+  let totalRev=0, totalProfit=0, totalSpent=0;
+  rootItems.forEach(b=>{ const s=computeBudgetItemStats(b.id,true); totalRev+=s.rev; totalProfit+=s.profit; totalSpent+=s.spent; });
+  const totalBal = totalRev-totalProfit-totalSpent;
+  const totalNet = totalRev-totalProfit;
+  const pctTotal = totalNet>0?Math.min(100,Math.round(totalSpent/totalNet*100)):0;
+  const totalBarColor = pctTotal>=100?'var(--red)':pctTotal>=80?'var(--amber)':'var(--green)';
 
   const typeFilterOpts = `<option value="">كل الأنواع</option>`+types.map(t=>`<option value="${t}"${filterType===t?' selected':''}>${BUDGET_TYPE_ICONS[t]||''} ${BUDGET_TYPE_LABELS[t]||t}</option>`).join('');
 
-  const cards = items.map(b=>{
-    const revs=(state.budgetRevenues||[]).filter(r=>r.budget_item_id===b.id);
-    const rev=revs.reduce((s,r)=>s+(Number(r.amount)||0),0);
-    let profit=0;
-    if(b.profit_mode==='percent') profit=rev*(b.profit_percent||0)/100;
-    else if(b.profit_mode==='fixed') profit=Math.min(rev,b.profit_fixed||0);
-    else if(b.profit_mode==='both') profit=rev*(b.profit_percent||0)/100+(b.profit_fixed||0);
-    const net=rev-profit;
-    const spent=(state.requests||[]).filter(r=>r.budgetItemId===b.id&&['approved','pending_decision'].includes(r.status)&&!r.isCancelled).reduce((s,r)=>s+(Number(r.totalAmount)||0),0);
-    const bal=net-spent;
-    const pct=net>0?Math.min(100,Math.round(spent/net*100)):0;
-    const barColor=pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
-    const balColor=bal>50?'var(--green)':bal>0?'var(--amber)':'var(--red)';
-    const parentName=b.parent_id?(allItems.find(p=>p.id===b.parent_id)||{}).name:null;
-    return `
-    <div class="card" style="margin-bottom:16px;padding:16px 20px;">
-      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
-        <div style="flex:1;min-width:180px;">
-          <div style="font-size:15px;font-weight:700;">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${BUDGET_TYPE_LABELS[b.type]||b.type}${parentName?' · يتبع: '+escH(parentName):''}${!b.is_active?' · <span style="color:var(--red);">غير نشط</span>':''}</div>
+  // حالة الطي: مجموعة من IDs المطوية (لا تظهر أبناؤها)
+  if(!state.budgetReportCollapsed) state.budgetReportCollapsed = new Set();
+  const collapsed = state.budgetReportCollapsed;
+
+  // جمع كل IDs التي لها أبناء
+  const parentIds = new Set(allItems.filter(b=>b.parent_id).map(b=>b.parent_id));
+
+  // وضع العرض: 'grouped' = مجمّع (الافتراضي) | 'detail' = مفصّل
+  if(!state.budgetReportViewMode) state.budgetReportViewMode = 'grouped';
+  const viewMode = state.budgetReportViewMode;
+
+  // رمز العملة — يُقرأ من إعدادات الشركة أو الافتراضي د.ك
+  const currentCompany = (state.companies||[]).find(c=>c.id===state.currentCompanyId);
+  const currencySymbol = currentCompany?.currency_symbol || 'د.ك';
+
+  // ── دوال الخلايا المشتركة ──
+  const SEP = 'border-right:1px solid rgba(0,0,0,0.1);'; // فاصل رفيع صلب بين كل الأعمدة
+  const BAR_SEP = 'border-right:1px solid rgba(0,0,0,0.1);'; // نفس الفاصل بين الاستهلاك والرصيد
+
+  // خلية رقم
+  function numCell(val, color, big){
+    const sz = big?'font-size:14px;':'';
+    const fw = big?'font-weight:900;':'font-weight:600;';
+    const v = val===0 ? `<span style="color:var(--muted);">—</span>` : fmtKWD(val,{noUnit:true});
+    return `<td style="padding:7px 12px;text-align:right;color:${color};${sz}${fw}${SEP}" title="${fmtKWDPlain(val)}">${v}</td>`;
+  }
+
+  // شريط استهلاك
+  function barCell(pct, barC, big){
+    const h = big?'7px':'5px';
+    return `<td style="padding:7px 8px;min-width:90px;${SEP}">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;background:var(--line);border-radius:4px;height:${h};overflow:hidden;min-width:40px;">
+          <div style="height:100%;width:${pct}%;background:${barC};border-radius:4px;"></div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <span style="padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(34,197,94,.1);color:var(--green);border:1px solid var(--green);">الإيرادات: ${rev.toFixed(3)} د.ك</span>
-          ${profit>0?`<span style="padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(245,158,11,.1);color:var(--amber);border:1px solid var(--amber);">الأرباح: ${profit.toFixed(3)} د.ك</span>`:''}
-          <span style="padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(239,68,68,.1);color:var(--red);border:1px solid var(--red);">المصروف: ${spent.toFixed(3)} د.ك</span>
-          <span style="padding:5px 12px;border-radius:8px;font-size:13px;font-weight:800;background:${bal>50?'rgba(34,197,94,.1)':bal>0?'rgba(245,158,11,.1)':'rgba(239,68,68,.1)'};color:${balColor};border:1px solid ${balColor};">الرصيد: ${bal.toFixed(3)} د.ك</span>
-        </div>
+        <span style="font-size:${big?'11':'10'}px;color:${barC};font-weight:700;white-space:nowrap;min-width:30px;">${pct}%</span>
       </div>
-      <div style="margin-top:6px;">
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;">
-          <span>نسبة الاستهلاك</span>
-          <span>${pct}%</span>
-        </div>
-        <div style="background:var(--line);border-radius:999px;height:8px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:999px;transition:width .4s;"></div>
-        </div>
-      </div>
-      ${revs.length===0?`<div style="margin-top:10px;font-size:12px;color:var(--muted);">لا توجد إيرادات مسجلة</div>`:''}
-    </div>`;
-  }).join('');
+    </td>`;
+  }
+
+  // خلية رصيد — فاصل متقطع على اليمين (بين الاستهلاك والرصيد)
+  function balCell(bal, big){
+    const c = bal>0?'var(--green)':bal<0?'var(--red)':'var(--muted)';
+    const sz = big?'font-size:15px;':'font-size:13px;';
+    return `<td style="padding:7px 12px;text-align:right;${BAR_SEP}" title="${fmtKWDPlain(bal)}">
+      <span style="${sz}font-weight:${big?'900':'800'};color:${c};white-space:nowrap;">${fmtKWD(bal,{noUnit:true})}</span>
+    </td>`;
+  }
+
+  // ── منطق البناء حسب وضع العرض ──
+
+  // ── وضع مفصّل: كل بند منفرد بأرقامه الخاصة ──
+  function detailRows(parentId, depth){
+    const children = displayItems.filter(b=>b.parent_id===(parentId||null));
+    if(!children.length) return '';
+    const pad = 12 + depth*18;
+    return children.map(b=>{
+      const own = computeBudgetItemStats(b.id,false);
+      const hc  = parentIds.has(b.id) && displayItems.some(x=>x.parent_id===b.id);
+      const isCollapsed = collapsed.has(b.id);
+      const pct = own.net>0?Math.min(100,Math.round(own.spent/own.net*100)):0;
+      const barC = pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
+      const toggleBtn = hc
+        ? `<button onclick="budgetReportToggle('${b.id}')" style="background:none;border:none;cursor:pointer;padding:0 3px;font-size:12px;color:var(--blue);line-height:1;" title="${isCollapsed?'فتح':'طي'}">${isCollapsed?'▶':'▼'}</button>`
+        : `<span style="display:inline-block;width:18px;"></span>`;
+      const indent = depth>0 ? `<span style="color:var(--muted);font-size:11px;margin-left:2px;">└</span> ` : '';
+      const rowBg = depth===0 ? 'var(--paper)' : '#fff';
+      const fw = depth===0 ? 'font-weight:700;' : '';
+      return `<tr class="bri-row" style="background:${rowBg};border-bottom:1px solid var(--line);">
+        <td style="padding:7px 10px;padding-right:${pad}px;white-space:nowrap;${fw}${SEP}">
+          ${toggleBtn}${indent}${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
+          ${!b.is_active?'<span style="font-size:10px;color:var(--red);"> (غير نشط)</span>':''}
+        </td>
+        <td style="padding:7px 10px;text-align:center;font-size:13px;color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
+        ${numCell(own.rev,'var(--green)',false)}
+        ${numCell(own.profit,'var(--amber)',false)}
+        ${numCell(own.spent,'var(--red)',false)}
+        ${barCell(pct,barC,false)}
+        ${balCell(own.bal,false)}
+      </tr>
+      ${isCollapsed ? '' : detailRows(b.id, depth+1)}`;
+    }).join('');
+  }
+
+  // ── وضع مجمّع ──
+  // صف بند عادي (خاص فقط، بدون إجمالي)
+  function ownRow(b, own, pad, isSelfRow){
+    const pct = own.net>0?Math.min(100,Math.round(own.spent/own.net*100)):0;
+    const barC = pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
+    const namePart = isSelfRow
+      ? `<span style="color:var(--muted);margin-left:4px;">·</span> <span style="font-style:italic;color:var(--muted);">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)} <span style="font-size:10px;opacity:.8;">(الخاص)</span></span>`
+      : `<span style="color:var(--muted);font-size:11px;margin-left:2px;">└</span> ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${!b.is_active?'<span style="font-size:10px;color:var(--red);"> (غير نشط)</span>':''}`;
+    const rowBg = '#fff';
+    return `<tr class="bri-row" style="background:${rowBg};border-bottom:1px solid var(--line);">
+      <td style="padding:${isSelfRow?'5':'6'}px 10px;padding-right:${pad}px;white-space:nowrap;font-size:${isSelfRow?'12':'13'}px;${SEP}">${namePart}</td>
+      <td style="padding:6px 10px;text-align:center;font-size:13px;color:var(--muted);${SEP}">${isSelfRow?'':BUDGET_TYPE_LABELS[b.type]||b.type}</td>
+      ${numCell(own.rev,'var(--green)',false)}
+      ${numCell(own.profit,'var(--amber)',false)}
+      ${numCell(own.spent,'var(--red)',false)}
+      ${barCell(pct,barC,false)}
+      ${balCell(own.bal,false)}
+    </tr>`;
+  }
+
+  function groupedRows(parentId, depth){
+    const children = displayItems.filter(b=>b.parent_id===(parentId||null));
+    if(!children.length) return '';
+    const pad = 12 + depth*18;
+    return children.map(b=>{
+      const hc = parentIds.has(b.id) && displayItems.some(x=>x.parent_id===b.id);
+      const isCollapsed = collapsed.has(b.id);
+      const own = computeBudgetItemStats(b.id,false);
+
+      // بند بسيط
+      if(!hc){
+        const pct = own.net>0?Math.min(100,Math.round(own.spent/own.net*100)):0;
+        const barC = pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
+        const indent = depth>0 ? `<span style="color:var(--muted);font-size:11px;margin-left:2px;">└</span> ` : '';
+        const simpleBg = depth===0 ? 'var(--paper)' : '#fff';
+        return `<tr class="bri-row" style="background:${simpleBg};border-bottom:1px solid var(--line);">
+          <td style="padding:7px 10px;padding-right:${pad}px;white-space:nowrap;${SEP}">
+            <span style="display:inline-block;width:18px;"></span>${indent}${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
+            ${!b.is_active?'<span style="font-size:10px;color:var(--red);"> (غير نشط)</span>':''}
+          </td>
+          <td style="padding:7px 10px;text-align:center;font-size:13px;color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
+          ${numCell(own.rev,'var(--green)',false)}
+          ${numCell(own.profit,'var(--amber)',false)}
+          ${numCell(own.spent,'var(--red)',false)}
+          ${barCell(pct,barC,false)}
+          ${balCell(own.bal,false)}
+        </tr>`;
+      }
+
+      // أب — depth=0 → صف إجمالي مميز، depth>0 → صف خاص عادي مع toggle
+      const tot = computeBudgetItemStats(b.id,true);
+      const totPct = tot.net>0?Math.min(100,Math.round(tot.spent/tot.net*100)):0;
+      const totBarC = totPct>=100?'var(--red)':totPct>=80?'var(--amber)':'var(--green)';
+      const totBalC = tot.bal>0?'var(--green)':tot.bal<0?'var(--red)':'var(--muted)';
+      const toggleBtn = `<button onclick="budgetReportToggle('${b.id}')" style="background:none;border:none;cursor:pointer;padding:0 3px;font-size:13px;color:var(--blue);line-height:1;font-weight:900;" title="${isCollapsed?'فتح':'طي'}">${isCollapsed?'▶':'▼'}</button>`;
+
+      if(depth===0){
+        // ── صف إجمالي الجذر ──
+        const rootRow = `<tr class="bri-row" style="background:var(--paper);border-top:2px solid var(--blue);border-bottom:1px solid var(--line);">
+          <td style="padding:9px 10px;padding-right:${pad}px;white-space:nowrap;font-weight:900;font-size:14px;${SEP}">
+            ${toggleBtn} ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
+            ${!b.is_active?'<span style="font-size:10px;color:var(--red);"> (غير نشط)</span>':''}
+            <span style="font-size:10px;font-weight:600;color:var(--blue);margin-right:8px;background:rgba(59,130,246,.1);padding:1px 7px;border-radius:4px;">إجمالي مع الفروع</span>
+          </td>
+          <td style="padding:9px 10px;text-align:center;font-size:14px;color:var(--muted);font-weight:600;${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
+          ${numCell(tot.rev,'var(--green)',true)}
+          ${numCell(tot.profit,'var(--amber)',true)}
+          ${numCell(tot.spent,'var(--red)',true)}
+          ${barCell(totPct,totBarC,true)}
+          ${balCell(tot.bal,true)}
+        </tr>`;
+        if(isCollapsed) return rootRow;
+        // صف الخاص تحت الجذر
+        const selfRow = ownRow(b, own, pad+18, true);
+        return rootRow + selfRow + groupedRows(b.id, depth+1);
+      } else {
+        // ── أب داخلي: صف خاص مع زر toggle ──
+        const pct = own.net>0?Math.min(100,Math.round(own.spent/own.net*100)):0;
+        const barC = pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
+        const midRow = `<tr class="bri-row" style="background:#fff;border-bottom:1px solid var(--line);">
+          <td style="padding:7px 10px;padding-right:${pad}px;white-space:nowrap;font-weight:700;${SEP}">
+            ${toggleBtn}
+            <span style="color:var(--muted);font-size:11px;margin-left:2px;">└</span>
+            ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
+            ${!b.is_active?'<span style="font-size:10px;color:var(--red);"> (غير نشط)</span>':''}
+          </td>
+          <td style="padding:7px 10px;text-align:center;font-size:13px;color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
+          ${numCell(own.rev,'var(--green)',false)}
+          ${numCell(own.profit,'var(--amber)',false)}
+          ${numCell(own.spent,'var(--red)',false)}
+          ${barCell(pct,barC,false)}
+          ${balCell(own.bal,false)}
+        </tr>`;
+        if(isCollapsed) return midRow;
+        return midRow + groupedRows(b.id, depth+1);
+      }
+    }).join('');
+  }
 
   return `
-  <div style="margin-top:20px;">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-      <h3 style="margin:0;font-size:16px;">تقرير الميزانية</h3>
-      <select onchange="state.budgetReportTypeFilter=this.value; render();" style="min-width:160px;">${typeFilterOpts}</select>
-      <span style="color:var(--muted);font-size:13px;">${items.length} بند</span>
+  <div class="print-area" style="margin-top:16px;">
+    <!-- رأس الطباعة (يظهر فقط عند الطباعة) -->
+    <div style="display:none;" class="print-header">
+      <h2 style="margin:0 0 4px;">تقرير الميزانية — القيم الكويتية</h2>
+      <div style="font-size:12px;color:#666;">${new Date().toLocaleDateString('ar-KW',{year:'numeric',month:'long',day:'numeric'})}</div>
+      <hr style="margin:10px 0;">
     </div>
 
-    <!-- بطاقات الإجمالي -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
-      <div class="card" style="padding:14px 16px;text-align:center;">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">إجمالي الإيرادات</div>
-        <div style="font-size:18px;font-weight:800;color:var(--green);">${totalRev.toFixed(3)}</div>
-        <div style="font-size:11px;color:var(--muted);">د.ك</div>
+    <!-- بطاقات الإجمالي — أولاً -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;" class="summary-cards">
+      <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid var(--green);">
+        <div style="font-size:16px;font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">إجمالي الإيرادات</div>
+        <div style="font-size:22px;font-weight:900;color:var(--green);white-space:nowrap;">${fmtKWD(totalRev,{noUnit:true})} <span style="font-size:13px;font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
       </div>
-      <div class="card" style="padding:14px 16px;text-align:center;">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">إجمالي الأرباح</div>
-        <div style="font-size:18px;font-weight:800;color:var(--amber);">${totalProfit.toFixed(3)}</div>
-        <div style="font-size:11px;color:var(--muted);">د.ك</div>
+      <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid var(--amber);">
+        <div style="font-size:16px;font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">إجمالي الأرباح</div>
+        <div style="font-size:22px;font-weight:900;color:var(--amber);white-space:nowrap;">${fmtKWD(totalProfit,{noUnit:true})} <span style="font-size:13px;font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
       </div>
-      <div class="card" style="padding:14px 16px;text-align:center;">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">إجمالي المصروف</div>
-        <div style="font-size:18px;font-weight:800;color:var(--red);">${totalSpent.toFixed(3)}</div>
-        <div style="font-size:11px;color:var(--muted);">د.ك</div>
+      <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid var(--red);">
+        <div style="font-size:16px;font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">إجمالي المصروف</div>
+        <div style="font-size:22px;font-weight:900;color:var(--red);white-space:nowrap;">${fmtKWD(totalSpent,{noUnit:true})} <span style="font-size:13px;font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
       </div>
-      <div class="card" style="padding:14px 16px;text-align:center;">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">إجمالي الرصيد</div>
-        <div style="font-size:18px;font-weight:800;color:${totalBal>0?'var(--green)':'var(--red)'};">${totalBal.toFixed(3)}</div>
-        <div style="font-size:11px;color:var(--muted);">د.ك</div>
+      <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid ${totalBal>0?'var(--green)':'var(--red)'};">
+        <div style="font-size:16px;font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">صافي الرصيد</div>
+        <div style="font-size:22px;font-weight:900;color:${totalBal>0?'var(--green)':'var(--red)'};white-space:nowrap;">${fmtKWD(totalBal,{noUnit:true})} <span style="font-size:13px;font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
       </div>
     </div>
 
-    ${items.length===0 ? '<div class="empty">لا توجد بنود</div>' : cards}
+    <!-- شريط الاستهلاك الكلي — ثانياً -->
+    ${totalNet>0?`<div class="card" style="padding:10px 16px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:13px;font-weight:700;">معدل الاستهلاك الكلي</span>
+        <span style="font-size:14px;font-weight:800;color:${totalBarColor};">${pctTotal}% &nbsp;·&nbsp; <span style="font-weight:400;font-size:12px;color:var(--muted);">المصروف ${fmtKWDPlain(totalSpent)} من أصل ${fmtKWDPlain(totalNet)}</span></span>
+      </div>
+      <div style="background:var(--line);border-radius:999px;height:10px;overflow:hidden;">
+        <div style="height:100%;width:${pctTotal}%;background:${totalBarColor};border-radius:999px;"></div>
+      </div>
+    </div>`:''}
+
+    <!-- شريط الأدوات — ثالثاً (سطر واحد صارم) -->
+    <div class="no-print rep-bar">
+      <!-- ١ نوع العرض — أقصى اليمين -->
+      <div class="rep-seg">
+        <button onclick="state.budgetReportViewMode='grouped';render();" style="background:${viewMode==='grouped'?'var(--blue)':'#fff'};color:${viewMode==='grouped'?'#fff':'var(--muted)'};">⊞ مجمّع</button>
+        <button onclick="state.budgetReportViewMode='detail';render();" style="border-right:1px solid var(--line);background:${viewMode==='detail'?'var(--blue)':'#fff'};color:${viewMode==='detail'?'#fff':'var(--muted)'};">☰ مفصّل</button>
+      </div>
+      <!-- ٢ طي / فتح -->
+      ${parentIds.size>0?`<button class="btn btn-ghost" onclick="budgetReportCollapseAll()">◀ طي الكل</button><button class="btn btn-ghost" onclick="budgetReportExpandAll()">▼ فتح الكل</button>`:''}
+      <!-- ٣ فلتر الأنواع -->
+      <select onchange="state.budgetReportTypeFilter=this.value; render();">${typeFilterOpts}</select>
+      <!-- ٤ فراغ يدفع التصدير لأقصى اليسار -->
+      <div class="rep-spacer"></div>
+      <!-- ٥ تصدير + طباعة — أقصى اليسار -->
+      <button class="btn btn-ghost" onclick="exportBudgetReportCSV()">📥 Excel</button>
+      <button class="btn btn-ghost" onclick="printBudgetReport()">🖨️ طباعة</button>
+    </div>
+
+    <!-- جدول البنود -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;direction:rtl;">
+        <thead>
+          <tr style="background:var(--ink);color:#fff;">
+            <th style="padding:10px 12px;text-align:right;font-weight:600;border-right:1px solid rgba(255,255,255,0.15);">البند</th>
+            <th style="padding:10px 10px;text-align:center;font-weight:600;border-right:1px solid rgba(255,255,255,0.15);">النوع</th>
+            <th style="padding:10px 12px;text-align:right;font-weight:600;border-right:1px solid rgba(255,255,255,0.15);">الإيرادات</th>
+            <th style="padding:10px 12px;text-align:right;font-weight:600;border-right:1px solid rgba(255,255,255,0.15);">الأرباح</th>
+            <th style="padding:10px 12px;text-align:right;font-weight:600;border-right:1px solid rgba(255,255,255,0.15);">المصروف</th>
+            <th style="padding:10px 10px;text-align:center;font-weight:600;border-right:1px solid rgba(255,255,255,0.15);">الاستهلاك</th>
+            <th style="padding:10px 12px;text-align:right;font-weight:600;border-right:1px solid rgba(255,255,255,0.15);">الرصيد</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${displayItems.length===0
+            ? `<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted);">لا توجد بنود</td></tr>`
+            : viewMode==='detail' ? detailRows(null,0) : groupedRows(null,0)}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--ink);color:#fff;font-weight:800;">
+            <td style="padding:10px 12px;font-size:14px;color:#fff;border-right:1px solid rgba(255,255,255,0.15);" colspan="2">الإجمالي الكلي</td>
+            <td style="padding:10px 12px;text-align:right;color:#6ee7a0;font-size:14px;font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${fmtKWD(totalRev,{noUnit:true})}</td>
+            <td style="padding:10px 12px;text-align:right;color:#fcd34d;font-size:14px;font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${totalProfit>0?fmtKWD(totalProfit,{noUnit:true}):'—'}</td>
+            <td style="padding:10px 12px;text-align:right;color:#fca5a5;font-size:14px;font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${fmtKWD(totalSpent,{noUnit:true})}</td>
+            <td style="padding:10px 8px;text-align:center;color:${pctTotal>=100?'#fca5a5':pctTotal>=80?'#fcd34d':'#6ee7a0'};font-weight:800;border-right:1px solid rgba(255,255,255,0.15);">${pctTotal}%</td>
+            <td style="padding:10px 12px;text-align:right;border-right:1px solid rgba(255,255,255,0.15);">
+              <span style="font-size:16px;font-weight:900;color:${totalBal>0?'#6ee7a0':totalBal<0?'#fca5a5':'rgba(255,255,255,0.5)'};">${fmtKWD(totalBal,{noUnit:true})}</span>
+              <span style="font-size:10px;color:rgba(255,255,255,0.5);margin-right:3px;">${currencySymbol}</span>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   </div>`;
 }
 
@@ -5871,7 +6239,7 @@ function renderBudgetRevenuesTab(){
       const src = r.source_type ? REVENUE_SOURCE_LABELS[r.source_type]||r.source_type : '';
       return `<div class="list-item">
         <div class="li-main">
-          <b>${(+r.amount).toFixed(3)} د.ك</b>
+          <b>${fmtKWD(r.amount)}</b>
           <span>البند: ${escH(bname)}${src ? ' · '+src : ''}</span>
           <span>${r.revenue_date||''}${r.description ? ' · '+escH(r.description) : ''}</span>
         </div>
@@ -6000,6 +6368,13 @@ function renderCompanyEditForm(){
         <div><label>رمز الإدارة</label><input id="editCoHqCode" type="text" value="${c.hqCode}"></div>
         <div><label>اللون الرئيسي</label><input id="editCoColor" type="color" value="${c.primaryColor||'#C0392B'}" dir="ltr" style="height:38px;padding:2px;direction:ltr;"></div>
       </div>
+      <div class="row">
+        <div>
+          <label>رمز العملة</label>
+          <input id="editCoCurrency" type="text" value="${escH(c.currency_symbol||'د.ك')}" placeholder="مثال: د.ك أو $ أو ر.س" maxlength="10" style="max-width:140px;">
+          <div class="file-hint" style="margin-top:3px;">يظهر في التقارير المالية بدلاً من «د.ك»</div>
+        </div>
+      </div>
       ${c.logoData ? `<div class="file-hint">✓ يوجد شعار/ترويسة محفوظة</div>` : ''}
       <label>تحديث الشعار/الترويسة (اختياري)</label>
       <input id="editCoLogo" type="file" accept="image/*">
@@ -6102,13 +6477,16 @@ async function saveCompanyEdit(){
   const defaultDeadlineDays = (dlV===undefined || dlV==='' || dlV==='0') ? null : Number(dlV);
   const defaultEscalateMode = (document.getElementById('editCoEscMode')||{}).value || 'manager';
   const deadlineDayMode = (document.getElementById('editCoDayMode')||{}).value || 'work';
+  const currencySymbolVal = (document.getElementById('editCoCurrency')||{}).value?.trim() || 'د.ك';
   const updates = {name_ar:nameAr, name_en:nameEn, tax_number:tax, code, hq_code:hqCode, primary_color:color, cfo_delegation_mode:cfoMode,
     cfo_delegate_user_id: cfoUserId||null, cfo_delegate_until: cfoUntil||null,
-    default_deadline_days: defaultDeadlineDays, default_escalate_mode: defaultEscalateMode, deadline_day_mode: deadlineDayMode};
+    default_deadline_days: defaultDeadlineDays, default_escalate_mode: defaultEscalateMode, deadline_day_mode: deadlineDayMode,
+    currency_symbol: currencySymbolVal};
   if(file){ updates.logo_data = await readFileAsDataURL(file); }
   const result = await db.from('companies').update(updates).eq('id', c.id);
   if(!(await dbCheck(result, 'تعديل الشركة'))) return;
   c.nameAr=nameAr; c.nameEn=nameEn; c.taxNumber=tax; c.code=code; c.hqCode=hqCode; c.primaryColor=color; c.cfoDelegationMode=cfoMode;
+  c.currency_symbol = currencySymbolVal;
   c.cfoDelegateUserId = cfoUserId||null; c.cfoDelegateUntil = cfoUntil||'';
   c.defaultDeadlineDays = defaultDeadlineDays; c.defaultEscalateMode = defaultEscalateMode; c.deadlineDayMode = deadlineDayMode;
   if(updates.logo_data) c.logoData = updates.logo_data;
@@ -7938,7 +8316,7 @@ function renderNewRequest(app){
         <option value="">— اختر البند —</option>
         ${(state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId).map(b=>{
           const bal = computeBudgetItemBalance(b.id);
-          const balStr = bal!=null ? ` (الرصيد: ${bal.toFixed(3)} د.ك)` : '';
+          const balStr = bal!=null ? ` (الرصيد: ${fmtKWDPlain(bal)})` : '';
           return `<option value="${b.id}"${(d.budgetItemId===b.id)?' selected':''}>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${balStr}</option>`;
         }).join('')}
       </select>
@@ -8166,7 +8544,7 @@ function renderAppRequestView(req){
       return `<div style="display:flex;align-items:center;gap:12px;padding:8px 14px;background:rgba(0,0,0,.03);border:1px solid var(--line);border-radius:8px;margin-bottom:12px;flex-wrap:wrap;">
         <span style="font-weight:600;font-size:13px;">📂 بند الميزانية:</span>
         <span style="font-size:13px;">${BUDGET_TYPE_ICONS[bi.type]||''} ${escH(bi.name)} (${BUDGET_TYPE_LABELS[bi.type]||bi.type})</span>
-        ${bal!=null ? `<span style="margin-right:auto;font-weight:700;font-size:13px;color:${balColor};">رصيد البند: ${bal.toFixed(3)} د.ك</span>` : ''}
+        ${bal!=null ? `<span style="margin-right:auto;font-weight:700;font-size:13px;color:${balColor};">رصيد البند: ${fmtKWD(bal)}</span>` : ''}
       </div>`;
     })()}
     <div class="table-scroll-wrap">
