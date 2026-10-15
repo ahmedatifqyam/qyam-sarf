@@ -1045,7 +1045,8 @@ function placeholderImg(text, bg, fg){
 
 function dbUserToState(u){
   return {
-    id:u.id, phone:u.phone, password:u.password, name:u.name, role:u.role, centerId:u.center_id, companyId:u.company_id,
+    // ملاحظة أمنية: عمود password لم يعد يُقرأ من الخادم — المصادقة عبر Supabase Auth
+    id:u.id, phone:u.phone, authId:u.auth_id||null, name:u.name, role:u.role, centerId:u.center_id, companyId:u.company_id,
     managerId:u.manager_id||null,
     signatureData:u.signature_data||'', stampData:u.stamp_data||'', stampData2:u.stamp_data_2||'',
     email:u.email||'', nameEn:u.name_en||'', iban:u.iban||'', civilId:u.national_id||'',
@@ -1111,6 +1112,19 @@ function mapRequestRow(r){
   };
 }
 
+// أعمدة المستخدم التي تُنزَّل للمتصفح — بلا عمود password إطلاقاً.
+// المصادقة تتم في الخادم عبر Supabase Auth، فلا داعي لأن يرى المتصفح كلمات المرور.
+const USER_COLS = 'id,phone,name,role,center_id,signature_data,stamp_data,email,name_en,iban,'
+  + 'id_file_data,bank_file_data,signature_mode,signature_color,signature_width,company_id,'
+  + 'national_id,stamp_data_2,manager_id,notif_seen_at,job_title,level_id,request_approver_id,'
+  + 'next_approver_id,exec_substitute_id,is_general,no_request_approver,no_next_approver,'
+  + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id';
+
+async function reloadUsers(){
+  const {data} = await db.from('users').select(USER_COLS);
+  if(data) state.users = data.map(dbUserToState);
+}
+
 async function loadAll(){
   const {data: companiesData} = await db.from('companies').select('*');
   state.companies = (companiesData||[]).map(dbCompanyToState);
@@ -1118,7 +1132,7 @@ async function loadAll(){
   const {data: centersData} = await db.from('centers').select('*');
   state.centers = (centersData||[]).map(dbCenterToState);
 
-  const {data: usersData} = await db.from('users').select('*');
+  const {data: usersData} = await db.from('users').select(USER_COLS);
   state.users = (usersData||[]).map(dbUserToState);
 
   const {data: ucData} = await db.from('user_companies').select('*');
@@ -1824,7 +1838,7 @@ async function initApp(){
     await backfillCompanyIfMissing();
     await loadAll();
     await syncAllUntouchedRequestPaths();
-    restoreSession();
+    await restoreSession();
   }catch(e){
     console.error('DB init error', e);
     showToast('تعذر الاتصال بقاعدة البيانات. تأكد من تنفيذ ملف SQL في Supabase أولاً، ثم حدّث الصفحة.','error');
@@ -2023,15 +2037,29 @@ function saveSession(userId, remember){
 function clearSession(){
   try{ localStorage.removeItem('qayam_session'); sessionStorage.removeItem('qayam_session'); }catch(e){}
 }
-function restoreSession(){
+// الجلسة الحقيقية هي جلسة Supabase الموقّعة، لا سجل في localStorage.
+// سجلّ qayam_session بقي لخيار «تذكّرني» فقط ولا يمنح دخولاً بذاته.
+async function restoreSession(){
   try{
-    const raw = localStorage.getItem('qayam_session') || sessionStorage.getItem('qayam_session');
-    if(!raw) return;
-    const rec = JSON.parse(raw);
-    const remembered = rec.remember===undefined ? !!localStorage.getItem('qayam_session') : !!rec.remember;
-    if(!remembered && (Date.now() - (rec.ts||0)) > SESSION_TTL_MS){ clearSession(); return; }
-    const user = state.users.find(u=>u.id===rec.userId);
-    if(!user) return;
+    const { data } = await db.auth.getSession();
+    const authUid = data?.session?.user?.id;
+    if(!authUid){ clearSession(); return; }
+
+    const user = state.users.find(u => u.authId === authUid);
+    if(!user){ await db.auth.signOut(); clearSession(); return; }
+
+    // «تذكّرني» غير مفعّل ومضت المهلة ⇒ اخرج
+    try{
+      const raw = localStorage.getItem('qayam_session') || sessionStorage.getItem('qayam_session');
+      if(raw){
+        const rec = JSON.parse(raw);
+        const remembered = rec.remember===undefined ? !!localStorage.getItem('qayam_session') : !!rec.remember;
+        if(!remembered && (Date.now() - (rec.ts||0)) > SESSION_TTL_MS){
+          await db.auth.signOut(); clearSession(); return;
+        }
+      }
+    }catch(e){}
+
     state.user = {id:user.id, role:user.role, name:user.name};
     setupCompanyAccess(user);
     state.view = user.role==='admin' ? 'admin' : 'dashboard';
@@ -2611,16 +2639,55 @@ function openSearchResult(reqId){
   render();
 }
 
-function logout(){ clearSession(); state.user=null; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
+async function logout(){ try{ await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
 
-function attemptLogin(){
-  const phone = document.getElementById('loginPhone').value.trim();
-  const pass = document.getElementById('loginPassword').value;
-  const user = state.users.find(u=>u.phone===phone && u.password===pass);
-  if(!user){ showToast('رقم الهاتف أو كلمة المرور غير صحيحة','error'); return; }
+// يحوّل ما يكتبه المستخدم إلى بريد المصادقة: رقم هاتف ← <الرقم>@qyam.local ، وبريد ← كما هو
+const AUTH_EMAIL_DOMAIN = '@qyam.local';
+function loginIdToEmail(id){
+  const v = String(id||'').trim().toLowerCase();
+  return v.includes('@') ? v : v + AUTH_EMAIL_DOMAIN;
+}
+
+async function attemptLogin(){
+  const idInput = document.getElementById('loginPhone').value.trim();
+  const pass    = document.getElementById('loginPassword').value;
+  if(!idInput || !pass){ showToast('أدخل رقم الهاتف وكلمة المرور','error'); return; }
+
+  const btn = document.querySelector('#loginPassword')?.closest('.card')?.querySelector('.btn-primary');
+  if(btn){ btn.disabled = true; btn.textContent = 'جارٍ الدخول…'; }
+
+  try{
+    const { data, error } = await db.auth.signInWithPassword({
+      email: loginIdToEmail(idInput), password: pass
+    });
+    if(error || !data?.user){
+      showToast('رقم الهاتف أو كلمة المرور غير صحيحة','error');
+      return;
+    }
+    await finishLogin(data.user.id);
+  }catch(e){
+    showToast('تعذّر الاتصال بالخادم — حاول مجدداً','error');
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = 'دخول'; }
+  }
+}
+
+// يُستدعى بعد نجاح المصادقة: يربط حساب Auth بصف المستخدم ويكمل الدخول
+async function finishLogin(authUid){
+  let user = state.users.find(u => u.authId === authUid);
+  if(!user){
+    // الصفوف قد تكون قديمة في الذاكرة — أعِد تحميلها مرة واحدة
+    await reloadUsers();
+    user = state.users.find(u => u.authId === authUid);
+  }
+  if(!user){
+    await db.auth.signOut();
+    showToast('الحساب غير مرتبط بمستخدم في النظام — راجع مدير النظام','error');
+    return;
+  }
   state.user = {id:user.id, role:user.role, name:user.name};
   setupCompanyAccess(user);
-  const remember = document.getElementById('rememberMeCheck').checked;
+  const remember = document.getElementById('rememberMeCheck')?.checked;
   saveSession(user.id, remember);
   state.view = user.role==='admin' ? 'admin' : 'dashboard';
   render();
@@ -3766,7 +3833,7 @@ async function saveAccount(){
 
   const updates = {};
   if(newName){ updates.name = newName; }
-  if(newPass){ updates.password = newPass; }
+  // كلمة المرور لم تعد تُحفظ في الجدول — تُغيَّر في Supabase Auth أدناه
   updates.email = newEmail;
   updates.name_en = newNameEn;
   updates.iban = newIban;
@@ -3783,8 +3850,15 @@ async function saveAccount(){
 
   const updResult = await db.from('users').update(updates).eq('id', me.id);
   if(!(await dbCheck(updResult, 'حفظ بيانات الحساب'))) return;
+
+  // تغيير كلمة المرور يمرّ عبر Supabase Auth لا عبر الجدول
+  if(newPass){
+    if(newPass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن ٦ خانات','error'); return; }
+    const { error: pwErr } = await db.auth.updateUser({ password: newPass });
+    if(pwErr){ showToast('تعذّر تغيير كلمة المرور: ' + (pwErr.message||''),'error'); return; }
+  }
+
   if(updates.name){ me.name = updates.name; state.user.name = updates.name; }
-  if(updates.password) me.password = updates.password;
   me.email = updates.email;
   me.nameEn = updates.name_en;
   me.iban = updates.iban;
@@ -3862,7 +3936,12 @@ function closeDeleteConfirm(){
 async function confirmDeletePassword(){
   const pass = document.getElementById('deleteConfirmPass').value;
   const me = state.users.find(u=>u.id===state.user.id);
-  if(!pass || pass !== me.password){
+  if(!pass){ showToast('أدخل كلمة المرور', 'error'); return; }
+  // التحقق يتم في الخادم: إعادة مصادقة بنفس الحساب بدل مقارنة نص في المتصفح
+  const { error: vErr } = await db.auth.signInWithPassword({
+    email: loginIdToEmail(me.phone), password: pass
+  });
+  if(vErr){
     showToast('كلمة المرور غير صحيحة', 'error');
     return;
   }
@@ -6629,10 +6708,16 @@ async function addUser(){
   if(!name || !phone || !pass){ showToast('الرجاء تعبئة جميع الحقول','error'); return; }
   if(!isGeneral && !chosenCo){ showToast('اختر الشركة','error'); return; }
   if(state.users.some(u=>u.phone===phone)){ showToast('رقم الهاتف مستخدم من قبل','error'); return; }
-  const user = {id:'u_'+Date.now(), phone, password:pass, name, role, centerId: finalCId, managerId: managerId||null, companyId: chosenCo, isGeneral, levelId, signatureData:'', stampData:'', stampData2:''};
-  const result = await db.from('users').insert({id:user.id, phone:user.phone, password:user.password, name:user.name, role:user.role, center_id:user.centerId, manager_id:user.managerId, company_id:user.companyId, is_general:isGeneral, level_id:levelId});
-  if(!(await dbCheck(result, 'إضافة المستخدم'))) return;
-  state.users.push(user);
+  if(pass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن ٦ خانات','error'); return; }
+  const user = {id:'u_'+Date.now(), phone, name, role, centerId: finalCId, managerId: managerId||null, companyId: chosenCo, isGeneral, levelId, signatureData:'', stampData:'', stampData2:''};
+  // الإنشاء يتم في الخادم: حساب مصادقة + صف المستخدم معاً، ولمدير النظام فقط
+  const { error: rpcErr } = await db.rpc('admin_create_user', {
+    p_id:user.id, p_phone:phone, p_password:pass, p_name:name, p_role:role,
+    p_center_id:user.centerId, p_manager_id:user.managerId,
+    p_company_id:chosenCo, p_is_general:isGeneral, p_level_id:levelId
+  });
+  if(rpcErr){ showToast('تعذّرت إضافة المستخدم: ' + (rpcErr.message||''), 'error'); return; }
+  await reloadUsers();
   showToast('تمت إضافة المستخدم', 'success');
   render();
 }
@@ -7809,7 +7894,8 @@ function renderUserEditForm(){
         <div><label>رقم الهاتف</label><input id="editUserPhone" type="text" name="qz-edit-user-phone" autocomplete="off" value="${u.phone}"></div>
       </div>
       <div class="row">
-        <div><label>كلمة المرور</label><input id="editUserPass" type="text" name="qz-edit-user-pass" autocomplete="off" value="${u.password}"></div>
+        <div><label>كلمة المرور</label><input id="editUserPass" type="password" name="qz-edit-user-pass" autocomplete="new-password" placeholder="اتركها فارغة لإبقائها كما هي">
+          <div class="file-hint">مشفّرة في الخادم ولا يمكن عرضها. اكتب كلمة جديدة لتغييرها فقط.</div></div>
         <div><label>الدور</label>
           <select id="editUserRole" onchange="onRoleDefaults('edit')">
             ${ROLES.filter(r=>r.id!=='admin').map(r=>`<option value="${r.id}" ${r.id===u.role?'selected':''}>${escH(findRole(r.id).name)}</option>`).join('')}
@@ -7961,16 +8047,22 @@ async function saveUserEdit(){
   if(escalateMode==='user' && !escalateUserId){ showToast('اختر الشخص الذي تُحال إليه الخطوة عند انتهاء المهلة','error'); return; }
   const coChecks = [...document.querySelectorAll('[data-access-company]')];
   const linkedIds = coChecks.filter(c=>c.checked).map(c=>c.getAttribute('data-access-company'));
-  if(!name || !phone || !pass){ showToast('الرجاء تعبئة جميع الحقول','error'); return; }
+  if(!name || !phone){ showToast('الرجاء تعبئة الاسم ورقم الهاتف','error'); return; }
   if(state.users.some(x=>x.phone===phone && x.id!==u.id)){ showToast('رقم الهاتف مستخدم من قبل','error'); return; }
+  // كلمة المرور اختيارية عند التعديل: تُترك فارغة لتبقى كما هي
+  if(pass){
+    if(pass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن ٦ خانات','error'); return; }
+    const { error: pwErr } = await db.rpc('admin_set_password', { p_user_id: u.id, p_password: pass });
+    if(pwErr){ showToast('تعذّر تغيير كلمة المرور: ' + (pwErr.message||''), 'error'); return; }
+  }
   const result = await db.from('users').update({
-    name, phone, password:pass, role, center_id: centerId||null, manager_id: managerId||null, company_id: companyId||null,
+    name, phone, role, center_id: centerId||null, manager_id: managerId||null, company_id: companyId||null,
     job_title: jobTitle||null, level_id: levelId||null, request_approver_id: requestApproverId||null, next_approver_id: nextApproverId||null,
     is_general: isGeneral, no_request_approver: noRequestApprover, no_next_approver: noNextApprover,
     approval_deadline_days: approvalDeadlineDays, escalate_mode: escalateMode||null, escalate_user_id: escalateUserId||null
   }).eq('id', u.id);
   if(!(await dbCheck(result, 'تعديل المستخدم'))) return;
-  u.name = name; u.phone = phone; u.password = pass; u.role = role; u.centerId = centerId || null; u.managerId = managerId || null; u.companyId = companyId || null;
+  u.name = name; u.phone = phone; u.role = role; u.centerId = centerId || null; u.managerId = managerId || null; u.companyId = companyId || null;
   u.jobTitle = jobTitle || ''; u.levelId = levelId || null; u.requestApproverId = requestApproverId || null; u.nextApproverId = nextApproverId || null;
   u.isGeneral = isGeneral; u.noRequestApprover = noRequestApprover; u.noNextApprover = noNextApprover;
   u.approvalDeadlineDays = approvalDeadlineDays; u.escalateMode = escalateMode; u.escalateUserId = escalateUserId||null;
@@ -8034,10 +8126,45 @@ function renderLogin(app){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="attemptLogin()">دخول</button>
       </div>
-      <p class="file-hint" style="margin-top:16px;">حسابات تجريبية جاهزة: سكرتير المركز (1/1)، مدير المركز (2/2)، سكرتير الشركة (3/3)، المدير التنفيذي (4/4)، المحاسب (5/5)، مدير النظام (admin/admin).</p>
-      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-10-07 17:45</p>
+      ${devSwitcherHtml()}
+      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-10-15 — مصادقة Supabase</p>
     </div>
   `;
+}
+
+// ── لوحة التبديل السريع (تجربة فقط) ───────────────────────────────────
+// تظهر على localhost / file:// أو عند ?dev=1 — ولا تظهر إطلاقاً على نطاق حقيقي.
+// لا تحوي كلمات مرور: تستعمل كلمة التجربة الموحّدة، والمدير يُكتب يدوياً.
+const DEV_TEST_PASSWORD = '123456';
+function isDevMode(){
+  try{
+    const h = location.hostname;
+    return h==='localhost' || h==='127.0.0.1' || h==='' || location.protocol==='file:'
+        || new URLSearchParams(location.search).has('dev');
+  }catch(e){ return false; }
+}
+function devSwitcherHtml(){
+  if(!isDevMode()) return '';
+  const list = (state.users||[]).filter(u=>u.role!=='admin')
+    .sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
+  if(!list.length) return '';
+  return `
+    <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--line);">
+      <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px;">
+        ⚙ تبديل سريع — وضع التجربة فقط
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${list.map(u=>`<button class="btn btn-ghost" style="width:auto;min-height:30px;padding:0 10px;font-size:12px;border-width:1px;box-shadow:none;"
+           onclick="devLoginAs('${escH(u.phone)}')" title="${escH((findRole(u.role)||{}).name||u.role)}">${escH(u.name)}</button>`).join('')}
+      </div>
+      <div class="file-hint" style="margin-top:8px;">كلمة المرور الموحّدة للتجربة: ${DEV_TEST_PASSWORD} — حسابا مدير النظام يُكتبان يدوياً.</div>
+    </div>`;
+}
+async function devLoginAs(phone){
+  if(!isDevMode()) return;
+  document.getElementById('loginPhone').value = phone;
+  document.getElementById('loginPassword').value = DEV_TEST_PASSWORD;
+  await attemptLogin();
 }
 
 function renderCustomDashboard(app){
