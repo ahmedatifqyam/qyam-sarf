@@ -1125,6 +1125,17 @@ async function reloadUsers(){
   if(data) state.users = data.map(dbUserToState);
 }
 
+// التحميل الكامل بعد ثبوت الهوية. الزرع لا يلزم إلا على قاعدة فارغة فعلاً.
+async function loadAllAfterAuth(){
+  await loadAll();
+  if(!state.users.length || !state.companies.length){
+    await seedIfEmpty();
+    await backfillCompanyIfMissing();
+    await loadAll();
+  }
+  await syncAllUntouchedRequestPaths();
+}
+
 async function loadAll(){
   // الخمسة عشر استعلاماً مستقلة تماماً: كل واحد يملأ مفتاحاً خاصاً به في state
   // ولا تقرأ دوال التحويل من state. لذا تُرسل دفعة واحدة بدل انتظار بعضها.
@@ -1832,11 +1843,16 @@ async function initApp(){
   }
   app.innerHTML = `<div class="spinner"></div><p class="sub" style="text-align:center;">جارٍ الاتصال بقاعدة البيانات...</p>`;
   try{
-    await seedIfEmpty();
-    await backfillCompanyIfMissing();
-    await loadAll();
-    await syncAllUntouchedRequestPaths();
-    await restoreSession();
+    // لا تُحمَّل أي بيانات قبل المصادقة: سياسات RLS تُرجع صفراً لغير المسجّل،
+    // وتحميلها مسبقاً كان يكشف الجداول كلها لدور anon.
+    const { data: sess0 } = await db.auth.getSession();
+    if(sess0 && sess0.session && sess0.session.user){
+      await loadAllAfterAuth();
+      await restoreSession();
+    }else{
+      state.user = null;
+      state.view = 'login';
+    }
   }catch(e){
     console.error('DB init error', e);
     showToast('تعذر الاتصال بقاعدة البيانات. تأكد من تنفيذ ملف SQL في Supabase أولاً، ثم حدّث الصفحة.','error');
@@ -1851,12 +1867,17 @@ async function renderVerifyPage(reqId){
   const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   app.innerHTML = `<div class="spinner"></div><p class="sub" style="text-align:center;">جارٍ التحقق من الطلب...</p>`;
   try{
-    const {data: r, error} = await db.from('requests').select('number, reason, total_amount, date_greg, date_hijri, status, is_cancelled, company_id, request_beneficiaries(name, amount, deduction, extra), request_history(step, actor, action, time, created_at, user_id)').eq('id', reqId).maybeSingle();
+    // صفحة عامة لا تتطلب تسجيل دخول: تمرّ بدالة تُعيد حقولاً محدودة لطلب واحد،
+    // فلا يحتاج دور anon أي صلاحية قراءة على جداول الطلبات.
+    const {data: vr, error} = await db.rpc('verify_request', {p_id: reqId});
+    const r = vr ? {...vr,
+      request_beneficiaries: vr.beneficiaries || [],
+      request_history: vr.history || []} : null;
     if(error || !r){
       app.innerHTML = `<div class="card" style="max-width:420px;margin:60px auto;text-align:center;"><h2 style="color:var(--red);">⚠️ طلب غير موجود</h2><p class="sub">لم يتم العثور على أي طلب بهذا الرمز. قد يكون الرمز غير صحيح أو الطلب تم حذفه.</p></div>`;
       return;
     }
-    const {data: company} = await db.from('companies').select('name_ar, logo_data, brand_logo_data').eq('id', r.company_id).maybeSingle();
+    const company = r.company || null;
     const statusLabel = r.is_cancelled ? 'ملغى' : (r.status==='completed' ? 'تم الصرف' : (r.status==='rejected' ? 'مرفوض' : 'قيد الاعتماد'));
     const statusColor = r.is_cancelled ? '#56554F' : (r.status==='completed' ? 'var(--green)' : (r.status==='rejected' ? 'var(--red)' : 'var(--amber)'));
 
@@ -2662,6 +2683,9 @@ async function attemptLogin(){
       showToast('رقم الهاتف أو كلمة المرور غير صحيحة','error');
       return;
     }
+    // لا بيانات في الذاكرة قبل هذه اللحظة — تُحمَّل الآن بهوية المستخدم
+    if(btn) btn.textContent = 'جارٍ تحميل البيانات…';
+    await loadAllAfterAuth();
     await finishLogin(data.user.id);
   }catch(e){
     showToast('تعذّر الاتصال بالخادم — حاول مجدداً','error');
@@ -8148,7 +8172,12 @@ function devSwitcherHtml(){
   if(!isDevMode()) return '';
   const list = (state.users||[]).filter(u=>u.role!=='admin')
     .sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
-  if(!list.length) return '';
+  // بعد تفعيل RLS لا تُحمَّل الأسماء قبل الدخول. تظهر اللوحة بعد أول دخول
+  // في نفس الصفحة (عند الخروج تبقى الأسماء في الذاكرة).
+  if(!list.length) return `
+    <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--line);">
+      <div class="file-hint">⚙ وضع التجربة: سجّل الدخول مرة، وبعد الخروج تظهر هنا لوحة التبديل السريع.</div>
+    </div>`;
   return `
     <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--line);">
       <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px;">
