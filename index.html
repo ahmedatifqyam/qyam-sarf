@@ -1126,58 +1126,56 @@ async function reloadUsers(){
 }
 
 async function loadAll(){
-  const {data: companiesData} = await db.from('companies').select('*');
-  state.companies = (companiesData||[]).map(dbCompanyToState);
+  // الخمسة عشر استعلاماً مستقلة تماماً: كل واحد يملأ مفتاحاً خاصاً به في state
+  // ولا تقرأ دوال التحويل من state. لذا تُرسل دفعة واحدة بدل انتظار بعضها.
+  // على خادم بعيد (سيول) هذا يختصر ١٥ رحلة متتابعة إلى موجة واحدة.
+  const q = [
+    db.from('companies').select('*'),
+    db.from('centers').select('*'),
+    db.from('users').select(USER_COLS),
+    db.from('user_companies').select('*'),
+    db.from('custom_roles').select('*'),
+    db.from('beneficiaries_master').select('*'),
+    db.from('requests').select('*, request_beneficiaries(*), request_history(*), request_approval_steps(*)').order('created_at', {ascending:true}),
+    db.from('app_settings').select('*'),
+    db.from('bottom_bar_toggles').select('*'),
+    db.from('organizations').select('*'),
+    db.from('job_levels').select('*').order('sort_order', {ascending:true}),
+    db.from('user_company_managers').select('*'),
+    db.from('signature_layout_configs').select('*'),
+    db.from('budget_items').select('*').order('created_at', {ascending:true}),
+    db.from('budget_revenues').select('*').order('revenue_date', {ascending:false})
+  ];
+  const r = await Promise.all(q);
+  const d = i => (r[i] && r[i].data) || [];
 
-  const {data: centersData} = await db.from('centers').select('*');
-  state.centers = (centersData||[]).map(dbCenterToState);
+  state.companies        = d(0).map(dbCompanyToState);
+  state.centers          = d(1).map(dbCenterToState);
+  state.users            = d(2).map(dbUserToState);
+  state.userCompanyLinks = d(3).map(x=>({userId:x.user_id, companyId:x.company_id}));
+  state.customRoles      = d(4).map(r0=>({id:r0.id, companyId:r0.company_id, name:r0.name, description:r0.description||'', defaultLevelName:r0.default_level_name||'موظف', generalDefault:!!r0.general_default}));
+  state.beneficiaries    = d(5).map(dbBeneficiaryToState);
+  state.requests         = d(6).map(mapRequestRow);
 
-  const {data: usersData} = await db.from('users').select(USER_COLS);
-  state.users = (usersData||[]).map(dbUserToState);
-
-  const {data: ucData} = await db.from('user_companies').select('*');
-  state.userCompanyLinks = (ucData||[]).map(x=>({userId:x.user_id, companyId:x.company_id}));
-
-  const {data: rolesData} = await db.from('custom_roles').select('*');
-  state.customRoles = (rolesData||[]).map(r=>({id:r.id, companyId:r.company_id, name:r.name, description:r.description||'', defaultLevelName:r.default_level_name||'موظف', generalDefault:!!r.general_default}));
-
-  const {data: benData} = await db.from('beneficiaries_master').select('*');
-  state.beneficiaries = (benData||[]).map(dbBeneficiaryToState);
-
-  const {data: reqData} = await db.from('requests').select('*, request_beneficiaries(*), request_history(*), request_approval_steps(*)').order('created_at', {ascending:true});
-  state.requests = (reqData||[]).map(mapRequestRow);
-
-  const {data: appSettingsData} = await db.from('app_settings').select('*');
   state.appSettings = {};
-  (appSettingsData||[]).forEach(t=>{ state.appSettings[t.key] = t.value; });
+  d(7).forEach(t=>{ state.appSettings[t.key] = t.value; });
 
-  const {data: barTogglesData} = await db.from('bottom_bar_toggles').select('*');
   state.barToggles = {};
-  (barTogglesData||[]).forEach(t=>{ state.barToggles[t.button_key] = t.visible; });
+  d(8).forEach(t=>{ state.barToggles[t.button_key] = t.visible; });
 
-  const {data: orgsData} = await db.from('organizations').select('*');
-  state.organizations = (orgsData||[]).map(o=>({id:o.id, name:o.name}));
+  state.organizations       = d(9).map(o=>({id:o.id, name:o.name}));
+  state.jobLevels           = d(10).map(l=>({id:l.id, companyId:l.company_id, name:l.name, sortOrder:l.sort_order}));
+  state.userCompanyManagers = d(11).map(x=>({userId:x.user_id, companyId:x.company_id, managerId:x.manager_id}));
 
-  const {data: levelsData} = await db.from('job_levels').select('*').order('sort_order', {ascending:true});
-  state.jobLevels = (levelsData||[]).map(l=>({id:l.id, companyId:l.company_id, name:l.name, sortOrder:l.sort_order}));
-
-  const {data: ucmData} = await db.from('user_company_managers').select('*');
-  state.userCompanyManagers = (ucmData||[]).map(x=>({userId:x.user_id, companyId:x.company_id, managerId:x.manager_id}));
-
-  const {data: sigConfigsData} = await db.from('signature_layout_configs').select('*');
   state.sigLayoutConfigs = {final:{}, mini:{}};
-  (sigConfigsData||[]).forEach(c=>{
+  d(12).forEach(c=>{
     const ctx = c.context || 'final';
     if(!state.sigLayoutConfigs[ctx]) state.sigLayoutConfigs[ctx] = {};
     state.sigLayoutConfigs[ctx][c.role] = c.config;
   });
 
-  // بنود الميزانية والإيرادات
-  const {data: biData} = await db.from('budget_items').select('*').order('created_at', {ascending:true});
-  state.budgetItems = biData||[];
-
-  const {data: brData} = await db.from('budget_revenues').select('*').order('revenue_date', {ascending:false});
-  state.budgetRevenues = brData||[];
+  state.budgetItems    = d(13);
+  state.budgetRevenues = d(14);
 }
 
 
@@ -6702,7 +6700,10 @@ async function addUser(){
   const isGeneral = !!(document.getElementById('newUserGeneral') || {}).checked;
   const coSel = document.getElementById('newUserCompanySelect');
   const chosenCo = isGeneral ? null : (coSel&&coSel.value ? coSel.value : state.currentCompanyId);
-  const finalCId = isGeneral ? '__org_mgmt__' : (centerId||null);
+  // المستخدم العام: يُربط بوحدة المؤسسة إن كانت صفاً حقيقياً في القاعدة، وإلا NULL.
+  // لا تُكتب القيمة الوهمية '__org_mgmt__' في العمود لأن عليه مفتاحاً أجنبياً نحو centers.
+  const orgUnitRow = state.centers.find(c=>c.scope==='org');
+  const finalCId = isGeneral ? (orgUnitRow ? orgUnitRow.id : null) : (centerId||null);
   const jr = jobRoleLevel(role, chosenCo||state.currentCompanyId);
   const levelId = jr ? jr.id : null;
   if(!name || !phone || !pass){ showToast('الرجاء تعبئة جميع الحقول','error'); return; }
