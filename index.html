@@ -210,6 +210,8 @@
   .rep-bar > *{flex:0 0 auto;}
   .rep-bar select{width:auto !important;min-width:118px;padding:0 28px 0 10px;height:34px;font-size:12.5px;}
   .rep-bar .btn{width:auto !important;min-width:0;min-height:34px;padding:0 12px;font-size:12.5px;white-space:nowrap;border-width:1px;box-shadow:none;}
+  /* أزرار نافذة المراجعة: عرض يتبع النص فلا ينكسر «إرسال نهائي الآن» سطرين */
+  .rev-actions .btn{width:auto !important;min-width:0;min-height:34px;padding:0 14px;font-size:12.5px;white-space:nowrap;}
   .rep-bar .rep-spacer{flex:1 1 auto;min-width:0;}
   .rep-seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;height:34px;}
   .rep-seg button{padding:0 13px;font-size:12.5px;font-weight:700;cursor:pointer;border:none;white-space:nowrap;font-family:inherit;}
@@ -852,6 +854,12 @@ const ROLES = [
 ];
 
 // ===== محرك الاعتماد (المرحلة الثانية): مسار صاعد عبر "من يعتمد طلبه"/"من يعتمد ما اعتمده"، ثم ذيل تنفيذي ثابت =====
+// صمام «بند غير محدد»: يُرسل الطلب بلا بند فيمضي في الاعتماد،
+// ويُمنع الصرف حتى يُسنده المحاسب إلى بند حقيقي.
+// في قاعدة البيانات يُخزَّن NULL — هذه القيمة للواجهة فقط.
+const UNSPECIFIED_BUDGET = '__unspecified__';
+function isUnspecifiedBudget(v){ return !v || v === UNSPECIFIED_BUDGET; }
+
 const TAIL_FLOW = ['pending_transfer_request','pending_transfer_approval','pending_disbursement','completed'];
 const STEP_LABELS = {
   pending_decision:'قيد اعتماد القرار', pending_transfer_request:'طلب التحويل (المحاسب)',
@@ -1084,6 +1092,7 @@ function dbCompanyToState(c){
     defaultDeadlineDays:(c.default_deadline_days===undefined||c.default_deadline_days===null ? null : Number(c.default_deadline_days)), defaultEscalateMode:c.default_escalate_mode||'manager', deadlineDayMode:c.deadline_day_mode||'work',
     cfoDelegateUserId:c.cfo_delegate_user_id||null, cfoDelegateUntil:c.cfo_delegate_until||'',
     signatureMode:c.signature_mode||'seq', signatureDir:c.signature_dir||'ltr',
+    reviewWindowMinutes:(c.review_window_minutes==null ? 10 : Number(c.review_window_minutes)),
     currency_symbol: c.currency_symbol || 'د.ك'
   };
 }
@@ -1093,6 +1102,7 @@ function mapRequestRow(r){
     id:r.id, number:r.number, reason:r.reason, detailedReason:r.detailed_reason||'', totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
     centerId:r.center_id, companyId:r.company_id, createdBy:r.created_by, createdById:r.created_by_id, dateGreg:r.date_greg, dateHijri:r.date_hijri,
     createdAtRaw:r.created_at, isRecurring: !!r.is_recurring,
+    numberPrefix:r.number_prefix||null, numberSuffix:r.number_suffix||null, reviewUntil:r.review_until||null,
     isCancelled: !!r.is_cancelled, cancelledAt: r.cancelled_at, cancelledById: r.cancelled_by_id, cancelReason: r.cancel_reason,
     bankTransferRef: r.bank_transfer_ref||'', bankTransferAt: r.bank_transfer_at, fastTracked: !!r.fast_tracked, limitExceeded: !!r.limit_exceeded,
     budgetItemId: r.budget_item_id||null,
@@ -1194,7 +1204,7 @@ async function loadAll(){
 const AUTO_REFRESH_MS = 60000;
 
 function reqFingerprint(list){
-  return list.map(r=>[r.id, r.status, r.isCancelled?1:0, r.totalAmount, (r.history||[]).length,
+  return list.map(r=>[r.id, r.number||'', r.status, r.isCancelled?1:0, r.totalAmount, (r.history||[]).length,
     (r.approvalSteps||[]).map(x=>(x.status||'')[0]).join('')].join('|')).join(';');
 }
 async function refreshRequests(){
@@ -1208,7 +1218,7 @@ async function refreshRequests(){
 function getMyPendingRequests(){
   if(!state.user) return [];
   const role = state.user.role, myId = state.user.id, cid = state.currentCompanyId;
-  const list = state.requests.filter(r=>r.companyId===cid && !r.isCancelled);
+  const list = state.requests.filter(r=>r.companyId===cid && !r.isCancelled && !isUnderReview(r));
   return list.filter(r=>{
     if(r.status==='pending_decision') return !!myDecisionStep(r, myId);
     if(r.status==='pending_transfer_request' || r.status==='pending_disbursement') return role==='accountant';
@@ -2330,7 +2340,9 @@ function getDocDates(){
   }catch(e){ hijri = weekday; }
   return {greg, hijri};
 }
-function genReqNumber(){
+// قالب رقم الطلب — بادئة ولاحقة. الرقم التسلسلي نفسه يمنحه عدّاد قاعدة البيانات
+// (request_number_counters) لا المتصفح، فلا يتكرر رقم ولا تنشأ فجوة في التسلسل.
+function reqNumberTemplate(){
   const year = new Date().getFullYear();
   const company = state.companies.find(c=>c.id===state.currentCompanyId);
   const companyCode = company ? company.code : 'CO';
@@ -2340,8 +2352,33 @@ function genReqNumber(){
     const withCode = nearestUnit(me.centerId, c=>!!c.code);   // وحدة بلا رمز ترث رمز أقرب وحدة أم، وإلا رمز الإدارة العامة للشركة
     if(withCode) unitCode = withCode.code;
   }
-  const prefix = `${companyCode}-${unitCode}-`;
-  const suffix = `/${year}`;
+  return { prefix: `${companyCode}-${unitCode}-`, suffix: `/${year}` };
+}
+
+// ═══ نافذة المراجعة ═══════════════════════════════════════════════════
+// بعد الإرسال يُحفظ الطلب في القاعدة بلا رقم لمدة يحدّدها الأدمن. وما دام
+// بلا رقم فهو غير موجود عند غيره: لا يراه المعتمدون ولا يظهر في إشعاراتهم،
+// وصاحبه وحده يعدّله أو يحذفه أو يُرسله نهائياً. فالحذف قبل الاعتماد يغني
+// عن «إلغاء طلب» في السجل، وتأجيل الرقم يحفظ التسلسل بلا فجوات.
+// القيمة 0 تُعطّل النافذة فيأخذ الطلب رقمه فور الإرسال.
+function reviewWindowMinutes(){
+  const c = state.companies.find(x=>x.id===state.currentCompanyId);
+  const v = c ? Number(c.reviewWindowMinutes) : 0;
+  return (v==null || isNaN(v) || v<0) ? 0 : v;
+}
+// بلا رقم = ما يزال في نافذة المراجعة، مهما كان الوقت
+function isUnderReview(r){ return !!r && !r.number; }
+function reviewSecondsLeft(r){
+  if(!r || !r.reviewUntil) return 0;
+  return Math.max(0, Math.round((new Date(r.reviewUntil).getTime() - Date.now())/1000));
+}
+function fmtCountdown(secs){
+  const m = Math.floor(secs/60), s = secs%60;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function genReqNumber(){
+  const {prefix, suffix} = reqNumberTemplate();
   let maxN = 0;
   state.requests.forEach(r=>{
     if(r.number && r.number.startsWith(prefix) && r.number.endsWith(suffix)){
@@ -2885,12 +2922,26 @@ async function restoreRequest(id){
   render();
 }
 async function executeDeleteRequest(id){
+  // السطور التابعة (المستفيدون، السجل، خطوات الاعتماد) تُحذف تلقائياً بـ CASCADE.
+  // سجل تجاوز الميزانية لا يرتبط بمفتاح أجنبي، فنحذفه صراحةً لئلا يبقى يتيماً.
+  try{ await db.from('budget_overrun_log').delete().eq('request_id', id); }catch(e){}
   const delResult = await db.from('requests').delete().eq('id', id);
   if(!(await dbCheck(delResult, 'حذف الطلب'))) return;
   state.requests = state.requests.filter(r=>r.id!==id);
-  state.view='dashboard';
-  showToast('تم حذف الطلب', 'success');
+  if(state.view!=='cancelledArchive') state.view='dashboard';   // الحذف من الأرشيف يبقيك فيه
+  if(state.activeReqId===id) state.activeReqId = null;
+  showToast('تم حذف الطلب نهائياً', 'success');
   render();
+}
+
+// حذف نهائي من أرشيف الملغاة — لمدير النظام وحده، ولا تراجع عنه
+function deleteRequestPermanently(id){
+  if(state.user.role!=='admin'){ showToast('الحذف النهائي من صلاحية مدير النظام وحده', 'error'); return; }
+  const req = state.requests.find(r=>r.id===id);
+  if(!req) return;
+  requestDeleteConfirm(
+    `حذف الطلب <b>${req.number || '(بلا رقم)'}</b> نهائياً؟<br>يُمحى هو ومستفيدوه وسجله من قاعدة البيانات، ولا يمكن استرجاعه.`,
+    'request', id);
 }
 
 function isEditable(req){
@@ -3009,6 +3060,17 @@ function onBudgetItemSelectChange(){
   const box = document.getElementById('budgetItemBalanceBox');
   if(!sel||!box) return;
   const itemId = sel.value;
+
+  // «بند غير محدد»: تحذير صريح بأن الطلب ناقص ولن يُصرف قبل إسناده لبند حقيقي
+  if(itemId === UNSPECIFIED_BUDGET){
+    box.style.cssText = 'display:block;margin-top:6px;padding:10px 13px;border-radius:8px;font-size:12.5px;'
+      + 'line-height:1.75;background:rgba(245,158,11,.1);color:#8a5a00;border:1px solid var(--amber);';
+    box.innerHTML = '<b style="font-size:13px;">⚠️ الطلب لن يكتمل بهذا الاختيار</b><br>'
+      + 'سيمضي في سلسلة الاعتماد، لكن <b>الصرف سيتوقف</b> حتى يُفتح بند مناسب '
+      + 'أو يُغيَّر إلى بند موجود. والمحاسب هو من يُسنده قبل إتمام الصرف.';
+    return;
+  }
+
   if(!itemId){ box.style.display='none'; return; }
   const bal = computeBudgetItemBalance(itemId);
   if(bal==null){ box.style.display='none'; return; }
@@ -3213,8 +3275,10 @@ async function submitDraftInner(){
   const reasonInput = d.reason.trim();
   const detailedReasonInput = (d.detailedReason||'').trim();
   if(!reasonInput){ showToast('الرجاء إدخال عنوان الطلب','error'); return; }
-  const budgetItemId = d.budgetItemId || null;
-  if(!budgetItemId){ showToast('الرجاء اختيار بند الميزانية','error'); return; }
+  // «بند غير محدد» يُخزَّن NULL ويمرّ — الصرف هو ما يتوقف لاحقاً لا الإرسال
+  const rawBudget = d.budgetItemId || '';
+  if(!rawBudget){ showToast('الرجاء اختيار بند الميزانية، أو «بند غير محدد» إن لم يناسبك أيٌّ منها','error'); return; }
+  const budgetItemId = (rawBudget === UNSPECIFIED_BUDGET) ? null : rawBudget;
   const beneficiaries = [];
   let hasInvalidAmount = false;
   let missingStatement = false;
@@ -3342,10 +3406,14 @@ async function submitDraftInner(){
   }
 
   const dates = getDocDates();
-  const assignedNumber = genReqNumber();
+  const numTpl = reqNumberTemplate();
+  const winMin = reviewWindowMinutes();
   const req = {
     id: 'r'+Date.now(),
-    number: assignedNumber,
+    number: null,                       // يُمنح عند انتهاء نافذة المراجعة
+    numberPrefix: numTpl.prefix,
+    numberSuffix: numTpl.suffix,
+    reviewUntil: new Date(Date.now() + winMin*60000).toISOString(),
     reason: reasonInput,
     detailedReason: detailedReasonInput,
     totalAmount: total,
@@ -3370,7 +3438,8 @@ async function submitDraftInner(){
     id:req.id, number:req.number, reason:req.reason, detailed_reason:req.detailedReason||null, total_amount:req.totalAmount, status:req.status,
     origin:req.origin, center_id:req.centerId, company_id:req.companyId, created_by:req.createdBy, created_by_id:req.createdById,
     date_greg:req.dateGreg, date_hijri:req.dateHijri, is_recurring:req.isRecurring, fast_tracked:req.fastTracked, limit_exceeded:req.limitExceeded,
-    budget_item_id: budgetItemId
+    budget_item_id: budgetItemId,
+    number_prefix: req.numberPrefix, number_suffix: req.numberSuffix, review_until: req.reviewUntil
   });
   if(!(await dbCheck(reqInsert, 'إنشاء الطلب'))) return;
   const stepRows = chain.map((s,i)=>({id:'as_'+req.id+'_'+i, request_id:req.id, approver_id:s.approverId, sequence_order:i+1, role_label:s.roleLabel, status:'pending', kind:'primary', activated_at: i===0 ? new Date().toISOString() : null}));
@@ -3398,10 +3467,72 @@ async function submitDraftInner(){
     logBudgetOverrun(req.id, ol.budgetItemId, ol.stage, ol.requestedAmount, ol.availableBalance);
     state._pendingOverrunLog = null;
   }
-  showToast('تم إرسال الطلب بنجاح', 'success');
+  if(winMin <= 0){
+    await finalizeRequestNow(req, {silent:true});
+    showToast('تم إرسال الطلب بنجاح — رقمه ' + (req.number||''), 'success');
+  }else{
+    showToast(`تم حفظ الطلب — أمامك ${winMin} ${winMin===1?'دقيقة':'دقائق'} لمراجعته قبل الإرسال النهائي. `
+            + 'لم يأخذ رقماً بعد ولم يصل المعتمدين، ويمكنك تعديله أو حذفه.', 'success');
+    startReviewTicker();
+  }
   state.view='dashboard';
   state.activeReqId = req.id;
   render();
+}
+
+// ═══ أفعال نافذة المراجعة ═════════════════════════════════════════════
+// منح الرقم: يستدعي دالة محمية في القاعدة تزيد العدّاد ذرّياً وتعيد الرقم.
+// صاحب الطلب وحده يستطيع ذلك، والمهمة الدورية (كل دقيقة) هي شبكة الأمان
+// لمن أغلق المتصفح قبل انتهاء المدة.
+async function finalizeRequestNow(req, opts){
+  opts = opts || {};
+  if(!req || req.number) return true;
+  const {data, error} = await db.rpc('finalize_request', {p_id: req.id});
+  if(error){
+    if(!opts.silent) showToast('تعذّر منح الرقم: ' + error.message, 'error');
+    return false;
+  }
+  req.number = data;
+  req.reviewUntil = new Date().toISOString();
+  if(!opts.silent) showToast('تم إرسال الطلب نهائياً — رقمه ' + data, 'success');
+  return true;
+}
+
+async function sendRequestFinal(id){
+  const req = state.requests.find(r=>r.id===id);
+  if(!req || req.number) return;
+  if(!confirm('إرسال الطلب نهائياً الآن؟\n\nسيأخذ رقمه ويصل المعتمدين، ولن يمكنك حذفه بعدها.')) return;
+  if(await finalizeRequestNow(req)) render();
+}
+
+async function deleteRequestInReview(id){
+  const req = state.requests.find(r=>r.id===id);
+  if(!req || req.number) return;
+  if(!confirm('حذف الطلب؟\n\nلم يأخذ رقماً ولم يره أحد، فسيُحذف تماماً ولن يظهر في أرشيف الملغاة.')) return;
+  const delResult = await db.from('requests').delete().eq('id', id);
+  if(!(await dbCheck(delResult, 'حذف الطلب'))) return;
+  state.requests = state.requests.filter(r=>r.id!==id);
+  state.view = 'dashboard';
+  state.activeReqId = null;
+  showToast('تم حذف الطلب', 'success');
+  render();
+}
+
+// عدّاد حيّ: يُحدّث الشاشة كل ثانية، ويمنح الرقم فور انتهاء المدة
+let _reviewTicker = null;
+function myRequestsUnderReview(){
+  if(!state.user) return [];
+  return state.requests.filter(r=>isUnderReview(r) && r.createdById===state.user.id && r.companyId===state.currentCompanyId);
+}
+function startReviewTicker(){
+  if(_reviewTicker || !myRequestsUnderReview().length) return;
+  _reviewTicker = setInterval(async ()=>{
+    const mine = myRequestsUnderReview();
+    if(!mine.length){ clearInterval(_reviewTicker); _reviewTicker = null; return; }
+    const due = mine.filter(r=>reviewSecondsLeft(r)<=0);
+    for(const r of due){ await finalizeRequestNow(r, {silent:true}); }
+    render();
+  }, 1000);
 }
 
 async function rebuildChainIfUntouched(req){
@@ -3457,6 +3588,7 @@ async function openRequest(id){
 }
 
 function canActOn(req){
+  if(isUnderReview(req)) return false;   // لم يأخذ رقماً بعد: خارج سلسلة الاعتماد مؤقتاً
   if(req.status==='completed' || req.status==='rejected') return false;
   if(req.status==='pending_decision'){
     return !!myDecisionStep(req, state.user.id);
@@ -3603,7 +3735,30 @@ async function finalizeApprove(req, signatureOverride){
   render();
 }
 // المحاسب يؤكد إتمام الصرف فعلياً — الخطوة الأخيرة بالطلب، تأكيد بسيط بلا توقيع
+// إسناد طلب «بند غير محدد» إلى بند حقيقي — يُسجَّل في سجل الطلب
+async function assignBudgetItem(reqId){
+  const req = state.requests.find(r=>r.id===reqId);
+  const sel = document.getElementById('assignBudgetSel');
+  if(!req || !sel) return;
+  const itemId = sel.value;
+  if(!itemId){ showToast('اختر البند أولاً','error'); return; }
+  const bi = (state.budgetItems||[]).find(b=>b.id===itemId);
+
+  const r = await db.from('requests').update({budget_item_id: itemId}).eq('id', reqId);
+  if(!(await dbCheck(r,'إسناد بند الميزانية'))) return;
+  req.budgetItemId = itemId;
+  await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id,
+    action:'إسناد بند الميزانية', note:`أُسند إلى: ${bi?bi.name:itemId}`, time: fmtDate()});
+  showToast('تم إسناد البند — صار الطلب مكتملاً','success');
+  render();
+}
+
 async function markDisbursed(req){
+  // الصمام يُغلق هنا: لا صرف قبل إسناد الطلب إلى بند ميزانية حقيقي
+  if(isUnspecifiedBudget(req.budgetItemId)){
+    showToast('لا يمكن إتمام الصرف: الطلب على «بند غير محدد». أسنده إلى بند من بطاقة الطلب أولاً','error');
+    return;
+  }
   await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action:'تم الصرف', note:'', time: fmtDate()});
   await setRequestStatus(req, 'completed');
   showToast('تم تأكيد الصرف', 'success');
@@ -4411,7 +4566,7 @@ function renderLetterPages(req){
     </div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;">
       <p class="doc-greeting" style="margin:0;padding-right:0;">تحية طيبة وبعد،...</p>
-      <span class="doc-red" style="font-size:14px;font-weight:600;text-decoration:underline;">رقم الطلب: ${req.number}</span>
+      <span class="doc-red" style="font-size:14px;font-weight:600;text-decoration:underline;">رقم الطلب: ${req.number || '— قيد المراجعة —'}</span>
     </div>
     <div class="doc-subject-bar" style="margin-top:4px;">طلب صرف – <span>${req.reason}</span></div>
     <p class="doc-body-text" style="margin-top:4px;">بالإشارة إلى الموضوع أعلاه، ${referenceText} <span class="doc-red">${req.detailedReason || req.reason}</span> وفق الجدول الآتي:</p>`;
@@ -4529,6 +4684,7 @@ function renderPrintPreview(app){
 function render(){
   if(state.pendingEscalate && state.pendingEscalate.reqId!==state.activeReqId) state.pendingEscalate = null;
   state._viewStale = false;
+  if(state.user) startReviewTicker();   // عدّاد نافذة المراجعة إن كان لي طلب لم يُرقَّم بعد
   renderBrand();
   renderTopbar();
   renderAppNav();
@@ -5476,6 +5632,7 @@ function renderCancelledArchive(app){
         <div class="actions-row" style="margin:0;">
           <button class="btn btn-ghost btn-xs" onclick="openRequest('${r.id}')">عرض</button>
           <button class="btn btn-approve btn-sm" onclick="restoreRequest('${r.id}')">استرجاع</button>
+          ${state.user.role==='admin' ? `<button class="btn btn-reject btn-sm" onclick="deleteRequestPermanently('${r.id}')" title="يُمحى من قاعدة البيانات ولا يُسترجع">حذف نهائي</button>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -6482,6 +6639,14 @@ function renderCompanyEditForm(){
           <input id="editCoCurrency" type="text" value="${escH(c.currency_symbol||'د.ك')}" placeholder="مثال: د.ك أو $ أو ر.س" maxlength="10" style="max-width:140px;">
           <div class="file-hint" style="margin-top:3px;">يظهر في التقارير المالية بدلاً من «د.ك»</div>
         </div>
+        <div>
+          <label>⏳ نافذة المراجعة قبل الترقيم (بالدقائق)</label>
+          <input id="editCoReviewWindow" type="number" min="0" max="120" step="1" dir="ltr"
+                 value="${c.reviewWindowMinutes==null ? 10 : c.reviewWindowMinutes}" style="max-width:140px;direction:ltr;text-align:center;">
+          <div class="file-hint" style="margin-top:3px;">
+            بعد الإرسال يبقى الطلب بلا رقم هذه المدة، لا يراه المعتمدون، ويستطيع صاحبه تعديله أو حذفه. القيمة 0 تُعطّلها فيُرقَّم فوراً.
+          </div>
+        </div>
       </div>
       ${c.logoData ? `<div class="file-hint">✓ يوجد شعار/ترويسة محفوظة</div>` : ''}
       <label>تحديث الشعار/الترويسة (اختياري)</label>
@@ -6586,9 +6751,14 @@ async function saveCompanyEdit(){
   const defaultEscalateMode = (document.getElementById('editCoEscMode')||{}).value || 'manager';
   const deadlineDayMode = (document.getElementById('editCoDayMode')||{}).value || 'work';
   const currencySymbolVal = (document.getElementById('editCoCurrency')||{}).value?.trim() || 'د.ك';
+  const revV = (document.getElementById('editCoReviewWindow')||{}).value;
+  let reviewWindow = (revV===undefined || revV==='') ? (c.reviewWindowMinutes||0) : Number(revV);
+  if(isNaN(reviewWindow) || reviewWindow<0) reviewWindow = 0;
+  if(reviewWindow>120) reviewWindow = 120;
   const updates = {name_ar:nameAr, name_en:nameEn, tax_number:tax, code, hq_code:hqCode, primary_color:color, cfo_delegation_mode:cfoMode,
     cfo_delegate_user_id: cfoUserId||null, cfo_delegate_until: cfoUntil||null,
     default_deadline_days: defaultDeadlineDays, default_escalate_mode: defaultEscalateMode, deadline_day_mode: deadlineDayMode,
+    review_window_minutes: reviewWindow,
     currency_symbol: currencySymbolVal};
   if(file){ updates.logo_data = await readFileAsDataURL(file); }
   const result = await db.from('companies').update(updates).eq('id', c.id);
@@ -6597,6 +6767,7 @@ async function saveCompanyEdit(){
   c.currency_symbol = currencySymbolVal;
   c.cfoDelegateUserId = cfoUserId||null; c.cfoDelegateUntil = cfoUntil||'';
   c.defaultDeadlineDays = defaultDeadlineDays; c.defaultEscalateMode = defaultEscalateMode; c.deadlineDayMode = deadlineDayMode;
+  c.reviewWindowMinutes = reviewWindow;
   if(updates.logo_data) c.logoData = updates.logo_data;
   state.editingCompanyId = null;
   showToast('تم حفظ تعديلات الشركة', 'success');
@@ -7867,7 +8038,7 @@ async function maybeMigrateNames(){
   if(!state.user || state.user.role!=='admin' || state._migDone) return;
   state._migDone = true;
   if(state.appSettings && state.appSettings.migr_gm==='1') return;
-  const old = state.jobLevels.filter(l=>l.name==='المدير الأعلى');
+  const old = (state.jobLevels||[]).filter(l=>l.name==='المدير الأعلى');
   if(old.length){
     const r = await db.from('job_levels').update({name:'المدير العام'}).eq('name','المدير الأعلى');
     if(r && r.error) return;
@@ -8243,6 +8414,8 @@ function renderDashboard(app){
   }
 
   visibleRequests = visibleRequests.filter(r=>r.companyId===state.currentCompanyId);
+  // طلب في نافذة المراجعة لا يراه إلا صاحبه — فهو بلا رقم، أي غير موجود عند غيره
+  visibleRequests = visibleRequests.filter(r=>!isUnderReview(r) || r.createdById===myId);
 
   const myPendingCount = getMyPendingRequests().length;
   const pendingBadge = myPendingCount>0
@@ -8353,14 +8526,16 @@ function renderDashboard(app){
             const subNoteClass = iAlreadyApproved ? 'note-approved' : 'note-waiting';
             return `
             <div class="req-card" onclick="openRequest('${r.id}')" style="${r.limitExceeded ? 'border:3px solid var(--red);' : ''}">
-              <span class="req-field-value req-field-wrap" style="font-weight:700;">${r.number}</span>
+              <span class="req-field-value req-field-wrap" style="font-weight:700;">${r.number || `<span style="color:var(--amber);font-size:12px;">⏳ قيد المراجعة${reviewSecondsLeft(r)>0 ? ` <span dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(reviewSecondsLeft(r))}</span>` : ''}</span>`}</span>
               <span class="req-field-value req-field-wrap"${r.isCancelled ? ' style="text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px;color:var(--muted);"' : ''}>${r.reason}${r.limitExceeded ? ' <span class="limit-tag">⚠ تجاوز السقف</span>' : ''}</span>
               <span class="req-field-value">${r.dateGreg ? `<div>${r.dateGreg}</div><div style="font-size:11px;color:var(--muted);">${createdTimePart}</div>` : '—'}</span>
               <span class="req-field-value">${paidEntry ? `<div>${paidDatePart}</div><div style="font-size:11px;color:var(--muted);">${paidTimePart}</div>` : '—'}</span>
               <span class="req-field-value" style="padding-right:22px;">${r.beneficiaries.length}</span>
               <span class="req-field-value" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(r.totalAmount)} د.ك</span>
               <span>
-                ${statusBadge(r.status, r.isCancelled, myTurn, !subNoteText, myTurn && isOverdueFor(r, state.user.id))}${r.fastTracked ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-right:4px;font-size:10.5px;" title="تخطّى بعض خطوات الاعتماد لأن المبلغ ضمن الحد الأدنى">⚡ حد أدنى</span>` : ''}
+                ${isUnderReview(r)
+                  ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);" title="لم يُرسل نهائياً بعد — لا يراه المعتمدون">قيد المراجعة</span>`
+                  : statusBadge(r.status, r.isCancelled, myTurn, !subNoteText, myTurn && isOverdueFor(r, state.user.id))}${r.fastTracked ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:10.5px;" title="تخطّى بعض خطوات الاعتماد لأن المبلغ ضمن الحد الأدنى">⚡ حد أدنى</span>` : ''}${(isUnspecifiedBudget(r.budgetItemId) && !r.isCancelled && r.status!=='rejected' && r.status!=='completed') ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:10.5px;" title="الصرف متوقف حتى يُسنَد الطلب إلى بند ميزانية">⚠ بند غير محدد</span>` : ''}
                 ${subNoteText ? `<span class="badge sub-status-note ${subNoteClass}">${subNoteText}</span>` : ''}
               </span>
             </div>`;
@@ -8478,11 +8653,12 @@ function renderNewRequest(app){
       <label style="margin-top:14px;">بند الميزانية <span style="color:var(--red);">*</span></label>
       <select id="budgetItemSelect" onchange="onBudgetItemSelectChange()" style="width:100%;">
         <option value="">— اختر البند —</option>
-        ${(state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId).map(b=>{
+        ${(state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId && b.is_active!==false).map(b=>{
           const bal = computeBudgetItemBalance(b.id);
           const balStr = bal!=null ? ` (الرصيد: ${fmtKWDPlain(bal)})` : '';
           return `<option value="${b.id}"${(d.budgetItemId===b.id)?' selected':''}>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${balStr}</option>`;
         }).join('')}
+        <option value="${UNSPECIFIED_BUDGET}"${(d.budgetItemId===UNSPECIFIED_BUDGET)?' selected':''}>⚠️ بند غير محدد — يُستكمل قبل الصرف</option>
       </select>
       <div id="budgetItemBalanceBox" style="display:none;margin-top:6px;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;"></div>
 
@@ -8693,7 +8869,9 @@ function renderAppRequestView(req){
       <div class="app-req-meta">
         <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:15px;font-weight:700;color:var(--red);">
           <span>رقم الطلب:</span>
-          <span dir="ltr" style="unicode-bidi:isolate;">${req.number}</span>
+          ${req.number
+            ? `<span dir="ltr" style="unicode-bidi:isolate;">${req.number}</span>`
+            : `<span style="color:var(--amber);">قيد المراجعة</span>`}
         </div>
         <span style="font-size:15px;font-weight:600;color:var(--text);text-decoration:underline;line-height:1.15;">${req.dateHijri||'—'}</span>
         <span style="font-size:15px;font-weight:600;color:var(--text);text-decoration:underline;line-height:1.15;">${req.dateGreg||'—'}</span>
@@ -8701,6 +8879,55 @@ function renderAppRequestView(req){
     </div>
 
     ${(()=>{
+      // نافذة المراجعة: الطلب بلا رقم، وصاحبه وحده يراه ويتصرف فيه
+      if(!isUnderReview(req)) return '';
+      const mine = req.createdById===state.user.id;
+      const secs = reviewSecondsLeft(req);
+      if(!mine){
+        return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:13px;color:#8a5a00;">⏳ طلب قيد المراجعة — لم يُرسل نهائياً بعد</div>
+          <div style="font-size:12.5px;color:#8a5a00;line-height:1.75;margin-top:4px;">لم يأخذ رقماً، ولا يدخل سلسلة الاعتماد حتى ينتهي صاحبه من مراجعته.</div>
+        </div>`;
+      }
+      const expired = secs<=0;
+      return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
+        <div style="font-weight:700;font-size:13px;color:#8a5a00;">
+          ${expired ? '⏳ انتهت المدة — يُمنح الرقم الآن…'
+                    : `⏳ راجع طلبك قبل الإرسال النهائي — تبقّى <span dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(secs)}</span>`}
+        </div>
+        <div style="font-size:12.5px;color:#8a5a00;line-height:1.75;margin-top:4px;">
+          الطلب محفوظ بلا رقم ولم يره المعتمدون بعد. وما دامت المدة قائمة يمكنك تعديله أو حذفه،
+          فإن انقضت أخذ رقمه ومضى في سلسلة الاعتماد.
+        </div>
+        ${expired ? '' : `<div class="rev-actions" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm"  onclick="editRequest('${req.id}')">تعديل</button>
+          <button class="btn btn-reject btn-sm" onclick="deleteRequestInReview('${req.id}')">حذف</button>
+          <button class="btn btn-primary btn-sm" onclick="sendRequestFinal('${req.id}')">إرسال نهائي الآن</button>
+        </div>`}
+      </div>`;
+    })()}
+
+    ${(()=>{
+      // طلب بلا بند: تحذير دائم + إسناد للمحاسب ومدير النظام
+      if(isUnspecifiedBudget(req.budgetItemId) && !req.isCancelled && req.status!=='rejected'){
+        const canAssign = ['accountant','cfo','admin'].includes(state.user.role);
+        const opts = (state.budgetItems||[])
+          .filter(b=>b.company_id===req.companyId && b.is_active!==false)
+          .map(b=>`<option value="${b.id}">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)} (الرصيد: ${fmtKWDPlain(computeBudgetItemBalance(b.id)||0)})</option>`).join('');
+        return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:13px;color:#8a5a00;">⚠️ بند غير محدد — الطلب غير مكتمل</div>
+          <div style="font-size:12.5px;color:#8a5a00;line-height:1.75;margin-top:4px;">
+            يمضي الطلب في سلسلة الاعتماد، لكن <b>الصرف لن يتم</b> حتى يُسنَد إلى بند ميزانية.
+            افتح بنداً مناسباً من لوحة التحكم إن لم يوجد، ثم اختره هنا.
+          </div>
+          ${canAssign ? `<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+            <select id="assignBudgetSel" style="width:auto;min-width:240px;flex:1 1 240px;">
+              <option value="">— اختر البند —</option>${opts}
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="assignBudgetItem('${req.id}')">إسناد البند</button>
+          </div>` : `<div style="font-size:12px;color:var(--muted);margin-top:8px;">الإسناد من صلاحية المحاسب أو المدير المالي أو مدير النظام.</div>`}
+        </div>`;
+      }
       const bi = req.budgetItemId ? (state.budgetItems||[]).find(b=>b.id===req.budgetItemId) : null;
       if(!bi) return '';
       const bal = computeBudgetItemBalance(bi.id);
@@ -8979,7 +9206,7 @@ function renderDetail(app){
         <div class="header-actions-flex">
           <div class="doc-actions-col">
             ${isDocView ? `<div class="row" style="gap:8px;"><button class="btn btn-ghost btn-md" onclick="openPrintPreview('${req.id}')">معاينة الطلب</button><button class="btn btn-ghost btn-md" onclick="downloadRequestPdf('${req.id}')">تحميل PDF</button></div>` : ''}
-            ${(req.createdById===state.user.id && isEditable(req) && !req.isCancelled) ? `
+            ${(req.createdById===state.user.id && isEditable(req) && !req.isCancelled && !isUnderReview(req)) ? `
               <div class="doc-actions-row" data-bar-actions>
                 <button class="btn btn-ghost btn-sm" onclick="editRequest('${req.id}')">تعديل الطلب</button>
                 <button class="btn btn-reject btn-sm" onclick="deleteRequest('${req.id}')">إبطال الطلب</button>
