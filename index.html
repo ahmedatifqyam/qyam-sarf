@@ -5866,7 +5866,9 @@ function renderBudgetItemsTab(){
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           ${hasChildren ? balBadge(bal,'رصيده') + balBadge(balTotal,'الإجمالي مع الفروع') : balBadge(bal,'الرصيد')}
           <button class="btn btn-ghost btn-xs" onclick="state.editingBudgetItemId='${b.id}'; render();">تعديل</button>
-          <button class="btn btn-reject btn-xs" onclick="deleteBudgetItem('${b.id}')">حذف</button>
+          ${b.is_protected
+            ? `<span title="بند ثابت في النظام — يُعطَّل من التعديل ولا يُحذف" style="font-size:11px;color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:3px 9px;white-space:nowrap;">🔒 بند ثابت</span>`
+            : `<button class="btn btn-reject btn-xs" onclick="deleteBudgetItem('${b.id}')">حذف</button>`}
         </div>
       </div>`;
     }).join('')}
@@ -5934,6 +5936,11 @@ async function saveBudgetItem(id){
 
 async function deleteBudgetItem(id){
   const b = (state.budgetItems||[]).find(x=>x.id===id);
+  // حاجز ثانٍ: القاعدة ترفض الحذف أصلاً، وهذا يمنع رسالة خطأ مربكة
+  if(b && b.is_protected){
+    showToast('هذا بند ثابت في النظام ولا يُحذف — عطّله من التعديل بدل ذلك','error');
+    return;
+  }
   requestDeleteConfirm(`حذف البند "${b?b.name:''}" نهائياً؟`, 'budget_item', id);
 }
 async function confirmDeleteBudgetItem(id){
