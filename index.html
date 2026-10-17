@@ -3643,14 +3643,27 @@ function myRequestsUnderReview(){
   if(!state.user) return [];
   return state.requests.filter(r=>isUnderReview(r) && r.createdById===state.user.id && r.companyId===state.currentCompanyId);
 }
+// العدّاد يُحدّث نصّ الثواني وحده في مكانه، ولا يُعيد رسم الصفحة.
+// وإعادة الرسم كل ثانية كانت تهدم أي قائمة منسدلة مفتوحة وأي حقل
+// قيد الكتابة — فالرسم الكامل لا يقع إلا حين يتغيّر شيء فعلاً:
+// عند انتهاء مدة طلب ومنحه رقمه.
 function startReviewTicker(){
   if(_reviewTicker || !myRequestsUnderReview().length) return;
   _reviewTicker = setInterval(async ()=>{
     const mine = myRequestsUnderReview();
     if(!mine.length){ clearInterval(_reviewTicker); _reviewTicker = null; return; }
+
     const due = mine.filter(r=>reviewSecondsLeft(r)<=0);
-    for(const r of due){ await finalizeRequestNow(r, {silent:true}); }
-    render();
+    if(due.length){
+      for(const r of due){ await finalizeRequestNow(r, {silent:true}); }
+      render();                       // تغيّرت الحالة فعلاً: الطلب أخذ رقمه
+      return;
+    }
+    // لا شيء انتهى: تحديث جرّاحي للنص وحده
+    document.querySelectorAll('[data-countdown]').forEach(el=>{
+      const r = mine.find(x=>x.id === el.getAttribute('data-countdown'));
+      if(r) el.textContent = fmtCountdown(reviewSecondsLeft(r));
+    });
   }, 1000);
 }
 
@@ -9020,7 +9033,7 @@ function renderDashboard(app){
             const subNoteClass = iAlreadyApproved ? 'note-approved' : 'note-waiting';
             return `
             <div class="req-card" onclick="openRequest('${r.id}')" style="${r.limitExceeded ? 'border:3px solid var(--red);' : ''}">
-              <span class="req-field-value req-field-wrap" style="font-weight:700;">${r.number || `<span style="color:var(--amber);font-size:12px;">⏳ قيد المراجعة${reviewSecondsLeft(r)>0 ? ` <span dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(reviewSecondsLeft(r))}</span>` : ''}</span>`}</span>
+              <span class="req-field-value req-field-wrap" style="font-weight:700;">${r.number || `<span style="color:var(--amber);font-size:12px;">⏳ قيد المراجعة${reviewSecondsLeft(r)>0 ? ` <span data-countdown="${r.id}" dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(reviewSecondsLeft(r))}</span>` : ''}</span>`}</span>
               <span class="req-field-value req-field-wrap"${r.isCancelled ? ' style="text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px;color:var(--muted);"' : ''}>${r.reason}${r.limitExceeded ? ' <span class="limit-tag">⚠ تجاوز السقف</span>' : ''}</span>
               <span class="req-field-value">${r.dateGreg ? `<div>${r.dateGreg}</div><div style="font-size:11px;color:var(--muted);">${createdTimePart}</div>` : '—'}</span>
               <span class="req-field-value">${paidEntry ? `<div>${paidDatePart}</div><div style="font-size:11px;color:var(--muted);">${paidTimePart}</div>` : '—'}</span>
@@ -9387,7 +9400,7 @@ function renderAppRequestView(req){
       return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
         <div style="font-weight:700;font-size:13px;color:#8a5a00;">
           ${expired ? '⏳ انتهت المدة — يُمنح الرقم الآن…'
-                    : `⏳ راجع طلبك قبل الإرسال النهائي — تبقّى <span dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(secs)}</span>`}
+                    : `⏳ راجع طلبك قبل الإرسال النهائي — تبقّى <span data-countdown="${req.id}" dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(secs)}</span>`}
         </div>
         <div style="font-size:12.5px;color:#8a5a00;line-height:1.75;margin-top:4px;">
           الطلب محفوظ بلا رقم ولم يره المعتمدون بعد. وما دامت المدة قائمة يمكنك تعديله أو حذفه،
