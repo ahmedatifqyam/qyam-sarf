@@ -2765,10 +2765,28 @@ async function finishLogin(authUid){
   maybeAutoOpenBell();
 }
 
+// آخر شركة عمل فيها المستخدم — تُحفظ لكل مستخدم على حدة في هذا المتصفح،
+// فيفتح النظام حيث تركه لا حيث سُجِّل. وإن لم يوجد محفوظ، أو لم يعد
+// مسموحاً له بها، رجع إلى شركته المسجَّلة كما كان.
+function lastCompanyKey(userId){ return 'qayam_last_company_' + userId; }
+function loadLastCompany(userId){
+  try{ return localStorage.getItem(lastCompanyKey(userId)); }catch(e){ return null; }
+}
+function saveLastCompany(userId, companyId){
+  try{ if(userId && companyId) localStorage.setItem(lastCompanyKey(userId), companyId); }catch(e){}
+}
+function pickStartCompany(user){
+  const allowed = state.myCompanyIds || [];
+  const last = loadLastCompany(user.id);
+  if(last && allowed.includes(last)) return last;
+  if(user.companyId && allowed.includes(user.companyId)) return user.companyId;
+  return allowed[0] || null;
+}
+
 function setupCompanyAccess(user){
   if(user.role==='admin'){
     state.myCompanyIds = state.companies.map(c=>c.id);
-    state.currentCompanyId = user.companyId || state.myCompanyIds[0] || null;
+    state.currentCompanyId = pickStartCompany(user);
     return;
   }
   const full = state.users.find(u=>u.id===user.id) || user;
@@ -2776,11 +2794,12 @@ function setupCompanyAccess(user){
   const ids = new Set(extra);
   if(user.companyId) ids.add(user.companyId);
   state.myCompanyIds = Array.from(ids);
-  state.currentCompanyId = user.companyId || state.myCompanyIds[0] || null;
+  state.currentCompanyId = pickStartCompany(user);
 }
 
 function switchCompany(companyId){
   state.currentCompanyId = companyId;
+  if(state.user) saveLastCompany(state.user.id, companyId);
   showToast('تم التبديل إلى: ' + (state.companies.find(c=>c.id===companyId)?.nameAr||''), 'success');
   render();
 }
@@ -8973,12 +8992,22 @@ function renderDashboard(app){
   }
   else if(STATUS_ORDER[statusFilter]) displayList = periodFiltered.filter(r=>r.status===statusFilter);
 
-  const sortCol = state.myReqSortCol || 'number';
+  // الافتراضي: الأحدث أولاً. وكان الفرز بالرقم التسلسلي وحده، فيخلط
+  // وحدات مختلفة (DEMO-FIN-019 مع DEMO-S-005) ويُنزل الطلب الذي لم
+  // يُرقَّم بعد إلى آخر القائمة بوصف رقمه صفراً — أي أن أحدث طلب يختفي.
+  const sortCol = state.myReqSortCol || 'date';
   const sortDir = state.myReqSortDir || 'desc';
   const getSortVal = (r, col)=>{
-    if(col==='number') return parseInt((r.number||'').match(/-(\d+)\/\d+$/)?.[1] || (r.number||'').match(/(\d+)$/)?.[1] || 0);
+    if(col==='number'){
+      // بلا رقم = الأحدث: يتصدّر عند التنازلي
+      if(!r.number) return '9999|~';          // لا سنة أعلى منها، فيتصدّر
+      // السنة ثم البادئة ثم التسلسل مبطَّناً — فلا تختلط وحدة بوحدة ولا سنة بسنة
+      const m = String(r.number).match(/^(.*-)(\d+)\/(\d{4})$/);
+      if(!m) return String(r.number);
+      return m[3] + '|' + m[1] + '|' + m[2].padStart(6,'0');
+    }
     if(col==='reason') return (r.reason||'');
-    if(col==='date') return r.createdAtRaw || '';
+    if(col==='date') return r.createdAtRaw ? new Date(r.createdAtRaw).getTime() : 0;
     if(col==='paidDate'){ const p=r.history.find(h=>h.action==='تم الصرف'); return p ? p.time : ''; }
     if(col==='count') return r.beneficiaries.length;
     if(col==='amount') return Number(r.totalAmount||0);
