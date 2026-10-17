@@ -1614,7 +1614,7 @@ function openNotifItem(id, kind){
     renderBellPanel();
     state.view = 'admin'; state.adminSubTab = 'users';
     if(id) state.editingUserId = id;
-    render(); window.scrollTo(0,0);
+    render(); focusUserEdit();
     return;
   }
   if(kind==='structure'){
@@ -8555,6 +8555,25 @@ function toggleGeneralAccess(){
     else { c.disabled = false; c.checked = c.getAttribute('data-was-linked')==='1'; }   // عند إلغاء "عام" نرجع للروابط الفعلية السابقة
   });
 }
+// بعد فتح حساب مستخدم، النموذج قد يكون أسفل الصفحة بعيداً عن النظر.
+// فالقفز إلى الأعلى يُخفيه ويُوهم أن شيئاً لم يحدث. ننزل إليه ونومض حوله.
+function focusUserEdit(){
+  requestAnimationFrame(()=>{
+    const el = document.getElementById('userEditAnchor');
+    if(!el) return;
+    // النموذج أطول من الشاشة، فتوسيطه يدفع عنوانه فوق الحافة.
+    // ننزل بحيث يقع رأسه تحت الشريط العلوي مباشرة.
+    const y = el.getBoundingClientRect().top + window.scrollY - 90;
+    window.scrollTo({top: Math.max(0, y), behavior:'smooth'});
+    el.style.transition = 'box-shadow .35s';
+    el.style.boxShadow = '0 0 0 4px rgba(37,99,235,.40)';
+    setTimeout(()=>{ el.style.boxShadow = ''; }, 1800);
+    // المؤشّر في خانة كلمة المرور — فهي الفعل الذي جاء من أجله
+    const pw = document.getElementById('editUserPass');
+    if(pw) setTimeout(()=>{ try{ pw.focus({preventScroll:true}); }catch(e){ pw.focus(); } }, 600);
+  });
+}
+
 function renderUserEditForm(){
   const u = state.users.find(x=>x.id===state.editingUserId);
   if(!u) return '';
@@ -8857,7 +8876,7 @@ function resetRequestsBannerHtml(){
       <span style="font-size:12px;color:#8a5a00;" dir="ltr">${escH(r.phone)}</span>
       <span style="font-size:11.5px;color:#8a5a00;opacity:.8;">${escH(when)}</span>
       <span class="rev-actions" style="margin-right:auto;display:flex;gap:6px;">
-        ${u ? `<button class="btn btn-primary btn-xs" onclick="state.view='admin'; state.adminSubTab='users'; state.editingUserId='${u.id}'; render();">فتح الحساب</button>` : ''}
+        ${u ? `<button class="btn btn-primary btn-xs" onclick="state.view='admin'; state.adminSubTab='users'; state.editingUserId='${u.id}'; render(); focusUserEdit();">فتح الحساب</button>` : ''}
         <button class="btn btn-ghost btn-xs" onclick="closeResetRequest('${r.id}','dismissed')">إهمال</button>
       </span>
     </div>`;
