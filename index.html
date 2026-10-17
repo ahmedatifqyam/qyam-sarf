@@ -3095,6 +3095,19 @@ function computeBudgetItemBalance(itemId){
   return f ? f.available : null;
 }
 
+// المتاح لو استبعدنا طلباً بعينه من الحساب.
+// يلزم عند اعتماد طلب: هو نفسه داخل «قيد الطلب»، فمقارنة مبلغه بالمتاح
+// تخصمه مرتين وتُطلق تحذيراً كاذباً على بند رصيده كافٍ تماماً.
+function computeBudgetItemBalanceExcluding(itemId, reqId){
+  const f = computeBudgetItemFigures(itemId);
+  if(!f) return null;
+  const r = (state.requests||[]).find(x=>x.id===reqId);
+  const own = (r && r.budgetItemId===itemId && !r.isCancelled && r.status!=='rejected'
+               && (isPendingDecisionStatus(r.status) || COMMITTED_STATUSES.includes(r.status)))
+            ? (Number(r.totalAmount)||0) : 0;
+  return f.available + own;
+}
+
 // جمع IDs كل الفروع (بأي عمق) لبند معين
 function getDescendantIds(itemId, allItems){
   const children = allItems.filter(b=>b.parent_id===itemId);
@@ -3717,11 +3730,23 @@ function canActOn(req){
 async function approve(req){
   // تحذير تجاوز رصيد الميزانية عند الاعتماد
   if(req.budgetItemId && req.status==='pending_decision'){
-    const approveBal = computeBudgetItemBalance(req.budgetItemId);
+    // المتاح بعد استبعاد هذا الطلب نفسه، وإلا خُصم مرتين وجاء التحذير كاذباً
+    const approveBal = computeBudgetItemBalanceExcluding(req.budgetItemId, req.id);
     if(approveBal != null && (Number(req.totalAmount)||0) > approveBal){
       const bi = (state.budgetItems||[]).find(b=>b.id===req.budgetItemId);
       const biName = bi ? bi.name : '';
-      const confirmed = confirm(`⚠️ تنبيه: رصيد البند غير كافٍ\n\nالبند: ${biName}\nمبلغ الطلب: ${(Number(req.totalAmount)||0).toFixed(3)} د.ك\nالرصيد المتاح: ${approveBal.toFixed(3)} د.ك\n\nهل تريد الاستمرار في الاعتماد؟`);
+      const f = computeBudgetItemFigures(req.budgetItemId) || {spent:0,committed:0,pending:0};
+      const other = Math.max(0, f.pending - (Number(req.totalAmount)||0));
+      const confirmed = confirm(
+        `⚠️ تنبيه: رصيد البند غير كافٍ\n\n`
+      + `البند: ${biName}\n`
+      + `مبلغ الطلب: ${(Number(req.totalAmount)||0).toFixed(3)} د.ك\n`
+      + `المتاح قبل هذا الطلب: ${approveBal.toFixed(3)} د.ك\n\n`
+      + `وما استهلك الرصيد:\n`
+      + `  مصروف فعلاً: ${f.spent.toFixed(3)}\n`
+      + `  مرتبط: ${f.committed.toFixed(3)}\n`
+      + `  طلبات أخرى قيد القرار: ${other.toFixed(3)}\n\n`
+      + `الاعتماد لن يُمنع، وسيُسجَّل التجاوز باسمك. هل تريد الاستمرار؟`);
       if(!confirmed) return;
       logBudgetOverrun(req.id, req.budgetItemId, 'approve', Number(req.totalAmount)||0, approveBal);
     }
