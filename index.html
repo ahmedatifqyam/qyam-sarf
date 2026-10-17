@@ -140,10 +140,36 @@
   .search-drop .sd-item{padding:9px 14px;cursor:pointer;color:var(--text);font-size:13.5px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:1px;}
   .search-drop .sd-item:hover, .search-drop .sd-item.sel{background:var(--blue-bg);}
   .search-drop .sd-sub{font-size:12px;color:var(--muted);}
+  /* ===== شريط التبويب السفلي — للهاتف وحده =====
+     التنقّل كله في متناول الإبهام: الطلبات · جديد · الإشعارات · القائمة.
+     ويختفي في الشاشات المركّزة (إنشاء طلب، معاينة طباعة) كي لا يزاحم أزرارها. */
+  .mtab{display:none;position:fixed;bottom:0;left:0;right:0;z-index:55;
+    background:var(--ink);border-top:1px solid rgba(255,255,255,.12);
+    box-shadow:0 -2px 10px rgba(0,0,0,.25);box-sizing:border-box;
+    padding-bottom:env(safe-area-inset-bottom);}
+  .mtab-in{display:flex;height:56px;align-items:stretch;}
+  .mtab-btn{flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    background:none;border:none;color:#9FC2DB;font-family:inherit;font-size:10.5px;font-weight:600;
+    cursor:pointer;position:relative;padding:0;min-width:0;-webkit-tap-highlight-color:transparent;}
+  .mtab-btn .mtab-ico{font-size:19px;line-height:1;}
+  .mtab-btn:active{background:rgba(255,255,255,.08);}
+  .mtab-btn.active{color:#fff;}
+  .mtab-btn.active::before{content:'';position:absolute;top:0;right:22%;left:22%;height:3px;
+    background:#D4AF37;border-radius:0 0 3px 3px;}
+  .mtab-dot{position:absolute;top:5px;left:calc(50% - 22px);min-width:17px;height:17px;line-height:17px;
+    background:#C0392B;color:#fff;border-radius:9px;font-size:10px;font-weight:700;
+    padding:0 4px;box-sizing:border-box;direction:ltr;}
   @media (max-width:699px){
-    body.has-nav .nav-hamburger{display:block;}
+    body.has-nav .nav-hamburger{display:none;}   /* فتح القائمة صار من الشريط السفلي */
     :root{--nav-w:0px !important;}
     .shell-main{padding-right:0 !important;padding-left:0 !important;}
+    body.has-nav:not(.m-focus) .mtab{display:block;}
+    /* أزرار الصفحة تبقى ظاهرة داخل الصفحة نفسها، فلا حاجة لشريط عائم فوق شريط التبويب */
+    body.has-nav:not(.m-focus) .global-floating-bar{display:none !important;}
+    /* شارة قاعدة البيانات أداة مطوّر: كانت تحجز 186 بكسل من 390 فتدفع كل الأزرار يساراً */
+    .db-badge{display:none !important;}
+    body.has-dbbadge .global-floating-bar,
+    body.has-dbbadge .sticky-submit-bar{padding-right:0 !important;}
   }
   .admin-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;padding-bottom:8px;border-bottom:2px solid var(--line);}
   /* ===== رأس لوحة التحكم: صف عنوان + صفّا تبويبات (RTL: الأول = أقصى اليمين) ===== */
@@ -160,6 +186,16 @@
     cursor:pointer;border:1px solid transparent;background:transparent;color:var(--muted);border-radius:6px;}
   .adm-t2:hover{background:var(--paper);color:var(--text);}
   .adm-t2.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+  /* تبويبات داخل القسم: القائمة أوّلاً لأن أكثر الدخول للتعديل، والإضافة بتبويب خاص.
+     RTL: الزرّ الأول في الكود يظهر أقصى اليمين، وحدّ الفصل بينهما هو border-right للثاني. */
+  .adm-panes{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;
+    background:var(--card);margin:0 0 18px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .adm-pane{padding:8px 18px;font-size:13px;font-weight:600;font-family:inherit;white-space:nowrap;
+    cursor:pointer;border:none;background:transparent;color:var(--muted);}
+  .adm-pane + .adm-pane{border-right:1px solid var(--line);}
+  .adm-pane:hover{background:var(--paper);color:var(--text);}
+  .adm-pane.active{background:var(--blue);color:#fff;}
+  @media(max-width:640px){ .adm-panes{display:flex;width:100%;} .adm-pane{flex:1 1 0;padding:9px 6px;font-size:12.5px;} }
   @media(max-width:640px){ .adm-head{flex-wrap:wrap;gap:6px;} .adm-head h1{font-size:19px;} }
   .admin-section-head h2{margin:0;font-size:19px;}
   .admin-co-badge{background:var(--blue-bg);color:var(--blue);font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;white-space:nowrap;}
@@ -763,7 +799,11 @@
     .gfb-inner{padding-left:44px;}
     .gfb-contact-numbers,.gfb-contact-label{display:none;}
     .hide-sm{display:none;}
-    .sticky-submit-bar{padding:0 12px;overflow-x:auto;}
+    /* أربعة أزرار + الإجمالي لا تسع سطراً واحداً على 390 بكسل، وكان «إلغاء» يقع خارج
+       الحافة اليسرى. فيلتفّ الشريط سطرين ويعلو بقدره — والارتفاع يُقاس آلياً. */
+    .sticky-submit-bar{padding:8px 12px;overflow-x:visible;flex-wrap:wrap;
+      justify-content:flex-start;gap:6px;height:auto;min-height:55px;max-height:none;}
+    .sticky-submit-bar .btn{flex:0 1 auto;--btn-w:auto;min-width:92px;}
     /* الهاتف: سبعة أعمدة لا تُقرأ على 390 بكسل، والتمرير الأفقي يجرّ
        المستند كله. فيصير كل طلب بطاقة مكدّسة، واسم العمود بجوار قيمته. */
     .req-list-scroll-wrap{overflow-x:visible;}
@@ -819,13 +859,19 @@
     .topbar .brand{flex:1 1 0;min-width:0;gap:6px;overflow:hidden;}   /* أساس صفر: يتقلّص ولا يطالب بعرض محتواه */
     .brand-group{gap:6px;min-width:0;}
     .brand-slot{width:32px;height:32px;flex:0 0 32px;}
+    .brand-slot.is-blank{display:none;}       /* دعوة رفع الشعار مكانها الحاسوب، لا شريط الهاتف */
     .brand-name{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .brand-sep{display:none;}
     .brand-co-group{display:none;}            /* اسم الشركة يظهر في القائمة الجانبية */
     .tb-tools{flex:0 0 auto;gap:4px;min-width:0;}
     .tb-impersonate{display:none;}            /* أداة مراجعة، مكانها الحاسوب */
-    .tb-company{max-width:96px;font-size:12px !important;padding:6px 4px !important;}
-    .tb-icon, .bell-btn{width:34px;min-width:34px;padding:0;font-size:15px;}
+    .bell-btn{display:none;}                  /* الجرس انتقل إلى شريط التبويب السفلي */
+    .tb-company{max-width:112px;font-size:12px !important;padding:6px 6px !important;}
+    .tb-icon{width:34px;min-width:34px;padding:0;font-size:15px;}
+    /* شريط أدوات التقرير كان سطراً صارماً فيخرج زرّا التصدير والطباعة عن الحافة */
+    .rep-bar{flex-wrap:wrap;gap:8px 6px;}
+    .rep-bar .rep-spacer{display:none;}
+    .rep-bar select{min-width:0 !important;flex:1 1 130px;}
     .search-box input{width:110px;}
     .row{flex-direction:column;}
     .row > *{min-width:0;}
@@ -858,6 +904,7 @@
 <div id="bellPanel" class="bell-panel no-print"></div>
 <aside class="app-nav no-print" id="appNav" data-mode="hidden"></aside>
 <div class="nav-backdrop no-print" id="navBackdrop" onclick="closeNavDrawer()"></div>
+<nav class="mtab no-print" id="mTab" aria-label="التنقّل السريع"></nav>
 <div class="shell-main" id="shellMain"><div class="container" id="app"></div></div>
 <div id="toastHost" class="toast-host no-print"></div>
 
@@ -2507,8 +2554,8 @@ function toggleNav(){
   try{ localStorage.setItem('qayam_nav_pref', cur==='open' ? 'collapsed' : 'open'); }catch(e){}
   state.navPeek = false; renderAppNav();
 }
-function openNavDrawer(){ state.navDrawer = true; renderAppNav(); }
-function closeNavDrawer(){ state.navDrawer = false; renderAppNav(); }
+function openNavDrawer(){ state.navDrawer = true; renderAppNav(); renderMobileTabs(); }
+function closeNavDrawer(){ state.navDrawer = false; renderAppNav(); renderMobileTabs(); }
 function navPeekOpen(){ state.navPeek = true; renderAppNav(); }
 // كل نقرة تنقّل تُنهي أي فتح مؤقت أو قائمة الجوال
 function navClick(js){ return `state.navPeek=false; state.navDrawer=false; ${js}`; }
@@ -4954,7 +5001,9 @@ function render(){
   if(state.transferFormReqId){ app.insertAdjacentHTML('beforeend', renderTransferFormModal()); }
   if(state.filePreviewModal){ app.insertAdjacentHTML('beforeend', renderFilePreviewModal()); }
 
+  renderMobileTabs();
   ensureBottomBar();
+  scrollActiveTabIntoView();
   refreshNotifIndicators();
   navApplyPadding(); requestAnimationFrame(()=>navApplyPadding());
   maybeCheckDeadlines();
@@ -5014,11 +5063,55 @@ function moveRowsToBottomBar(){
   });
 }
 // يضبط ارتفاع الشريط السفلي الفعلي: مسافة تمرير الحقول + الفاصل السفلي + زر الميزانية العائم
+// ───────── شريط التبويب السفلي للهاتف ─────────
+// الشاشات المركّزة: إنشاء طلب ومعاينة الطباعة. فيهما أزرار خاصة تحتاج أسفل الشاشة كلّه،
+// فيُخفى شريط التبويب ويعود شريط الإرسال وحده.
+const M_FOCUS_VIEWS = ['newRequest','printPreview','login'];
+function renderMobileTabs(){
+  const el = document.getElementById('mTab'); if(!el) return;
+  document.body.classList.toggle('m-focus', M_FOCUS_VIEWS.includes(state.view));
+  if(!state.user){ el.innerHTML=''; return; }
+  const n = (typeof computeNotifications==='function' ? computeNotifications() : {badge:0}) || {badge:0};
+  const badge = Number(n.badge)||0;
+  const open = document.body.classList.contains('nav-drawer-open');
+  // RTL: أول زرّ في الكود يظهر أقصى اليمين — فالترتيب البصري يمين←يسار كما هو مكتوب هنا
+  const items = [
+    {key:'dashboard', ico:'📋', label:'الطلبات',  on:['dashboard','detail'].includes(state.view) && !open,
+     act:`closeNavDrawer(); state.view='dashboard'; render(); window.scrollTo(0,0);`},
+    {key:'new',       ico:'➕', label:'جديد',     on:['newRequest','newRequestChoice'].includes(state.view) && !open,
+     act:`closeNavDrawer(); openNewRequestChoice();`},
+    {key:'bell',      ico:'🔔', label:'الإشعارات', on:false, dot:badge,
+     act:`closeNavDrawer(); toggleBell(event);`},
+    {key:'menu',      ico:'☰',  label:'القائمة',  on:open,
+     act: open ? `closeNavDrawer();` : `openNavDrawer();`}
+  ];
+  el.innerHTML = `<div class="mtab-in">${items.map(it=>`
+    <button type="button" class="mtab-btn${it.on?' active':''}" onclick="${it.act}" aria-label="${escH(it.label)}">
+      <span class="mtab-ico">${it.ico}</span><span>${escH(it.label)}</span>
+      ${it.dot ? `<span class="mtab-dot">${it.dot>99?'99+':it.dot}</span>` : ''}
+    </button>`).join('')}</div>`;
+}
 function syncBottomBarMetrics(){
+  const vis = el => el && getComputedStyle(el).display !== 'none';
   const bar = document.querySelector('.global-floating-bar') || document.querySelector('.sticky-submit-bar');
-  const h = bar ? Math.ceil(bar.getBoundingClientRect().height) : 0;
+  const barH = vis(bar) ? Math.ceil(bar.getBoundingClientRect().height) : 0;
+  const mt = document.getElementById('mTab');
+  const mtH = vis(mt) ? Math.ceil(mt.getBoundingClientRect().height) : 0;
+  const h = barH + mtH;
   document.documentElement.style.setProperty('--bar-h', h + 'px');
   document.querySelectorAll('.gfb-spacer').forEach(sp=>{ sp.style.height = (h + 10) + 'px'; });
+  // الشاشات التي لا شريط عائم فيها تحتاج هامشاً أسفل المحتوى كي لا يختفي خلف شريط التبويب
+  const app = document.getElementById('app');
+  if(app) app.style.paddingBottom = mtH && !document.querySelector('.gfb-spacer') ? (mtH + 24) + 'px' : '';
+}
+// التبويب النشط يجب أن يُرى: شريط التبويبات يمرّر نفسه إليه بعد كل رسم
+function scrollActiveTabIntoView(){
+  document.querySelectorAll('.adm-tabs2').forEach(box=>{
+    const a = box.querySelector('.adm-t2.active'); if(!a) return;
+    const br = box.getBoundingClientRect(), ar = a.getBoundingClientRect();
+    if(ar.right > br.right - 4)      box.scrollLeft += (ar.right - br.right) + 12;
+    else if(ar.left < br.left + 4)   box.scrollLeft -= (br.left - ar.left) + 12;
+  });
 }
 window.addEventListener('resize', syncBottomBarMetrics);
 // عند الانتقال لحقل (Tab أو ضغط)، لا يبقى مخفياً خلف الشريط السفلي
@@ -6193,7 +6286,7 @@ function openAdminGroup(gkey){
 function adminNavAction(item){
   const top = `window.scrollTo(0,0);`; // كل تبويب يفتح من أعلى الصفحة
   if(item.kind==='view') return `state.view='${item.key}'; render(); ${top}`;
-  if(item.kind==='tab') return `state.view='admin'; state.adminSubTab='${item.key}'; state.editingUserId=null; state.editingCompanyId=null; state.editingCenterId=null; render(); ${top}`;
+  if(item.kind==='tab') return `state.view='admin'; state.adminSubTab='${item.key}'; state.adminPanes={}; state.editingUserId=null; state.editingCompanyId=null; state.editingCenterId=null; render(); ${top}`;
   if(item.kind==='exec') return `openExecDashboard(); ${top}`;
   if(item.kind==='sigFinal') return `${top} state.view='sigDesigner'; state.sigDesignerContext='final'; state.sigDesignerRole='dept_manager'; state.sigDesignerConfig=null; loadSigDesignerConfig(); ${top}`;
   if(item.kind==='sigMini') return `${top} state.view='sigDesigner'; state.sigDesignerContext='mini'; state.sigDesignerRole='dept_manager'; state.sigDesignerConfig=null; loadSigDesignerConfig(); ${top}`;
@@ -6211,13 +6304,45 @@ function adminHeaderHtml(){
   const subTabs = grp.items.map(it=>
     `<button class="adm-t2${adminNavIsActive(it)?' active':''}" onclick="${adminNavAction(it)}">${escH(it.tab||it.label)}</button>`
   ).join('');
+  // صفّان لا ثلاثة: اسم المجموعة هو العنوان، فلا حاجة لسطر «لوحة تحكم مدير النظام» فوقه —
+  // المستخدم يعرف أنه في لوحة التحكم، ولا يعرف ثلث شاشة الهاتف المهدور فوق المحتوى.
   return `
     <div class="adm-head">
-      <h1>لوحة تحكم مدير النظام</h1>
-      <span class="adm-sec">${escH(grp.cat)}</span>
+      <h1>${escH(grp.cat)}</h1>
       <span class="admin-co-badge" style="margin-right:auto;" title="الشركة الحالية — بدّلها من الأعلى">${escH(coName)}</span>
     </div>
-    <div class="adm-tabs2">${subTabs}</div>`;
+    <div class="adm-tabs2">${subTabs}</div>
+    ${adminPanesHtml()}`;
+}
+// ───────── تبويبات داخل القسم ─────────
+const ADMIN_PANES = {
+  companies:   {list:'الشركات',    new:'+ شركة جديدة'},
+  centers:     {list:'الوحدات',    new:'+ وحدة جديدة'},
+  users:       {list:'المستخدمون', new:'+ مستخدم جديد'},
+  budgetItems: {list:'البنود',     new:'+ بند جديد'}
+};
+// أثناء التعديل نبقى على القائمة مهما كان التبويب المحفوظ، فنموذج التعديل يعيش فيها
+function adminPane(tab){
+  tab = tab || state.adminSubTab;
+  if(!ADMIN_PANES[tab]) return 'list';
+  if((tab==='users' && state.editingUserId) || (tab==='companies' && state.editingCompanyId) ||
+     (tab==='centers' && state.editingCenterId) || (tab==='budgetItems' && state.editingBudgetItemId)) return 'list';
+  return (state.adminPanes && state.adminPanes[tab]) || 'list';
+}
+function setAdminPane(tab, pane){
+  state.adminPanes = state.adminPanes || {};
+  state.adminPanes[tab] = pane;
+  if(pane==='new'){ state.editingUserId=null; state.editingCompanyId=null; state.editingCenterId=null; state.editingBudgetItemId=null; }
+  render(); window.scrollTo(0,0);
+}
+function adminPanesHtml(){
+  if(state.view!=='admin') return '';
+  const tab = state.adminSubTab, def = ADMIN_PANES[tab];
+  if(!def) return '';
+  const cur = adminPane(tab);
+  return `<div class="adm-panes">${['list','new'].map(k=>
+    `<button type="button" class="adm-pane${cur===k?' active':''}" onclick="setAdminPane('${tab}','${k}')">${escH(def[k])}</button>`
+  ).join('')}</div>`;
 }
 function adminNavIsActive(item){
   if(item.kind==='tab') return state.view==='admin' && state.adminSubTab===item.key;
@@ -6261,7 +6386,7 @@ function renderAdmin(app){
 
 
   const subTabContent = {
-    companies: `    <div class="card">
+    companies: `${adminPane('companies')==='new' ? `    <div class="card">
       <h2>إضافة شركة جديدة</h2>
       <div class="row">
         <div><label>الاسم بالعربي</label><input id="newCoNameAr" type="text" placeholder="مثال: شركة القيم الكويتية"></div>
@@ -6280,7 +6405,7 @@ function renderAdmin(app){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="addCompany()">إضافة الشركة</button>
       </div>
-    </div>
+    </div>` : `
     <h2 style="margin-top:20px;">الشركات الحالية</h2>
     ${state.editingCompanyId ? renderCompanyEditForm() : ''}
     ${state.companies.map(c=>`
@@ -6296,8 +6421,8 @@ function renderAdmin(app){
         </div>
       </div>
     `).join('')}
-`,
-    centers: `    <div class="card" style="margin-top:20px;">
+`}`,
+    centers: `${adminPane('centers')==='new' ? `    <div class="card" style="margin-top:20px;">
       <h2>إضافة وحدة تنظيمية جديدة (للشركة الحالية)</h2>
       <div class="row">
         <div><label>اسم الوحدة</label><input id="newCenterName" type="text" placeholder="مثال: مركز حولي"></div>
@@ -6312,7 +6437,7 @@ function renderAdmin(app){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="addCenter()">إضافة الوحدة</button>
       </div>
-    </div>
+    </div>` : `
     <h2 style="margin-top:20px;">وحدات الشركة الحالية (${unitsOrdered(state.currentCompanyId).length})</h2>
     ${state.editingCenterId ? renderCenterEditForm() : ''}
     ${unitsOrdered(state.currentCompanyId).length===0 ? `<div class="empty">لا توجد وحدات مضافة بعد لهذه الشركة</div>` : unitsOrdered(state.currentCompanyId).map(x=>{ const c=x.unit; return `
@@ -6327,10 +6452,10 @@ function renderAdmin(app){
         </div>
       </div>`; }).join('')}
     ${renderUnitTypesPanel()}
-`,
+`}`,
 
     roles: renderRolesPanel(),
-    users: `${resetRequestsBannerHtml()}    <div class="card" style="margin-top:28px;">
+    users: `${adminPane('users')==='new' ? `    <div class="card">
       <h2>إضافة مستخدم جديد (بالشركة الحالية)</h2>
       <div class="row">
         <div><label>الاسم</label><input id="newUserName" type="text"></div>
@@ -6372,8 +6497,8 @@ function renderAdmin(app){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="addUser()">إضافة المستخدم</button>
       </div>
-    </div>
-    <h2 style="margin-top:24px;">مستخدمو الشركة الحالية</h2>
+    </div>` : `${resetRequestsBannerHtml()}
+    <h2 style="margin-top:4px;">مستخدمو الشركة الحالية</h2>
     ${state.editingUserId ? renderUserEditForm() : ''}
     ${companyScopedUsers.map(u=>`
       <div class="list-item">
@@ -6386,7 +6511,7 @@ function renderAdmin(app){
           <button class="btn btn-reject btn-xs" onclick="deleteUser('${u.id}')">حذف</button>
         </div>
       </div>
-    `).join('')}`,
+    `).join('')}`}`,
     impersonate: `    <div class="card" style="margin-top:28px;">
       <h2>تصفّح كمستخدم آخر (للمراجعة)</h2>
       <p class="file-hint">يسمح لك بمعاينة النظام تماماً كما يراه أي مستخدم، دون الحاجة لكلمة مروره. تقدر ترجع لحسابك في أي وقت.</p>
@@ -6478,7 +6603,7 @@ function renderBudgetItemsTab(){
     </div>`;
   }
 
-  return `
+  return `${adminPane('budgetItems')==='new' ? `
     <div class="card" style="margin-top:20px;">
       <h2>إضافة بند جديد</h2>
       <div class="row">
@@ -6502,9 +6627,8 @@ function renderBudgetItemsTab(){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="addBudgetItem()">إضافة البند</button>
       </div>
-    </div>
-
-    <h2 style="margin-top:20px;">بنود الميزانية (${items.length})</h2>
+    </div>` : `
+    <h2 style="margin-top:4px;">بنود الميزانية (${items.length})</h2>
     ${editId ? editForm(items.find(b=>b.id===editId)||{}) : ''}
     ${items.length===0 ? `<div class="empty">لا توجد بنود مضافة بعد</div>` : items.map(b=>{
       const parentName = b.parent_id ? (items.find(p=>p.id===b.parent_id)||{}).name||'—' : null;
@@ -6532,7 +6656,7 @@ function renderBudgetItemsTab(){
         </div>
       </div>`;
     }).join('')}
-  `;
+  `}`;
 }
 
 function onBudgetProfitModeChange(prefix){
@@ -6565,7 +6689,7 @@ async function addBudgetItem(){
   state.budgetItems = state.budgetItems||[];
   state.budgetItems.push(item);
   showToast('تمت إضافة البند','success');
-  render();
+  backToAdminList('budgetItems');
 }
 
 async function saveBudgetItem(id){
@@ -6946,8 +7070,8 @@ function renderBudgetReportTab(){
       <button class="btn btn-ghost" onclick="printBudgetReport()">🖨️ طباعة</button>
     </div>
 
-    <!-- جدول البنود -->
-    <div class="card" style="padding:0;overflow:hidden;">
+    <!-- جدول البنود — تسعة أعمدة تحتاج 966 بكسل: يُمرَّر أفقياً ولا يُقتطع -->
+    <div class="card" style="padding:0;overflow-x:auto;overflow-y:hidden;">
       <table style="width:100%;border-collapse:collapse;font-size:13px;direction:rtl;">
         <thead>
           <tr style="background:var(--ink);color:#fff;">
@@ -7095,7 +7219,7 @@ async function addCompany(){
   state.companies.push(company);
   if(state.user.role==='admin') state.myCompanyIds.push(company.id);
   showToast('تمت إضافة الشركة', 'success');
-  render();
+  backToAdminList('companies');
 }
 
 async function addCenter(){
@@ -7111,7 +7235,7 @@ async function addCenter(){
   if(!(await dbCheck(result, 'إضافة المركز'))) return;
   state.centers.push(center);
   showToast('تمت إضافة المركز', 'success');
-  render();
+  backToAdminList('centers');
 }
 
 function deleteCenter(id){
@@ -7441,7 +7565,13 @@ async function addUser(){
   if(rpcErr){ showToast('تعذّرت إضافة المستخدم: ' + (rpcErr.message||''), 'error'); return; }
   await reloadUsers();
   showToast('تمت إضافة المستخدم', 'success');
-  render();
+  backToAdminList('users');   // يعود للقائمة ليرى الصفّ الجديد، لا لنموذج فارغ
+}
+// بعد الإضافة الناجحة: ارجع لتبويب القائمة وأعد الرسم
+function backToAdminList(tab){
+  state.adminPanes = state.adminPanes || {};
+  state.adminPanes[tab] = 'list';
+  render(); window.scrollTo(0,0);
 }
 
 function editUser(id){
