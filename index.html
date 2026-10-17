@@ -177,26 +177,31 @@
   .adm-head h1{margin:0;font-size:22px;line-height:1.3;}
   .adm-head .adm-sec{font-size:15px;font-weight:700;color:var(--muted);white-space:nowrap;}
   .adm-head .admin-co-badge{align-self:center;}
-  /* ثلاثة مستويات تُقرأ من ثقل اللون: المجموعة (العنوان) ← الصفحة (داكن) ← القسم (فاتح) */
+  /* ثلاثة مستويات تُقرأ من ثقل اللون: المجموعة (العنوان) ← الصفحة (داكن) ← القسم (فاتح).
+     والطبقتان كتلة واحدة ملتصقة: التبويب الداكن النشط ينفتح أسفلَه على لون الشريط
+     الفاتح، فيبدو الصفّ السفلي منبثقاً منه لا طافياً تحته. */
+  .adm-nav2{border-radius:8px;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 5px rgba(0,0,0,.13);}
   .adm-tabs2{display:flex;align-items:stretch;gap:2px;overflow-x:auto;scrollbar-width:thin;
-    background:var(--ink);border:none;border-radius:8px;
-    padding:5px 6px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.12);}
-  .adm-tabs2::-webkit-scrollbar{height:4px;}
-  .adm-tabs2::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:4px;}
-  .adm-t2{flex:0 0 auto;padding:8px 15px;font-size:13px;font-weight:600;font-family:inherit;white-space:nowrap;
-    cursor:pointer;border:none;background:transparent;color:#9FC2DB;border-radius:6px;
-    border-bottom:3px solid transparent;}
+    background:var(--ink);border:none;padding:4px 5px 0;}
+  .adm-tabs2::-webkit-scrollbar{height:3px;}
+  .adm-tabs2::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:3px;}
+  .adm-t2{flex:0 0 auto;padding:6px 13px;font-size:12.5px;font-weight:600;font-family:inherit;white-space:nowrap;
+    cursor:pointer;border:none;background:transparent;color:#9FC2DB;
+    border-radius:6px 6px 0 0;border-bottom:3px solid transparent;}
   .adm-t2:hover{background:rgba(255,255,255,.09);color:#fff;}
-  .adm-t2.active{background:rgba(255,255,255,.14);color:#fff;border-bottom-color:#D4AF37;}
-  /* الصفّ الفاتح: أقراص بيضاء، نشطُها أزرق */
-  .adm-subs{display:flex;align-items:stretch;gap:6px;overflow-x:auto;scrollbar-width:thin;
-    padding:2px 2px 4px;margin-bottom:18px;}
-  .adm-subs::-webkit-scrollbar{height:4px;}
-  .adm-subs::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
-  .adm-sub{flex:0 0 auto;padding:7px 15px;font-size:12.5px;font-weight:600;font-family:inherit;white-space:nowrap;
-    cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;}
-  .adm-sub:hover{border-color:var(--blue);color:var(--blue);}
-  .adm-sub.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+  .adm-t2.active{background:rgba(255,255,255,.14);color:#fff;border-bottom-color:var(--blue-bg);}
+  /* الصفّ الفاتح: شريط ملتصق بما فوقه، لا أقراص */
+  .adm-subs{display:flex;align-items:stretch;gap:2px;overflow-x:auto;scrollbar-width:thin;
+    background:var(--blue-bg);padding:0 5px;border-top:1px solid rgba(27,39,51,.08);}
+  .adm-subs::-webkit-scrollbar{height:3px;}
+  .adm-subs::-webkit-scrollbar-thumb{background:rgba(46,95,138,.3);border-radius:3px;}
+  .adm-sub{flex:0 0 auto;padding:7px 13px;font-size:12.5px;font-weight:600;font-family:inherit;white-space:nowrap;
+    cursor:pointer;border:none;background:transparent;color:var(--muted);
+    border-bottom:2.5px solid transparent;}
+  .adm-sub:hover{color:var(--blue);}
+  .adm-sub.active{color:var(--blue);border-bottom-color:var(--blue);}
+  /* خارج الكتلة (صفحة التحليلات لمن لا يرى شريط الإدارة) يحمل حدوده بنفسه */
+  .adm-subs-solo{border:1px solid var(--line);border-radius:8px;margin:0 0 18px;}
   /* إخفاء الأقسام غير النشطة: لا بدّ من !important لأن .list-item وغيرها تضبط display */
   [hidden]{display:none !important;}
   @media(max-width:640px){ .adm-head{flex-wrap:wrap;gap:6px;} .adm-head h1{font-size:19px;} }
@@ -1815,7 +1820,7 @@ function openExecDashboard(){ state.analyticsTab = 'exec'; state.view = 'analyti
 // قسما هذه الصفحة — بنفس الصفّ الفاتح الذي في باقي الصفحات
 function analyticsTabsHtml(active){
   if(!canSeeExec()) return '';
-  return `<div class="adm-subs">
+  return `<div class="adm-subs adm-subs-solo">
     <button type="button" class="adm-sub${active==='exec'?' active':''}" onclick="setAnalyticsTab('exec')">اللوحة التنفيذية</button>
     <button type="button" class="adm-sub${active==='details'?' active':''}" onclick="setAnalyticsTab('details')">التفاصيل المالية</button>
   </div>`;
@@ -6316,8 +6321,10 @@ function adminHeaderHtml(){
       <h1>${escH(grp.cat)}</h1>
       <span class="admin-co-badge" style="margin-right:auto;" title="الشركة الحالية — بدّلها من الأعلى">${escH(coName)}</span>
     </div>
-    <div class="adm-tabs2">${subTabs}</div>
-    <div id="secTabs"></div>`;
+    <div class="adm-nav2">
+      <div class="adm-tabs2">${subTabs}</div>
+      <div id="secTabs"></div>
+    </div>`;
 }
 // ───────── الصفّ الفاتح: تبويبات أقسام الصفحة ─────────
 // الأقسام تُقرأ من الصفحة نفسها لا من سجلّ يدوي: كل عنوان h2 في المستوى الأعلى
@@ -6353,9 +6360,16 @@ function setPageSec(key, i){
 function applyPageSections(){
   const host = document.getElementById('secTabs');
   if(host) host.innerHTML = '';
+  const app = document.getElementById('app'); if(!app) return;
+
+  // صفحة التحليلات تبني قسميها بنفسها؛ انقلهما إلى داخل الكتلة ليلتصقا بالصفّ الداكن
+  if(state.view==='analytics'){
+    const subs = app.querySelector('.adm-subs');
+    if(subs && host){ subs.classList.remove('adm-subs-solo'); host.appendChild(subs); }
+    return;
+  }
   const key = (state.view==='admin') ? state.adminSubTab : null;
   if(!key || !SECTIONED_PAGES.includes(key)) return;
-  const app = document.getElementById('app'); if(!app) return;
 
   const skip = el => el.id==='secTabs' || el.classList.contains('adm-head') ||
                      el.classList.contains('adm-tabs2') || el.classList.contains('gfb-spacer') ||
