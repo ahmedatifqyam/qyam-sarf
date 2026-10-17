@@ -2418,7 +2418,7 @@ function isCustomRole(role){
   return !['employee','dept_manager','senior_manager','executive_manager','accountant','cfo','admin'].includes(role);
 }
 
-const ADMIN_AREA_VIEWS = ['admin','orgTree','jobLevels','analytics','cancelledArchive','sigDesigner','barSettings'];
+const ADMIN_AREA_VIEWS = ['admin','orgTree','jobLevels','analytics','cancelledArchive','ledger','sigDesigner','barSettings'];
 function inAdminArea(){ return !!state.user && state.user.role==='admin' && ADMIN_AREA_VIEWS.includes(state.view); }
 
 // ===================== الشريط الجانبي الدائم (خريطة الموقع) =====================
@@ -4840,6 +4840,7 @@ function render(){
   else if(state.view==='duplicateList') renderDuplicateList(app);
   else if(state.view==='printPreview'){ renderPrintPreview(app); }
   else if(state.view==='cancelledArchive') renderCancelledArchive(app);
+  else if(state.view==='ledger') renderLedger(app);
   else if(state.view==='sigDesigner') renderSigDesigner(app);
   else if(state.view==='orgTree') renderOrgTree(app);
   else if(state.view==='jobLevels') renderJobLevels(app);
@@ -5754,6 +5755,266 @@ document.addEventListener('mouseup', function(){
   state.sigDesignerDrag = null;
 });
 
+// ══════════════════════════════════════════════════════════
+// دفتر الحركات — العرض والقيد اليدوي والتصحيح
+//
+// فعلان منفصلان لواقعتين مختلفتين، وهذا أصل السياسة المحاسبية:
+//   القيد العاكس — الدفتر أخطأ والمال لم يخرج كما سُجِّل. يُلغى القيد،
+//                  ويعود الطلب إلى «بانتظار إتمام الصرف» لأن الالتزام قائم.
+//   الاسترداد    — المال خرج فعلاً ثم عاد. واقعة جديدة لا تصحيح، فتُسجَّل
+//                  حركة دخول مستقلة ويبقى الطلب مصروفاً.
+// ولو عكسنا الاسترداد لقال الدفتر إن المال لم يخرج قط، وكشف البنك يقول
+// خرج وعاد — فلا تتطابق المطابقة البنكية أبداً.
+// ══════════════════════════════════════════════════════════
+const LEDGER_SOURCE_LABELS = {
+  request:'طلب صرف', recurring:'قيد دوري', manual:'قيد يدوي',
+  revenue:'إيراد', opening:'رصيد افتتاحي', refund:'استرداد'
+};
+function canEditLedger(){ return ['accountant','cfo','admin'].includes(state.user && state.user.role); }
+function isReversed(txId){ return (state.transactions||[]).some(t=>t.reversesId===txId); }
+
+function ledgerRows(){
+  const f = state.ledgerFilter || {};
+  let rows = (state.transactions||[]).filter(t=>t.companyId===state.currentCompanyId);
+  if(f.from)   rows = rows.filter(t=>t.date >= f.from);
+  if(f.to)     rows = rows.filter(t=>t.date <= f.to);
+  if(f.item)   rows = rows.filter(t=>t.budgetItemId === f.item);
+  if(f.dir)    rows = rows.filter(t=>t.direction === f.dir);
+  if(f.source) rows = rows.filter(t=>t.sourceType === f.source);
+  if(f.q){
+    const q = f.q.toLowerCase();
+    rows = rows.filter(t=>(t.description||'').toLowerCase().includes(q)
+                       || (t.beneficiary||'').toLowerCase().includes(q)
+                       || (t.note||'').toLowerCase().includes(q));
+  }
+  // الأقدم أولاً ليصحّ الرصيد التراكمي — هكذا يُقرأ كشف الحساب
+  return rows.slice().sort((a,b)=> (a.date||'').localeCompare(b.date||'') || (a.createdAt||'').localeCompare(b.createdAt||''));
+}
+
+function setLedgerFilter(key, val){
+  state.ledgerFilter = state.ledgerFilter || {};
+  state.ledgerFilter[key] = val;
+  render();
+}
+
+function renderLedger(app){
+  state.ledgerFilter = state.ledgerFilter || {};
+  const f = state.ledgerFilter;
+  const items = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId);
+  const rows = ledgerRows();
+  const totalIn  = rows.filter(t=>t.direction==='in').reduce((s,t)=>s+t.amount,0);
+  const totalOut = rows.filter(t=>t.direction==='out').reduce((s,t)=>s+t.amount,0);
+  const SEPL = 'border-left:1px solid var(--line);';
+
+  const itemOpts = `<option value="">كل البنود</option>` + items.map(b=>
+    `<option value="${b.id}"${f.item===b.id?' selected':''}>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('');
+  const srcOpts = `<option value="">كل المصادر</option>` + Object.entries(LEDGER_SOURCE_LABELS).map(([v,l])=>
+    `<option value="${v}"${f.source===v?' selected':''}>${l}</option>`).join('');
+
+  let running = 0;
+  const body = rows.map(t=>{
+    running += (t.direction==='in' ? t.amount : -t.amount);
+    const item = items.find(b=>b.id===t.budgetItemId);
+    const rev  = isReversed(t.id);
+    const isRev = !!t.reversesId;
+    const strike = rev ? 'text-decoration:line-through;text-decoration-color:var(--red);opacity:.6;' : '';
+    const acts = [];
+    if(canEditLedger() && !rev && !isRev){
+      acts.push(`<button class="btn btn-ghost btn-xs" onclick="reverseTransaction('${t.id}')" title="الدفتر أخطأ — يُلغى القيد">عكس</button>`);
+      if(t.direction==='out')
+        acts.push(`<button class="btn btn-ghost btn-xs" onclick="refundTransaction('${t.id}')" title="المال عاد فعلاً — حركة دخول جديدة">استرداد</button>`);
+    }
+    return `<tr style="border-bottom:1px solid var(--line);${strike}">
+      <td style="padding:7px 10px;white-space:nowrap;${SEPL}" dir="ltr">${t.date||'—'}</td>
+      <td style="padding:7px 10px;${SEPL}">
+        ${escH(t.description)}
+        ${isRev ? '<span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:10px;display:inline;padding:1px 6px;">قيد عاكس</span>' : ''}
+        ${rev   ? '<span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:10px;display:inline;padding:1px 6px;">مُعاد</span>' : ''}
+        ${t.note ? `<div style="font-size:11px;color:var(--muted);">${escH(t.note)}</div>` : ''}
+      </td>
+      <td style="padding:7px 10px;font-size:12px;${SEPL}">${item ? escH(item.name) : '—'}</td>
+      <td style="padding:7px 10px;font-size:12px;${SEPL}">${escH(t.beneficiary||'—')}</td>
+      <td style="padding:7px 10px;font-size:12px;color:var(--muted);${SEPL}">${LEDGER_SOURCE_LABELS[t.sourceType]||t.sourceType}</td>
+      <td style="padding:7px 10px;text-align:right;direction:rtl;color:var(--green);${SEPL}">${t.direction==='in'?fmtKWDHtml(t.amount):'—'}</td>
+      <td style="padding:7px 10px;text-align:right;direction:rtl;color:var(--red);${SEPL}">${t.direction==='out'?fmtKWDHtml(t.amount):'—'}</td>
+      <td style="padding:7px 10px;text-align:right;direction:rtl;font-weight:700;${SEPL}">${fmtKWDHtml(running)}</td>
+      <td style="padding:7px 8px;white-space:nowrap;">${acts.join(' ')||''}</td>
+    </tr>`;
+  }).join('');
+
+  app.innerHTML = wrapWithAdminSidebar(`
+    <span class="back-link no-print" onclick="state.view='admin'; render();">→ رجوع</span>
+    <h1>دفتر الحركات</h1>
+    <p class="sub">كل حركة مالية سطرٌ لا يُعدَّل ولا يُحذف. التصحيح بقيد عاكس، وعودة المال بحركة استرداد.</p>
+
+    <div class="card rep-bar no-print" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="date" dir="ltr" value="${f.from||''}" onchange="setLedgerFilter('from', this.value)" title="من تاريخ" style="width:auto;">
+      <input type="date" dir="ltr" value="${f.to||''}"   onchange="setLedgerFilter('to', this.value)"   title="إلى تاريخ" style="width:auto;">
+      <select onchange="setLedgerFilter('item', this.value)" style="width:auto;">${itemOpts}</select>
+      <select onchange="setLedgerFilter('dir', this.value)" style="width:auto;">
+        <option value="">الاتجاهان</option>
+        <option value="in"${f.dir==='in'?' selected':''}>دخول</option>
+        <option value="out"${f.dir==='out'?' selected':''}>خروج</option>
+      </select>
+      <select onchange="setLedgerFilter('source', this.value)" style="width:auto;">${srcOpts}</select>
+      <input type="text" placeholder="بحث في البيان أو المستفيد" value="${escH(f.q||'')}" oninput="state.ledgerFilter.q=this.value" onchange="render()" style="width:auto;min-width:180px;">
+      <button class="btn btn-ghost btn-sm" onclick="state.ledgerFilter={}; render();">مسح الفلاتر</button>
+      ${canEditLedger() ? `<button class="btn btn-primary btn-sm" style="margin-right:auto;" onclick="openManualEntry()">+ قيد يدوي</button>` : ''}
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;">
+      <div class="card" style="padding:14px;text-align:center;border-top:3px solid var(--green);">
+        <div style="font-size:13px;font-weight:700;color:#6b7280;margin-bottom:6px;">إجمالي الدخول</div>
+        <div style="font-size:19px;font-weight:900;color:var(--green);">${fmtKWDHtml(totalIn)}</div></div>
+      <div class="card" style="padding:14px;text-align:center;border-top:3px solid var(--red);">
+        <div style="font-size:13px;font-weight:700;color:#6b7280;margin-bottom:6px;">إجمالي الخروج</div>
+        <div style="font-size:19px;font-weight:900;color:var(--red);">${fmtKWDHtml(totalOut)}</div></div>
+      <div class="card" style="padding:14px;text-align:center;border-top:3px solid var(--blue);">
+        <div style="font-size:13px;font-weight:700;color:#6b7280;margin-bottom:6px;">الصافي</div>
+        <div style="font-size:19px;font-weight:900;color:var(--blue);">${fmtKWDHtml(totalIn-totalOut)}</div></div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;direction:rtl;">
+        <thead><tr style="background:var(--ink);color:#fff;">
+          <th style="padding:9px 10px;text-align:right;font-weight:600;">التاريخ</th>
+          <th style="padding:9px 10px;text-align:right;font-weight:600;">البيان</th>
+          <th style="padding:9px 10px;text-align:right;font-weight:600;">البند</th>
+          <th style="padding:9px 10px;text-align:right;font-weight:600;">المستفيد</th>
+          <th style="padding:9px 10px;text-align:right;font-weight:600;">المصدر</th>
+          <th style="padding:9px 10px;text-align:right;font-weight:600;">دخول</th>
+          <th style="padding:9px 10px;text-align:right;font-weight:600;">خروج</th>
+          <th style="padding:9px 10px;text-align:right;font-weight:600;">الرصيد</th>
+          <th style="padding:9px 8px;"></th>
+        </tr></thead>
+        <tbody>${rows.length ? body : `<tr><td colspan="9" style="padding:22px;text-align:center;color:var(--muted);">لا توجد حركات بهذه الفلاتر</td></tr>`}</tbody>
+      </table>
+    </div>
+  `);
+}
+
+// ── قيد يدوي ──────────────────────────────────────────────
+function openManualEntry(){
+  if(!canEditLedger()){ showToast('القيد اليدوي من صلاحية المحاسب أو المدير المالي','error'); return; }
+  state.manualEntryOpen = true;
+  const items = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId && b.is_active!==false);
+  const opts = items.map(b=>`<option value="${b.id}">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('');
+  const app = document.getElementById('app');
+  app.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay" onclick="if(event.target===this) closeManualEntry();">
+      <div class="modal-box">
+        <h2>قيد يدوي</h2>
+        <p class="sub" style="margin-bottom:12px;">للحالة الفردية التي لا تستحق دورة طلب ولا تتكرّر — تسوية، أو رصيد افتتاحي، أو تصحيح.</p>
+        <div class="row">
+          <div><label>التاريخ *</label><input id="meDate" type="date" dir="ltr" value="${new Date().toISOString().slice(0,10)}"></div>
+          <div><label>الاتجاه *</label><select id="meDir"><option value="out">خروج</option><option value="in">دخول</option></select></div>
+        </div>
+        <div class="row">
+          <div><label>المبلغ *</label><input id="meAmount" type="number" step="0.001" min="0" dir="ltr" placeholder="0.000"></div>
+          <div><label>البند *</label><select id="meItem">${opts}</select></div>
+        </div>
+        <label>البيان *</label>
+        <input id="meDesc" type="text" placeholder="مثال: تسوية فرق صندوق">
+        <label>المستفيد (اختياري)</label>
+        <input id="meBene" type="text">
+        <label>ملاحظة (اختياري)</label>
+        <input id="meNote" type="text">
+        <div class="actions-row" style="margin-top:14px;">
+          <button class="btn btn-primary btn-md" onclick="saveManualEntry()">تسجيل القيد</button>
+          <button class="btn btn-ghost btn-sm" onclick="closeManualEntry()">إلغاء</button>
+        </div>
+      </div>
+    </div>`);
+}
+function closeManualEntry(){ state.manualEntryOpen=false; document.querySelectorAll('.modal-overlay').forEach(e=>e.remove()); }
+
+async function saveManualEntry(){
+  const v = id => (document.getElementById(id)||{}).value;
+  const amount = Number(v('meAmount'));
+  const desc = (v('meDesc')||'').trim();
+  if(!amount || amount<=0){ showToast('أدخل مبلغاً أكبر من صفر','error'); return; }
+  if(!desc){ showToast('أدخل بيان القيد','error'); return; }
+  if(!v('meItem')){ showToast('اختر البند','error'); return; }
+  const posted = await postTransaction({
+    date: v('meDate'), direction: v('meDir'), amount,
+    budgetItemId: v('meItem'), beneficiary: (v('meBene')||'').trim(),
+    description: desc, note: (v('meNote')||'').trim(), sourceType: 'manual'
+  });
+  if(!posted) return;
+  closeManualEntry();
+  showToast('سُجِّل القيد في الدفتر', 'success');
+  render();
+}
+
+// ── القيد العاكس: الدفتر أخطأ ─────────────────────────────
+async function reverseTransaction(txId){
+  if(!canEditLedger()){ showToast('عكس القيد من صلاحية المحاسب أو المدير المالي','error'); return; }
+  const t = (state.transactions||[]).find(x=>x.id===txId);
+  if(!t || isReversed(txId) || t.reversesId) return;
+  const reason = (prompt(
+      'عكس القيد — لِمَ؟\n\n'
+    + 'استعمل العكس حين يكون التسجيل نفسه خطأً: مبلغ مكرّر، أو بند خاطئ، أو صرف لم يتم.\n'
+    + 'أما إن خرج المال ثم عاد فعلاً، فأغلِق هذا واستعمل «استرداد».\n\n'
+    + 'السبب (إلزامي):') || '').trim();
+  if(!reason){ showToast('العكس بلا سبب لا يُقبل','error'); return; }
+
+  const posted = await postTransaction({
+    companyId: t.companyId, centerId: t.centerId, direction: t.direction==='out' ? 'in' : 'out',
+    amount: t.amount, budgetItemId: t.budgetItemId, beneficiary: t.beneficiary,
+    description: `عكس: ${t.description}`, sourceType: t.sourceType, sourceId: t.sourceId,
+    reversesId: t.id, note: reason
+  });
+  if(!posted) return;
+
+  // الالتزام قائم والدفع هو الذي لم يحدث، فيعود الطلب لينتظر صرفاً صحيحاً
+  if(t.sourceType==='request' && t.direction==='out' && t.sourceId){
+    const req = (state.requests||[]).find(r=>r.id===t.sourceId);
+    if(req && req.status==='completed'){
+      await pushHistory(req, {step:req.status, actor:state.user.name, userId:state.user.id,
+        action:'عكس قيد الصرف', note:reason, time:fmtDate()});
+      await setRequestStatus(req, 'pending_disbursement');
+      showToast('عُكس القيد، وعاد الطلب إلى «بانتظار إتمام الصرف»', 'success');
+      render(); return;
+    }
+  }
+  showToast('سُجِّل القيد العاكس', 'success');
+  render();
+}
+
+// ── الاسترداد: المال عاد فعلاً ────────────────────────────
+async function refundTransaction(txId){
+  if(!canEditLedger()){ showToast('تسجيل الاسترداد من صلاحية المحاسب أو المدير المالي','error'); return; }
+  const t = (state.transactions||[]).find(x=>x.id===txId);
+  if(!t || t.direction!=='out') return;
+  const raw = prompt(
+      'استرداد — المبلغ العائد:\n\n'
+    + 'استعمله حين يخرج المال فعلاً ثم يعود: تحويل ارتدّ، أو مورّد ردّ المبلغ، أو عهدة رُدّت.\n'
+    + 'الطلب يبقى مصروفاً لأنه فعلاً صُرف، وتُسجَّل حركة دخول مستقلة.\n\n'
+    + `المبلغ الأصلي ${t.amount.toFixed(3)} — أدخل المبلغ العائد:`, t.amount.toFixed(3));
+  if(raw===null) return;
+  const amount = Number(raw);
+  if(!amount || amount<=0){ showToast('أدخل مبلغاً أكبر من صفر','error'); return; }
+  if(amount > t.amount){ showToast('المبلغ العائد أكبر من الأصلي','error'); return; }
+  const reason = (prompt('سبب الاسترداد (إلزامي):') || '').trim();
+  if(!reason){ showToast('الاسترداد بلا سبب لا يُقبل','error'); return; }
+
+  const posted = await postTransaction({
+    companyId: t.companyId, centerId: t.centerId, direction: 'in', amount,
+    budgetItemId: t.budgetItemId, beneficiary: t.beneficiary,
+    description: `استرداد من: ${t.description}`,
+    sourceType: 'refund', sourceId: t.sourceId || t.id, note: reason
+  });
+  if(!posted) return;
+
+  if(t.sourceType==='request' && t.sourceId){
+    const req = (state.requests||[]).find(r=>r.id===t.sourceId);
+    if(req) await pushHistory(req, {step:req.status, actor:state.user.name, userId:state.user.id,
+      action:'استرداد مبلغ', note:`${amount.toFixed(3)} — ${reason}`, time:fmtDate()});
+  }
+  showToast('سُجِّل الاسترداد — الطلب يبقى مصروفاً', 'success');
+  render();
+}
+
 function renderCancelledArchive(app){
   const cancelled = state.requests.filter(r=>r.isCancelled && r.companyId===state.currentCompanyId)
     .sort((a,b)=> new Date(b.cancelledAt||0) - new Date(a.cancelledAt||0));
@@ -5803,6 +6064,7 @@ const ADMIN_NAV = [
     {key:'budgetRevenues', label:'الإيرادات', kind:'tab'},
     {key:'budgetReport', label:'تقرير الميزانية', tab:'التقرير', kind:'tab'},
     {key:'exec', label:'التحليلات واللوحة التنفيذية', tab:'اللوحة التنفيذية', head:'التحليلات المالية واللوحة التنفيذية', kind:'exec'},
+    {key:'ledger', label:'دفتر الحركات', tab:'الدفتر', head:'دفتر الحركات', kind:'view'},
     {key:'cancelledArchive', label:'أرشيف الطلبات الملغاة', tab:'أرشيف الملغاة', kind:'view'}
   ]},
   // ٤ الهوية والمستندات — كيف يبدو النظام على الشاشة وعلى الورق
