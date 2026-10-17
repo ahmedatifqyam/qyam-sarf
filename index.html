@@ -177,25 +177,28 @@
   .adm-head h1{margin:0;font-size:22px;line-height:1.3;}
   .adm-head .adm-sec{font-size:15px;font-weight:700;color:var(--muted);white-space:nowrap;}
   .adm-head .admin-co-badge{align-self:center;}
-  .adm-tabs2{display:flex;align-items:stretch;gap:4px;overflow-x:auto;scrollbar-width:thin;
-    background:var(--card);border:1px solid var(--line);border-radius:8px;
-    padding:7px 8px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+  /* ثلاثة مستويات تُقرأ من ثقل اللون: المجموعة (العنوان) ← الصفحة (داكن) ← القسم (فاتح) */
+  .adm-tabs2{display:flex;align-items:stretch;gap:2px;overflow-x:auto;scrollbar-width:thin;
+    background:var(--ink);border:none;border-radius:8px;
+    padding:5px 6px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.12);}
   .adm-tabs2::-webkit-scrollbar{height:4px;}
-  .adm-tabs2::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
-  .adm-t2{flex:0 0 auto;padding:7px 14px;font-size:13px;font-weight:600;font-family:inherit;white-space:nowrap;
-    cursor:pointer;border:1px solid transparent;background:transparent;color:var(--muted);border-radius:6px;}
-  .adm-t2:hover{background:var(--paper);color:var(--text);}
-  .adm-t2.active{background:var(--blue);color:#fff;border-color:var(--blue);}
-  /* تبويبات داخل القسم: القائمة أوّلاً لأن أكثر الدخول للتعديل، والإضافة بتبويب خاص.
-     RTL: الزرّ الأول في الكود يظهر أقصى اليمين، وحدّ الفصل بينهما هو border-right للثاني. */
-  .adm-panes{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;
-    background:var(--card);margin:0 0 18px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
-  .adm-pane{padding:8px 18px;font-size:13px;font-weight:600;font-family:inherit;white-space:nowrap;
-    cursor:pointer;border:none;background:transparent;color:var(--muted);}
-  .adm-pane + .adm-pane{border-right:1px solid var(--line);}
-  .adm-pane:hover{background:var(--paper);color:var(--text);}
-  .adm-pane.active{background:var(--blue);color:#fff;}
-  @media(max-width:640px){ .adm-panes{display:flex;width:100%;} .adm-pane{flex:1 1 0;padding:9px 6px;font-size:12.5px;} }
+  .adm-tabs2::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:4px;}
+  .adm-t2{flex:0 0 auto;padding:8px 15px;font-size:13px;font-weight:600;font-family:inherit;white-space:nowrap;
+    cursor:pointer;border:none;background:transparent;color:#9FC2DB;border-radius:6px;
+    border-bottom:3px solid transparent;}
+  .adm-t2:hover{background:rgba(255,255,255,.09);color:#fff;}
+  .adm-t2.active{background:rgba(255,255,255,.14);color:#fff;border-bottom-color:#D4AF37;}
+  /* الصفّ الفاتح: أقراص بيضاء، نشطُها أزرق */
+  .adm-subs{display:flex;align-items:stretch;gap:6px;overflow-x:auto;scrollbar-width:thin;
+    padding:2px 2px 4px;margin-bottom:18px;}
+  .adm-subs::-webkit-scrollbar{height:4px;}
+  .adm-subs::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+  .adm-sub{flex:0 0 auto;padding:7px 15px;font-size:12.5px;font-weight:600;font-family:inherit;white-space:nowrap;
+    cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;}
+  .adm-sub:hover{border-color:var(--blue);color:var(--blue);}
+  .adm-sub.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+  /* إخفاء الأقسام غير النشطة: لا بدّ من !important لأن .list-item وغيرها تضبط display */
+  [hidden]{display:none !important;}
   @media(max-width:640px){ .adm-head{flex-wrap:wrap;gap:6px;} .adm-head h1{font-size:19px;} }
   .admin-section-head h2{margin:0;font-size:19px;}
   .admin-co-badge{background:var(--blue-bg);color:var(--blue);font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;white-space:nowrap;}
@@ -5001,6 +5004,7 @@ function render(){
   if(state.transferFormReqId){ app.insertAdjacentHTML('beforeend', renderTransferFormModal()); }
   if(state.filePreviewModal){ app.insertAdjacentHTML('beforeend', renderFilePreviewModal()); }
 
+  applyPageSections();
   renderMobileTabs();
   ensureBottomBar();
   scrollActiveTabIntoView();
@@ -6286,7 +6290,7 @@ function openAdminGroup(gkey){
 function adminNavAction(item){
   const top = `window.scrollTo(0,0);`; // كل تبويب يفتح من أعلى الصفحة
   if(item.kind==='view') return `state.view='${item.key}'; render(); ${top}`;
-  if(item.kind==='tab') return `state.view='admin'; state.adminSubTab='${item.key}'; state.adminPanes={}; state.editingUserId=null; state.editingCompanyId=null; state.editingCenterId=null; render(); ${top}`;
+  if(item.kind==='tab') return `state.view='admin'; state.adminSubTab='${item.key}'; state.pageSec={}; state.editingUserId=null; state.editingCompanyId=null; state.editingCenterId=null; render(); ${top}`;
   if(item.kind==='exec') return `openExecDashboard(); ${top}`;
   if(item.kind==='sigFinal') return `${top} state.view='sigDesigner'; state.sigDesignerContext='final'; state.sigDesignerRole='dept_manager'; state.sigDesignerConfig=null; loadSigDesignerConfig(); ${top}`;
   if(item.kind==='sigMini') return `${top} state.view='sigDesigner'; state.sigDesignerContext='mini'; state.sigDesignerRole='dept_manager'; state.sigDesignerConfig=null; loadSigDesignerConfig(); ${top}`;
@@ -6312,36 +6316,67 @@ function adminHeaderHtml(){
       <span class="admin-co-badge" style="margin-right:auto;" title="الشركة الحالية — بدّلها من الأعلى">${escH(coName)}</span>
     </div>
     <div class="adm-tabs2">${subTabs}</div>
-    ${adminPanesHtml()}`;
+    <div id="secTabs"></div>`;
 }
-// ───────── تبويبات داخل القسم ─────────
-const ADMIN_PANES = {
-  companies:   {list:'الشركات',    new:'+ شركة جديدة'},
-  centers:     {list:'الوحدات',    new:'+ وحدة جديدة'},
-  users:       {list:'المستخدمون', new:'+ مستخدم جديد'},
-  budgetItems: {list:'البنود',     new:'+ بند جديد'}
-};
-// أثناء التعديل نبقى على القائمة مهما كان التبويب المحفوظ، فنموذج التعديل يعيش فيها
-function adminPane(tab){
-  tab = tab || state.adminSubTab;
-  if(!ADMIN_PANES[tab]) return 'list';
-  if((tab==='users' && state.editingUserId) || (tab==='companies' && state.editingCompanyId) ||
-     (tab==='centers' && state.editingCenterId) || (tab==='budgetItems' && state.editingBudgetItemId)) return 'list';
-  return (state.adminPanes && state.adminPanes[tab]) || 'list';
+// ───────── الصفّ الفاتح: تبويبات أقسام الصفحة ─────────
+// الأقسام تُقرأ من الصفحة نفسها لا من سجلّ يدوي: كل عنوان h2 في المستوى الأعلى
+// يبدأ قسماً، وما بعده حتى العنوان التالي يتبعه. فأي قسم يُضاف للصفحة مستقبلاً
+// يصير تبويباً من تلقاء نفسه، ولا يبقى سجلٌّ يتخلّف عن الشفرة.
+const SECTIONED_PAGES = ['companies','centers','users','roles','budgetItems','budgetRevenues','branding','printSetup'];
+// نماذج التعديل تعيش داخل قسم القائمة، فعناوينها لا تبدأ قسماً جديداً
+const SEC_SKIP  = /^(تعديل|تحرير)/;
+// أقسام الإنشاء تُؤخَّر إلى آخر الصفّ: الدخول للتعديل أكثر من الدخول للإنشاء
+const SEC_IS_NEW = /^(إضافة|تسجيل|إنشاء)/;
+const SEC_SHORT = [
+  [/^إضافة شركة/,'شركة جديدة'],           [/^الشركات الحالية/,'الشركات'],
+  [/^إضافة وحدة تنظيمية/,'وحدة جديدة'],    [/^وحدات الشركة/,'وحدات الشركة'],
+  [/^أنواع الوحدات/,'أنواع الوحدات'],
+  [/^إضافة مستخدم/,'مستخدم جديد'],         [/^مستخدمو الشركة/,'المستخدمون'],
+  [/^إضافة دور/,'دور جديد'],               [/^الأدوار الوظيفية/,'الأدوار الوظيفية'],
+  [/^الأدوار النظامية/,'الأدوار النظامية'],
+  [/^إضافة بند/,'بند جديد'],               [/^بنود الميزانية/,'البنود'],
+  [/^تسجيل إيراد/,'إيراد جديد'],           [/^الإيرادات المسجلة/,'الإيرادات'],
+  [/^هوية النظام/,'هوية النظام'],          [/^هوية الشركة/,'هوية الشركة'],
+  [/^ترويسة الشركة/,'ترويسة الشركة'],      [/^التذييل وترقيم/,'التذييل والترقيم'],
+  [/^ترويسة وتذييل المراكز/,'ترويسة المراكز']
+];
+function shortSecLabel(t){
+  for(const [re,lab] of SEC_SHORT){ if(re.test(t)) return lab; }
+  return t.length > 24 ? t.slice(0,23)+'…' : t;
 }
-function setAdminPane(tab, pane){
-  state.adminPanes = state.adminPanes || {};
-  state.adminPanes[tab] = pane;
-  if(pane==='new'){ state.editingUserId=null; state.editingCompanyId=null; state.editingCenterId=null; state.editingBudgetItemId=null; }
+function setPageSec(key, i){
+  state.pageSec = state.pageSec || {};
+  state.pageSec[key] = i;
   render(); window.scrollTo(0,0);
 }
-function adminPanesHtml(){
-  if(state.view!=='admin') return '';
-  const tab = state.adminSubTab, def = ADMIN_PANES[tab];
-  if(!def) return '';
-  const cur = adminPane(tab);
-  return `<div class="adm-panes">${['list','new'].map(k=>
-    `<button type="button" class="adm-pane${cur===k?' active':''}" onclick="setAdminPane('${tab}','${k}')">${escH(def[k])}</button>`
+function applyPageSections(){
+  const host = document.getElementById('secTabs');
+  if(host) host.innerHTML = '';
+  const key = (state.view==='admin') ? state.adminSubTab : null;
+  if(!key || !SECTIONED_PAGES.includes(key)) return;
+  const app = document.getElementById('app'); if(!app) return;
+
+  const skip = el => el.id==='secTabs' || el.classList.contains('adm-head') ||
+                     el.classList.contains('adm-tabs2') || el.classList.contains('gfb-spacer') ||
+                     el.classList.contains('global-floating-bar');
+  const secs = []; let cur = null;
+  for(const el of Array.from(app.children)){
+    if(skip(el)){ continue; }
+    const h = (el.tagName==='H2') ? el : el.querySelector('h2');
+    const txt = h ? h.textContent.trim() : '';
+    if(h && txt && !SEC_SKIP.test(txt)){ cur = {title:txt, isNew:SEC_IS_NEW.test(txt), els:[el]}; secs.push(cur); }
+    else if(cur){ cur.els.push(el); }
+    // ما قبل أول قسم (لافتة طلبات إعادة التعيين مثلاً) يبقى ظاهراً دائماً
+  }
+  if(secs.length < 2) return;                       // قسم واحد: لا داعي لصفّ تبويبات
+  const order = secs.map((s,i)=>({s,i}))
+                    .sort((a,b)=> (a.s.isNew - b.s.isNew) || (a.i - b.i))
+                    .map(x=>x.s);
+  let idx = (state.pageSec && state.pageSec[key]) || 0;
+  if(idx < 0 || idx >= order.length) idx = 0;
+  order.forEach((s,i)=> s.els.forEach(el=>{ el.hidden = (i !== idx); }));
+  if(host) host.innerHTML = `<div class="adm-subs">${order.map((s,i)=>
+    `<button type="button" class="adm-sub${i===idx?' active':''}" onclick="setPageSec('${key}',${i})">${escH(shortSecLabel(s.title))}</button>`
   ).join('')}</div>`;
 }
 function adminNavIsActive(item){
@@ -6386,7 +6421,7 @@ function renderAdmin(app){
 
 
   const subTabContent = {
-    companies: `${adminPane('companies')==='new' ? `    <div class="card">
+    companies: `    <div class="card">
       <h2>إضافة شركة جديدة</h2>
       <div class="row">
         <div><label>الاسم بالعربي</label><input id="newCoNameAr" type="text" placeholder="مثال: شركة القيم الكويتية"></div>
@@ -6405,7 +6440,7 @@ function renderAdmin(app){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="addCompany()">إضافة الشركة</button>
       </div>
-    </div>` : `
+    </div>
     <h2 style="margin-top:20px;">الشركات الحالية</h2>
     ${state.editingCompanyId ? renderCompanyEditForm() : ''}
     ${state.companies.map(c=>`
@@ -6421,8 +6456,8 @@ function renderAdmin(app){
         </div>
       </div>
     `).join('')}
-`}`,
-    centers: `${adminPane('centers')==='new' ? `    <div class="card" style="margin-top:20px;">
+`,
+    centers: `    <div class="card" style="margin-top:20px;">
       <h2>إضافة وحدة تنظيمية جديدة (للشركة الحالية)</h2>
       <div class="row">
         <div><label>اسم الوحدة</label><input id="newCenterName" type="text" placeholder="مثال: مركز حولي"></div>
@@ -6437,7 +6472,7 @@ function renderAdmin(app){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="addCenter()">إضافة الوحدة</button>
       </div>
-    </div>` : `
+    </div>
     <h2 style="margin-top:20px;">وحدات الشركة الحالية (${unitsOrdered(state.currentCompanyId).length})</h2>
     ${state.editingCenterId ? renderCenterEditForm() : ''}
     ${unitsOrdered(state.currentCompanyId).length===0 ? `<div class="empty">لا توجد وحدات مضافة بعد لهذه الشركة</div>` : unitsOrdered(state.currentCompanyId).map(x=>{ const c=x.unit; return `
@@ -6452,10 +6487,10 @@ function renderAdmin(app){
         </div>
       </div>`; }).join('')}
     ${renderUnitTypesPanel()}
-`}`,
+`,
 
     roles: renderRolesPanel(),
-    users: `${adminPane('users')==='new' ? `    <div class="card">
+    users: `${resetRequestsBannerHtml()}    <div class="card" style="margin-top:28px;">
       <h2>إضافة مستخدم جديد (بالشركة الحالية)</h2>
       <div class="row">
         <div><label>الاسم</label><input id="newUserName" type="text"></div>
@@ -6497,8 +6532,8 @@ function renderAdmin(app){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="addUser()">إضافة المستخدم</button>
       </div>
-    </div>` : `${resetRequestsBannerHtml()}
-    <h2 style="margin-top:4px;">مستخدمو الشركة الحالية</h2>
+    </div>
+    <h2 style="margin-top:24px;">مستخدمو الشركة الحالية</h2>
     ${state.editingUserId ? renderUserEditForm() : ''}
     ${companyScopedUsers.map(u=>`
       <div class="list-item">
@@ -6511,7 +6546,7 @@ function renderAdmin(app){
           <button class="btn btn-reject btn-xs" onclick="deleteUser('${u.id}')">حذف</button>
         </div>
       </div>
-    `).join('')}`}`,
+    `).join('')}`,
     impersonate: `    <div class="card" style="margin-top:28px;">
       <h2>تصفّح كمستخدم آخر (للمراجعة)</h2>
       <p class="file-hint">يسمح لك بمعاينة النظام تماماً كما يراه أي مستخدم، دون الحاجة لكلمة مروره. تقدر ترجع لحسابك في أي وقت.</p>
@@ -6603,7 +6638,7 @@ function renderBudgetItemsTab(){
     </div>`;
   }
 
-  return `${adminPane('budgetItems')==='new' ? `
+  return `
     <div class="card" style="margin-top:20px;">
       <h2>إضافة بند جديد</h2>
       <div class="row">
@@ -6627,8 +6662,9 @@ function renderBudgetItemsTab(){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="addBudgetItem()">إضافة البند</button>
       </div>
-    </div>` : `
-    <h2 style="margin-top:4px;">بنود الميزانية (${items.length})</h2>
+    </div>
+
+    <h2 style="margin-top:20px;">بنود الميزانية (${items.length})</h2>
     ${editId ? editForm(items.find(b=>b.id===editId)||{}) : ''}
     ${items.length===0 ? `<div class="empty">لا توجد بنود مضافة بعد</div>` : items.map(b=>{
       const parentName = b.parent_id ? (items.find(p=>p.id===b.parent_id)||{}).name||'—' : null;
@@ -6656,7 +6692,7 @@ function renderBudgetItemsTab(){
         </div>
       </div>`;
     }).join('')}
-  `}`;
+  `;
 }
 
 function onBudgetProfitModeChange(prefix){
@@ -7567,10 +7603,10 @@ async function addUser(){
   showToast('تمت إضافة المستخدم', 'success');
   backToAdminList('users');   // يعود للقائمة ليرى الصفّ الجديد، لا لنموذج فارغ
 }
-// بعد الإضافة الناجحة: ارجع لتبويب القائمة وأعد الرسم
+// بعد الإضافة الناجحة: ارجع لتبويب القائمة (القسم الأول) ليرى الصفّ الجديد
 function backToAdminList(tab){
-  state.adminPanes = state.adminPanes || {};
-  state.adminPanes[tab] = 'list';
+  state.pageSec = state.pageSec || {};
+  state.pageSec[tab] = 0;
   render(); window.scrollTo(0,0);
 }
 
