@@ -764,12 +764,44 @@
     .gfb-contact-numbers,.gfb-contact-label{display:none;}
     .hide-sm{display:none;}
     .sticky-submit-bar{padding:0 12px;overflow-x:auto;}
-    .req-list-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-    .req-list-inner{min-width:640px;}
-    .req-table-head, .req-card{
-      grid-template-columns: 100px 1fr 90px 90px 70px 90px 80px;
+    /* الهاتف: سبعة أعمدة لا تُقرأ على 390 بكسل، والتمرير الأفقي يجرّ
+       المستند كله. فيصير كل طلب بطاقة مكدّسة، واسم العمود بجوار قيمته. */
+    .req-list-scroll-wrap{overflow-x:visible;}
+    .req-list-inner{min-width:0;}
+    .req-table-head{display:none;}
+    .req-card{
+      display:block;
+      border-radius:12px;
+      padding:12px 14px !important;
+      margin-bottom:10px;
     }
-    .req-field-value{font-size:12px;}
+    .req-card > span{
+      display:flex;
+      align-items:baseline;
+      gap:10px;
+      padding:5px 0;
+      border-bottom:1px dashed var(--line);
+      text-align:right;
+      min-width:0;
+    }
+    .req-card > span:last-child{border-bottom:none;padding-bottom:0;}
+    .req-card > span::before{
+      content:attr(data-label);
+      flex:0 0 86px;
+      font-size:11.5px;
+      font-weight:700;
+      color:var(--muted);
+    }
+    .req-card > span[data-label="رقم الطلب"]{
+      border-bottom:1px solid var(--line);
+      padding-bottom:8px;
+      margin-bottom:2px;
+      font-size:15px;
+    }
+    .req-card > span[data-label="المستفيدون"]{padding-right:0 !important;}
+    .req-card .req-field-value{font-size:13px;}
+    .req-card .badge{display:inline-block;width:auto;margin-left:4px;}
+    .req-list-scroll-wrap .scroll-hint{display:none !important;}
     .stepper{gap:6px;}
     .step{min-width:64px;}
     .step p{font-size:10.5px;}
@@ -780,7 +812,20 @@
     .doc-salutation .mohtaramin{left:15%;}
     .container{padding:20px 14px 60px;}
     .nav{flex-wrap:wrap;gap:10px;padding:12px 14px;}
-    .topbar{gap:8px;padding:0 10px;}
+    /* الشريط العلوي كان يتجاوز حافة الشاشة بـ 252 بكسل: اللقب والشعاران
+       وقائمتان وثلاثة أزرار لا تسع 390 بكسل. فنُضمر ما يحتمل الإضمار
+       ونُخفي ما لا يُستعمل من الهاتف. */
+    .topbar{gap:6px;padding:0 8px;height:58px;min-height:58px;max-height:58px;}
+    .topbar .brand{flex:1 1 0;min-width:0;gap:6px;overflow:hidden;}   /* أساس صفر: يتقلّص ولا يطالب بعرض محتواه */
+    .brand-group{gap:6px;min-width:0;}
+    .brand-slot{width:32px;height:32px;flex:0 0 32px;}
+    .brand-name{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .brand-sep{display:none;}
+    .brand-co-group{display:none;}            /* اسم الشركة يظهر في القائمة الجانبية */
+    .tb-tools{flex:0 0 auto;gap:4px;min-width:0;}
+    .tb-impersonate{display:none;}            /* أداة مراجعة، مكانها الحاسوب */
+    .tb-company{max-width:96px;font-size:12px !important;padding:6px 4px !important;}
+    .tb-icon, .bell-btn{width:34px;min-width:34px;padding:0;font-size:15px;}
     .search-box input{width:110px;}
     .row{flex-direction:column;}
     .row > *{min-width:0;}
@@ -794,6 +839,11 @@
     .scroll-hint{display:block;}
     input, select, textarea{font-size:16px !important;}
     .list-item, .req-card{padding:14px;}
+    /* تقرير الميزانية: أربع بطاقات في صف واحد لا تسع الهاتف، وشريط
+       التبويبات لا ينكمش. فبطاقتان في الصف، والتبويبات تنزلق أفقياً. */
+    .summary-cards{grid-template-columns:repeat(2,1fr) !important;}
+    .adm-tabs2{max-width:100%;min-width:0;}
+    .adm-tabs2 .adm-t2{flex:0 0 auto;}
   }
 </style>
 </head>
@@ -2603,12 +2653,12 @@ function renderTopbar(){
   const bn = computeNotifications();
   const bellBtn = `<button type="button" class="bell-btn" onclick="toggleBell(event)" title="الإشعارات">🔔<span class="bell-badge${bn.badge?' on':''}" id="bellBadge">${bn.badge>99?'99+':bn.badge}</span></button>`;
   const companySwitcher = (state.myCompanyIds && state.myCompanyIds.length>1)
-    ? `<select onchange="switchCompany(this.value)" style="border-radius:6px;padding:8px 10px;font-size:13px;border:1px solid #2E4356;background:#2E4356;color:#fff;">
+    ? `<select class="tb-company" onchange="switchCompany(this.value)" style="border-radius:6px;padding:8px 10px;font-size:13px;border:1px solid #2E4356;background:#2E4356;color:#fff;">
         ${state.myCompanyIds.map(id=>{ const c = state.companies.find(x=>x.id===id); return `<option value="${id}" ${id===state.currentCompanyId?'selected':''}>${c?c.nameAr:id}</option>`; }).join('')}
       </select>`
     : '';
   const impersonateSwitcher = (state.user.role==='admin' && !state.impersonatingFromAdmin)
-    ? `<select onchange="if(this.value) impersonateUser(this.value);" style="border-radius:6px;padding:8px 10px;font-size:13px;border:1px solid #2E4356;background:#2E4356;color:#fff;max-width:180px;">
+    ? `<select class="tb-impersonate" onchange="if(this.value) impersonateUser(this.value);" style="border-radius:6px;padding:8px 10px;font-size:13px;border:1px solid #2E4356;background:#2E4356;color:#fff;max-width:180px;">
         <option value="">👁 عرض كمستخدم...</option>
         ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${u.name} — ${findRole(u.role).name}</option>`).join('')}
       </select>`
@@ -9091,13 +9141,13 @@ function renderDashboard(app){
             const subNoteClass = iAlreadyApproved ? 'note-approved' : 'note-waiting';
             return `
             <div class="req-card" onclick="openRequest('${r.id}')" style="${r.limitExceeded ? 'border:3px solid var(--red);' : ''}">
-              <span class="req-field-value req-field-wrap" style="font-weight:700;">${r.number || `<span style="color:var(--amber);font-size:12px;">⏳ قيد المراجعة${reviewSecondsLeft(r)>0 ? ` <span data-countdown="${r.id}" dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(reviewSecondsLeft(r))}</span>` : ''}</span>`}</span>
-              <span class="req-field-value req-field-wrap"${r.isCancelled ? ' style="text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px;color:var(--muted);"' : ''}>${r.reason}${r.limitExceeded ? ' <span class="limit-tag">⚠ تجاوز السقف</span>' : ''}</span>
-              <span class="req-field-value">${r.dateGreg ? `<div>${r.dateGreg}</div><div style="font-size:11px;color:var(--muted);">${createdTimePart}</div>` : '—'}</span>
-              <span class="req-field-value">${paidEntry ? `<div>${paidDatePart}</div><div style="font-size:11px;color:var(--muted);">${paidTimePart}</div>` : '—'}</span>
-              <span class="req-field-value" style="padding-right:22px;">${r.beneficiaries.length}</span>
-              <span class="req-field-value" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(r.totalAmount)} د.ك</span>
-              <span>
+              <span data-label="رقم الطلب" class="req-field-value req-field-wrap" style="font-weight:700;">${r.number || `<span style="color:var(--amber);font-size:12px;">⏳ قيد المراجعة${reviewSecondsLeft(r)>0 ? ` <span data-countdown="${r.id}" dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(reviewSecondsLeft(r))}</span>` : ''}</span>`}</span>
+              <span data-label="الموضوع" class="req-field-value req-field-wrap"${r.isCancelled ? ' style="text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px;color:var(--muted);"' : ''}>${r.reason}${r.limitExceeded ? ' <span class="limit-tag">⚠ تجاوز السقف</span>' : ''}</span>
+              <span data-label="تاريخ الطلب" class="req-field-value">${r.dateGreg ? `<div>${r.dateGreg}</div><div style="font-size:11px;color:var(--muted);">${createdTimePart}</div>` : '—'}</span>
+              <span data-label="تاريخ الصرف" class="req-field-value">${paidEntry ? `<div>${paidDatePart}</div><div style="font-size:11px;color:var(--muted);">${paidTimePart}</div>` : '—'}</span>
+              <span data-label="المستفيدون" class="req-field-value" style="padding-right:22px;">${r.beneficiaries.length}</span>
+              <span data-label="المبلغ" class="req-field-value" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(r.totalAmount)} د.ك</span>
+              <span data-label="الحالة">
                 ${isUnderReview(r)
                   ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);" title="لم يُرسل نهائياً بعد — لا يراه المعتمدون">قيد المراجعة</span>`
                   : statusBadge(r.status, r.isCancelled, myTurn, !subNoteText, myTurn && isOverdueFor(r, state.user.id))}${r.fastTracked ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:10.5px;" title="تخطّى بعض خطوات الاعتماد لأن المبلغ ضمن الحد الأدنى">⚡ حد أدنى</span>` : ''}${(isUnspecifiedBudget(r.budgetItemId) && !r.isCancelled && r.status!=='rejected' && r.status!=='completed') ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:10.5px;" title="الصرف متوقف حتى يُسنَد الطلب إلى بند ميزانية">⚠ بند غير محدد</span>` : ''}
