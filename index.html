@@ -1270,7 +1270,7 @@ async function refreshNow(manual){
     }
     if(fresh.length===1){
       const i = fresh[0];
-      showToast(i.kind==='pending' ? 'وصلك طلب جديد بانتظار اعتمادك' : i.kind==='path_reset' ? 'أُعيد مسار طلب — يحتاج اعتمادك: '+i.number : i.kind==='rejected' ? 'رُفض طلبك '+i.number : i.kind==='paid' ? 'تم صرف طلبك '+i.number : i.kind==='structure' ? i.title : 'تم اعتماد طلبك '+i.number, (i.kind==='rejected' || i.kind==='structure') ? 'error' : (i.kind==='path_reset' ? 'warn' : 'success'));
+      showToast(i.kind==='pending' ? 'وصلك طلب جديد بانتظار اعتمادك' : i.kind==='path_reset' ? 'أُعيد مسار طلب — يحتاج اعتمادك: '+i.number : i.kind==='rejected' ? 'رُفض طلبك '+i.number : i.kind==='paid' ? 'تم صرف طلبك '+i.number : (i.kind==='structure' || i.kind==='reset') ? i.title : 'تم اعتماد طلبك '+i.number, (i.kind==='rejected' || i.kind==='structure') ? 'error' : (i.kind==='path_reset' ? 'warn' : 'success'));
     } else if(fresh.length>1){ showToast('وصلك '+fresh.length+' إشعارات جديدة', 'success'); }
     if(fresh.length) playNotifSound();
     if(changed) state._viewStale = true;
@@ -1432,9 +1432,9 @@ function computeAdminStructureItems(){
   pendingResetRequests().forEach(r=>{
     const u = (state.users||[]).find(x=>x.id===r.userId);
     const key = 'reset:'+r.id;
-    items.push({key, kind:'structure', reqId:null, number:'', ts: new Date(r.requestedAt||Date.now()).getTime(),
-      isNew: !seen.has(key), overdue:false, title:'🔑 طلب إعادة تعيين كلمة المرور',
-      sub: (u ? u.name : r.phone) + ' — افتح حسابه واكتب كلمة جديدة', structLevel:'warn'});
+    items.push({key, kind:'reset', reqId: r.userId || '', number:'', ts: new Date(r.requestedAt||Date.now()).getTime(),
+      isNew: !seen.has(key), overdue:false, title:'طلب إعادة تعيين كلمة المرور',
+      sub: (u ? u.name : r.phone) + ' — افتح حسابه واكتب كلمة جديدة'});
   });
   state.companies.forEach(co=>{
     computeStructureIssues(co.id).forEach(iss=>{
@@ -1495,8 +1495,8 @@ function computeNotifications(){
   items.push(...computeAdminStructureItems());
   items.sort((a,b)=> (a.kind==='pending'?0:1)-(b.kind==='pending'?0:1) || (b.overdue-a.overdue) || (b.ts-a.ts));
   const pendingCount = items.filter(i=>i.kind==='pending' || i.kind==='path_reset').length;
-  const unreadEvents = items.filter(i=>i.kind!=='pending' && i.kind!=='path_reset' && i.kind!=='structure' && i.isNew).length;
-  const structureIssues = items.filter(i=>i.kind==='structure').length;
+  const unreadEvents = items.filter(i=>i.kind!=='pending' && i.kind!=='path_reset' && i.kind!=='structure' && i.kind!=='reset' && i.isNew).length;
+  const structureIssues = items.filter(i=>i.kind==='structure' || i.kind==='reset').length;
   const newPending = items.filter(i=>(i.kind==='pending'||i.kind==='path_reset') && i.isNew).length;
   return {items:items.slice(0,40), pendingCount, unreadEvents, newPending, structureIssues, unread:unreadEvents+newPending+structureIssues, badge:pendingCount+unreadEvents+structureIssues};
 }
@@ -1523,7 +1523,7 @@ function renderBellPanel(){
   if(!p) return;
   if(!state.bellOpen || !state.user){ p.classList.remove('open'); p.innerHTML=''; return; }
   const n = computeNotifications();
-  const icon = {pending:'📝', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳'};
+  const icon = {pending:'📝', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳', reset:'🔑'};
   const rows = n.items.map(i=>`
     <div class="bell-item${i.isNew?' new':''}" onclick="openNotifItem('${i.reqId}','${i.kind}')">
       <span class="bell-ico">${icon[i.kind]}</span>
@@ -1607,6 +1607,16 @@ function markAllSeen(){
 }
 function openNotifItem(id, kind){
   state.bellOpen = false;
+  if(kind==='reset'){
+    // يفتح حساب صاحب الطلب مباشرة ليكتب له الأدمن كلمة جديدة
+    markStructureIssuesSeen(computeAdminStructureItems().map(i=>i.key));
+    persistNotifSeen(latestServerTs());
+    renderBellPanel();
+    state.view = 'admin'; state.adminSubTab = 'users';
+    if(id) state.editingUserId = id;
+    render(); window.scrollTo(0,0);
+    return;
+  }
   if(kind==='structure'){
     markStructureIssuesSeen(computeAdminStructureItems().map(i=>i.key));
     persistNotifSeen(latestServerTs());
