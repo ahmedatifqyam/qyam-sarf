@@ -1812,11 +1812,12 @@ function execPickMonth(i){ state.execMonth = (state.execMonth===i) ? null : i; r
 function setExecYear(y){ state.execYear = Number(y); state.execMonth = null; render(); }
 function setAnalyticsTab(t){ state.analyticsTab = t; render(); }
 function openExecDashboard(){ state.analyticsTab = 'exec'; state.view = 'analytics'; render(); }
+// قسما هذه الصفحة — بنفس الصفّ الفاتح الذي في باقي الصفحات
 function analyticsTabsHtml(active){
   if(!canSeeExec()) return '';
-  return `<div class="actions-row" style="margin:0 0 16px;">
-    <button type="button" class="btn ${active==='exec'?'btn-primary':'btn-ghost'} btn-md" onclick="setAnalyticsTab('exec')">📊 اللوحة التنفيذية</button>
-    <button type="button" class="btn ${active==='details'?'btn-primary':'btn-ghost'} btn-md" onclick="setAnalyticsTab('details')">التفاصيل المالية</button>
+  return `<div class="adm-subs">
+    <button type="button" class="adm-sub${active==='exec'?' active':''}" onclick="setAnalyticsTab('exec')">اللوحة التنفيذية</button>
+    <button type="button" class="adm-sub${active==='details'?' active':''}" onclick="setAnalyticsTab('details')">التفاصيل المالية</button>
   </div>`;
 }
 function execBodyHtml(){
@@ -1893,8 +1894,8 @@ function renderExecTab(app){
   app.innerHTML = wrapWithAdminSidebar(`
     <span class="back-link no-print" onclick="state.view='${state.user.role==='admin'?'admin':'dashboard'}'; render();">→ رجوع</span>
     <h1 style="margin:0 0 4px;">التحليلات المالية</h1>
-    <p class="sub">${escH(coName)} — اللوحة التنفيذية (الطلبات المصروفة وغير الملغاة، حسب شهر الإنشاء).</p>
     ${analyticsTabsHtml('exec')}
+    <p class="sub">${escH(coName)} — اللوحة التنفيذية (الطلبات المصروفة وغير الملغاة، حسب شهر الإنشاء).</p>
     ${execBodyHtml()}`);
 }
 
@@ -6382,7 +6383,8 @@ function applyPageSections(){
 function adminNavIsActive(item){
   if(item.kind==='tab') return state.view==='admin' && state.adminSubTab===item.key;
   if(item.kind==='view') return state.view===item.key;
-  if(item.kind==='exec') return state.view==='analytics' && state.analyticsTab==='exec';
+  // اللوحة التنفيذية والتفاصيل المالية قسمان في صفحة واحدة، فكلاهما يُبقي الصفحة نشطة
+  if(item.kind==='exec') return state.view==='analytics';
   if(item.kind==='sigFinal') return state.view==='sigDesigner' && state.sigDesignerContext==='final';
   if(item.kind==='sigMini') return state.view==='sigDesigner' && state.sigDesignerContext==='mini';
   return false;
