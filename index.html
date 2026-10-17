@@ -1166,7 +1166,8 @@ async function loadAll(){
     db.from('signature_layout_configs').select('*'),
     db.from('budget_items').select('*').order('created_at', {ascending:true}),
     db.from('budget_revenues').select('*').order('revenue_date', {ascending:false}),
-    db.from('transactions').select('*').order('tx_date', {ascending:false})
+    db.from('transactions').select('*').order('tx_date', {ascending:false}),
+    db.from('password_reset_requests').select('*').order('requested_at', {ascending:false})
   ];
   const r = await Promise.all(q);
   const d = i => (r[i] && r[i].data) || [];
@@ -1199,6 +1200,8 @@ async function loadAll(){
   state.budgetItems    = d(13);
   state.budgetRevenues = d(14);
   state.transactions   = d(15).map(mapTransactionRow);
+  state.resetRequests  = d(16).map(r=>({id:r.id, phone:r.phone, userId:r.user_id, companyId:r.company_id,
+    status:r.status, requestedAt:r.requested_at, handledBy:r.handled_by, handledAt:r.handled_at}));
 }
 
 
@@ -1426,6 +1429,13 @@ function computeAdminStructureItems(){
   if(!state.user || state.user.role!=='admin') return [];
   const seen = getSeenStructureKeys();
   const items = [];
+  pendingResetRequests().forEach(r=>{
+    const u = (state.users||[]).find(x=>x.id===r.userId);
+    const key = 'reset:'+r.id;
+    items.push({key, kind:'structure', reqId:null, number:'', ts: new Date(r.requestedAt||Date.now()).getTime(),
+      isNew: !seen.has(key), overdue:false, title:'🔑 طلب إعادة تعيين كلمة المرور',
+      sub: (u ? u.name : r.phone) + ' — افتح حسابه واكتب كلمة جديدة', structLevel:'warn'});
+  });
   state.companies.forEach(co=>{
     computeStructureIssues(co.id).forEach(iss=>{
       const key = 'structure:'+co.id+':'+iss.text;
@@ -6228,7 +6238,7 @@ function renderAdmin(app){
 `,
 
     roles: renderRolesPanel(),
-    users: `    <div class="card" style="margin-top:28px;">
+    users: `${resetRequestsBannerHtml()}    <div class="card" style="margin-top:28px;">
       <h2>إضافة مستخدم جديد (بالشركة الحالية)</h2>
       <div class="row">
         <div><label>الاسم</label><input id="newUserName" type="text"></div>
@@ -8674,6 +8684,7 @@ async function saveUserEdit(){
     if(pass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن ٦ خانات','error'); return; }
     const { error: pwErr } = await db.rpc('admin_set_password', { p_user_id: u.id, p_password: pass });
     if(pwErr){ showToast('تعذّر تغيير كلمة المرور: ' + (pwErr.message||''), 'error'); return; }
+    await closeResetRequestsFor(u.id);   // طلب هذا المستخدم — إن وُجد — عولج بهذا
   }
   const result = await db.from('users').update({
     name, phone, role, center_id: centerId||null, manager_id: managerId||null, company_id: companyId||null,
@@ -8746,10 +8757,76 @@ function renderLogin(app){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="attemptLogin()">دخول</button>
       </div>
+      <div style="margin-top:10px;">
+        <a href="#" onclick="event.preventDefault(); requestPasswordReset();"
+           style="font-size:12.5px;color:var(--blue);text-decoration:underline;cursor:pointer;">نسيت كلمة المرور؟</a>
+      </div>
       ${devSwitcherHtml()}
-      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-10-15 — مصادقة Supabase</p>
+      <p class="file-hint" style="margin-top:10px;color:var(--blue);">نسخة الملف: 2026-10-17 — مصادقة Supabase</p>
     </div>
   `;
+}
+
+// ── نسيت كلمة المرور ──────────────────────────────────────────────────
+// كلمات المرور مشفّرة في الخادم فلا يقرؤها أحد — ولا الأدمن. وبريد
+// المصادقة وهمي (رقم@qyam.local) فرسالة Supabase الجاهزة لا تصل.
+// فالمخرج: يطلب الموظف، ويصل الأدمن تنبيه، فيضع كلمة جديدة ويبلّغه.
+// والجواب هنا واحد في كل الأحوال — لا نكشف أي رقم مسجَّل في النظام.
+async function requestPasswordReset(){
+  const pre = (document.getElementById('loginPhone')||{}).value || '';
+  const phone = (prompt('أدخل رقم هاتفك المسجَّل، ويصل مدير النظام طلبٌ بإعادة تعيين كلمة مرورك:', pre.trim()) || '').trim();
+  if(!phone) return;
+  const {error} = await db.rpc('request_password_reset', {p_phone: phone});
+  if(error){ showToast('تعذّر إرسال الطلب: ' + error.message, 'error'); return; }
+  showToast('وصل طلبك إلى مدير النظام. سيتواصل معك بكلمة مرور جديدة.', 'success');
+}
+
+// ── معالجة الطلبات (مدير النظام) ──────────────────────────────────────
+function pendingResetRequests(){
+  return (state.resetRequests||[])
+    .filter(r=>r.status==='pending' && (!r.companyId || r.companyId===state.currentCompanyId))
+    .sort((a,b)=> (b.requestedAt||'').localeCompare(a.requestedAt||''));
+}
+async function closeResetRequest(id, status){
+  const result = await db.from('password_reset_requests')
+    .update({status, handled_by: state.user.name, handled_at: new Date().toISOString()})
+    .eq('id', id);
+  if(!(await dbCheck(result, 'إغلاق طلب إعادة التعيين'))) return;
+  const r = (state.resetRequests||[]).find(x=>x.id===id);
+  if(r){ r.status = status; r.handledBy = state.user.name; }
+  showToast(status==='handled' ? 'أُغلق الطلب' : 'أُهمل الطلب', 'success');
+  render();
+}
+// يُستدعى بعد أن يضع الأدمن كلمة مرور جديدة لمستخدم: يُغلق طلبه تلقائياً
+async function closeResetRequestsFor(userId){
+  const open = (state.resetRequests||[]).filter(r=>r.userId===userId && r.status==='pending');
+  for(const r of open) await closeResetRequest(r.id, 'handled');
+}
+
+function resetRequestsBannerHtml(){
+  if(!state.user || state.user.role!=='admin') return '';
+  const list = pendingResetRequests();
+  if(!list.length) return '';
+  const rows = list.map(r=>{
+    const u = (state.users||[]).find(x=>x.id===r.userId);
+    const when = r.requestedAt ? new Date(r.requestedAt).toLocaleString('ar-KW-u-nu-latn',{dateStyle:'short',timeStyle:'short'}) : '';
+    return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid rgba(245,158,11,.3);">
+      <b style="font-size:13px;">${escH(u ? u.name : 'مستخدم غير معروف')}</b>
+      <span style="font-size:12px;color:#8a5a00;" dir="ltr">${escH(r.phone)}</span>
+      <span style="font-size:11.5px;color:#8a5a00;opacity:.8;">${escH(when)}</span>
+      <span class="rev-actions" style="margin-right:auto;display:flex;gap:6px;">
+        ${u ? `<button class="btn btn-primary btn-xs" onclick="state.view='admin'; state.adminSubTab='users'; state.editingUserId='${u.id}'; render();">فتح الحساب</button>` : ''}
+        <button class="btn btn-ghost btn-xs" onclick="closeResetRequest('${r.id}','dismissed')">إهمال</button>
+      </span>
+    </div>`;
+  }).join('');
+  return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
+    <div style="font-weight:700;font-size:13px;color:#8a5a00;">🔑 طلبات إعادة تعيين كلمة المرور (${list.length})</div>
+    <div style="font-size:12.5px;color:#8a5a00;line-height:1.7;margin-top:3px;">
+      افتح حساب الطالب واكتب كلمة مرور جديدة، ويُغلق طلبه تلقائياً. ثم أبلغه بها.
+    </div>
+    ${rows}
+  </div>`;
 }
 
 // ── لوحة التبديل السريع (تجربة فقط) ───────────────────────────────────
