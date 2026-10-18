@@ -2916,6 +2916,39 @@ function loginIdToEmail(id){
   return v.includes('@') ? v : v + AUTH_EMAIL_DOMAIN;
 }
 
+// الخادم يترجم ما يكتبه المستخدم إلى بريد المصادقة، فيقبل رقمه الحالي
+// وأي رقم قديم ما زال صالحاً. يُرجع بريداً دائماً فلا يكشف من هو مسجَّل.
+// وإن لم تكن الدالة منشورة بعد، نعود للاشتقاق المحلي كما كان.
+async function resolveLoginEmail(idInput){
+  const local = loginIdToEmail(idInput);
+  try{
+    const { data, error } = await db.rpc('resolve_login_email', { p_login: String(idInput||'').trim() });
+    if(error || !data) return local;
+    return String(data);
+  }catch(e){ return local; }
+}
+
+// الأرقام القديمة التي ما زالت تصلح للدخول — لمدير النظام وحده،
+// وقد لا يكون الجدول منشوراً بعد، فالفشل يُتجاهَل بصمت.
+async function loadLoginAliases(){
+  if(!state.loginAliases) state.loginAliases = [];
+  if(!state.user || state.user.role !== 'admin') return;
+  try{
+    const { data, error } = await db.from('login_aliases').select('*');
+    if(error) return;
+    state.loginAliases = (data||[]).map(a=>({phone:a.phone, userId:a.user_id}));
+  }catch(e){ /* الجدول غير موجود بعد */ }
+}
+
+async function removeLoginAlias(phone){
+  if(!confirm('إلغاء صلاحية الرقم ' + phone + ' للدخول؟\n\nلن يستطيع صاحبه الدخول به بعدها، ويبقى رقمه الحالي وحده.')) return;
+  const { error } = await db.rpc('admin_remove_login_alias', { p_phone: phone });
+  if(error){ showToast('تعذّر الإلغاء: ' + (error.message||''), 'error'); return; }
+  state.loginAliases = (state.loginAliases||[]).filter(a=>a.phone!==phone);
+  showToast('أُلغيت صلاحية الرقم ' + phone, 'success');
+  render();
+}
+
 async function attemptLogin(){
   const idInput = document.getElementById('loginPhone').value.trim();
   const pass    = document.getElementById('loginPassword').value;
@@ -2926,7 +2959,7 @@ async function attemptLogin(){
 
   try{
     const { data, error } = await db.auth.signInWithPassword({
-      email: loginIdToEmail(idInput), password: pass
+      email: await resolveLoginEmail(idInput), password: pass
     });
     if(error || !data?.user){
       showToast('رقم الهاتف أو كلمة المرور غير صحيحة','error');
@@ -2958,6 +2991,7 @@ async function finishLogin(authUid){
   }
   state.user = {id:user.id, role:user.role, name:user.name};
   setupCompanyAccess(user);
+  loadLoginAliases();
   const remember = document.getElementById('rememberMeCheck')?.checked;
   saveSession(user.id, remember);
   state.view = user.role==='admin' ? 'admin' : 'dashboard';
@@ -9013,7 +9047,11 @@ function renderUserEditForm(){
         </div>
       </div>
       <div class="row">
-        <div><label>رقم الهاتف</label><input id="editUserPhone" type="text" name="qz-edit-user-phone" autocomplete="off" value="${u.phone}"></div>
+        <div><label>رقم الهاتف (وهو رقم الدخول)</label><input id="editUserPhone" type="text" name="qz-edit-user-phone" autocomplete="off" value="${u.phone}">
+          ${(()=>{ const al=(state.loginAliases||[]).filter(a=>a.userId===u.id);
+            return al.length ? `<div class="file-hint" style="margin-top:4px;">أرقام قديمة ما زالت تصلح للدخول:${al.map(a=>
+              ` <span style="white-space:nowrap;"><bdi>${escH(a.phone)}</bdi> <button type="button" class="btn btn-ghost btn-xs" onclick="removeLoginAlias('${escH(a.phone)}')">إلغاء</button></span>`).join(' ·')}</div>` : ''; })()}
+        </div>
       </div>
       <div class="row">
         <div><label>كلمة المرور</label><input id="editUserPass" type="password" name="qz-edit-user-pass" autocomplete="new-password" placeholder="اتركها فارغة لإبقائها كما هي">
@@ -9171,6 +9209,21 @@ async function saveUserEdit(){
     const { error: pwErr } = await db.rpc('admin_set_password', { p_user_id: u.id, p_password: pass });
     if(pwErr){ showToast('تعذّر تغيير كلمة المرور: ' + (pwErr.message||''), 'error'); return; }
     await closeResetRequestsFor(u.id);   // طلب هذا المستخدم — إن وُجد — عولج بهذا
+  }
+  // رقم الدخول لا يُغيَّر بتحديث الجدول وحده: بريد المصادقة مشتقّ منه،
+  // فلو تغيّر هنا فقط انقطع الربط وتعذّر الدخول بالرقم الجديد.
+  // الدالة تحدّث الاثنين معاً وتُبقي الرقم القديم صالحاً.
+  const phoneChanged = String(u.phone||'').trim() !== phone;
+  if(phoneChanged){
+    const { error: phErr } = await db.rpc('admin_set_login_phone', { p_user_id: u.id, p_phone: phone });
+    if(phErr){
+      const notDeployed = /admin_set_login_phone|PGRST202|does not exist|could not find/i.test(phErr.message||'');
+      showToast(notDeployed
+        ? 'تغيير رقم الدخول يحتاج تحديث قاعدة البيانات أولاً (ملف إصلاح-الدخول.sql)'
+        : 'تعذّر تغيير رقم الدخول: ' + (phErr.message||''), 'error');
+      return;
+    }
+    await loadLoginAliases();
   }
   const result = await db.from('users').update({
     name, phone, role, center_id: centerId||null, manager_id: managerId||null, company_id: companyId||null,
