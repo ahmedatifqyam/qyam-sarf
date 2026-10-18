@@ -5141,6 +5141,12 @@ function effectiveBoxWidth(){
 }
 function applyPageWidth(){
   const app = document.getElementById('app'); if(!app) return;
+  // الصندوق يبدأ ملاصقاً للشريط الجانبي (بفجوة 16) ويمتدّ يساراً — لا موسّطاً في الفراغ.
+  // التوسيط كان يترك مئات البكسلات بينه وبين الشريط كلما كان العرض أصغر من الشاشة.
+  const mode = (document.getElementById('appNav')||{dataset:{}}).dataset.mode;
+  const anchored = (mode==='open' || mode==='collapsed');
+  app.style.marginRight = anchored ? '0' : '';
+  app.style.marginLeft  = anchored ? 'auto' : '';
   if(!WIDE_VIEWS.includes(state.view)){ app.style.maxWidth = ''; return; }   // يعود لقيمة CSS: 920
   const w = getPageWidth();
   app.style.maxWidth = w>0 ? (w + 'px') : 'none';
