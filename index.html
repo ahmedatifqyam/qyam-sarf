@@ -798,39 +798,114 @@
   .modal-box h2{margin-top:0;}
 
   /* ── فقاعة المساعد الذكي ───────────────────────────────────────── */
-  /* الشريط الجانبي يمين الشاشة، فالفقاعة يسارها كي لا تركبه.          */
+  /* الشريط الجانبي يمين الشاشة، فالفقاعة يسارها كي لا تركبه،
+     وفوق شريط الدعم الفني (55 بكسل) لا عليه. والألوان ألوان النظام. */
   #qyamAssistant{
     direction:rtl;
+
+    /* الألوان الأساسية من لوحة النظام */
     --chat--color--primary:var(--blue);
-    --chat--color--primary-shade-50:var(--ink);
+    --chat--color--primary-shade-50:#27527a;
+    --chat--color--primary--shade-100:var(--ink);
     --chat--color--secondary:var(--green);
+    --chat--color-secondary-shade-50:#266841;
+    --chat--color-white:#fff;
+    --chat--color-light:var(--paper);
+    --chat--color-light-shade-50:#efeee9;
+    --chat--color-light-shade-100:var(--line);
+    --chat--color-medium:var(--muted);
+    --chat--color-dark:var(--text);
+    --chat--color-disabled:#9c9b95;
+    --chat--color-typing:var(--muted);
+
+    /* الأساس: الخطّ والحواف والمسافات كما في بقية النظام */
     --chat--font-family:'IBM Plex Sans Arabic',sans-serif;
-    --chat--window--z-index:1200;
+    --chat--border-radius:8px;
+    --chat--spacing:12px;
+    --chat--transition-duration:.18s;
+
+    /* النافذة */
     --chat--window--width:360px;
     --chat--window--height:min(540px, calc(100vh - 150px));
+    --chat--window--border:1px solid var(--line);
+    --chat--window--border-radius:10px;
+    --chat--window--z-index:1200;
+
+    /* الترويسة: داكنة كالشريط العلوي */
+    --chat--header--background:var(--ink);
+    --chat--header--color:#fff;
+    --chat--header--padding:14px 16px;
+    --chat--header--border-bottom:none;
+    --chat--heading--font-size:15px;
+    --chat--subtitle--font-size:12px;
+    --chat--subtitle--line-height:1.6;
+
+    /* الرسائل: جواب المساعد بطاقة بيضاء، وسؤالك أزرق النظام */
+    --chat--body--background:var(--paper);
+    --chat--messages-list--padding:14px;
+    --chat--message--font-size:13.5px;
+    --chat--message-line-height:1.75;
+    --chat--message--padding:10px 12px;
+    --chat--message--border-radius:8px;
+    --chat--message--margin-bottom:10px;
+    --chat--message--bot--background:var(--card);
+    --chat--message--bot--color:var(--text);
+    --chat--message--bot--border:1px solid var(--line);
+    --chat--message--user--background:var(--blue);
+    --chat--message--user--color:#fff;
+    --chat--message--user--border:none;
+    --chat--message--pre--background:var(--blue-bg);
+
+    /* الفقاعة نفسها */
     --chat--toggle--size:52px;
     --chat--toggle--width:52px;
     --chat--toggle--height:52px;
-    --chat--header-height:auto;
-    --chat--heading--font-size:15px;
-    --chat--subtitle--font-size:12px;
-    --chat--message--font-size:13.5px;
-    --chat--header--background:var(--ink);
-    --chat--header--color:#fff;
+    --chat--toggle--border-radius:50%;
     --chat--toggle--background:var(--blue);
     --chat--toggle--hover--background:var(--ink);
-    --chat--message--user--background:var(--blue);
-    --chat--message--bot--background:#fff;
-    --chat--border-radius:10px;
+    --chat--toggle--active--background:var(--ink);
+    --chat--toggle--color:#fff;
+
+    /* صندوق الكتابة كحقول النظام */
+    --chat--input--background:var(--card);
+    --chat--input--text-color:var(--text);
+    --chat--input--font-size:13.5px;
+    --chat--input--padding:10px 12px;
+    --chat--input--border:1px solid var(--line);
+    --chat--input--border-active:1px solid var(--blue);
+    --chat--input--border-radius:6px;
+    --chat--input--placeholder--font-size:13px;
+    --chat--textarea--height:46px;
+    --chat--textarea--max-height:140px;
+    --chat--input--send--button--background:var(--blue);
+    --chat--input--send--button--color:#fff;
+    --chat--input--send--button--background-hover:var(--ink);
+    --chat--input--send--button--color-hover:#fff;
+
+    /* الأزرار كأزرار النظام */
+    --chat--button--padding:8px 16px;
+    --chat--button--border-radius:6px;
+    --chat--button--font-size:13px;
+    --chat--button--color--primary:#fff;
+    --chat--button--background--primary:var(--blue);
+    --chat--button--background--primary--hover:var(--ink);
+    --chat--close--button--color-hover:var(--blue-bg);
+
+    --chat--footer--background:var(--paper);
+    --chat--footer--color:var(--muted);
   }
-  /* الفقاعة ونافذتها يسار الشاشة، وفوق شريط الدعم الفني لا عليه.
-     شريط الدعم ارتفاعه 55 بكسل، فالفقاعة تبدأ بعده بفجوة. */
+  /* الفقاعة ونافذتها يسار الشاشة، وفوق شريط الدعم الفني لا عليه */
   #qyamAssistant > *{right:auto !important; left:18px !important; bottom:70px !important;}
-  #qyamAssistant .chat-message{text-align:right;}
+  /* النصّ العربي يبدأ من اليمين داخل الرسائل */
+  #qyamAssistant .chat-message,
+  #qyamAssistant .chat-message-markdown,
+  #qyamAssistant textarea{text-align:right; direction:rtl;}
+  #qyamAssistant .chat-heading,
+  #qyamAssistant .chat-header{text-align:right;}
   @media (max-width:700px){
     /* فوق الشريط السفلي لا تحته */
     #qyamAssistant > *{bottom:84px !important; left:14px !important;}
-    #qyamAssistant{--chat--window--width:calc(100vw - 28px); --chat--window--height:70vh;}
+    #qyamAssistant{--chat--window--width:calc(100vw - 28px); --chat--window--height:68vh;}
   }
   body.m-focus #qyamAssistant{display:none;}
   .file-preview-box{max-width:min(90vw, 700px);padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:90vh;}
