@@ -796,6 +796,35 @@
     box-shadow:0 10px 30px rgba(0,0,0,.2);
   }
   .modal-box h2{margin-top:0;}
+
+  /* ── فقاعة المساعد الذكي ───────────────────────────────────────── */
+  /* الشريط الجانبي يمين الشاشة، فالفقاعة يسارها كي لا تركبه.          */
+  #qyamAssistant{
+    direction:rtl;
+    --chat--color--primary:var(--blue);
+    --chat--color--primary-shade-50:var(--ink);
+    --chat--color--secondary:var(--green);
+    --chat--font-family:'IBM Plex Sans Arabic',sans-serif;
+    --chat--window--z-index:1200;
+    --chat--window--width:380px;
+    --chat--window--height:560px;
+    --chat--header--background:var(--ink);
+    --chat--header--color:#fff;
+    --chat--toggle--background:var(--blue);
+    --chat--toggle--hover--background:var(--ink);
+    --chat--message--user--background:var(--blue);
+    --chat--message--bot--background:#fff;
+    --chat--border-radius:10px;
+  }
+  /* الفقاعة ونافذتها تُنقلان إلى يسار الشاشة */
+  #qyamAssistant > *{right:auto !important; left:20px !important;}
+  #qyamAssistant .chat-message{text-align:right;}
+  @media (max-width:700px){
+    /* فوق الشريط السفلي لا تحته */
+    #qyamAssistant > *{bottom:84px !important; left:14px !important;}
+    #qyamAssistant{--chat--window--width:calc(100vw - 28px); --chat--window--height:70vh;}
+  }
+  body.m-focus #qyamAssistant{display:none;}
   .file-preview-box{max-width:min(90vw, 700px);padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:90vh;}
   .file-preview-header{
     display:flex;justify-content:space-between;align-items:center;
@@ -990,6 +1019,7 @@
 <div class="nav-backdrop no-print" id="navBackdrop" onclick="closeNavDrawer()"></div>
 <nav class="mtab no-print" id="mTab" aria-label="التنقّل السريع"></nav>
 <div class="shell-main" id="shellMain"><div class="container" id="app"></div></div>
+<div id="qyamAssistant" class="no-print"></div>
 <div id="toastHost" class="toast-host no-print"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -2633,6 +2663,64 @@ function isCustomRole(role){
 
 const ADMIN_AREA_VIEWS = ['admin','orgTree','jobLevels','analytics','cancelledArchive','ledger','sigDesigner','barSettings'];
 function inAdminArea(){ return !!state.user && state.user.role==='admin' && ADMIN_AREA_VIEWS.includes(state.view); }
+
+// ===================== المساعد الذكي =====================
+// الصفحة لا تحمل مفتاح الذكاء الاصطناعي: ترسل السؤال إلى مسار n8n
+// على خادم الشركة، وهو يحمل المفتاح ويسأل ويعيد الجواب.
+const ASSISTANT_WEBHOOK = 'https://vmi3593541.contaboserver.net/webhook/fd03e180-04c7-49a3-8ca5-6eba03109ea4/chat';
+const ASSISTANT_SRC     = 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.36.4/dist/chat.bundle.es.js';
+const ASSISTANT_CSS     = 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.36.4/dist/style.css';
+// من يرى الفقاعة. تُوسَّع بإضافة 'accountant' و'cfo' وغيرهما بعد التجربة.
+const ASSISTANT_ROLES   = ['admin'];
+
+let assistantMounted = false;
+function canSeeAssistant(){ return !!state.user && ASSISTANT_ROLES.includes(state.user.role); }
+
+async function mountAssistant(){
+  if(assistantMounted || !canSeeAssistant() || !ASSISTANT_WEBHOOK) return;
+  assistantMounted = true;                     // قبل الانتظار، لئلا يُركَّب مرتين
+  try{
+    if(!document.getElementById('n8nChatCss')){
+      const l = document.createElement('link');
+      l.id='n8nChatCss'; l.rel='stylesheet'; l.href=ASSISTANT_CSS;
+      document.head.appendChild(l);
+    }
+    const { createChat } = await import(ASSISTANT_SRC);
+    const co = (state.companies||[]).find(c=>c.id===state.currentCompanyId) || {};
+    createChat({
+      webhookUrl: ASSISTANT_WEBHOOK,
+      target: '#qyamAssistant',
+      mode: 'window',
+      loadPreviousSession: true,
+      showWelcomeScreen: false,
+      // هوية السائل تُرسل مع كل رسالة: يسجّلها المسار اليوم،
+      // ويقيّد بها بحثه في القاعدة حين يأتي دور أسئلة البيانات.
+      metadata: {
+        app: 'qyam-sarf',
+        userId: state.user.id,
+        userName: state.user.name,
+        role: state.user.role,
+        companyId: state.currentCompanyId || '',
+        companyName: co.nameAr || ''
+      },
+      initialMessages: [
+        'مرحباً 👋',
+        'أنا مساعد نظام الصرف. اسألني عن أي خطوة لا تعرف كيف تتمّها.'
+      ],
+      i18n: { en: {
+        title: 'مساعد نظام الصرف',
+        subtitle: 'اسأل عن أي شيء في النظام.',
+        footer: '',
+        getStarted: 'محادثة جديدة',
+        inputPlaceholder: 'اكتب سؤالك…',
+        closeButtonTooltip: 'إغلاق'
+      }}
+    });
+  }catch(e){
+    assistantMounted = false;                  // تعذّر التحميل: تُعاد المحاولة لاحقاً
+    console.error('تعذّر تحميل المساعد:', e);
+  }
+}
 
 // ===================== الشريط الجانبي الدائم (خريطة الموقع) =====================
 state.navPeek = false; state.navDrawer = false;
@@ -5159,6 +5247,7 @@ function render(){
   if(state.filePreviewModal){ app.insertAdjacentHTML('beforeend', renderFilePreviewModal()); }
 
   applyPageWidth();
+  if(canSeeAssistant()) mountAssistant();
   applyPageSections();
   renderMobileTabs();
   ensureBottomBar();
