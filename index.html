@@ -3341,7 +3341,8 @@ function computeBudgetItemFigures(itemId){
 
   // المصروف فعلاً: مجموع الخروج ناقص ما عُكس منه بقيد عاكس
   const txs = (state.transactions||[]).filter(t=>t.budgetItemId===itemId);
-  const out      = txs.filter(t=>t.direction==='out').reduce((s,t)=>s+t.amount,0);
+  // سطر عاكس ليس صرفاً: استُثني من الطرفين، وإلا عُدّ عكسُ الإيراد مصروفاً
+  const out      = txs.filter(t=>t.direction==='out' && !t.reversesId).reduce((s,t)=>s+t.amount,0);
   const reversed = txs.filter(t=>t.direction==='in' && t.reversesId).reduce((s,t)=>s+t.amount,0);
   const spent    = out - reversed;
 
@@ -7456,17 +7457,53 @@ async function addBudgetRevenue(){
   if(!rev.source_type) rev.source_type = null;
   const r = await db.from('budget_revenues').insert(rev);
   if(!(await dbCheck(r,'تسجيل الإيراد'))) return;
+
+  // الباب الرابع إلى الدفتر: الإيراد حركة دخول كالطلب حركة خروج.
+  // إن فشل تسجيلها نتراجع عن الإيراد نفسه، فلا يفترق الجدولان أبداً.
+  const item = (state.budgetItems||[]).find(b=>b.id===itemId);
+  const posted = await postTransaction({
+    companyId: item ? item.company_id : state.currentCompanyId,
+    date: rev.revenue_date, direction: 'in', amount,
+    budgetItemId: itemId, beneficiary: null,
+    description: rev.description || ('إيراد' + (item ? ' — ' + item.name : '')),
+    sourceType: 'revenue', sourceId: rev.id, note: rev.source_type || null
+  });
+  if(!posted){
+    await db.from('budget_revenues').delete().eq('id', rev.id);
+    showToast('لم يُسجَّل الإيراد: تعذّر قيده في الدفتر','error');
+    return;
+  }
+
   state.budgetRevenues = state.budgetRevenues||[];
   state.budgetRevenues.push(rev);
-  showToast('تم تسجيل الإيراد','success');
+  showToast('سُجِّل الإيراد وقُيِّد في الدفتر','success');
   render();
 }
 
+// حركة الدفتر المولَّدة من إيراد بعينه
+function revenueTx(revId){
+  return (state.transactions||[]).find(t=>t.sourceType==='revenue' && t.sourceId===revId && !t.reversesId) || null;
+}
+
 async function deleteBudgetRevenue(id){
+  // سطر الدفتر لا يُحذف ولا يُعدّل. فإن كان الإيراد قد قُيِّد،
+  // يُصحَّح بقيد عاكس يبقى ظاهراً مع أصله، ثم يُحذف سجلّ الإيراد.
+  const tx = revenueTx(id);
+  if(tx && !isReversed(tx.id)){
+    const rv = (state.budgetRevenues||[]).find(x=>x.id===id) || {};
+    if(!confirm('حذف الإيراد؟\n\nقيده في الدفتر لا يُحذف — يُسجَّل له قيد عاكس يبقى ظاهراً مع أصله.')) return;
+    const posted = await postTransaction({
+      companyId: tx.companyId, centerId: tx.centerId, direction: 'out', amount: tx.amount,
+      budgetItemId: tx.budgetItemId, beneficiary: tx.beneficiary,
+      description: 'عكس: ' + tx.description, sourceType: 'revenue', sourceId: id,
+      reversesId: tx.id, note: 'حُذف الإيراد' + (rv.description ? ' — ' + rv.description : '')
+    });
+    if(!posted) return;
+  }
   const r = await db.from('budget_revenues').delete().eq('id',id);
   if(!(await dbCheck(r,'حذف الإيراد'))) return;
   state.budgetRevenues = (state.budgetRevenues||[]).filter(x=>x.id!==id);
-  showToast('تم حذف الإيراد','success');
+  showToast(tx ? 'حُذف الإيراد وسُجِّل قيده العاكس' : 'تم حذف الإيراد','success');
   render();
 }
 
