@@ -223,11 +223,45 @@
   .role-card span{color:var(--muted);font-size:13px;}
   label{display:block;font-size:13.5px;color:var(--muted);margin:14px 0 6px;}
   label:first-child{margin-top:0;}
-  input[type=text],input[type=number],input[type=password],input[type=email],input[type=tel],textarea,select{
-    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;
+  /* ===== نظام أحجام الحقول: كل حقل بقدر ما يُكتب فيه =====
+     كانت كل الحقول width:100% فتتمدّد بعرض البطاقة — حقل الهاتف 656 بكسل
+     وقائمة المركز 1324. فصار لكل حقل سقف (--fw)، والافتراضي 520 كي لا يشذّ
+     حقلٌ نسيناه. وتوسيع الصفحة صار يخدم الجداول، لا يُمطّط النماذج. */
+  input[type=text],input[type=number],input[type=password],input[type=email],input[type=tel],input[type=date],textarea,select{
+    width:100%;max-width:var(--fw, 520px);padding:10px 12px;border:1px solid var(--line);border-radius:6px;
     font-family:inherit;font-size:14px;background:#fff;
   }
-  textarea{resize:vertical;min-height:70px;}
+  textarea{resize:vertical;min-height:70px;--fw:700px;}
+  /* حسب النوع */
+  input[type=number]{--fw:170px;}
+  input[type=date]{--fw:185px;}
+  /* ١ صغير جداً — رمز، نسبة، عدّاد */
+  #newCoCode,#editCoCode,#newCoHqCode,#editCoHqCode,#newCenterCode,#editCenterCode,
+  #nbiPct,#ebiPct,#pfFontSize,#pfOffset,#editCoReviewWindow,#editCoCurrency,
+  #newUtIcon,#accSignWidth,#pageWidthInput{--fw:120px;}
+  /* ٢ صغير — هاتف، تاريخ، مبلغ، سقف */
+  #loginPhone,#newUserPhone,#editUserPhone,
+  #meAmount,#nrevAmount,#nbiFix,#ebiFix,
+  #editCenterMaxBene,#editCenterMaxRequest,#editCenterMinThreshold,
+  #editCenterMonthlyBudget,#editCenterAnnualBudget,
+  .b-amount,.b-deduction,.b-extra{--fw:180px;}
+  /* ٣ متوسط — اسم شخص، كلمة مرور، بريد، آيبان، هوية */
+  #accName,#accNameEn,#accEmail,#accPass,#accIban,#accCivilId,
+  #loginPassword,#newUserName,#newUserPass,#editUserName,#editUserPass,#editUserJobTitle,
+  #newCenterName,#editCenterName,#newRoleName,#newUtName,#levelNameInput,
+  #deleteConfirmPass,#bankTransferRefInput,#meBene,
+  .b-name,.b-nameEn,.b-iban,.b-civilId{--fw:300px;}
+  /* ٤ كبير — اسم شركة أو بند، نصوص المستندات، القوائم الطويلة */
+  #newCoNameAr,#newCoNameEn,#editCoNameAr,#editCoNameEn,#newCoTax,#editCoTax,
+  #nbiName,#ebiName,#brandSysName,#brandCoName,#reasonInput,
+  #docTextReference,#docTextSalutation,#meDesc,#nrevDesc,#meNote,
+  #newUserCenter,#newUserManager,#editUserCenter,#editUserManager,
+  #budgetItemSelect,#nbiParent,#ebiParent,#newCenterParent,#editCenterParent,
+  #meItem,#nrevItem,#editUserNextApprover,#editUserRequestApprover,
+  #editCoCfoUser,#pathPreviewUser,#impersonateSelect,#assignBudgetSel,
+  .b-statement,.b-notes,.b-deductionNote,.b-extraNote{--fw:440px;}
+  /* ٥ كامل — ما يُكتب فيه فقرة */
+  #nbiNotes,#ebiNotes{--fw:520px;}
   /* ===== نظام أحجام الأزرار الموحّد (3 أحجام فقط، نفس القيم بالحاسوب والجوال) ===== */
   .btn{
     --btn-h:45px; --btn-w:220px; --btn-px:10px; --btn-fs:15px; --btn-fs2:12.5px;
@@ -5423,34 +5457,53 @@ function renderAccount(app){
     <h1>حسابي — ${findRole(me.role).name}</h1>
     <p class="sub">${state.returnTo ? 'الرجاء رفع صورة التوقيع والختم أولاً لإكمال اعتماد الطلب.' : 'تحديث بياناتك الشخصية.'}</p>
     <div class="card">
-      <label>الجهة التابع لها</label>
-      <input type="text" value="${getUserUnit(me)}" disabled style="background:#F0EEE7;">
-      <label>المدير المباشر</label>
-      <input type="text" value="${(() => { const mgr = state.users.find(u=>u.id===me.managerId); return mgr ? (mgr.name + ' — ' + findRole(mgr.role).name) : 'غير محدد'; })()}" disabled style="background:#F0EEE7;">
-      <label>الاسم (يظهر على المستندات والتوقيعات)</label>
-      <input id="accName" type="text" value="${me.name}">
-      <label>رقم الهاتف</label>
-      <input type="text" value="${me.phone}" disabled style="background:#F0EEE7;">
-      <label>البريد الإلكتروني</label>
-      <input id="accEmail" type="email" value="${me.email||''}" placeholder="example@qyamkw.com">
-      <label>كلمة مرور جديدة (اتركها فارغة لعدم التغيير)</label>
-      <input id="accPass" type="password" placeholder="••••••••">
+      <h2 style="margin:0 0 4px;font-size:15px;">بياناتي</h2>
+      <div class="row">
+        <div><label>الجهة التابع لها</label>
+          <input type="text" value="${getUserUnit(me)}" disabled style="background:#F0EEE7;--fw:300px;"></div>
+        <div><label>المدير المباشر</label>
+          <input type="text" value="${(() => { const mgr = state.users.find(u=>u.id===me.managerId); return mgr ? (mgr.name + ' — ' + findRole(mgr.role).name) : 'غير محدد'; })()}" disabled style="background:#F0EEE7;--fw:300px;"></div>
+      </div>
+      <div class="row">
+        <div><label>الاسم (يظهر على المستندات والتوقيعات)</label>
+          <input id="accName" type="text" value="${me.name}"></div>
+        <div><label>رقم الهاتف</label>
+          <input type="text" value="${me.phone}" disabled style="background:#F0EEE7;--fw:180px;"></div>
+      </div>
+      <div class="row">
+        <div><label>البريد الإلكتروني</label>
+          <input id="accEmail" type="email" value="${me.email||''}" placeholder="example@qyamkw.com"></div>
+        <div><label>كلمة مرور جديدة (اتركها فارغة لعدم التغيير)</label>
+          <input id="accPass" type="password" placeholder="••••••••"></div>
+      </div>
+    </div>
 
-      <h2 style="margin-top:22px;font-size:15px;">بياناتي كمستفيد (تُستخدم تلقائياً عند طلبات مثل الراتب)</h2>
-      <label>الاسم بالإنجليزية</label>
-      <input id="accNameEn" type="text" value="${me.nameEn||''}" placeholder="Name in English">
-      <label>رقم الآيبان (IBAN)</label>
-      <input id="accIban" type="text" value="${me.iban||''}" placeholder="KW00 XXXX XXXX XXXX">
-      <label>الرقم المدني (اختياري)</label>
-      <input id="accCivilId" type="text" value="${me.civilId||''}" placeholder="رقمك المدني">
-      <label>صورة البطاقة المدنية (اختياري)</label>
-      ${me.idFileData ? `<div class="file-hint">✓ محفوظة</div>` : ''}
-      <input id="accIdFile" type="file" accept="image/*">
-      <label>صورة معلومات البنك (اختياري)</label>
-      ${me.bankFileData ? `<div class="file-hint">✓ محفوظة</div>` : ''}
-      <input id="accBankFile" type="file" accept="image/*">
+    <div class="card">
+      <h2 style="margin:0 0 4px;font-size:15px;">بياناتي كمستفيد</h2>
+      <p class="file-hint" style="margin:0 0 6px;">تُستخدم تلقائياً عند طلبات مثل الراتب، فلا تُعيد كتابتها في كل طلب.</p>
+      <div class="row">
+        <div><label>الاسم بالإنجليزية</label>
+          <input id="accNameEn" type="text" value="${me.nameEn||''}" placeholder="Name in English"></div>
+        <div><label>رقم الآيبان (IBAN)</label>
+          <input id="accIban" type="text" value="${me.iban||''}" placeholder="KW00 XXXX XXXX XXXX"></div>
+      </div>
+      <div class="row">
+        <div><label>الرقم المدني (اختياري)</label>
+          <input id="accCivilId" type="text" value="${me.civilId||''}" placeholder="رقمك المدني"></div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div><label>صورة البطاقة المدنية (اختياري)</label>
+          ${me.idFileData ? `<div class="file-hint">✓ محفوظة</div>` : ''}
+          <input id="accIdFile" type="file" accept="image/*"></div>
+        <div><label>صورة معلومات البنك (اختياري)</label>
+          ${me.bankFileData ? `<div class="file-hint">✓ محفوظة</div>` : ''}
+          <input id="accBankFile" type="file" accept="image/*"></div>
+      </div>
+    </div>
 
-      <h2 style="margin-top:22px;font-size:15px;">إعدادات التوقيع</h2>
+    <div class="card">
+      <h2 style="margin:0 0 10px;font-size:15px;">التوقيع والختم</h2>
       ${['dept_manager','senior_manager','executive_manager','accountant','cfo'].includes(me.role) ? `
       <label>طريقة التوقيع عند الاعتماد</label>
       <select id="accSignatureMode">
