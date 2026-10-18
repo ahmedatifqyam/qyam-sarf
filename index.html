@@ -236,32 +236,20 @@
   input[type=number]{--fw:170px;}
   input[type=date]{--fw:185px;}
   /* ١ صغير جداً — رمز، نسبة، عدّاد */
-  #newCoCode,#editCoCode,#newCoHqCode,#editCoHqCode,#newCenterCode,#editCenterCode,
-  #nbiPct,#ebiPct,#pfFontSize,#pfOffset,#editCoReviewWindow,#editCoCurrency,
-  #newUtIcon,#accSignWidth,#pageWidthInput{--fw:120px;}
-  /* ٢ صغير — هاتف، تاريخ، مبلغ، سقف */
-  #loginPhone,#newUserPhone,#editUserPhone,
-  #meAmount,#nrevAmount,#nbiFix,#ebiFix,
-  #editCenterMaxBene,#editCenterMaxRequest,#editCenterMinThreshold,
-  #editCenterMonthlyBudget,#editCenterAnnualBudget,
-  .b-amount,.b-deduction,.b-extra{--fw:180px;}
-  /* ٣ متوسط — اسم شخص، كلمة مرور، بريد، آيبان، هوية */
-  #accName,#accNameEn,#accEmail,#accPass,#accIban,#accCivilId,
-  #loginPassword,#newUserName,#newUserPass,#editUserName,#editUserPass,#editUserJobTitle,
-  #newCenterName,#editCenterName,#newRoleName,#newUtName,#levelNameInput,
-  #deleteConfirmPass,#bankTransferRefInput,#meBene,
-  .b-name,.b-nameEn,.b-iban,.b-civilId{--fw:300px;}
-  /* ٤ كبير — اسم شركة أو بند، نصوص المستندات، القوائم الطويلة */
-  #newCoNameAr,#newCoNameEn,#editCoNameAr,#editCoNameEn,#newCoTax,#editCoTax,
-  #nbiName,#ebiName,#brandSysName,#brandCoName,#reasonInput,
-  #docTextReference,#docTextSalutation,#meDesc,#nrevDesc,#meNote,
-  #newUserCenter,#newUserManager,#editUserCenter,#editUserManager,
-  #budgetItemSelect,#nbiParent,#ebiParent,#newCenterParent,#editCenterParent,
-  #meItem,#nrevItem,#editUserNextApprover,#editUserRequestApprover,
-  #editCoCfoUser,#pathPreviewUser,#impersonateSelect,#assignBudgetSel,
-  .b-statement,.b-notes,.b-deductionNote,.b-extraNote{--fw:440px;}
-  /* ٥ كامل — ما يُكتب فيه فقرة */
-  #nbiNotes,#ebiNotes{--fw:520px;}
+  #newCoCode, #editCoCode, #newCoHqCode, #editCoHqCode, #newCenterCode, #editCenterCode, #nbiPct, #ebiPct, #pfFontSize, #pfOffset, #editCoReviewWindow, #editCoCurrency, #newUtIcon, #accSignWidth, #pageWidthInput,
+  .row > *:has(> #newCoCode), .row > *:has(> #editCoCode), .row > *:has(> #newCoHqCode), .row > *:has(> #editCoHqCode), .row > *:has(> #newCenterCode), .row > *:has(> #editCenterCode), .row > *:has(> #nbiPct), .row > *:has(> #ebiPct), .row > *:has(> #pfFontSize), .row > *:has(> #pfOffset), .row > *:has(> #editCoReviewWindow), .row > *:has(> #editCoCurrency), .row > *:has(> #newUtIcon), .row > *:has(> #accSignWidth), .row > *:has(> #pageWidthInput){--fw:120px;}
+  /* ٢ صغير — هاتف، مبلغ، سقف */
+  #loginPhone, #newUserPhone, #editUserPhone, #meAmount, #nrevAmount, #nbiFix, #ebiFix, #editCenterMaxBene, #editCenterMaxRequest, #editCenterMinThreshold, #editCenterMonthlyBudget, #editCenterAnnualBudget, .b-amount, .b-deduction, .b-extra,
+  .row > *:has(> #loginPhone), .row > *:has(> #newUserPhone), .row > *:has(> #editUserPhone), .row > *:has(> #meAmount), .row > *:has(> #nrevAmount), .row > *:has(> #nbiFix), .row > *:has(> #ebiFix), .row > *:has(> #editCenterMaxBene), .row > *:has(> #editCenterMaxRequest), .row > *:has(> #editCenterMinThreshold), .row > *:has(> #editCenterMonthlyBudget), .row > *:has(> #editCenterAnnualBudget), .row > *:has(> .b-amount), .row > *:has(> .b-deduction), .row > *:has(> .b-extra){--fw:180px;}
+  /* ٣ متوسط — اسم شخص، كلمة مرور، بريد، آيبان */
+  #accName, #accNameEn, #accEmail, #accPass, #accIban, #accCivilId, #loginPassword, #newUserName, #newUserPass, #editUserName, #editUserPass, #editUserJobTitle, #newCenterName, #editCenterName, #newRoleName, #newUtName, #levelNameInput, #deleteConfirmPass, #bankTransferRefInput, #meBene, .b-name, .b-nameEn, .b-iban, .b-civilId,
+  .row > *:has(> #accName), .row > *:has(> #accNameEn), .row > *:has(> #accEmail), .row > *:has(> #accPass), .row > *:has(> #accIban), .row > *:has(> #accCivilId), .row > *:has(> #loginPassword), .row > *:has(> #newUserName), .row > *:has(> #newUserPass), .row > *:has(> #editUserName), .row > *:has(> #editUserPass), .row > *:has(> #editUserJobTitle), .row > *:has(> #newCenterName), .row > *:has(> #editCenterName), .row > *:has(> #newRoleName), .row > *:has(> #newUtName), .row > *:has(> #levelNameInput), .row > *:has(> #deleteConfirmPass), .row > *:has(> #bankTransferRefInput), .row > *:has(> #meBene), .row > *:has(> .b-name), .row > *:has(> .b-nameEn), .row > *:has(> .b-iban), .row > *:has(> .b-civilId){--fw:300px;}
+  /* ٤ كبير — اسم شركة أو بند، القوائم الطويلة */
+  #newCoNameAr, #newCoNameEn, #editCoNameAr, #editCoNameEn, #newCoTax, #editCoTax, #nbiName, #ebiName, #brandSysName, #brandCoName, #reasonInput, #docTextReference, #docTextSalutation, #meDesc, #nrevDesc, #meNote, #newUserCenter, #newUserManager, #editUserCenter, #editUserManager, #budgetItemSelect, #nbiParent, #ebiParent, #newCenterParent, #editCenterParent, #meItem, #nrevItem, #editUserNextApprover, #editUserRequestApprover, #editCoCfoUser, #pathPreviewUser, #impersonateSelect, #assignBudgetSel, .b-statement, .b-notes, .b-deductionNote, .b-extraNote,
+  .row > *:has(> #newCoNameAr), .row > *:has(> #newCoNameEn), .row > *:has(> #editCoNameAr), .row > *:has(> #editCoNameEn), .row > *:has(> #newCoTax), .row > *:has(> #editCoTax), .row > *:has(> #nbiName), .row > *:has(> #ebiName), .row > *:has(> #brandSysName), .row > *:has(> #brandCoName), .row > *:has(> #reasonInput), .row > *:has(> #docTextReference), .row > *:has(> #docTextSalutation), .row > *:has(> #meDesc), .row > *:has(> #nrevDesc), .row > *:has(> #meNote), .row > *:has(> #newUserCenter), .row > *:has(> #newUserManager), .row > *:has(> #editUserCenter), .row > *:has(> #editUserManager), .row > *:has(> #budgetItemSelect), .row > *:has(> #nbiParent), .row > *:has(> #ebiParent), .row > *:has(> #newCenterParent), .row > *:has(> #editCenterParent), .row > *:has(> #meItem), .row > *:has(> #nrevItem), .row > *:has(> #editUserNextApprover), .row > *:has(> #editUserRequestApprover), .row > *:has(> #editCoCfoUser), .row > *:has(> #pathPreviewUser), .row > *:has(> #impersonateSelect), .row > *:has(> #assignBudgetSel), .row > *:has(> .b-statement), .row > *:has(> .b-notes), .row > *:has(> .b-deductionNote), .row > *:has(> .b-extraNote){--fw:440px;}
+  /* ٥ أوسع — ملاحظات */
+  #nbiNotes, #ebiNotes,
+  .row > *:has(> #nbiNotes), .row > *:has(> #ebiNotes){--fw:520px;}
   /* ===== نظام أحجام الأزرار الموحّد (3 أحجام فقط، نفس القيم بالحاسوب والجوال) ===== */
   .btn{
     --btn-h:45px; --btn-w:220px; --btn-px:10px; --btn-fs:15px; --btn-fs2:12.5px;
@@ -298,8 +286,12 @@
   .rep-bar .rep-spacer{flex:1 1 auto;min-width:0;}
   .rep-seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;height:34px;}
   .rep-seg button{padding:0 13px;font-size:12.5px;font-weight:700;cursor:pointer;border:none;white-space:nowrap;font-family:inherit;}
-  .row{display:flex;gap:12px;flex-wrap:wrap;}
-  .row > *{flex:1;min-width:180px;}
+  /* الحاوية تلتصق بحقلها بدل أن تأخذ نصف السطر: كانت الحاوية 456 والحقل 300
+     فيتولّد بينهما ثقب 168 بكسل. الآن تتجاور الحقول بفجوة واحدة ثابتة،
+     والفائض يذهب إلى آخر السطر لا بين الحقلين. */
+  .row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;}
+  .row > *{flex:0 1 var(--fw, auto);min-width:0;max-width:min(var(--fw, 100%), 100%);}
+  .row > *:empty{display:none;}
   .beneficiary-block{border:2px solid var(--line);border-radius:8px;padding:16px;margin-top:16px;background:var(--card);}
   .beneficiary-block-header{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
   .sticky-submit-bar{
@@ -5465,16 +5457,16 @@ function renderAccount(app){
     <div class="card">
       <h2 style="margin:0 0 4px;font-size:15px;">بياناتي</h2>
       <div class="row">
-        <div><label>الجهة التابع لها</label>
-          <input type="text" value="${getUserUnit(me)}" disabled style="background:#F0EEE7;--fw:300px;"></div>
-        <div><label>المدير المباشر</label>
-          <input type="text" value="${(() => { const mgr = state.users.find(u=>u.id===me.managerId); return mgr ? (mgr.name + ' — ' + findRole(mgr.role).name) : 'غير محدد'; })()}" disabled style="background:#F0EEE7;--fw:300px;"></div>
+        <div style="--fw:300px;"><label>الجهة التابع لها</label>
+          <input type="text" value="${getUserUnit(me)}" disabled style="background:#F0EEE7;"></div>
+        <div style="--fw:300px;"><label>المدير المباشر</label>
+          <input type="text" value="${(() => { const mgr = state.users.find(u=>u.id===me.managerId); return mgr ? (mgr.name + ' — ' + findRole(mgr.role).name) : 'غير محدد'; })()}" disabled style="background:#F0EEE7;"></div>
       </div>
       <div class="row">
         <div><label>الاسم (يظهر على المستندات والتوقيعات)</label>
           <input id="accName" type="text" value="${me.name}"></div>
-        <div><label>رقم الهاتف</label>
-          <input type="text" value="${me.phone}" disabled style="background:#F0EEE7;--fw:180px;"></div>
+        <div style="--fw:180px;"><label>رقم الهاتف</label>
+          <input type="text" value="${me.phone}" disabled style="background:#F0EEE7;"></div>
       </div>
       <div class="row">
         <div><label>البريد الإلكتروني</label>
