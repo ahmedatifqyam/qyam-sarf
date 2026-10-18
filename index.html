@@ -305,8 +305,8 @@
   .sticky-submit-bar{
     position:fixed;bottom:0;left:0;right:0;z-index:50;height:55px;box-sizing:border-box;
     background:var(--ink);border-top:1px solid rgba(255,255,255,0.1);
-    padding:0;padding-left:var(--nav-pl,0px);padding-right:var(--nav-pr,0px);box-shadow:0 -2px 10px rgba(0,0,0,0.2);
-    display:flex;justify-content:center;align-items:center;gap:5px;flex-wrap:nowrap;
+    padding:0;padding-left:var(--nav-pl,0px);padding-right:calc(var(--nav-pr,0px) + 20px);box-shadow:0 -2px 10px rgba(0,0,0,0.2);
+    display:flex;justify-content:flex-start;align-items:center;gap:5px;flex-wrap:nowrap;
   }
   .sticky-submit-bar .btn{--btn-h:40px;--btn-w:105px;--btn-px:6px;--btn-fs:12.5px;flex:0 0 auto;line-height:1.15;overflow:hidden;}
   .sticky-submit-bar .btn-primary{border-color:rgba(255,255,255,0.5);}
@@ -315,10 +315,13 @@
     position:fixed;bottom:0;left:0;right:0;z-index:50;height:55px;min-height:55px;max-height:55px;
     background:var(--ink);border-top:1px solid rgba(255,255,255,0.1);
     padding:0;padding-left:var(--nav-pl,0px);padding-right:var(--nav-pr,0px);box-shadow:0 -2px 10px rgba(0,0,0,0.2);
-    display:flex;justify-content:center;align-items:center;box-sizing:border-box;
+    display:flex;justify-content:flex-start;align-items:center;box-sizing:border-box;
   }
   body.has-dbbadge .global-floating-bar, body.has-dbbadge .sticky-submit-bar{padding-right:max(var(--nav-pr,0px),186px);}
-  .gfb-inner{width:100%;max-width:920px;display:flex;justify-content:flex-start;align-items:center;gap:5px;padding:0 20px;box-sizing:border-box;}
+  /* أزرار الشريط السفلي تبدأ مع حافة الصندوق لا من منتصف الشاشة:
+     نفس العرض الأقصى، ومثبّتة لليمين داخل الحيّز المحجوز بعد الشريط الجانبي */
+  .gfb-inner{width:100%;max-width:var(--page-box,920px);margin-right:0;margin-left:auto;
+    display:flex;justify-content:flex-start;align-items:center;gap:5px;padding:0 20px;box-sizing:border-box;}
   .gfb-actions{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;overflow-x:auto;min-width:0;}
   .global-floating-bar .btn{--btn-h:40px;--btn-w:105px;--btn-px:6px;--btn-fs:12.5px;flex:0 0 auto;line-height:1.15;overflow:hidden;}
   .global-floating-bar .btn-primary{border-color:rgba(255,255,255,0.5);box-shadow:0 2px 8px rgba(0,0,0,0.3);}
@@ -5183,9 +5186,12 @@ function applyPageWidth(){
   const anchored = (mode==='open' || mode==='collapsed');
   app.style.marginRight = anchored ? '0' : '';
   app.style.marginLeft  = anchored ? 'auto' : '';
-  if(!pageIsWide()){ app.style.maxWidth = ''; return; }   // يعود لقيمة CSS: 920 — قياس الورقة
+  // --page-box يتبعه الشريط السفلي وشريط الإرسال فتبدأ أزرارهما مع حافة الصندوق
+  const setBox = v => document.documentElement.style.setProperty('--page-box', v);
+  if(!pageIsWide()){ app.style.maxWidth = ''; setBox('920px'); return; }   // قياس الورقة
   const w = getPageWidth();
   app.style.maxWidth = w>0 ? (w + 'px') : 'none';
+  setBox(w>0 ? (w + 'px') : '100%');
 }
 function pageWidthFieldHtml(){
   const cur = getPageWidth();
