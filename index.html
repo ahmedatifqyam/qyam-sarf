@@ -761,7 +761,12 @@
     /* طباعة تقرير الميزانية */
     .no-print{display:none !important;}
     .print-header{display:block !important;}
-    .app-nav,.topbar,.admin-tabs-bar,.nav-backdrop{display:none !important;}
+    .app-nav,.topbar,.nav-backdrop{display:none !important;}
+    /* عناصر الواجهة لا تُطبع: كانت القاعدة تشير إلى .admin-tabs-bar وهو اسم ميت،
+       فكان رأس الصفحة وصفّا التبويبات يخرجان في الورقة مع التقرير. */
+    .adm-head, .adm-nav2, .adm-tabs2, .adm-subs, #secTabs,
+    .mtab, .sticky-submit-bar, .nav-hamburger, .back-link, .gfb-spacer,
+    .admin-section-head .admin-co-badge{display:none !important;}
     .shell-main{padding-right:0 !important;}
     .summary-cards{grid-template-columns:repeat(4,1fr) !important;}
     /* عند الطباعة: إظهار كل صفوف جدول التقرير بغض النظر عن حالة الطي */
@@ -1808,7 +1813,7 @@ function execChartHtml(byMonth, chartH, selMonth){
   const curMonth = (new Date().getFullYear()===Number(state.execYear||new Date().getFullYear())) ? new Date().getMonth() : -1;
   const cols = byMonth.map((v,i)=>{
     const h = v>0 ? Math.max(3, Math.round(v/max*usable)) : 0;
-    return `<div class="exec-col${selMonth===i?' sel':''}" onclick="execPickMonth(${i})" title="${EXEC_MONTHS[i]}: ${fmtKWD(v)} د.ك"><span class="exec-val">${execCompact(v)}</span><div class="exec-bar${i===curMonth?' cur':''}" style="height:${h}px;"></div></div>`;
+    return `<div class="exec-col${selMonth===i?' sel':''}" onclick="execPickMonth(${i})" title="${EXEC_MONTHS[i]}: ${fmtKWDPlain(v)}"><span class="exec-val">${execCompact(v)}</span><div class="exec-bar${i===curMonth?' cur':''}" style="height:${h}px;"></div></div>`;
   }).join('');
   const lbls = EXEC_MONTHS.map(m=>`<span>${m}</span>`).join('');
   return `<div class="exec-chart-wrap"><div class="exec-chart" style="height:${chartH}px;">${cols}</div><div class="exec-lbls">${lbls}</div></div>`;
@@ -1863,7 +1868,7 @@ function execBodyHtml(){
       <div class="exec-card"><span class="num" style="font-size:16px;">${d.limitCount} تجاوزت الحد<br>${d.rejectedCount} مرفوضة</span><span class="lbl">تحتاج انتباهاً</span></div>
     </div>
 
-    <div class="row" style="max-width:260px;margin:6px 0 10px;">
+    <div class="row no-print" style="max-width:260px;margin:6px 0 10px;">
       <div><label>السنة</label>
         <select onchange="setExecYear(this.value)">${execYears().map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}</select>
       </div>
@@ -1876,7 +1881,7 @@ function execBodyHtml(){
 
     <div class="card">
       <h2 style="margin:0 0 4px;font-size:16px;">المصروف الشهري (د.ك)</h2>
-      <p class="sub" style="margin:0 0 10px;font-size:12px;">${d.topMonth ? 'أعلى شهر: <b>'+d.topMonth+'</b>. ' : ''}اضغط على عمود لعرض طلبات الشهر.</p>
+      <p class="sub" style="margin:0 0 10px;font-size:12px;">${d.topMonth ? 'أعلى شهر: <b>'+d.topMonth+'</b>. ' : ''}<span class="no-print">اضغط على عمود لعرض طلبات الشهر.</span></p>
       ${execChartHtml(d.byMonth, 220, selMonth)}
       ${monthTable}
     </div>
@@ -1900,7 +1905,12 @@ function renderExecTab(app){
     <span class="back-link no-print" onclick="state.view='${state.user.role==='admin'?'admin':'dashboard'}'; render();">→ رجوع</span>
     <h1 style="margin:0 0 4px;">التحليلات المالية</h1>
     ${analyticsTabsHtml('exec')}
-    <p class="sub">${escH(coName)} — اللوحة التنفيذية (الطلبات المصروفة وغير الملغاة، حسب شهر الإنشاء).</p>
+    <div style="display:none;" class="print-header">
+      <h2 style="margin:0 0 4px;">اللوحة التنفيذية — ${escH(coName)}</h2>
+      <div style="font-size:12px;color:#666;">سنة ${escH(String(state.execYear || new Date().getFullYear()))} · طُبع في ${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
+      <hr style="margin:10px 0;">
+    </div>
+    <p class="sub no-print">${escH(coName)} — اللوحة التنفيذية (الطلبات المصروفة وغير الملغاة، حسب شهر الإنشاء).</p>
     ${execBodyHtml()}`);
 }
 
@@ -2588,8 +2598,15 @@ function navTopItems(){
 function navApplyPadding(navW){
   if(navW===undefined){ const m=(document.getElementById('appNav')||{}).dataset; navW = m ? ({open:240,collapsed:64}[m.mode]||0) : 0; }
   const W = document.body.clientWidth; // العرض الفعلي المتاح (بعد حيّز شريط التمرير)
+  const box = (typeof effectiveBoxWidth==='function') ? effectiveBoxWidth() : 920;
   let pl = 0, pr = 0;
-  if(navW){ if(W - 2*navW >= 840){ pl = pr = navW; } else { pr = Math.min(navW, Math.max(0, 2*navW + 920 - W)); } }
+  if(navW){
+    // صفحة بيانات عريضة: لا نعكس حشوة الشريط على اليسار لمجرّد التوسيط،
+    // فذلك يقتطع 240 بكسل من عرضٍ طلبه المستخدم عمداً
+    if(box > 920){ pr = navW; pl = 0; }
+    else if(W - 2*navW >= 840){ pl = pr = navW; }
+    else { pr = Math.min(navW, Math.max(0, 2*navW + box - W)); }
+  }
   document.documentElement.style.setProperty('--nav-pl', pl+'px');
   document.documentElement.style.setProperty('--nav-pr', pr+'px');
 }
@@ -3024,8 +3041,11 @@ function editRequest(id){
   const req = state.requests.find(r=>r.id===id);
   if(!req || !isEditable(req)) return;
   state.editingReqId = id;
+  // البند و«هل يتكرر» كانا يسقطان من المسودّة، فيفتح النموذج بلا البند المحفوظ
   state.draft = {
     reason: req.reason, detailedReason: req.detailedReason||'', number: req.number,
+    budgetItemId: req.budgetItemId || UNSPECIFIED_BUDGET,
+    isRecurring: !!req.isRecurring,
     beneficiaries: req.beneficiaries.map(b=>({...b, idFileName:'', idFileData:'', bankFileName:'', bankFileData:''}))
   };
   state.view='newRequest';
@@ -3571,9 +3591,22 @@ async function submitDraftInner(){
     const req = state.requests.find(r=>r.id===state.editingReqId);
     const newStatus = (req.approvalSteps||[]).length ? 'pending_decision' : 'pending_transfer_request';
     const newLimitExceeded = checkLimitExceeded(req.centerId, total, beneficiaries);
-    const histEntry = {step: req.status, actor: state.user.name, userId: state.user.id, action:'تعديل الطلب', note:'', time: fmtDate()};
-    if(!(await dbCheck(await db.from('requests').update({reason:reasonInput, detailed_reason:detailedReasonInput||null, total_amount:total, status:newStatus, limit_exceeded:newLimitExceeded}).eq('id', req.id), 'تحديث بيانات الطلب'))) return;
+    // ما الذي تغيّر فعلاً؟ يُحسب قبل تعديل الطلب، ليُكتب في السجلّ بدل «تعديل الطلب» المجرّدة
+    const wasRecurring = !!req.isRecurring, nowRecurring = !!state.draft.isRecurring;
+    const chg = [];
+    if((req.budgetItemId||null) !== budgetItemId){
+      const bn = budgetItemId ? ((state.budgetItems||[]).find(b=>b.id===budgetItemId)||{}).name : null;
+      chg.push('البند: ' + (bn ? bn : 'غير محدد'));
+    }
+    if(req.reason !== reasonInput) chg.push('العنوان');
+    if(Math.abs((Number(req.totalAmount)||0) - total) > 0.0005) chg.push('المبلغ: ' + fmtKWD(total) + ' د.ك');
+    if(wasRecurring !== nowRecurring) chg.push(nowRecurring ? 'صار متكرراً' : 'لم يعد متكرراً');
+    const histEntry = {step: req.status, actor: state.user.name, userId: state.user.id, action:'تعديل الطلب', note: chg.join(' · '), time: fmtDate()};
+    // budget_item_id وis_recurring كانا ناقصَين من هذه الجملة، فكان الاختيار يضيع بلا أثر
+    if(!(await dbCheck(await db.from('requests').update({reason:reasonInput, detailed_reason:detailedReasonInput||null, total_amount:total, status:newStatus, limit_exceeded:newLimitExceeded, budget_item_id:budgetItemId, is_recurring:nowRecurring}).eq('id', req.id), 'تحديث بيانات الطلب'))) return;
     req.limitExceeded = newLimitExceeded;
+    req.budgetItemId = budgetItemId;
+    req.isRecurring = nowRecurring;
     if((req.approvalSteps||[]).length){
       await dbCheck(await db.from('request_approval_steps').update({status:'pending', acted_at:null}).eq('request_id', req.id), 'إعادة ضبط مسار الاعتماد');
       req.approvalSteps.forEach(s=>{ s.status='pending'; s.actedAt=null; });
@@ -5010,6 +5043,7 @@ function render(){
   if(state.transferFormReqId){ app.insertAdjacentHTML('beforeend', renderTransferFormModal()); }
   if(state.filePreviewModal){ app.insertAdjacentHTML('beforeend', renderFilePreviewModal()); }
 
+  applyPageWidth();
   applyPageSections();
   renderMobileTabs();
   ensureBottomBar();
@@ -5073,6 +5107,61 @@ function moveRowsToBottomBar(){
   });
 }
 // يضبط ارتفاع الشريط السفلي الفعلي: مسافة تمرير الحقول + الفاصل السفلي + زر الميزانية العائم
+// ───────── عرض صندوق المحتوى ─────────
+// صفحات البيانات تتسع بقدر ما يختاره المستخدم؛ وصفحة الطلب وإنشاؤه والمعاينة
+// تبقى على 920 لأنها تحاكي ورقة A4، وتوسيعها يباعد حقولها بلا فائدة.
+const WIDE_VIEWS = ['admin','ledger','orgTree','jobLevels','analytics','cancelledArchive','barSettings','duplicateList','sigDesigner'];
+const PAGE_WIDTH_PRESETS = [960, 1200, 1400, 1600];
+const PAGE_WIDTH_DEFAULT = 1400;
+function pageWidthKey(){ return 'qayam_page_width_' + (state.user ? state.user.id : 'anon'); }
+function getPageWidth(){
+  try{ const v = localStorage.getItem(pageWidthKey()); if(v!==null && v!==''){ const n = Number(v); if(!isNaN(n) && n>=0) return n; } }catch(e){}
+  return PAGE_WIDTH_DEFAULT;
+}
+function setPageWidth(px){
+  const n = Number(px);
+  if(isNaN(n) || n<0) return;
+  const v = n===0 ? 0 : Math.min(2400, Math.max(820, Math.round(n)));   // 0 = كامل الشاشة
+  try{ localStorage.setItem(pageWidthKey(), String(v)); }catch(e){}
+  render();
+  showToast(v===0 ? 'عرض الصفحة: كامل الشاشة' : 'عرض الصفحة: ' + v + ' بكسل', 'success');
+}
+function effectiveBoxWidth(){
+  if(!WIDE_VIEWS.includes(state.view)) return 920;
+  const w = getPageWidth();
+  return w>0 ? w : 99999;
+}
+function applyPageWidth(){
+  const app = document.getElementById('app'); if(!app) return;
+  if(!WIDE_VIEWS.includes(state.view)){ app.style.maxWidth = ''; return; }   // يعود لقيمة CSS: 920
+  const w = getPageWidth();
+  app.style.maxWidth = w>0 ? (w + 'px') : 'none';
+}
+function pageWidthFieldHtml(){
+  const cur = getPageWidth();
+  const btn = (v,label)=>`<button type="button" class="adm-sub${cur===v?' active':''}" style="border:1px solid var(--line);border-radius:6px;"
+      onclick="setPageWidth(${v})">${escH(label)}</button>`;
+  return `
+    <div class="card">
+      <h2>عرض صفحات البيانات</h2>
+      <p class="file-hint">يخصّ الدفتر والتقارير ولوحة التحكم والهيكل. صفحة الطلب وإنشاؤه ومعاينة الطباعة تبقى على قياس الورقة.
+        الاختيار يُحفظ لك على هذا الجهاز وحده، فلا يفرضه أحد على غيره.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 4px;">
+        ${PAGE_WIDTH_PRESETS.map(v=>btn(v, v + ' بكسل')).join('')}
+        ${btn(0, 'كامل الشاشة')}
+      </div>
+      <div class="row" style="max-width:320px;margin-top:6px;">
+        <div><label>أو عرض من اختيارك (820 – 2400)</label>
+          <input id="pageWidthInput" type="number" min="820" max="2400" step="20" value="${cur>0?cur:''}" placeholder="مثال: 1500"
+                 onkeydown="if(event.key==='Enter'){ setPageWidth(this.value); }">
+        </div>
+      </div>
+      <div class="actions-row">
+        <button class="btn btn-primary btn-sm" onclick="setPageWidth(document.getElementById('pageWidthInput').value)">تطبيق</button>
+      </div>
+    </div>`;
+}
+
 // ───────── شريط التبويب السفلي للهاتف ─────────
 // الشاشات المركّزة: إنشاء طلب ومعاينة الطباعة. فيهما أزرار خاصة تحتاج أسفل الشاشة كلّه،
 // فيُخفى شريط التبويب ويعود شريط الإرسال وحده.
@@ -5388,6 +5477,7 @@ function renderAccount(app){
         <button class="btn btn-primary btn-md" onclick="saveAccount()">حفظ</button>
       </div>
     </div>
+    ${pageWidthFieldHtml()}
   `;
   setupSignatureCanvas();
 }
@@ -6362,10 +6452,11 @@ function applyPageSections(){
   if(host) host.innerHTML = '';
   const app = document.getElementById('app'); if(!app) return;
 
-  // صفحة التحليلات تبني قسميها بنفسها؛ انقلهما إلى داخل الكتلة ليلتصقا بالصفّ الداكن
-  if(state.view==='analytics'){
-    const subs = app.querySelector('.adm-subs');
-    if(subs && host){ subs.classList.remove('adm-subs-solo'); host.appendChild(subs); }
+  // صفحة بنت صفَّها الفاتح بنفسها (التحليلات، الهيكل، التقرير): انقله إلى داخل
+  // الكتلة ليلتصق بالصفّ الداكن. ومن لا كتلة عنده يُبقيه مكانه بحدوده الخاصة.
+  const own = app.querySelector('.adm-subs-solo');
+  if(own){
+    if(host){ own.classList.remove('adm-subs-solo'); host.appendChild(own); }
     return;
   }
   const key = (state.view==='admin') ? state.adminSubTab : null;
@@ -7065,11 +7156,15 @@ function renderBudgetReportTab(){
   }
 
   return `
+  <div class="adm-subs adm-subs-solo no-print">
+    <button type="button" class="adm-sub${viewMode==='grouped'?' active':''}" onclick="state.budgetReportViewMode='grouped';render();">⊞ مجمّع</button>
+    <button type="button" class="adm-sub${viewMode==='detail'?' active':''}" onclick="state.budgetReportViewMode='detail';render();">☰ مفصّل</button>
+  </div>
   <div class="print-area" style="margin-top:16px;">
     <!-- رأس الطباعة (يظهر فقط عند الطباعة) -->
     <div style="display:none;" class="print-header">
       <h2 style="margin:0 0 4px;">تقرير الميزانية — القيم الكويتية</h2>
-      <div style="font-size:12px;color:#666;">${new Date().toLocaleDateString('ar-KW',{year:'numeric',month:'long',day:'numeric'})}</div>
+      <div style="font-size:12px;color:#666;">${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
       <hr style="margin:10px 0;">
     </div>
 
@@ -7107,10 +7202,6 @@ function renderBudgetReportTab(){
     <!-- شريط الأدوات — ثالثاً (سطر واحد صارم) -->
     <div class="no-print rep-bar">
       <!-- ١ نوع العرض — أقصى اليمين -->
-      <div class="rep-seg">
-        <button onclick="state.budgetReportViewMode='grouped';render();" style="background:${viewMode==='grouped'?'var(--blue)':'#fff'};color:${viewMode==='grouped'?'#fff':'var(--muted)'};">⊞ مجمّع</button>
-        <button onclick="state.budgetReportViewMode='detail';render();" style="border-right:1px solid var(--line);background:${viewMode==='detail'?'var(--blue)':'#fff'};color:${viewMode==='detail'?'#fff':'var(--muted)'};">☰ مفصّل</button>
-      </div>
       <!-- ٢ طي / فتح -->
       ${parentIds.size>0?`<button class="btn btn-ghost" onclick="budgetReportCollapseAll()">◀ طي الكل</button><button class="btn btn-ghost" onclick="budgetReportExpandAll()">▼ فتح الكل</button>`:''}
       <!-- ٣ فلتر الأنواع -->
@@ -7838,7 +7929,9 @@ async function saveInlineEdit(kind, id){
   renderOrgTreeOnly();
 }
 function renderOrgTreeOnly(){
-  if(state.view==='orgTree'){ const app=document.getElementById('app'); if(app){ const r = renderOrgTree(app); Promise.resolve(r).then(()=>ensureBottomBar()); } }
+  // هذه الدالة تتجاوز render()، فلا بدّ من إعادة ترتيب الأقسام بعدها
+  // وإلا بقي الصفّ الفاتح خارج الكتلة بعد كل تبديل للعرض
+  if(state.view==='orgTree'){ const app=document.getElementById('app'); if(app){ const r = renderOrgTree(app); Promise.resolve(r).then(()=>{ applyPageSections(); ensureBottomBar(); }); } }
   checkStructureArrivals();
 }
 // يتحقق من ظهور ملاحظات هيكل جديدة (بعد تعديل مباشر بالشجرة) وينبّه مدير النظام فوراً، بدل انتظار التحديث الدوري
@@ -8074,16 +8167,13 @@ async function renderOrgTree(app){
     </div>`;
 
   app.innerHTML = wrapWithAdminSidebar(`
+    <div class="adm-subs adm-subs-solo no-print">
+      <button type="button" class="adm-sub ${treeViewMode()==='level'?'active':''}" onclick="setTreeView('level')" title="مسطّح: مرتّب بالمستوى الوظيفي ثم الاسم">حسب المستوى</button>
+      <button type="button" class="adm-sub ${treeViewMode()==='hier'?'active':''}" onclick="setTreeView('hier')" title="هرمي: كل شخص تحت مديره المباشر">هرمي حسب المدير</button>
+    </div>
     <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
       <span class="back-link" onclick="state.view='admin'; render();">→ رجوع</span>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span class="sub" style="margin:0;">عرض الشجرة:</span>
-        <div class="seg">
-          <button type="button" class="seg-btn ${treeViewMode()==='level'?'on':''}" onclick="setTreeView('level')" title="مسطّح: مرتّب بالمستوى الوظيفي ثم الاسم">حسب المستوى</button>
-          <button type="button" class="seg-btn ${treeViewMode()==='hier'?'on':''}" onclick="setTreeView('hier')" title="هرمي: كل شخص تحت مديره المباشر">هرمي حسب المدير</button>
-        </div>
-        <button type="button" class="btn btn-ghost btn-md" onclick="printOrgTree()">🖨 طباعة الشجرة كاملة</button>
-      </div>
+      <button type="button" class="btn btn-ghost btn-md" onclick="printOrgTree()">🖨 طباعة الشجرة كاملة</button>
     </div>
     <div class="org-tree-print-head">
       <h1 style="margin:0 0 4px;">الهيكل التنظيمي</h1>
