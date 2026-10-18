@@ -2599,13 +2599,16 @@ function navApplyPadding(navW){
   if(navW===undefined){ const m=(document.getElementById('appNav')||{}).dataset; navW = m ? ({open:240,collapsed:64}[m.mode]||0) : 0; }
   const W = document.body.clientWidth; // العرض الفعلي المتاح (بعد حيّز شريط التمرير)
   const box = (typeof effectiveBoxWidth==='function') ? effectiveBoxWidth() : 920;
+  // فجوة ثابتة بجانب الشريط الداكن: بلا هذه كان الصندوق يلتصق به تماماً
+  // على شاشات 1366 و1440 و1600 — وهي الغالبة
+  const RAIL_GAP = 16;
   let pl = 0, pr = 0;
   if(navW){
     // صفحة بيانات عريضة: لا نعكس حشوة الشريط على اليسار لمجرّد التوسيط،
     // فذلك يقتطع 240 بكسل من عرضٍ طلبه المستخدم عمداً
-    if(box > 920){ pr = navW; pl = 0; }
-    else if(W - 2*navW >= 840){ pl = pr = navW; }
-    else { pr = Math.min(navW, Math.max(0, 2*navW + box - W)); }
+    if(box > 920){ pr = navW + RAIL_GAP; pl = 0; }
+    else if(W - 2*navW >= 840){ pl = navW; pr = navW + RAIL_GAP; }
+    else { pr = Math.min(navW, Math.max(0, 2*navW + box - W)) + RAIL_GAP; }
   }
   document.documentElement.style.setProperty('--nav-pl', pl+'px');
   document.documentElement.style.setProperty('--nav-pr', pr+'px');
