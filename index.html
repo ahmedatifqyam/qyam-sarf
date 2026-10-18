@@ -2602,19 +2602,11 @@ function navTopItems(){
 // (يُحسب بعد رسم المحتوى لأن ظهور شريط التمرير يغيّر العرض المتاح)
 function navApplyPadding(navW){
   if(navW===undefined){ const m=(document.getElementById('appNav')||{}).dataset; navW = m ? ({open:240,collapsed:64}[m.mode]||0) : 0; }
-  const W = document.body.clientWidth; // العرض الفعلي المتاح (بعد حيّز شريط التمرير)
-  const box = (typeof effectiveBoxWidth==='function') ? effectiveBoxWidth() : 920;
   // فجوة ثابتة بجانب الشريط الداكن: بلا هذه كان الصندوق يلتصق به تماماً
-  // على شاشات 1366 و1440 و1600 — وهي الغالبة
   const RAIL_GAP = 16;
-  let pl = 0, pr = 0;
-  if(navW){
-    // صفحة بيانات عريضة: لا نعكس حشوة الشريط على اليسار لمجرّد التوسيط،
-    // فذلك يقتطع 240 بكسل من عرضٍ طلبه المستخدم عمداً
-    if(box > 920){ pr = navW + RAIL_GAP; pl = 0; }
-    else if(W - 2*navW >= 840){ pl = navW; pr = navW + RAIL_GAP; }
-    else { pr = Math.min(navW, Math.max(0, 2*navW + box - W)) + RAIL_GAP; }
-  }
+  // قاعدة واحدة لكل الصفحات: احجز عرض الشريط وفجوته، ولا تعكس شيئاً على اليسار.
+  // الصندوق يبدأ بعد الشريط، والفائض كله يذهب يساراً.
+  let pl = 0, pr = navW ? (navW + RAIL_GAP) : 0;
   document.documentElement.style.setProperty('--nav-pl', pl+'px');
   document.documentElement.style.setProperty('--nav-pr', pr+'px');
 }
@@ -5118,12 +5110,22 @@ function moveRowsToBottomBar(){
 // ───────── عرض صندوق المحتوى ─────────
 // صفحات البيانات تتسع بقدر ما يختاره المستخدم؛ وصفحة الطلب وإنشاؤه والمعاينة
 // تبقى على 920 لأنها تحاكي ورقة A4، وتوسيعها يباعد حقولها بلا فائدة.
-const WIDE_VIEWS = ['admin','ledger','orgTree','jobLevels','analytics','cancelledArchive','barSettings','duplicateList','sigDesigner'];
-const PAGE_WIDTH_PRESETS = [960, 1200, 1400, 1600];
-const PAGE_WIDTH_DEFAULT = 1400;
+// العرض المختار يسري على كل الصفحات إلا ما يحاكي ورقة A4: معاينة الطباعة.
+// وصفحة الدخول بطاقة موسّطة، لا شأن لها بعرض الصندوق.
+const NARROW_VIEWS = ['printPreview','login'];
+const PAGE_WIDTH_PRESETS = [1000, 1200, 1400, 1600];
+const PAGE_WIDTH_DEFAULT = 1000;
+function pageIsWide(){ return !NARROW_VIEWS.includes(state.view); }
 function pageWidthKey(){ return 'qayam_page_width_' + (state.user ? state.user.id : 'anon'); }
 function getPageWidth(){
-  try{ const v = localStorage.getItem(pageWidthKey()); if(v!==null && v!==''){ const n = Number(v); if(!isNaN(n) && n>=0) return n; } }catch(e){}
+  try{
+    const v = localStorage.getItem(pageWidthKey());
+    if(v!==null && v!==''){
+      let n = Number(v);
+      if(n===960){ n = 1000; try{ localStorage.setItem(pageWidthKey(),'1000'); }catch(e){} }  // 960 لم يعد من الخيارات
+      if(!isNaN(n) && n>=0) return n;
+    }
+  }catch(e){}
   return PAGE_WIDTH_DEFAULT;
 }
 function setPageWidth(px){
@@ -5135,7 +5137,7 @@ function setPageWidth(px){
   showToast(v===0 ? 'عرض الصفحة: كامل الشاشة' : 'عرض الصفحة: ' + v + ' بكسل', 'success');
 }
 function effectiveBoxWidth(){
-  if(!WIDE_VIEWS.includes(state.view)) return 920;
+  if(!pageIsWide()) return 920;
   const w = getPageWidth();
   return w>0 ? w : 99999;
 }
@@ -5147,7 +5149,7 @@ function applyPageWidth(){
   const anchored = (mode==='open' || mode==='collapsed');
   app.style.marginRight = anchored ? '0' : '';
   app.style.marginLeft  = anchored ? 'auto' : '';
-  if(!WIDE_VIEWS.includes(state.view)){ app.style.maxWidth = ''; return; }   // يعود لقيمة CSS: 920
+  if(!pageIsWide()){ app.style.maxWidth = ''; return; }   // يعود لقيمة CSS: 920 — قياس الورقة
   const w = getPageWidth();
   app.style.maxWidth = w>0 ? (w + 'px') : 'none';
 }
