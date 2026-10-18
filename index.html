@@ -285,6 +285,8 @@
   .rep-bar select,.rep-bar input[type=text],.rep-bar input[type=date],.rep-bar input[type=number]{
     width:180px !important;max-width:180px !important;min-width:0;height:34px;font-size:12.5px;}
   .rep-bar select{padding:0 28px 0 10px;}
+  .rep-bar label{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin:0 0 3px;}
+  .rep-bar > div{flex:0 0 auto;}
   .rep-bar input[type=text],.rep-bar input[type=date],.rep-bar input[type=number]{padding:0 10px;}
   /* شريط فلاتر بعناوين فوق الأدوات — كل الأدوات بعرض واحد على الشبكة */
   .filt-bar{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;}
@@ -1540,9 +1542,12 @@ function fmtKWD(val, opts){
   const whole = Number(parts[0]).toLocaleString('en');
   const frac  = parts[1];
   const unit  = opts&&opts.noUnit ? '' : ' <span style="font-size:0.75em;color:var(--muted);">د.ك</span>';
-  return `${whole}<span style="font-size:0.72em;opacity:.85;">.${frac}</span>${unit}`;
+  // الرقم معزول باتجاهه، وإلا أزاحت الصفحة العربية إشارة السالب إلى آخره
+  return `<bdi dir="ltr">${whole}<span style="font-size:0.72em;opacity:.85;">.${frac}</span></bdi>${unit}`;
 }
-function fmtKWDPlain(val){ const n=Number(val||0); const p=n.toFixed(3).split('.'); return `${Number(p[0]).toLocaleString('en')}.${p[1]} د.ك`; }
+function fmtKWDPlain(val){ const n=Number(val||0); const p=n.toFixed(3).split('.');
+  // \u2066 … \u2069 يعزلان الرقم فلا تُزاح إشارة السالب في النصّ العربي
+  return `\u2066${Number(p[0]).toLocaleString('en')}.${p[1]}\u2069 د.ك`; }
 function tsOf(v){ const t = v ? new Date(v).getTime() : NaN; return isNaN(t) ? 0 : t; }
 function lastEventAt(r){ let t = tsOf(r.createdAtRaw); (r.history||[]).forEach(h=>{ const x = tsOf(h.createdAt); if(x>t) t = x; }); return t; }
 function arDays(n){ n = Math.max(1, Math.round(n)); return n===1 ? 'يوم' : n===2 ? 'يومين' : (n<=10 ? n+' أيام' : n+' يوماً'); }
@@ -2658,6 +2663,12 @@ function navTopItems(){
               js: `state.view='dashboard'; render(); window.scrollTo(0,0);`});
   items.push({key:'newreq', ico:'➕', label:'طلب صرف جديد', active: state.view==='newRequest' || state.view==='newRequestChoice',
               js: `openNewRequestChoice(); window.scrollTo(0,0);`});
+  if(canSeeRevenues()){
+    items.push({key:'revenues', ico:'💰', label:'الإيرادات', active: state.view==='revenues' && Number(state.revenuesSec||0)===0,
+                js: `openRevenues(0);`});
+    items.push({key:'newrev', ico:'➕', label:'إيراد جديد', active: state.view==='revenues' && Number(state.revenuesSec||0)===1,
+                js: `openRevenues(1);`});
+  }
   if(role!=='admin') items.push({key:'analytics', ico:'📊', label:'التحليلات المالية', active: state.view==='analytics',
               js: `openAnalytics(); window.scrollTo(0,0);`});
   if(role==='admin') items.push({key:'admin', ico:'⚙️', label:'لوحة التحكم', group:true, active: inAdminArea()});
@@ -5001,6 +5012,7 @@ function renderLetterPages(req){
       <span class="doc-red" style="font-size:14px;font-weight:600;text-decoration:underline;">رقم الطلب: ${req.number || '— قيد المراجعة —'}</span>
     </div>
     <div class="doc-subject-bar" style="margin-top:4px;">طلب صرف – <span>${req.reason}</span></div>
+    <div style="margin-top:4px;font-size:13px;">بند الصرف: <b>${requestBudgetName(req) ? escH(requestBudgetName(req)) : 'غير محدد'}</b></div>
     <p class="doc-body-text" style="margin-top:4px;">بالإشارة إلى الموضوع أعلاه، ${referenceText} <span class="doc-red">${req.detailedReason || req.reason}</span> وفق الجدول الآتي:</p>`;
 
   const footer = `
@@ -5134,6 +5146,7 @@ function render(){
   else if(state.view==='printPreview'){ renderPrintPreview(app); }
   else if(state.view==='cancelledArchive') renderCancelledArchive(app);
   else if(state.view==='ledger') renderLedger(app);
+  else if(state.view==='revenues') renderRevenues(app);
   else if(state.view==='sigDesigner') renderSigDesigner(app);
   else if(state.view==='orgTree') renderOrgTree(app);
   else if(state.view==='jobLevels') renderJobLevels(app);
@@ -6282,17 +6295,23 @@ function renderLedger(app){
     <h1>دفتر الحركات</h1>
     <p class="sub">كل حركة مالية سطرٌ لا يُعدَّل ولا يُحذف. التصحيح بقيد عاكس، وعودة المال بحركة استرداد.</p>
 
-    <div class="card rep-bar no-print" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="date" dir="ltr" value="${f.from||''}" onchange="setLedgerFilter('from', this.value)" title="من تاريخ">
-      <input type="date" dir="ltr" value="${f.to||''}"   onchange="setLedgerFilter('to', this.value)"   title="إلى تاريخ">
-      <select onchange="setLedgerFilter('item', this.value)">${itemOpts}</select>
-      <select onchange="setLedgerFilter('dir', this.value)">
-        <option value="">الاتجاهان</option>
-        <option value="in"${f.dir==='in'?' selected':''}>دخول</option>
-        <option value="out"${f.dir==='out'?' selected':''}>خروج</option>
-      </select>
-      <select onchange="setLedgerFilter('source', this.value)">${srcOpts}</select>
-      <input type="text" placeholder="بحث في البيان أو المستفيد" title="بحث في البيان أو المستفيد" value="${escH(f.q||'')}" oninput="state.ledgerFilter.q=this.value" onchange="render()">
+    <div class="card rep-bar no-print" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+      <div><label>من تاريخ</label>
+        <input type="date" dir="ltr" value="${f.from||''}" onchange="setLedgerFilter('from', this.value)"></div>
+      <div><label>إلى تاريخ</label>
+        <input type="date" dir="ltr" value="${f.to||''}" onchange="setLedgerFilter('to', this.value)"></div>
+      <div><label>البند</label>
+        <select onchange="setLedgerFilter('item', this.value)">${itemOpts}</select></div>
+      <div><label>الاتجاه</label>
+        <select onchange="setLedgerFilter('dir', this.value)">
+          <option value="">الاتجاهان</option>
+          <option value="in"${f.dir==='in'?' selected':''}>دخول</option>
+          <option value="out"${f.dir==='out'?' selected':''}>خروج</option>
+        </select></div>
+      <div><label>المصدر</label>
+        <select onchange="setLedgerFilter('source', this.value)">${srcOpts}</select></div>
+      <div><label>بحث</label>
+        <input type="text" placeholder="البيان أو المستفيد" value="${escH(f.q||'')}" oninput="state.ledgerFilter.q=this.value" onchange="render()"></div>
       <button class="btn btn-ghost btn-sm" onclick="state.ledgerFilter={}; render();">مسح الفلاتر</button>
       ${canEditLedger() ? `<button class="btn btn-primary btn-sm" style="margin-right:auto;" onclick="openManualEntry()">+ قيد يدوي</button>` : ''}
     </div>
@@ -6496,7 +6515,6 @@ const ADMIN_NAV = [
   // ٣ المالية — المال: تخطيطه وصرفه وتحليله
   {gkey:'finance', tab:'المالية', cat:'المالية', items:[
     {key:'budgetItems', label:'بنود الميزانية', tab:'البنود', kind:'tab'},
-    {key:'budgetRevenues', label:'الإيرادات', kind:'tab'},
     {key:'budgetReport', label:'تقرير الميزانية', tab:'التقرير', kind:'tab'},
     {key:'exec', label:'التحليلات واللوحة التنفيذية', tab:'اللوحة التنفيذية', head:'التحليلات المالية واللوحة التنفيذية', kind:'exec'},
     {key:'ledger', label:'دفتر الحركات', tab:'الدفتر', head:'دفتر الحركات', kind:'view'},
@@ -6560,7 +6578,7 @@ function adminHeaderHtml(){
 // الأقسام تُقرأ من الصفحة نفسها لا من سجلّ يدوي: كل عنوان h2 في المستوى الأعلى
 // يبدأ قسماً، وما بعده حتى العنوان التالي يتبعه. فأي قسم يُضاف للصفحة مستقبلاً
 // يصير تبويباً من تلقاء نفسه، ولا يبقى سجلٌّ يتخلّف عن الشفرة.
-const SECTIONED_PAGES = ['companies','centers','users','roles','budgetItems','budgetRevenues','branding','printSetup'];
+const SECTIONED_PAGES = ['companies','centers','users','roles','budgetItems','branding','printSetup'];
 // نماذج التعديل تعيش داخل قسم القائمة، فعناوينها لا تبدأ قسماً جديداً
 const SEC_SKIP  = /^(تعديل|تحرير)/;
 // أقسام الإنشاء تُؤخَّر إلى آخر الصفّ: الدخول للتعديل أكثر من الدخول للإنشاء
@@ -7397,16 +7415,41 @@ function renderBudgetReportTab(){
 // ══════════════════════════════════════════════════════════
 const REVENUE_SOURCE_LABELS = {transfer:'تحويل بنكي', payment_link:'رابط دفع', cash:'نقداً', other:'أخرى'};
 
-function renderBudgetRevenuesTab(){
+// ===================== الإيرادات: صفحة مستقلة بجوار الصرف =====================
+// خرجت من لوحة التحكم لتكون بابها الخاص كالصرف. تبقى بسيطة حتى يأتي دورها.
+function canSeeRevenues(){ return ['admin','accountant','cfo'].includes(state.user && state.user.role); }
+function openRevenues(sec){
+  if(sec !== undefined) state.revenuesSec = sec;
+  state.view = 'revenues'; render(); window.scrollTo(0,0);
+}
+function setRevenuesSec(i){ state.revenuesSec = i; render(); window.scrollTo(0,0); }
+
+function renderRevenues(app){
+  if(!canSeeRevenues()){ state.view = 'dashboard'; render(); return; }
+  const sec = Number(state.revenuesSec || 0);
+  app.innerHTML = `
+    <h1>الإيرادات</h1>
+    <p class="sub">ما يدخل الصندوق: اشتراكات، تحويلات، تبرّعات. وكل إيراد يُقيَّد في دفتر الحركات كما يُقيَّد الصرف.</p>
+    <div class="adm-subs adm-subs-solo no-print">
+      <button type="button" class="adm-sub${sec===0?' active':''}" onclick="setRevenuesSec(0)">الإيرادات</button>
+      <button type="button" class="adm-sub${sec===1?' active':''}" onclick="setRevenuesSec(1)">إيراد جديد</button>
+    </div>
+    ${sec===1 ? revenueFormHtml() : revenueListHtml()}`;
+}
+
+function revenueCtx(){
   const items = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId && b.is_active!==false);
   const revs  = (state.budgetRevenues||[]).filter(r=> items.some(b=>b.id===r.budget_item_id));
   revs.sort((a,b)=> (b.revenue_date||'').localeCompare(a.revenue_date||''));
+  return {items, revs};
+}
 
+function revenueFormHtml(){
+  const {items} = revenueCtx();
   const itemOpts = `<option value="">— اختر البند —</option>`+items.map(b=>`<option value="${b.id}">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('');
   const sourceOpts = `<option value="">— اختياري —</option>`+Object.entries(REVENUE_SOURCE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-
   return `
-    <div class="card" style="margin-top:20px;">
+    <div class="card">
       <h2>تسجيل إيراد جديد</h2>
       <div class="row">
         <div><label>البند</label><select id="nrevItem">${itemOpts}</select></div>
@@ -7420,15 +7463,19 @@ function renderBudgetRevenuesTab(){
       <div class="actions-row">
         <button class="btn btn-primary btn-md" onclick="addBudgetRevenue()">تسجيل الإيراد</button>
       </div>
-    </div>
+    </div>`;
+}
 
-    <h2 style="margin-top:20px;">الإيرادات المسجلة (${revs.length})</h2>
+function revenueListHtml(){
+  const {items, revs} = revenueCtx();
+  return `
+    <h2>الإيرادات المسجلة (${revs.length})</h2>
     ${revs.length===0 ? `<div class="empty">لا توجد إيرادات مسجلة بعد</div>` : revs.map(r=>{
       const bname = (items.find(b=>b.id===r.budget_item_id)||{}).name||'—';
       const src = r.source_type ? REVENUE_SOURCE_LABELS[r.source_type]||r.source_type : '';
       return `<div class="list-item">
         <div class="li-main">
-          <b>${fmtKWD(r.amount)}</b>
+          <b>${fmtKWDHtml(r.amount)}</b>
           <span>البند: ${escH(bname)}${src ? ' · '+src : ''}</span>
           <span>${r.revenue_date||''}${r.description ? ' · '+escH(r.description) : ''}</span>
         </div>
@@ -7436,9 +7483,11 @@ function renderBudgetRevenuesTab(){
           <button class="btn btn-reject btn-xs" onclick="deleteBudgetRevenue('${r.id}')">حذف</button>
         </div>
       </div>`;
-    }).join('')}
-  `;
+    }).join('')}`;
 }
+
+// التبويب القديم داخل لوحة التحكم لم يعد في القائمة، ويبقى موجّهاً للصفحة الجديدة
+function renderBudgetRevenuesTab(){ return revenueFormHtml() + revenueListHtml(); }
 
 async function addBudgetRevenue(){
   const itemId = document.getElementById('nrevItem')?.value||'';
@@ -9700,6 +9749,13 @@ function renderDashboard(app){
 }
 
 function renderNewRequest(app){
+  // بلا مسوّدة لا صفحة. كانت تنهار إلى بياض إن وصلها أحد بلا مسوّدة —
+  // بعد تحديث الصفحة، أو برجوع المتصفح، أو برابط محفوظ.
+  if(!state.draft){
+    state.view = 'newRequestChoice';
+    render();
+    return;
+  }
   const d = state.draft;
   app.innerHTML = `
     <span class="back-link" onclick="state.view='dashboard'; render();">→ رجوع</span>
@@ -9898,6 +9954,15 @@ function attachDraftAutoSave(){
     clearTimeout(state._draftSaveTimer);
     state._draftSaveTimer = setTimeout(()=>{ syncDraftFromDOM(); saveDraftToStorage(); }, 500);
   });
+}
+
+// اسم بند الصرف للعرض والطباعة. البند محفوظ في الطلب ويُخصم منه،
+// فحجبُه عمّن يوقّع ويصرف نقصٌ في المستند لا في البيانات.
+function requestBudgetName(req){
+  const id = req && req.budgetItemId;
+  if(!id || (typeof isUnspecifiedBudget==='function' && isUnspecifiedBudget(id))) return null;
+  const b = (state.budgetItems||[]).find(x=>x.id===id);
+  return b ? ((BUDGET_TYPE_ICONS[b.type]||'') + ' ' + b.name).trim() : null;
 }
 
 function renderAppRequestView(req){
