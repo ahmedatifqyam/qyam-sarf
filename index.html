@@ -902,6 +902,14 @@
   #qyamAssistant textarea{text-align:right; direction:rtl;}
   #qyamAssistant .chat-heading,
   #qyamAssistant .chat-header{text-align:right;}
+  /* زرّ الإغلاق يسار الترويسة — فوق الفقاعة مباشرة، فلا تتشتّت العين
+     بين زاوية وزاوية. القاعدتان تغطّيان الحالتين: إن كان الزرّ مثبّتاً
+     بزاويته تنفع left، وإن كان في صفّ تنفع order. */
+  #qyamAssistant [class*="chat-header"] button,
+  #qyamAssistant [class*="close"]{
+    left:12px !important; right:auto !important;
+    order:99;
+  }
   @media (max-width:700px){
     /* فوق الشريط السفلي لا تحته */
     #qyamAssistant > *{bottom:84px !important; left:14px !important;}
