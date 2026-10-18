@@ -806,8 +806,15 @@
     --chat--color--secondary:var(--green);
     --chat--font-family:'IBM Plex Sans Arabic',sans-serif;
     --chat--window--z-index:1200;
-    --chat--window--width:380px;
-    --chat--window--height:560px;
+    --chat--window--width:360px;
+    --chat--window--height:min(540px, calc(100vh - 150px));
+    --chat--toggle--size:52px;
+    --chat--toggle--width:52px;
+    --chat--toggle--height:52px;
+    --chat--header-height:auto;
+    --chat--heading--font-size:15px;
+    --chat--subtitle--font-size:12px;
+    --chat--message--font-size:13.5px;
     --chat--header--background:var(--ink);
     --chat--header--color:#fff;
     --chat--toggle--background:var(--blue);
@@ -816,8 +823,9 @@
     --chat--message--bot--background:#fff;
     --chat--border-radius:10px;
   }
-  /* الفقاعة ونافذتها تُنقلان إلى يسار الشاشة */
-  #qyamAssistant > *{right:auto !important; left:20px !important;}
+  /* الفقاعة ونافذتها يسار الشاشة، وفوق شريط الدعم الفني لا عليه.
+     شريط الدعم ارتفاعه 55 بكسل، فالفقاعة تبدأ بعده بفجوة. */
+  #qyamAssistant > *{right:auto !important; left:18px !important; bottom:70px !important;}
   #qyamAssistant .chat-message{text-align:right;}
   @media (max-width:700px){
     /* فوق الشريط السفلي لا تحته */
