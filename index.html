@@ -917,6 +917,20 @@
   #qyamAssistant .chat-heading h1{
     order:1 !important; direction:rtl; text-align:right; flex:1 1 auto;
   }
+  /* الرسمة التي أرسلتها (سهم 32px) هي فقاعة التبديل نفسها: تتحول إلى سهم "إغلاق"
+     حين تُفتح النافذة، وتقف أسفل النافذة عند طرفها الأيمن. نثبّت اتجاه الغلاف
+     على ltr ليكون flex-start هو اليسار دائماً، ونعيد rtl للنافذة ومحتواها. */
+  #qyamAssistant [class*="chat-window-wrapper"]{
+    direction:ltr !important;
+    align-items:flex-start !important;
+  }
+  #qyamAssistant [class*="chat-window-toggle"]{
+    align-self:flex-start !important;
+    margin-left:0 !important; margin-right:auto !important;
+  }
+  #qyamAssistant [class*="chat-window"]:not([class*="wrapper"]):not([class*="toggle"]){
+    direction:rtl;
+  }
   @media (max-width:700px){
     /* فوق الشريط السفلي لا تحته */
     #qyamAssistant > *{bottom:84px !important; left:14px !important;}
