@@ -2758,7 +2758,9 @@ function inAdminArea(){ return !!state.user && state.user.role==='admin' && ADMI
 // ===================== المساعد الذكي =====================
 // الصفحة لا تحمل مفتاح الذكاء الاصطناعي: ترسل السؤال إلى مسار n8n
 // على خادم الشركة، وهو يحمل المفتاح ويسأل ويعيد الجواب.
-const ASSISTANT_WEBHOOK = 'https://vmi3593541.contaboserver.net/webhook/fd03e180-04c7-49a3-8ca5-6eba03109ea4/chat';
+const ASSISTANT_WEBHOOK = 'https://vmi3593541.contaboserver.net/webhook/qayam-assistant';
+// توكن يمنع الاستعمال العابر فقط (ظاهر في الصفحة)، ويجب أن يطابق TOKEN في عقدة «تحقق وتنقية» داخل n8n
+const ASSISTANT_TOKEN   = '7bcfd76f64572cc6b1f17708d0b1344b';
 const ASSISTANT_SRC     = 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.36.4/dist/chat.bundle.es.js';
 const ASSISTANT_CSS     = 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.36.4/dist/style.css';
 // من يرى الفقاعة. تُوسَّع بإضافة 'accountant' و'cfo' وغيرهما بعد التجربة.
@@ -2781,6 +2783,7 @@ async function mountAssistant(){
     const co = (state.companies||[]).find(c=>c.id===state.currentCompanyId) || {};
     createChat({
       webhookUrl: ASSISTANT_WEBHOOK,
+      webhookConfig: { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-qayam-token': ASSISTANT_TOKEN } },
       target: '#qyamAssistant',
       mode: 'window',
       loadPreviousSession: true,
