@@ -902,13 +902,20 @@
   #qyamAssistant textarea{text-align:right; direction:rtl;}
   #qyamAssistant .chat-heading,
   #qyamAssistant .chat-header{text-align:right;}
-  /* زرّ الإغلاق يسار الترويسة — فوق الفقاعة مباشرة، فلا تتشتّت العين
-     بين زاوية وزاوية. القاعدتان تغطّيان الحالتين: إن كان الزرّ مثبّتاً
-     بزاويته تنفع left، وإن كان في صفّ تنفع order. */
-  #qyamAssistant [class*="chat-header"] button,
-  #qyamAssistant [class*="close"]{
-    left:12px !important; right:auto !important;
-    order:99;
+  /* زرّ الإغلاق أقصى يسار الترويسة والعنوان أقصى يمينها.
+     صفّ الترويسة يُثبَّت على ltr ليكون order:-1 هو أقصى اليسار دائماً،
+     فلا يتوقف الموضع على اتجاه الصفحة ولا على ترتيب عناصر المكتبة. */
+  #qyamAssistant .chat-heading{
+    direction:ltr !important;
+    flex-direction:row !important;
+    justify-content:space-between !important;
+  }
+  #qyamAssistant .chat-heading .chat-close-button{
+    order:-1 !important; margin:0 !important;
+    left:auto !important; right:auto !important;
+  }
+  #qyamAssistant .chat-heading h1{
+    order:1 !important; direction:rtl; text-align:right; flex:1 1 auto;
   }
   @media (max-width:700px){
     /* فوق الشريط السفلي لا تحته */
