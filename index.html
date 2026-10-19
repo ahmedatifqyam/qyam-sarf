@@ -2762,10 +2762,11 @@ const ASSISTANT_WEBHOOK = 'https://vmi3593541.contaboserver.net/webhook/fd03e180
 const ASSISTANT_SRC     = 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.36.4/dist/chat.bundle.es.js';
 const ASSISTANT_CSS     = 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.36.4/dist/style.css';
 // من يرى الفقاعة. تُوسَّع بإضافة 'accountant' و'cfo' وغيرهما بعد التجربة.
-const ASSISTANT_ROLES   = ['admin'];
+// null = كل المستخدمين المسجّلين. للتقييد: ['admin','accountant','cfo']
+const ASSISTANT_ROLES   = null;
 
 let assistantMounted = false;
-function canSeeAssistant(){ return !!state.user && ASSISTANT_ROLES.includes(state.user.role); }
+function canSeeAssistant(){ return !!state.user && (!ASSISTANT_ROLES || ASSISTANT_ROLES.includes(state.user.role)); }
 
 async function mountAssistant(){
   if(assistantMounted || !canSeeAssistant() || !ASSISTANT_WEBHOOK) return;
