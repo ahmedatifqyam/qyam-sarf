@@ -2774,6 +2774,27 @@ const ASSISTANT_CSS     = 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.36.4/dist/st
 // null = كل المستخدمين المسجّلين. للتقييد: ['admin','accountant','cfo']
 const ASSISTANT_ROLES   = null;
 
+// يضع زرّ الإغلاق (الذي فيه سهم) يسار الترويسة والعنوان يمينها، دون الاعتماد
+// على أسماء class المكتبة: يستثني فقاعة التبديل وصندوق الكتابة وزر الإرسال.
+function placeAssistantClose(){
+  const root = document.getElementById('qyamAssistant');
+  if(!root) return;
+  root.querySelectorAll('button').forEach(btn=>{
+    if(!btn.querySelector('svg')) return;
+    if(btn.closest('[class*="toggle"],[class*="input"],[class*="footer"],[class*="message"]')) return;
+    const p = btn.parentElement;
+    if(!p || p === root || p.dataset.qyFixed === '1') return;
+    p.dataset.qyFixed = '1';
+    p.style.direction = 'ltr';
+    p.style.flexDirection = 'row';
+    p.style.justifyContent = 'space-between';
+    btn.style.order = '-1';
+    btn.style.margin = '0';
+    const h = p.querySelector('h1,h2,h3');
+    if(h){ h.style.order='1'; h.style.direction='rtl'; h.style.textAlign='right'; h.style.flex='1 1 auto'; }
+  });
+}
+
 let assistantMounted = false;
 function canSeeAssistant(){ return !!state.user && (!ASSISTANT_ROLES || ASSISTANT_ROLES.includes(state.user.role)); }
 
@@ -2818,6 +2839,12 @@ async function mountAssistant(){
         closeButtonTooltip: 'إغلاق'
       }}
     });
+    // الواجهة تُبنى بعد التركيب وتُعاد عند الفتح والإغلاق: نعيد الضبط عند كل تغيير
+    const rootEl = document.getElementById('qyamAssistant');
+    if(rootEl){
+      placeAssistantClose();
+      new MutationObserver(placeAssistantClose).observe(rootEl, { childList:true, subtree:true });
+    }
   }catch(e){
     assistantMounted = false;                  // تعذّر التحميل: تُعاد المحاولة لاحقاً
     console.error('تعذّر تحميل المساعد:', e);
