@@ -1524,6 +1524,7 @@ async function loadAll(){
   state.transactions   = d(15).map(mapTransactionRow);
   state.resetRequests  = d(16).map(r=>({id:r.id, phone:r.phone, userId:r.user_id, companyId:r.company_id,
     status:r.status, requestedAt:r.requested_at, handledBy:r.handled_by, handledAt:r.handled_at}));
+  await loadRecurring();
 }
 
 
@@ -1581,7 +1582,9 @@ async function refreshNow(manual){
   let freshCount = 0;
   try{
     const before = new Set(computeNotifications().items.map(i=>i.key));
-    const changed = await refreshRequests();
+    const changed0 = await refreshRequests();
+    let rchanged = false; try{ rchanged = !!(await refreshRecurring()); }catch(e){}
+    const changed = (changed0===null) ? null : (changed0 || rchanged);
     if(changed===null){ if(manual) showToast('تعذر التحديث، تحقق من الاتصال','error'); return; }
     const fresh = computeNotifications().items.filter(i=>!before.has(i.key));
     freshCount = fresh.length;
@@ -1592,7 +1595,7 @@ async function refreshNow(manual){
     }
     if(fresh.length===1){
       const i = fresh[0];
-      showToast(i.kind==='pending' ? 'وصلك طلب جديد بانتظار اعتمادك' : i.kind==='path_reset' ? 'أُعيد مسار طلب — يحتاج اعتمادك: '+i.number : i.kind==='rejected' ? 'رُفض طلبك '+i.number : i.kind==='paid' ? 'تم صرف طلبك '+i.number : (i.kind==='structure' || i.kind==='reset') ? i.title : 'تم اعتماد طلبك '+i.number, (i.kind==='rejected' || i.kind==='structure') ? 'error' : (i.kind==='path_reset' ? 'warn' : 'success'));
+      showToast(i.kind==='recurring' ? i.title.replace('🔁 ','')+': '+i.sub :  i.kind==='pending' ? 'وصلك طلب جديد بانتظار اعتمادك' : i.kind==='path_reset' ? 'أُعيد مسار طلب — يحتاج اعتمادك: '+i.number : i.kind==='rejected' ? 'رُفض طلبك '+i.number : i.kind==='paid' ? 'تم صرف طلبك '+i.number : (i.kind==='structure' || i.kind==='reset') ? i.title : 'تم اعتماد طلبك '+i.number, (i.kind==='rejected' || i.kind==='structure') ? 'error' : (i.kind==='path_reset' ? 'warn' : 'success'));
     } else if(fresh.length>1){ showToast('وصلك '+fresh.length+' إشعارات جديدة', 'success'); }
     if(fresh.length) playNotifSound();
     if(changed) state._viewStale = true;
@@ -1818,12 +1821,15 @@ function computeNotifications(){
     });
   }
   items.push(...computeAdminStructureItems());
+  items.push(...computeRecurringItems());
   items.sort((a,b)=> (a.kind==='pending'?0:1)-(b.kind==='pending'?0:1) || (b.overdue-a.overdue) || (b.ts-a.ts));
   const pendingCount = items.filter(i=>i.kind==='pending' || i.kind==='path_reset').length;
-  const unreadEvents = items.filter(i=>i.kind!=='pending' && i.kind!=='path_reset' && i.kind!=='structure' && i.kind!=='reset' && i.isNew).length;
+  const unreadEvents = items.filter(i=>i.kind!=='pending' && i.kind!=='path_reset' && i.kind!=='structure' && i.kind!=='reset' && i.kind!=='recurring' && i.isNew).length;
+  const recurringCount = items.filter(i=>i.kind==='recurring').length;
+  const recurringNew = items.filter(i=>i.kind==='recurring' && i.isNew).length;
   const structureIssues = items.filter(i=>i.kind==='structure' || i.kind==='reset').length;
   const newPending = items.filter(i=>(i.kind==='pending'||i.kind==='path_reset') && i.isNew).length;
-  return {items:items.slice(0,40), pendingCount, unreadEvents, newPending, structureIssues, unread:unreadEvents+newPending+structureIssues, badge:pendingCount+unreadEvents+structureIssues};
+  return {items:items.slice(0,40), pendingCount, unreadEvents, newPending, structureIssues, recurringCount, unread:unreadEvents+newPending+structureIssues+recurringNew, badge:pendingCount+unreadEvents+structureIssues+recurringCount};
 }
 function updateBellBadge(n){
   const el = document.getElementById('bellBadge');
@@ -1848,7 +1854,7 @@ function renderBellPanel(){
   if(!p) return;
   if(!state.bellOpen || !state.user){ p.classList.remove('open'); p.innerHTML=''; return; }
   const n = computeNotifications();
-  const icon = {pending:'📝', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳', reset:'🔑'};
+  const icon = {pending:'📝', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳', reset:'🔑', recurring:'🔁'};
   const rows = n.items.map(i=>`
     <div class="bell-item${i.isNew?' new':''}" onclick="openNotifItem('${i.reqId}','${i.kind}')">
       <span class="bell-ico">${icon[i.kind]}</span>
@@ -1927,11 +1933,18 @@ function toggleBell(ev){
 function markAllSeen(){
   persistNotifSeen(latestServerTs());
   markStructureIssuesSeen(computeAdminStructureItems().map(i=>i.key));
+  markRecurringSeen(computeRecurringItems().map(i=>i.key));
   state._freshKeys = new Set();
   renderBellPanel(); refreshNotifIndicators();
 }
 function openNotifItem(id, kind){
   state.bellOpen = false;
+  if(kind==='recurring'){
+    markRecurringSeen(computeRecurringItems().map(i=>i.key));
+    renderBellPanel(); refreshNotifIndicators();
+    openRecurring(0);
+    return;
+  }
   if(kind==='reset'){
     // يفتح حساب صاحب الطلب مباشرة ليكتب له الأدمن كلمة جديدة
     markStructureIssuesSeen(computeAdminStructureItems().map(i=>i.key));
@@ -2900,6 +2913,10 @@ function navTopItems(){
                 js: `openRevenues(0);`});
     items.push({key:'newrev', ico:'➕', label:'إيراد جديد', active: state.view==='revenues' && Number(state.revenuesSec||0)===1,
                 js: `openRevenues(1);`});
+  }
+  if(canSeeRecurring()){
+    items.push({key:'recurring', ico:'🔁', label:'القيود الدورية', count: recDueCount(), active: state.view==='recurring',
+                js: `openRecurring(0);`});
   }
   if(role!=='admin') items.push({key:'analytics', ico:'📊', label:'التحليلات المالية', active: state.view==='analytics',
               js: `openAnalytics(); window.scrollTo(0,0);`});
@@ -5379,6 +5396,7 @@ function render(){
   else if(state.view==='cancelledArchive') renderCancelledArchive(app);
   else if(state.view==='ledger') renderLedger(app);
   else if(state.view==='revenues') renderRevenues(app);
+  else if(state.view==='recurring') renderRecurring(app);
   else if(state.view==='sigDesigner') renderSigDesigner(app);
   else if(state.view==='orgTree') renderOrgTree(app);
   else if(state.view==='jobLevels') renderJobLevels(app);
@@ -7641,6 +7659,427 @@ function renderBudgetReportTab(){
       </table>
     </div>
   </div>`;
+}
+
+
+// ══════════════════════════════════════════════════════════
+// القيود الدورية — قوالب تتكرر (إيجار، رواتب، اشتراكات…) وكشف ترحيل يُراجَع ويُؤكَّد
+// القالب يُعتمد مرة عند إنشائه، ثم يولّد الخادم استحقاقاته، وتُرحَّل إلى الدفتر بعد المراجعة.
+// ══════════════════════════════════════════════════════════
+const REC_FREQ = {weekly:'أسبوعي', biweekly:'كل أسبوعين', monthly:'شهري', bimonthly:'كل شهرين', quarterly:'ربع سنوي', semiannual:'نصف سنوي', yearly:'سنوي'};
+const REC_WEEKDAYS = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const REC_PRESETS = {
+  out:['إيجار','رواتب','كهرباء وماء','إنترنت وهاتف','اشتراك برامج','تأمين','صيانة ونظافة','رسوم تراخيص','قسط','مواصلات','ضيافة'],
+  in:['اشتراكات','إيجار مستأجرين']
+};
+const REC_STATUS = {pending_approval:'بانتظار الاعتماد', active:'مفعّل', paused:'موقوف مؤقتاً', ended:'منتهٍ'};
+const REC_ROLE_LABELS = {creator:'منشئ القالب', accountant:'المحاسب', cfo:'المدير المالي', admin:'مدير النظام'};
+
+function recToday(){ const d=new Date(), z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+function recDiffDays(fromStr, toStr){ return Math.round((Date.parse(toStr+'T00:00:00Z')-Date.parse(fromStr+'T00:00:00Z'))/86400000); }
+function recIsFinance(){ return ['admin','accountant','cfo'].includes(state.user && state.user.role); }
+function recMeFlag(){ const u = state.user && (state.users||[]).find(x=>x.id===state.user.id); return !!(u && u.canManageRecurring); }
+function recCanManage(){ return recIsFinance() || recMeFlag(); }
+function canSeeRecurring(){ return !!state.recurringReady && (recCanManage() || (state.recurringTemplates||[]).length>0); }
+function recTemplate(id){ return (state.recurringTemplates||[]).find(t=>t.id===id); }
+function recCanApprove(t){
+  const me = state.user; if(!me || t.status!=='pending_approval') return false;
+  if(!['cfo','admin'].includes(me.role)) return false;
+  return t.created_by_id!==me.id || me.role==='admin';
+}
+function recCanEdit(t){
+  const me = state.user; if(!me || !recCanManage() || t.status==='ended') return false;
+  return t.created_by_id===me.id || recIsFinance();
+}
+function recNotifyMe(t){
+  const me = state.user; if(!me) return false;
+  const roles = t.notify_roles||[];
+  return (roles.includes('creator') && t.created_by_id===me.id) || roles.includes(me.role) || (t.notify_user_ids||[]).includes(me.id);
+}
+function recCoItems(){ return (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId && b.is_active!==false); }
+function recOccList(){
+  return (state.recurringOcc||[]).filter(o=>o.company_id===state.currentCompanyId && o.status==='proposed')
+    .filter(o=>{ const t=recTemplate(o.template_id); return t && t.status==='active'; })
+    .sort((a,b)=>a.due_date.localeCompare(b.due_date));
+}
+function recDueCount(){
+  if(!recIsFinance()) return 0;
+  const today = recToday();
+  return recOccList().filter(o=>o.due_date<=today).length;
+}
+function recFreqText(t){
+  const f = REC_FREQ[t.frequency]||t.frequency;
+  if(t.day_mode==='weekday') return f+' — '+REC_WEEKDAYS[t.weekday];
+  if(t.day_mode==='last_day') return f+' — آخر يوم في الشهر';
+  const dom = t.day_of_month || (t.start_date? Number(t.start_date.slice(8,10)) : 1);
+  return f+' — يوم '+dom;
+}
+function recEndText(t){
+  if(t.end_mode==='date') return 'حتى '+t.end_date;
+  if(t.end_mode==='count') return 'لمدة '+t.max_count+' مرة';
+  return 'بلا نهاية';
+}
+
+async function loadRecurring(){
+  state.recurringReady = false; state.recurringTemplates = []; state.recurringOcc = [];
+  try{
+    try{ await db.rpc('refresh_recurring'); }catch(e){}
+    const [t,o,f] = await Promise.all([
+      db.from('recurring_templates').select('*').order('created_at',{ascending:false}),
+      db.from('recurring_occurrences').select('*').order('due_date',{ascending:true}),
+      db.from('users').select('id,can_manage_recurring')
+    ]);
+    if(!t.error && !o.error){ state.recurringReady = true; state.recurringTemplates = t.data||[]; state.recurringOcc = o.data||[]; }
+    if(!f.error && f.data){ f.data.forEach(r=>{ const u=(state.users||[]).find(x=>x.id===r.id); if(u) u.canManageRecurring = !!r.can_manage_recurring; }); }
+  }catch(e){}
+}
+async function refreshRecurring(){
+  if(!state.recurringReady) return false;
+  const [t,o] = await Promise.all([
+    db.from('recurring_templates').select('*').order('created_at',{ascending:false}),
+    db.from('recurring_occurrences').select('*').order('due_date',{ascending:true})
+  ]);
+  if(t.error || o.error) return null;
+  const fp = a=>a.map(x=>x.id+'|'+x.status+'|'+x.amount+'|'+(x.due_date||'')).join(';');
+  const changed = fp(t.data)!==fp(state.recurringTemplates) || fp(o.data)!==fp(state.recurringOcc);
+  if(changed){ state.recurringTemplates = t.data; state.recurringOcc = o.data; }
+  return changed;
+}
+
+// تنبيهات القيود الدورية: تُحسب من الاستحقاقات المنتظرة وفق إعداد كل قالب (متى + لمن)
+function recSeenKey(){ return 'qayam_seen_recurring_' + (state.user ? state.user.id : ''); }
+function getSeenRecurringKeys(){ try{ return new Set(JSON.parse(localStorage.getItem(recSeenKey())||'[]')); }catch(e){ return new Set(); } }
+function markRecurringSeen(keys){
+  try{ const seen = getSeenRecurringKeys(); keys.forEach(k=>seen.add(k)); localStorage.setItem(recSeenKey(), JSON.stringify(Array.from(seen).slice(-400))); }catch(e){}
+}
+function computeRecurringItems(){
+  if(!state.user || !state.recurringReady) return [];
+  const seen = getSeenRecurringKeys(), today = recToday(), items = [];
+  recOccList().forEach(o=>{
+    const t = recTemplate(o.template_id);
+    if(!t || !recNotifyMe(t)) return;
+    const diff = recDiffDays(today, o.due_date);
+    let phase = null, title = '';
+    if(diff<0 && t.notify_overdue){ phase='late'; title='🔁 قيد دوري متأخر '+arDays(-diff); }
+    else if(diff===0 && t.notify_on_due){ phase='due'; title='🔁 قيد دوري يستحق اليوم'; }
+    else if(diff>0 && diff<=Number(t.notify_days_before||0)){ phase='soon'; title='🔁 قيد دوري يستحق بعد '+arDays(diff); }
+    if(!phase) return;
+    const key = 'r:'+o.id+':'+phase+(t.notify_repeat ? ':'+today : '');
+    items.push({key, kind:'recurring', reqId:'', number:'', ts:Date.parse(o.due_date+'T00:00:00Z'), isNew:!seen.has(key), overdue:phase==='late',
+      title, sub:t.name+' — '+fmtKWDPlain(o.amount)+' — '+o.due_date});
+  });
+  return items;
+}
+
+function openRecurring(sec){
+  if(sec !== undefined) state.recurringSec = sec;
+  state.view = 'recurring'; render(); window.scrollTo(0,0);
+}
+function setRecurringSec(i){ state.recurringSec = i; if(i!==2) state.editingRecurringId = null; render(); window.scrollTo(0,0); }
+
+function renderRecurring(app){
+  if(!canSeeRecurring()){ state.view = 'dashboard'; render(); return; }
+  let sec = Number(state.recurringSec||0);
+  if(sec===2 && !recCanManage()) sec = 1;
+  const dueN = recDueCount();
+  app.innerHTML = `
+    <h1>القيود الدورية</h1>
+    <p class="sub">مصروفات وإيرادات تتكرر بانتظام. تُعرَّف مرة واحدة وتُعتمد، ثم يُجهّز النظام استحقاقاتها وتراجعها وتُرحَّلها إلى دفتر الحركات.</p>
+    <div class="adm-subs adm-subs-solo no-print">
+      <button type="button" class="adm-sub${sec===0?' active':''}" onclick="setRecurringSec(0)">كشف الترحيل${dueN?' ('+dueN+')':''}</button>
+      <button type="button" class="adm-sub${sec===1?' active':''}" onclick="setRecurringSec(1)">القوالب</button>
+      ${recCanManage() ? `<button type="button" class="adm-sub${sec===2?' active':''}" onclick="state.editingRecurringId=null; setRecurringSec(2)">${state.editingRecurringId?'تعديل قالب':'قالب جديد'}</button>` : ''}
+    </div>
+    ${sec===2 ? recurringFormHtml() : sec===1 ? recurringListHtml() : recurringReviewHtml()}`;
+  if(sec===2) recFormSync();
+}
+
+// ---- كشف الترحيل ----
+function recReviewRow(o, preChecked){
+  const t = recTemplate(o.template_id) || {};
+  const item = (state.budgetItems||[]).find(b=>b.id===t.budget_item_id) || {};
+  const canPost = recIsFinance();
+  const today = recToday(), diff = recDiffDays(today, o.due_date);
+  const when = diff<0 ? '<span class="bell-late">⏰ متأخر '+arDays(-diff)+'</span>' : diff===0 ? '<b>اليوم</b>' : 'بعد '+arDays(diff);
+  const amountCell = (t.amount_mode==='variable' && canPost)
+    ? `<input type="number" min="0.001" step="0.001" class="recAmt" data-id="${o.id}" value="${o.amount}" style="--fw:140px;max-width:140px;">`
+    : fmtKWDHtml(o.amount);
+  return `<div class="list-item">
+    <div class="li-main" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      ${canPost ? `<input type="checkbox" class="recChk" data-id="${o.id}" ${preChecked?'checked':''} onchange="recUpdateSelCount()">` : ''}
+      <b>${escH(t.name||'—')}</b>
+      <span>${t.direction==='in'?'إيراد':'صرف'} · البند: ${escH(item.name||'—')}</span>
+      <span>${o.due_date} · ${when}</span>
+      <span>${amountCell}${t.amount_mode==='variable'?' <small>(مبلغ متغيّر)</small>':''}</span>
+    </div>
+    ${canPost ? `<div style="display:flex;gap:10px;"><button class="btn btn-ghost btn-xs" onclick="skipRecurringOcc('${o.id}')">تخطي</button></div>` : ''}
+  </div>`;
+}
+function recurringReviewHtml(){
+  const list = recOccList(), today = recToday();
+  if(list.length===0) return `<div class="empty">لا توجد استحقاقات منتظرة. تظهر هنا القيود قبل موعدها بمدة قصيرة بعد اعتماد القوالب.</div>`;
+  const due = list.filter(o=>o.due_date<=today), later = list.filter(o=>o.due_date>today);
+  const canPost = recIsFinance();
+  return `
+    ${due.length ? `<h2>مستحقة الآن (${due.length})</h2>${due.map(o=>recReviewRow(o,true)).join('')}` : ''}
+    ${later.length ? `<h2>قادمة (${later.length})</h2>${later.map(o=>recReviewRow(o,false)).join('')}` : ''}
+    ${canPost ? `<div class="actions-row">
+      <button class="btn btn-primary btn-md" style="white-space:nowrap;" onclick="postSelectedRecurring()">ترحيل المحدد إلى الدفتر <span id="recSelCount"></span></button>
+    </div>` : ''}`;
+}
+function recUpdateSelCount(){
+  const n = document.querySelectorAll('.recChk:checked').length;
+  const el = document.getElementById('recSelCount'); if(el) el.textContent = n ? '('+n+')' : '';
+}
+async function recReloadLedger(){
+  const [tx,rv] = await Promise.all([
+    db.from('transactions').select('*').order('tx_date',{ascending:false}),
+    db.from('budget_revenues').select('*').order('revenue_date',{ascending:false})
+  ]);
+  if(!tx.error && tx.data) state.transactions = tx.data.map(mapTransactionRow);
+  if(!rv.error && rv.data) state.budgetRevenues = rv.data;
+}
+async function postSelectedRecurring(){
+  const chks = Array.from(document.querySelectorAll('.recChk:checked'));
+  if(!chks.length){ showToast('حدّد قيداً واحداً على الأقل','error'); return; }
+  const items = [], perItem = {};
+  for(const c of chks){
+    const id = c.getAttribute('data-id');
+    const o = (state.recurringOcc||[]).find(x=>x.id===id); const t = o && recTemplate(o.template_id);
+    if(!o || !t) continue;
+    let amount = Number(o.amount);
+    const amtEl = document.querySelector('.recAmt[data-id="'+id+'"]');
+    if(amtEl){ amount = parseFloat(amtEl.value); if(!amount || amount<=0){ showToast('أدخل مبلغاً صحيحاً لقيد «'+t.name+'»','error'); return; } }
+    items.push(amtEl ? {id, amount} : {id});
+    if(t.direction==='out') perItem[t.budget_item_id] = (perItem[t.budget_item_id]||0) + amount;
+  }
+  // التجاوز تحذير لا منع
+  const warns = [];
+  Object.entries(perItem).forEach(([bid, need])=>{
+    const f = computeBudgetItemFigures(bid); if(!f) return;
+    if(need > f.available + 0.0005){
+      const b = (state.budgetItems||[]).find(x=>x.id===bid)||{};
+      warns.push('• '+(b.name||'البند')+': المتاح '+fmtKWDPlain(Math.max(0,f.available))+' والمطلوب '+fmtKWDPlain(need));
+    }
+  });
+  let msg = 'ترحيل '+items.length+' قيد إلى دفتر الحركات؟';
+  if(warns.length) msg += '\n\n⚠ تتجاوز هذه القيود المتاح في:\n'+warns.join('\n')+'\n\nيُرحَّل التجاوز مع التحذير.';
+  if(!confirm(msg)) return;
+  const {error} = await db.rpc('post_recurring_occurrences', {p_items: items});
+  if(error){ showToast('تعذّر الترحيل: '+error.message,'error'); await refreshRecurring(); render(); return; }
+  await Promise.all([recReloadLedger(), refreshRecurring()]);
+  showToast('رُحِّل '+items.length+' قيد إلى الدفتر','success');
+  render();
+}
+async function skipRecurringOcc(id){
+  if(!confirm('تخطي هذا الاستحقاق؟ لن يُرحَّل ولن يظهر مرة أخرى.')) return;
+  const {error} = await db.rpc('skip_recurring_occurrence', {p_id:id, p_note:null});
+  if(error){ showToast('تعذّر التخطي: '+error.message,'error'); return; }
+  await refreshRecurring();
+  showToast('تم تخطي الاستحقاق','success'); render();
+}
+
+// ---- القوالب ----
+function recTemplateCard(t){
+  const item = (state.budgetItems||[]).find(b=>b.id===t.budget_item_id) || {};
+  const next = (state.recurringOcc||[]).filter(o=>o.template_id===t.id && o.status==='proposed').sort((a,b)=>a.due_date.localeCompare(b.due_date))[0];
+  const acts = [];
+  if(recCanApprove(t)) acts.push(`<button class="btn btn-primary btn-xs" onclick="approveRecurringTemplate('${t.id}')">اعتماد</button>`);
+  if(recCanEdit(t)) acts.push(`<button class="btn btn-ghost btn-xs" onclick="editRecurringTemplate('${t.id}')">تعديل</button>`);
+  if(recCanEdit(t) && t.status==='active') acts.push(`<button class="btn btn-ghost btn-xs" onclick="setRecurringStatus('${t.id}','paused')">إيقاف مؤقت</button>`);
+  if(recCanEdit(t) && t.status==='paused') acts.push(`<button class="btn btn-ghost btn-xs" onclick="setRecurringStatus('${t.id}','active')">استئناف</button>`);
+  if(recCanEdit(t) && (t.status==='active'||t.status==='paused')) acts.push(`<button class="btn btn-reject btn-xs" onclick="setRecurringStatus('${t.id}','ended')">إنهاء</button>`);
+  if(t.status==='pending_approval' && recCanManage() && (t.created_by_id===(state.user||{}).id || (state.user||{}).role==='admin')) acts.push(`<button class="btn btn-reject btn-xs" onclick="deleteRecurringTemplate('${t.id}')">حذف</button>`);
+  const stCls = t.status==='active' ? 'color:#15803d' : t.status==='pending_approval' ? 'color:#b45309' : 'color:var(--muted,#666)';
+  return `<div class="list-item">
+    <div class="li-main">
+      <b>${escH(t.name)}</b>
+      <span>${t.direction==='in'?'إيراد':'صرف'}${t.category?' · '+escH(t.category):''} · البند: ${escH(item.name||'—')}</span>
+      <span>${fmtKWDHtml(t.amount)}${t.amount_mode==='variable'?' <small>(مبلغ متغيّر — مقترح)</small>':''} · ${recFreqText(t)} · ${recEndText(t)}</span>
+      <span style="${stCls}"><b>${REC_STATUS[t.status]||t.status}</b>${[t.approved_by?'اعتمده '+escH(t.approved_by):'', t.auto_post?'ترحيل تلقائي':'', next?'الاستحقاق القادم '+next.due_date:''].filter(Boolean).map(x=>' · '+x).join('')}</span>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">${acts.join('')}</div>
+  </div>`;
+}
+function recurringListHtml(){
+  const list = (state.recurringTemplates||[]).filter(t=>t.company_id===state.currentCompanyId);
+  const order = {pending_approval:0, active:1, paused:2, ended:3};
+  list.sort((a,b)=>(order[a.status]-order[b.status]) || (b.created_at||'').localeCompare(a.created_at||''));
+  let permCard = '';
+  if(state.user && state.user.role==='admin'){
+    const us = (state.users||[]).filter(u=>u.companyId===state.currentCompanyId && !['admin','accountant','cfo'].includes(u.role));
+    permCard = `<div class="card"><h2>من يُنشئ القوالب</h2>
+      <p class="sub">المحاسب والمدير المالي ومدير النظام يُنشئون القوالب دائماً. هنا تمنح الصلاحية لموظفين آخرين. والاعتماد يبقى للمدير المالي أو مدير النظام.</p>
+      ${us.length ? us.map(u=>`<label style="display:flex;gap:8px;align-items:center;margin:6px 0;"><input type="checkbox" ${u.canManageRecurring?'checked':''} onchange="toggleRecurringPerm('${u.id}', this.checked)"> ${escH(u.name)}</label>`).join('') : '<div class="empty">لا يوجد مستخدمون آخرون في هذه الشركة</div>'}
+    </div>`;
+  }
+  return `<h2>القوالب (${list.length})</h2>
+    ${list.length ? list.map(recTemplateCard).join('') : '<div class="empty">لا توجد قوالب بعد</div>'}
+    ${permCard}`;
+}
+async function reloadRecurringNow(){ state.recurringReady = true; await refreshRecurring(); }
+async function approveRecurringTemplate(id){
+  if(!confirm('اعتماد هذا القالب؟ بعد الاعتماد يبدأ النظام بتجهيز استحقاقاته.')) return;
+  const {error} = await db.rpc('approve_recurring_template', {p_id:id});
+  if(error){ showToast('تعذّر الاعتماد: '+error.message,'error'); return; }
+  await Promise.all([reloadRecurringNow(), recReloadLedger()]);
+  showToast('اعتُمد القالب وجُهّزت استحقاقاته','success'); render();
+}
+async function setRecurringStatus(id, status){
+  const msg = {paused:'إيقاف القالب مؤقتاً؟ لن تُجهَّز له استحقاقات جديدة.', active:'استئناف القالب؟', ended:'إنهاء القالب نهائياً؟ لا يمكن إعادة فتحه، وتبقى قيوده المرحَّلة في الدفتر.'}[status];
+  if(!confirm(msg)) return;
+  const r = await db.from('recurring_templates').update({status}).eq('id',id);
+  if(!(await dbCheck(r,'تغيير حالة القالب'))) return;
+  await refreshRecurring(); render();
+}
+async function deleteRecurringTemplate(id){
+  if(!confirm('حذف هذا القالب؟ (متاح قبل الاعتماد فقط)')) return;
+  const r = await db.from('recurring_templates').delete().eq('id',id);
+  if(!(await dbCheck(r,'حذف القالب'))) return;
+  state.recurringTemplates = (state.recurringTemplates||[]).filter(t=>t.id!==id);
+  showToast('حُذف القالب','success'); render();
+}
+async function toggleRecurringPerm(userId, on){
+  const r = await db.from('users').update({can_manage_recurring:!!on}).eq('id',userId);
+  if(!(await dbCheck(r,'تعديل الصلاحية'))){ render(); return; }
+  const u = (state.users||[]).find(x=>x.id===userId); if(u) u.canManageRecurring = !!on;
+  showToast(on ? 'مُنحت صلاحية إنشاء القوالب' : 'سُحبت صلاحية إنشاء القوالب','success');
+}
+function editRecurringTemplate(id){ state.editingRecurringId = id; state.recurringSec = 2; render(); window.scrollTo(0,0); }
+
+// ---- النموذج ----
+function recFormSync(){
+  const g = id=>document.getElementById(id);
+  if(!g('rcFreq')) return;
+  const weekly = ['weekly','biweekly'].includes(g('rcFreq').value);
+  g('rcWeekdayBox').style.display = weekly ? '' : 'none';
+  g('rcDayModeBox').style.display = weekly ? 'none' : '';
+  g('rcDomBox').style.display = (!weekly && g('rcDayMode').value==='day_of_month') ? '' : 'none';
+  const em = g('rcEndMode').value;
+  g('rcEndDateBox').style.display = em==='date' ? '' : 'none';
+  g('rcMaxCountBox').style.display = em==='count' ? '' : 'none';
+  const variable = g('rcAmountMode').value==='variable';
+  g('rcAuto').disabled = variable; if(variable) g('rcAuto').checked = false;
+  g('rcAmountLabel').textContent = variable ? 'المبلغ المقترح (د.ك)' : 'المبلغ (د.ك)';
+  const dir = g('rcDirection').value;
+  const dl = g('rcCategoryList'); if(dl) dl.innerHTML = (REC_PRESETS[dir]||[]).map(x=>`<option value="${escH(x)}">`).join('');
+}
+function recPickCategory(){
+  const c = document.getElementById('rcCategory').value, n = document.getElementById('rcName');
+  if(c && n && !n.value.trim()) n.value = c;
+}
+function recurringFormHtml(){
+  const t = state.editingRecurringId ? recTemplate(state.editingRecurringId) : null;
+  const v = (k,d)=> t && t[k]!=null ? t[k] : d;
+  const items = recCoItems();
+  const centers = (state.centers||[]).filter(c=>c.companyId===state.currentCompanyId);
+  const itemOpts = `<option value="">— اختر البند —</option>`+items.map(b=>`<option value="${b.id}" ${v('budget_item_id','')===b.id?'selected':''}>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('');
+  const centerOpts = `<option value="">— بلا وحدة —</option>`+centers.map(c=>`<option value="${c.id}" ${v('center_id','')===c.id?'selected':''}>${escH(c.name)}</option>`).join('');
+  const sel = (id, opts, cur)=>`<select id="${id}" onchange="recFormSync()">${opts.map(([val,lab])=>`<option value="${val}" ${String(cur)===String(val)?'selected':''}>${lab}</option>`).join('')}</select>`;
+  const roles = v('notify_roles',['creator','accountant']);
+  const ids = v('notify_user_ids',[]);
+  const cu = (state.users||[]).filter(u=>u.companyId===state.currentCompanyId);
+  const W = 'style="--fw:280px;"';
+  return `
+    ${t && ['active','paused'].includes(t.status) ? `<div class="card" style="background:var(--paper);"><p class="sub" style="margin:0;">⚠ هذا قالب معتمد. أي تعديل على المبلغ أو الدورة أو البند أو المستفيد يعيده إلى «بانتظار الاعتماد» ويوقف توليد استحقاقاته حتى يُعتمد من جديد. وتعديل التنبيهات والاسم والوصف لا يحتاج اعتماداً.</p></div>` : ''}
+    <div class="card flow"><h2>بيانات القيد</h2>
+      <div class="row">
+        <div ${W}><label>النوع</label>${sel('rcDirection',[['out','صرف (مصروف)'],['in','إيراد']], v('direction','out'))}</div>
+        <div ${W}><label>التصنيف</label><input id="rcCategory" list="rcCategoryList" type="text" value="${escH(v('category',''))}" placeholder="اختر أو اكتب" onchange="recPickCategory()" ${W}><datalist id="rcCategoryList"></datalist></div>
+        <div ${W}><label>اسم القالب</label><input id="rcName" type="text" value="${escH(v('name',''))}" placeholder="مثال: إيجار مقر حولي" ${W}></div>
+      </div>
+      <div class="row">
+        <div ${W}><label>البند</label><select id="rcItem">${itemOpts}</select></div>
+        <div ${W}><label>الوحدة (اختياري)</label><select id="rcCenter">${centerOpts}</select></div>
+        <div ${W}><label>الجهة / المستفيد (اختياري)</label><input id="rcBeneficiary" type="text" value="${escH(v('beneficiary',''))}" ${W}></div>
+      </div>
+      <div class="row">
+        <div ${W}><label>وصف / بيان (اختياري)</label><input id="rcDesc" type="text" value="${escH(v('description',''))}" ${W}></div>
+      </div>
+    </div>
+    <div class="card flow"><h2>المبلغ</h2>
+      <div class="row">
+        <div ${W}><label>طريقة المبلغ</label>${sel('rcAmountMode',[['fixed','ثابت كل مرة'],['variable','متغيّر — أعدّله وقت الترحيل']], v('amount_mode','fixed'))}</div>
+        <div ${W}><label id="rcAmountLabel">المبلغ (د.ك)</label><input id="rcAmount" type="number" min="0.001" step="0.001" value="${v('amount','')}" placeholder="0.000" ${W}></div>
+      </div>
+    </div>
+    <div class="card flow"><h2>التكرار</h2>
+      <div class="row">
+        <div ${W}><label>الدورة</label>${sel('rcFreq',Object.entries(REC_FREQ), v('frequency','monthly'))}</div>
+        <div id="rcWeekdayBox" ${W}><label>يوم الأسبوع</label>${sel('rcWeekday',REC_WEEKDAYS.map((n,i)=>[i,n]), v('weekday',0))}</div>
+        <div id="rcDayModeBox" ${W}><label>يوم الاستحقاق</label>${sel('rcDayMode',[['day_of_month','يوم محدد من الشهر'],['last_day','آخر يوم في الشهر']], v('day_mode','day_of_month')==='last_day'?'last_day':'day_of_month')}</div>
+        <div id="rcDomBox" ${W}><label>رقم اليوم من الشهر</label><input id="rcDom" type="number" min="1" max="31" step="1" value="${v('day_of_month',1)}" ${W}></div>
+      </div>
+      <div class="row">
+        <div ${W}><label>تاريخ البداية</label><input id="rcStart" type="date" value="${v('start_date', recToday())}" dir="ltr" ${W}></div>
+        <div ${W}><label>الانتهاء</label>${sel('rcEndMode',[['none','بلا نهاية'],['date','بتاريخ محدد'],['count','بعد عدد من المرات']], v('end_mode','none'))}</div>
+        <div id="rcEndDateBox" ${W}><label>تاريخ الانتهاء</label><input id="rcEndDate" type="date" value="${v('end_date','')}" dir="ltr" ${W}></div>
+        <div id="rcMaxCountBox" ${W}><label>عدد المرات</label><input id="rcMaxCount" type="number" min="1" step="1" value="${v('max_count',12)}" ${W}></div>
+      </div>
+    </div>
+    <div class="card"><h2>الترحيل</h2>
+      <label style="display:flex;gap:8px;align-items:center;"><input id="rcAuto" type="checkbox" ${v('auto_post',false)?'checked':''}> ترحيل تلقائي في يوم الاستحقاق دون مراجعة (للمبلغ الثابت فقط)</label>
+      <p class="sub" style="margin:6px 0 0;">الافتراضي أن يظهر القيد في كشف الترحيل لتراجعه وتؤكده. ولو تجاوز المتاح في البند فيُرحَّل مع تحذير.</p>
+    </div>
+    <div class="card flow"><h2>التنبيهات</h2>
+      <div class="row">
+        <div ${W}><label>قبل الاستحقاق بكم يوماً (٠ = بلا تنبيه مسبق)</label><input id="rcDaysBefore" type="number" min="0" max="60" step="1" value="${v('notify_days_before',3)}" ${W}></div>
+      </div>
+      <div><label style="display:flex;gap:8px;align-items:center;margin:6px 0;"><input id="rcOnDue" type="checkbox" ${v('notify_on_due',true)?'checked':''}> تنبيه يوم الاستحقاق</label>
+      <label style="display:flex;gap:8px;align-items:center;margin:6px 0;"><input id="rcOverdue" type="checkbox" ${v('notify_overdue',true)?'checked':''}> تنبيه عند التأخر عن المراجعة</label>
+      <label style="display:flex;gap:8px;align-items:center;margin:6px 0;"><input id="rcRepeat" type="checkbox" ${v('notify_repeat',false)?'checked':''}> كرّر التنبيه كل يوم حتى المراجعة</label></div>
+      <p class="sub" style="margin:10px 0 4px;"><b>من يُنبَّه</b> (اختر واحداً أو أكثر):</p>
+      <div>${Object.entries(REC_ROLE_LABELS).map(([k,l])=>`<label style="display:flex;gap:8px;align-items:center;margin:4px 0;"><input type="checkbox" class="rcRole" value="${k}" ${roles.includes(k)?'checked':''}> ${l}</label>`).join('')}</div>
+      <p class="sub" style="margin:10px 0 4px;">وأشخاص محددون بأسمائهم:</p>
+      <div style="max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:6px 10px;">
+        ${cu.map(u=>`<label style="display:flex;gap:8px;align-items:center;margin:4px 0;"><input type="checkbox" class="rcUser" value="${u.id}" ${ids.includes(u.id)?'checked':''}> ${escH(u.name)}</label>`).join('') || '<span class="sub">لا مستخدمون</span>'}
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary btn-md" onclick="saveRecurringTemplate()">${t?'حفظ التعديلات':'حفظ وإرسال للاعتماد'}</button>
+      <button class="btn btn-ghost btn-md" onclick="state.editingRecurringId=null; setRecurringSec(1)">إلغاء</button>
+    </div>`;
+}
+async function saveRecurringTemplate(){
+  const g = id=>document.getElementById(id);
+  const name = g('rcName').value.trim(), itemId = g('rcItem').value, amount = parseFloat(g('rcAmount').value);
+  const freq = g('rcFreq').value, weekly = ['weekly','biweekly'].includes(freq);
+  const start = g('rcStart').value, endMode = g('rcEndMode').value;
+  if(!name){ showToast('اكتب اسم القالب','error'); return; }
+  if(!itemId){ showToast('اختر البند','error'); return; }
+  if(!amount || amount<=0){ showToast('أدخل مبلغاً صحيحاً','error'); return; }
+  if(!start){ showToast('حدّد تاريخ البداية','error'); return; }
+  let dayMode = weekly ? 'weekday' : g('rcDayMode').value, dom = null, wd = null;
+  if(weekly) wd = parseInt(g('rcWeekday').value,10);
+  else if(dayMode==='day_of_month'){ dom = parseInt(g('rcDom').value,10); if(!dom || dom<1 || dom>31){ showToast('رقم اليوم من 1 إلى 31','error'); return; } }
+  let endDate = null, maxCount = null;
+  if(endMode==='date'){ endDate = g('rcEndDate').value; if(!endDate || endDate<start){ showToast('تاريخ الانتهاء يجب أن يكون بعد البداية','error'); return; } }
+  if(endMode==='count'){ maxCount = parseInt(g('rcMaxCount').value,10); if(!maxCount || maxCount<1){ showToast('أدخل عدد المرات','error'); return; } }
+  const roles = Array.from(document.querySelectorAll('.rcRole:checked')).map(x=>x.value);
+  const userIds = Array.from(document.querySelectorAll('.rcUser:checked')).map(x=>x.value);
+  if(!roles.length && !userIds.length){ showToast('اختر من يُنبَّه','error'); return; }
+  const variable = g('rcAmountMode').value==='variable';
+  const row = {
+    company_id: state.currentCompanyId, center_id: g('rcCenter').value || null,
+    name, category: g('rcCategory').value.trim() || null, direction: g('rcDirection').value,
+    budget_item_id: itemId, beneficiary: g('rcBeneficiary').value.trim() || null, description: g('rcDesc').value.trim() || null,
+    amount, amount_mode: variable ? 'variable' : 'fixed', frequency: freq, day_mode: dayMode, day_of_month: dom, weekday: wd,
+    start_date: start, end_mode: endMode, end_date: endDate, max_count: maxCount,
+    auto_post: !variable && g('rcAuto').checked,
+    notify_days_before: Math.max(0, Math.min(60, parseInt(g('rcDaysBefore').value,10)||0)),
+    notify_on_due: g('rcOnDue').checked, notify_overdue: g('rcOverdue').checked, notify_repeat: g('rcRepeat').checked,
+    notify_roles: roles, notify_user_ids: userIds
+  };
+  const editing = state.editingRecurringId;
+  let res;
+  if(editing){ delete row.company_id; res = await db.from('recurring_templates').update(row).eq('id', editing).select().single(); }
+  else res = await db.from('recurring_templates').insert(row).select().single();
+  if(!(await dbCheck(res, editing?'تعديل القالب':'حفظ القالب'))) return;
+  state.editingRecurringId = null;
+  await refreshRecurring();
+  const saved = recTemplate(res.data.id);
+  showToast(saved && saved.status==='pending_approval' ? 'حُفظ القالب وهو بانتظار الاعتماد' : 'حُفظت التعديلات','success');
+  state.recurringSec = 1; render(); window.scrollTo(0,0);
 }
 
 // ══════════════════════════════════════════════════════════
