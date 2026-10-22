@@ -3011,7 +3011,8 @@ function navTopItems(){
   if(role==='admin') items.push({key:'admin', ico:'⚙️', label:'لوحة التحكم', group:true, active: inAdminArea()});
   if(role!=='admin') items.push({key:'account', ico:'👤', label:'حسابي', active: state.view==='account',
               js: `openAccount(); window.scrollTo(0,0);`});
-  items.push({key:'userGuide', ico:'📖', label:'دليل المستخدم', active:false, js:`window.open('user-guide.html','_blank','noopener');`});
+  items.push({key:'userGuide', ico:'📖', label:'دليل المستخدم', active: state.view==='guide', js:`openGuide(); window.scrollTo(0,0);`});
+  items.push({key:'siteMap', ico:'🗺️', label:'خريطة الموقع', active: state.view==='sitemap', js:`openSiteMap(); window.scrollTo(0,0);`});
   return items;
 }
 // صندوق العمل يبقى بمنتصف الصفحة تماماً ما دام عرضه ≥ 840 بكسل، وإلا يُزاح بالقدر الأدنى اللازم كي لا يتداخل مع الشريط
@@ -5497,6 +5498,8 @@ function render(){
   else if(state.view==='ledger') renderLedger(app);
   else if(state.view==='revenues') renderRevenues(app);
   else if(state.view==='recurring') renderRecurring(app);
+  else if(state.view==='guide') renderGuide(app);
+  else if(state.view==='sitemap') renderSiteMap(app);
   else if(state.view==='sigDesigner') renderSigDesigner(app);
   else if(state.view==='orgTree') renderOrgTree(app);
   else if(state.view==='jobLevels') renderJobLevels(app);
@@ -5549,6 +5552,7 @@ function moveRowsToBottomBar(){
   const target = document.querySelector('.global-floating-bar .gfb-actions');
   if(!target) return;
   document.querySelectorAll('#app [data-bar-actions]').forEach(row=>{
+    if(row.closest('.modal-box') || row.offsetParent===null) return;
     const key = row.getAttribute('data-bar-key');
     if(key && state.barToggles && state.barToggles[key]===false) return; // هذا الزر مخفي من الشريط السفلي حسب إعداد الأدمن
     // نسطّح الأزرار: أي حاوية وسيطة (مثل زوج معاينة/تحميل) تُفكّك، فيدخل كل زر مباشرة بالصف الواحد
@@ -5710,6 +5714,68 @@ document.addEventListener('focusin', function(e){
   }, 60);
 });
 
+
+// ===================== الدليل وخريطة الموقع (داخل النظام) =====================
+function openGuide(anchor){
+  state.guideAnchor = anchor || '';
+  state.view = 'guide'; render(); window.scrollTo(0,0);
+}
+function renderGuide(app){
+  const a = state.guideAnchor ? '#'+encodeURIComponent(state.guideAnchor) : '';
+  app.innerHTML = `
+    <h1>دليل المستخدم</h1>
+    <p class="sub">شرح خطوة بخطوة لكل صفحات النظام. <a href="#" onclick="event.preventDefault(); openSiteMap();" style="color:var(--blue);text-decoration:underline;">🗺️ خريطة الموقع</a></p>
+    <iframe title="دليل المستخدم" src="user-guide.html${a}" style="width:100%;height:calc(100vh - 230px);min-height:420px;border:1px solid var(--line);border-radius:12px;background:#fff;"></iframe>`;
+}
+function openSiteMap(){ state.view = 'sitemap'; render(); window.scrollTo(0,0); }
+
+// كل صفحة: عنوان، شرح، شرط الظهور، كود الفتح، قسمها في الدليل، وأزرارها الرئيسية
+function siteMapPages(){
+  const u = state.user, role = u.role, isAdmin = role==='admin';
+  const P = [];
+  P.push({g:'الطلبات', ico:'📋', label:'طلباتي / الرئيسية', desc:'كل طلباتك وما ينتظر قرارك مع حالة كل طلب.', js:`state.view='dashboard'; render();`, guide:'track',
+    btns:[['+ طلب صرف جديد','يبدأ طلب صرف جديداً'],['فلاتر الحالة والبحث','تضييق القائمة بحالة الطلب أو كلمة'],['فتح الطلب','يعرض مساره وسجله وأزرار قراره']]});
+  if(pageLevel('newreq')!=='none') P.push({g:'الطلبات', ico:'➕', label:'طلب صرف جديد', desc:'نموذج إنشاء طلب: العنوان والبند والمستفيدون والمرفقات.', js:`openNewRequestChoice();`, guide:'new',
+    btns:[['إرسال','يرسل الطلب بعد نافذة المراجعة'],['إلغاء','يتجاهل المسودة'],['تعديل نصوص الطباعة','يغيّر نص الخطاب المطبوع']]});
+  if(canSeeRevenues()){
+    P.push({g:'المالية', ico:'💰', label:'الإيرادات', desc:'ما دخل الصندوق على كل بند.', js:`openRevenues(0);`, guide:'rev',
+      btns:[['حذف','يحذف سجل الإيراد (لمن يملك تحكماً كاملاً)']]});
+    if(pageAtLeast('revenues','full')) P.push({g:'المالية', ico:'➕', label:'إيراد جديد', desc:'تسجيل إيراد على بند.', js:`openRevenues(1);`, guide:'rev', btns:[['تسجيل الإيراد','يحفظ الإيراد ويقيّده في الدفتر']]});
+  }
+  if(canSeeRecurring()) P.push({g:'المالية', ico:'🔁', label:'القيود الدورية', desc:'قوالب المصروفات والإيرادات المتكررة وكشف ترحيلها.', js:`openRecurring(0);`, guide:'rec',
+    btns:[['ترحيل المحدد','يرحّل الاستحقاقات المحددة إلى الدفتر'],['تخطي','يلغي استحقاقاً واحداً'],['اعتماد / تعديل / إيقاف مؤقت / إنهاء','إدارة القالب'],['استعادة','يعيد استحقاقاً متخطّى إلى الكشف'],['حفظ وإرسال للاعتماد','في نموذج «قالب جديد»']]});
+  if(pageLevel('ledger')!=='none' || isAdmin) P.push({g:'المالية', ico:'📒', label:'دفتر الحركات', desc:'سجل كل دخول وخروج مال، مع فرز وفلاتر.', js:`openLedger();`, guide:'ledger',
+    btns:[['استرداد','المال عاد فعلاً بعد خروجه'],['عكس','التسجيل نفسه خطأ'],['+ قيد يدوي','تسوية أو رصيد افتتاحي']]});
+  if(pageLevel('analytics')!=='none' || isAdmin) P.push({g:'المالية', ico:'📊', label:'التحليلات المالية', desc:'رسوم وأرقام المصروف والمتاح.', js:`openAnalytics();`, guide:'acct', btns:[]});
+  if(!isAdmin) P.push({g:'حسابي', ico:'👤', label:'حسابي', desc:'بياناتك وتوقيعك وكلمة مرورك.', js:`openAccount();`, guide:'start', btns:[['حفظ','يحفظ التعديلات']]});
+  P.push({g:'مساعدة', ico:'📖', label:'دليل المستخدم', desc:'الشرح الكامل داخل النظام.', js:`openGuide();`, guide:'', btns:[]});
+  if(isAdmin){
+    ADMIN_NAV.forEach(gp=>gp.items.forEach(it=>{
+      P.push({g:'لوحة التحكم — '+gp.cat, ico:'⚙️', label:it.label, desc:'', js:adminNavAction(it), guide:'admin', btns:[]});
+    }));
+  }
+  return P;
+}
+function renderSiteMap(app){
+  const pages = siteMapPages(), groups = {};
+  pages.forEach(p=>{ (groups[p.g] = groups[p.g] || []).push(p); });
+  app.innerHTML = `
+    <h1>🗺️ خريطة الموقع</h1>
+    <p class="sub">كل صفحة يمكنك فتحها، مع أزرارها الرئيسية. اضغط اسم الصفحة لفتحها، و«شرح» لقراءة قسمها في الدليل. وتتغير القائمة حسب صلاحياتك.</p>
+    ${Object.keys(groups).map(g=>`
+      <div class="card"><h2>${escH(g)}</h2>
+        ${groups[g].map(p=>`
+          <div class="list-item" style="cursor:default;flex-wrap:wrap;">
+            <div class="li-main">
+              <b><a href="#" style="color:var(--blue);text-decoration:underline;" onclick="event.preventDefault(); ${p.js}" title="يفتح صفحة «${escH(p.label)}»">${p.ico} ${escH(p.label)}</a></b>
+              ${p.desc ? `<span class="sub">${escH(p.desc)}</span>` : ''}
+              ${p.btns.length ? `<span style="font-size:13px;">${p.btns.map(b=>`<span title="${escH(b[1])}" style="display:inline-block;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:1px 8px;margin:2px 0 2px 6px;">${escH(b[0])}</span> <small class="sub">${escH(b[1])}</small>`).join('<br>')}</span>` : ''}
+            </div>
+            ${p.guide ? `<div><button class="btn btn-ghost btn-xs" onclick="openGuide('${p.guide}')" title="يفتح قسم هذه الصفحة في الدليل">شرح</button></div>` : ''}
+          </div>`).join('')}
+      </div>`).join('')}`;
+}
+
 function renderGlobalFloatingBar(){
   if(state.view==='newRequest' || state.view==='login') return '';
   let buttons = '';
@@ -5734,7 +5800,6 @@ function renderGlobalFloatingBar(){
   const waIcon = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#25D366"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.2-3.5-.7-2.9-1.1-4.8-4.1-5-4.3-.1-.2-1.2-1.6-1.2-3s.7-2.1 1-2.4c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5.2.6.8 2 .9 2.1.1.2.1.3 0 .5-.6 1.2-1.2 1.1-.6 2 .9 1.6 1.7 2.1 3 2.7.2.1.4.1.5-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1.2.1 1.5.7 1.8.9.3.1.4.2.5.3.1.2.1.9-.1 1.6z"/></svg>`;
   const contactBlock = `
     <div class="gfb-contact-fixed">
-      <a href="user-guide.html" target="_blank" rel="noopener" title="دليل استخدام النظام خطوة بخطوة (يُفتح في صفحة جديدة)" style="color:#9cc3ea;font-size:12.5px;font-weight:700;text-decoration:underline;white-space:nowrap;margin-inline-start:6px;">📖 دليل المستخدم</a>
       <span class="gfb-contact-label">للدعم الفني</span>
       <a href="https://wa.me/201223800399" target="_blank" title="واتساب للدعم الفني">${waIcon}</a>
       <div class="gfb-contact-numbers">
@@ -7233,7 +7298,7 @@ function renderAdmin(app){
       </div>
       <label>شعار/ترويسة الشركة الافتراضية (اختياري)</label>
       <input id="newCoLogo" type="file" accept="image/*">
-      <div class="actions-row">
+      <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" onclick="addCompany()">إضافة الشركة</button>
       </div>
     </div>
@@ -7265,7 +7330,7 @@ function renderAdmin(app){
       </div>
       <label>صورة ترويسة الوحدة (اختياري)</label>
       <input id="newCenterLetterhead" type="file" accept="image/*">
-      <div class="actions-row">
+      <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" onclick="addCenter()">إضافة الوحدة</button>
       </div>
     </div>
@@ -7329,7 +7394,7 @@ function renderAdmin(app){
           </select>
         </div>
       </div>
-      <div class="actions-row">
+      <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" onclick="addUser()">إضافة المستخدم</button>
       </div>
     </div>
@@ -7431,7 +7496,7 @@ function renderBudgetItemsTab(){
         <div><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="ebiActive" style="width:auto;" ${b.is_active!==false?'checked':''}> نشط</label></div>
       </div>
       <div><label>ملاحظات</label><input id="ebiNotes" type="text" value="${escH(b.notes||'')}"></div>
-      <div class="actions-row">
+      <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" onclick="saveBudgetItem('${b.id}')">حفظ التعديلات</button>
         <button class="btn btn-ghost btn-md" onclick="state.editingBudgetItemId=null; render();">إلغاء</button>
       </div>
@@ -7459,7 +7524,7 @@ function renderBudgetItemsTab(){
         <div><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="nbiRecurring" style="width:auto;"> متجدد شهرياً</label></div>
       </div>
       <div><label>ملاحظات</label><input id="nbiNotes" type="text" placeholder="اختياري"></div>
-      <div class="actions-row">
+      <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" onclick="addBudgetItem()">إضافة البند</button>
       </div>
     </div>
@@ -8146,7 +8211,7 @@ function recurringReviewHtml(){
   return `
     ${due.length ? `<h2>مستحقة الآن (${due.length})</h2>${due.map(o=>recReviewRow(o,true)).join('')}` : ''}
     ${later.length ? `<h2>قادمة (${later.length})</h2><p class="sub">ترحيل قيد قادم قبل موعده مسموح، لكن يظهر لك تنبيه قبل التنفيذ.</p>${later.map(o=>recReviewRow(o,false)).join('')}` : ''}
-    ${canPost ? `<div class="actions-row">
+    ${canPost ? `<div class="actions-row" data-bar-actions>
       <button class="btn btn-primary btn-md" style="white-space:nowrap;" onclick="postSelectedRecurring()" title="يرحّل القيود المحددة إلى دفتر الحركات ويسجّل اسمك ووقت الترحيل">ترحيل المحدد إلى الدفتر <span id="recSelCount"></span></button>
     </div>` : ''}`;
 }
@@ -8453,7 +8518,7 @@ function recurringFormHtml(){
       <p class="sub" style="margin:10px 0 4px;">وأشخاص محددون بأسمائهم (مجمَّعون حسب الدور):</p>
       ${groupedUsersPicker('rcUser', ids, cu)}
     </div>
-    <div class="actions-row">
+    <div class="actions-row" data-bar-actions>
       <button class="btn btn-primary btn-md" onclick="saveRecurringTemplate()" title="${t?'يحفظ التعديلات':'يحفظ القالب ويرسله للاعتماد'}">${t?'حفظ التعديلات':'حفظ وإرسال للاعتماد'}</button>
       <button class="btn btn-ghost btn-md" onclick="state.editingRecurringId=null; setRecurringSec(1)" title="يخرج دون حفظ">إلغاء</button>
     </div>`;
@@ -8618,7 +8683,7 @@ function revenueFormHtml(){
         <div><label>تاريخ الإيراد</label><input id="nrevDate" type="date" value="${new Date().toISOString().slice(0,10)}" dir="ltr"></div>
       </div>
       <div><label>وصف / بيان</label><input id="nrevDesc" type="text" placeholder="اختياري"></div>
-      <div class="actions-row">
+      <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" onclick="addBudgetRevenue()">تسجيل الإيراد</button>
       </div>
     </div>`;
@@ -8857,7 +8922,7 @@ function renderCompanyEditForm(){
           </label>
         </div>
       </div>
-      <div class="actions-row">
+      <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" onclick="saveCompanyEdit()">حفظ التعديلات</button>
         <button class="btn btn-ghost btn-sm" onclick="state.editingCompanyId=null; render();">إلغاء</button>
       </div>
@@ -8984,7 +9049,7 @@ function renderCenterEditForm(){
         <input type="checkbox" id="editCenterRequireTransferRef" ${c.requireBankTransferRef?'checked':''}> يطلب من المحاسب تسجيل رقم/مرجع التحويل البنكي قبل الاعتماد
       </label>
 
-      <div class="actions-row" style="margin-top:16px;">
+      <div class="actions-row" data-bar-actions style="margin-top:16px;">
         <button class="btn btn-primary btn-md" onclick="saveCenterEdit()">حفظ التعديلات</button>
         <button class="btn btn-ghost btn-sm" onclick="state.editingCenterId=null; render();">إلغاء</button>
       </div>
@@ -10168,7 +10233,7 @@ function renderRecNotifyPanel(){
     <div style="display:flex;gap:18px;flex-wrap:wrap;margin:6px 0;">${['accountant','cfo','admin'].map(k=>`<label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" class="rnRole" value="${k}" ${(s.approval_notify_roles||[]).includes(k)?'checked':''}> ${escH(roleGroupLabel(k))}</label>`).join('')}</div>
     <p class="sub" style="margin:10px 0 4px;"><b>وأشخاص بأسمائهم:</b></p>
     ${groupedUsersPicker('rnUser', s.approval_notify_user_ids||[], cu)}
-    <div class="actions-row"><button class="btn btn-primary btn-md" onclick="saveRecNotify()" title="يحفظ المستلمين الافتراضيين لإشعارات اعتماد القوالب في هذه الشركة">حفظ</button></div>
+    <div class="actions-row" data-bar-actions><button class="btn btn-primary btn-md" onclick="saveRecNotify()" title="يحفظ المستلمين الافتراضيين لإشعارات اعتماد القوالب في هذه الشركة">حفظ</button></div>
   </div>`;
 }
 async function saveRecNotify(){
@@ -10201,7 +10266,7 @@ function renderAdminsPanel(){
         <div style="--fw:280px;"><label>رقم الهاتف</label><input id="newAdminPhone" type="text" dir="ltr" autocomplete="off" style="--fw:280px;"></div>
         <div style="--fw:280px;"><label>كلمة المرور (٦ خانات فأكثر)</label><input id="newAdminPass" type="password" autocomplete="new-password" style="--fw:280px;"></div>
       </div>
-      <div class="actions-row"><button class="btn btn-primary btn-md" onclick="createAdminUser()" title="ينشئ حساب مدير نظام جديداً بعد تأكيد كلمة مرورك">إنشاء مدير نظام</button></div>
+      <div class="actions-row" data-bar-actions><button class="btn btn-primary btn-md" onclick="createAdminUser()" title="ينشئ حساب مدير نظام جديداً بعد تأكيد كلمة مرورك">إنشاء مدير نظام</button></div>
     </div>`;
 }
 async function createAdminUser(){
@@ -10314,7 +10379,7 @@ function renderRolesPanel(){
         <div><label>المستوى الافتراضي</label><select id="newRoleLevel">${lvOpts('موظف')}</select></div>
         <div style="flex:0 0 auto;align-self:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-weight:600;margin:0 0 10px;"><input type="checkbox" id="newRoleGeneral" style="width:auto;"> 🌐 عام افتراضياً</label></div>
       </div>
-      <div class="actions-row"><button class="btn btn-primary btn-md" onclick="addJobRole()">إضافة الدور</button></div>
+      <div class="actions-row" data-bar-actions><button class="btn btn-primary btn-md" onclick="addJobRole()">إضافة الدور</button></div>
     </div>
     <h2 style="margin-top:20px;">الأدوار الوظيفية (${state.customRoles.length})</h2>
     ${jobRows}
