@@ -347,8 +347,8 @@
   .beneficiary-block.flow > :not(.row){flex:0 0 100%;min-width:0;}
   input.b-statement, .row > *:has(> .b-statement){--fw:580px;}
   .field-with-calc{position:relative;display:block;width:100%;max-width:280px;}
-  .field-with-calc input{width:100%;max-width:100%;padding-left:40px;}
-  .calc-in{position:absolute;left:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:var(--blue);cursor:pointer;font-size:16px;line-height:1;padding:0;}
+  .field-with-calc input{width:100%;max-width:100%;padding-left:62px;}
+  .calc-in{position:absolute;left:5px;top:50%;transform:translateY(-50%);width:50px;height:30px;border:0;border-radius:6px;background:var(--blue-bg);color:var(--blue);cursor:pointer;font-size:13px;font-weight:600;line-height:1;padding:0;font-family:inherit;}
   .calc-in:hover{background:var(--blue-bg);}
   .beneficiary-block{border:2px solid var(--line);border-radius:8px;padding:16px;margin-top:16px;background:var(--card);}
   .beneficiary-block-header{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
@@ -483,6 +483,7 @@
   .sub-status-note{display:block;margin-top:3px;font-size:9.5px;padding:2px 7px;font-weight:600;}
   .sub-status-note.note-approved{background:var(--green-bg);color:var(--green);}
   .sub-status-note.note-waiting{background:var(--amber-bg);color:var(--amber);}
+  .btn-current{background:var(--green-bg);color:var(--green);border:1px solid var(--green);opacity:1!important;cursor:default;}
   .badge-approved{background:var(--green-bg);color:var(--green);}
   .badge-rejected{background:var(--red-bg);color:var(--red);}
   .badge-paid{background:var(--teal-bg);color:var(--teal);}
@@ -5661,7 +5662,7 @@ function pageWidthFieldHtml(){
         </div>
       </div>
       <div class="actions-row">
-        <button class="btn btn-primary btn-sm" onclick="setPageWidth(document.getElementById('pageWidthInput').value)">تطبيق</button>
+        <button class="btn btn-primary btn-sm btn-inline" onclick="setPageWidth(document.getElementById('pageWidthInput').value)">تطبيق</button>
       </div>
     </div>`;
 }
@@ -6841,9 +6842,9 @@ function renderLedger(app){
       <div><label>بحث</label>
         <input type="text" name="qz-ledger-search" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="البيان أو المستفيد" value="${escH(f.q||'')}" oninput="state.ledgerFilter.q=this.value" onchange="render()"></div>
       <button class="btn btn-ghost btn-sm" onclick="ledgerClearFilters()" title="يمسح كل مرشّحات الدفتر الحالية">مسح الترشيح</button>
-      <button class="btn btn-ghost btn-sm" onclick="ledgerSaveDefault()" title="يحفظ الترشيح والترتيب الحاليين ليُطبَّقا تلقائياً كل مرة تدخل فيها الدفتر">حفظ كوضع افتراضي</button>
+      <button class="btn btn-ghost btn-sm" onclick="ledgerSaveDefault()" title="يحفظ الترشيح والترتيب الحاليين ليُطبَّقا تلقائياً كل مرة تدخل فيها الدفتر">اجعله الافتراضي</button>
       ${hasDef ? `<button class="btn btn-ghost btn-sm" onclick="ledgerClearDefault()" title="يلغي الوضع الافتراضي المحفوظ فيدخل الدفتر دون ترشيح">إلغاء الافتراضي</button>` : ''}
-      ${canManualLedger() ? `<button class="btn btn-primary btn-sm" style="margin-right:auto;" onclick="openManualEntry()" title="تسجيل حركة يدوية لا تنتمي لطلب (تسوية أو رصيد افتتاحي)">+ قيد يدوي</button>` : ''}
+      ${canManualLedger() ? `<span data-bar-actions style="margin-right:auto;"><button class="btn btn-primary btn-sm" onclick="openManualEntry()" title="تسجيل حركة يدوية لا تنتمي لطلب (تسوية أو رصيد افتتاحي)">+ قيد يدوي</button></span>` : ''}
     </div>
     ${banner}
 
@@ -7326,7 +7327,7 @@ function renderAdmin(app){
           <span>رمز: ${c.code} · رمز الإدارة: ${c.hqCode}${c.taxNumber ? ' · '+c.taxNumber : ''}</span>
         </div>
         <div style="display:flex;gap:10px;">
-          ${c.id===state.currentCompanyId ? `<span class="badge badge-approved">الحالية</span>` : `<button class="btn btn-ghost btn-sm" onclick="switchCompany('${c.id}')">التبديل إليها</button>`}
+          ${c.id===state.currentCompanyId ? `<button type="button" class="btn btn-sm btn-current" disabled title="هذه هي الشركة المعروضة حاليًا">✓ الشركة الحالية</button>` : `<button class="btn btn-ghost btn-sm" onclick="switchCompany('${c.id}')">التبديل إليها</button>`}
           <button class="btn btn-ghost btn-xs" onclick="state.editingCompanyId='${c.id}'; render();">تعديل</button>
           <button class="btn btn-reject btn-xs" onclick="deleteCompany('${c.id}')">حذف</button>
         </div>
@@ -10128,8 +10129,8 @@ function renderJobLevels(app){
         <p class="sub">لا يوجد سلّم مستويات لهذه الشركة بعد.</p>
         <button type="button" class="btn btn-ghost btn-md" onclick="seedDefaultLevels()">توليد السلّم الافتراضي</button>
       `}
-      <div class="actions-row" style="margin-top:14px;">
-        <button type="button" class="btn btn-ghost btn-md" onclick="addJobLevel()">+ إضافة مستوى</button>
+      <div class="actions-row" data-bar-actions style="margin-top:14px;">
+        <button type="button" class="btn btn-primary btn-md" onclick="addJobLevel()">+ إضافة مستوى</button>
       </div>
     </div>`);
 }
@@ -11239,7 +11240,7 @@ function renderNewRequest(app){
             <div class="row">
               <div>
                 <label>خصم (اختياري)</label>
-                <div class="field-with-calc"><input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" oninput="updateTotalPreview()"><button type="button" class="calc-in" tabindex="-1" title="احسب الخصم" onclick="toggleCalcBox(${i},'deduction')">🧮</button></div>
+                <div class="field-with-calc"><input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" oninput="updateTotalPreview()"><button type="button" class="calc-in" tabindex="-1" title="احسب الخصم" onclick="toggleCalcBox(${i},'deduction')">احسب</button></div>
               </div>
               <div>
                 <label>بيان الخصم (اختياري)</label>
@@ -11256,7 +11257,7 @@ function renderNewRequest(app){
             <div class="row">
               <div>
                 <label>إضافي (اختياري)</label>
-                <div class="field-with-calc"><input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" oninput="updateTotalPreview()"><button type="button" class="calc-in" tabindex="-1" title="احسب الإضافي" onclick="toggleCalcBox(${i},'extra')">🧮</button></div>
+                <div class="field-with-calc"><input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" oninput="updateTotalPreview()"><button type="button" class="calc-in" tabindex="-1" title="احسب الإضافي" onclick="toggleCalcBox(${i},'extra')">احسب</button></div>
               </div>
               <div>
                 <label>بيان الإضافي (اختياري)</label>
