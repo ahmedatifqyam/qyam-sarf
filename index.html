@@ -5560,6 +5560,12 @@ function ensureBottomBar(){
 function moveRowsToBottomBar(){
   const target = document.querySelector('.global-floating-bar .gfb-actions');
   if(!target) return;
+  // قاعدة عامة: كل صف أزرار رئيسي في الصفحة يدخل الشريط السفلي ولو لم يُوسَم، إلا ما كان في نافذة أو قائمة أو صندوق حساب
+  document.querySelectorAll('#app .actions-row:not([data-bar-actions])').forEach(r=>{
+    if(r.closest('.modal-box,.list-item,.calc-box,.no-bar,.modal-overlay')) return;
+    if(!r.querySelector('.btn-primary')) return;
+    r.setAttribute('data-bar-actions','');
+  });
   document.querySelectorAll('#app [data-bar-actions]').forEach(row=>{
     if(row.closest('.modal-box') || row.offsetParent===null) return;
     const key = row.getAttribute('data-bar-key');
@@ -10311,7 +10317,7 @@ function permDraftLevel(role, key){
 function permSet(role, key, val){
   state.permDraft = state.permDraft || {};
   state.permDraft[role+'|'+key] = val;
-  const el = document.getElementById('permSaveBar'); if(el) el.hidden = false;
+  document.querySelectorAll('[data-perm-btn]').forEach(b=>{ b.disabled = false; });
 }
 function permReset(){ state.permDraft = {}; render(); }
 function renderPermissionsPanel(){
@@ -10327,9 +10333,9 @@ function renderPermissionsPanel(){
       <p class="sub">لكل دور في الشركة الحالية: هل يرى الصفحة، وماذا يفعل فيها. الخيار «افتراضي» هو الوضع المعمول به الآن. مدير النظام يرى كل شيء دائماً. لوحة التحكم لا تظهر لغير مدير النظام مهما كانت الصلاحية.</p>
       <p class="sub" style="font-size:12.5px;">ملاحظة: هذه الصلاحيات تتحكم في ظهور الصفحات والأزرار. أما البيانات المالية نفسها فتحميها قاعدة البيانات للأدوار المالية فقط، فمنح صفحة مالية لدور غير مالي لا يكشف له بيانات لا يملك حق قراءتها.</p>
       <div style="overflow-x:auto;"><table class="exec-table perm-tbl" style="direction:rtl;width:100%;"><thead>${head}</thead><tbody>${body}</tbody></table></div>
-      <div id="permSaveBar" class="actions-row" ${dirty?'':'hidden'}>
-        <button class="btn btn-primary btn-md" onclick="savePagePerms()" title="يحفظ التغييرات بعد تأكيد كلمة مرورك">حفظ الصلاحيات</button>
-        <button class="btn btn-ghost btn-md" onclick="permReset()" title="يتجاهل التغييرات غير المحفوظة">تراجع</button>
+      <div id="permSaveBar" class="actions-row">
+        <button class="btn btn-primary btn-md" data-perm-btn ${dirty?'':'disabled'} onclick="savePagePerms()" title="يحفظ التغييرات بعد تأكيد كلمة مرورك">حفظ الصلاحيات</button>
+        <button class="btn btn-ghost btn-md" data-perm-btn ${dirty?'':'disabled'} onclick="permReset()" title="يتجاهل التغييرات غير المحفوظة">تراجع</button>
       </div>
     </div>`;
 }
