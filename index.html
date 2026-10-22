@@ -333,7 +333,6 @@
   input.b-amount, input.b-deduction, input.b-extra, input.b-notes, input.b-deductionNote, input.b-extraNote,
   .row > *:has(> .b-amount), .row > *:has(> .b-notes),
   .row > *:has(> .b-deductionNote), .row > *:has(> .b-extraNote){--fw:280px;}
-  .row > *:has(.field-with-btn){--fw:480px;}
   /* حقل يرافقه نصّ تلميح بجانبه (مهلة الاعتماد): الخانة 380، الحقل 180 */
   .row > *:has(.field-with-hint){--fw:380px;}
   .field-with-hint input{flex:0 0 180px;width:180px;max-width:180px;}
@@ -341,7 +340,16 @@
   .field-with-icon{display:flex;gap:20px;align-items:flex-end;}
   .field-with-icon > *{min-width:0;}
   .field-with-icon input{width:100%;max-width:100%;}
-  .field-with-btn input{flex:0 0 280px;max-width:280px;}
+  .field-with-btn input{flex:0 0 580px;max-width:580px;}
+  /* بطاقة المستفيد: الحقول تتراصّ في السطر ما دام فيه مكان (عمود 280 · عمودان 580) */
+  .beneficiary-block.flow{display:flex;flex-wrap:wrap;gap:18px 20px;align-items:flex-start;}
+  .beneficiary-block.flow > .row{display:contents;}
+  .beneficiary-block.flow > :not(.row){flex:0 0 100%;min-width:0;}
+  input.b-statement, .row > *:has(> .b-statement){--fw:580px;}
+  .field-with-calc{position:relative;display:block;width:100%;max-width:280px;}
+  .field-with-calc input{width:100%;max-width:100%;padding-left:40px;}
+  .calc-in{position:absolute;left:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:var(--blue);cursor:pointer;font-size:16px;line-height:1;padding:0;}
+  .calc-in:hover{background:var(--blue-bg);}
   .beneficiary-block{border:2px solid var(--line);border-radius:8px;padding:16px;margin-top:16px;background:var(--card);}
   .beneficiary-block-header{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
   .sticky-submit-bar{
@@ -949,7 +957,7 @@
     #qyamAssistant > *{bottom:84px !important; left:14px !important;}
     #qyamAssistant{--chat--window--width:calc(100vw - 28px); --chat--window--height:68vh;}
   }
-  body.m-focus #qyamAssistant{display:none;}
+  body.m-focus.m-focus-login #qyamAssistant{display:none;}
   .file-preview-box{max-width:min(90vw, 700px);padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:90vh;}
   .file-preview-header{
     display:flex;justify-content:space-between;align-items:center;
@@ -3939,6 +3947,7 @@ function removeBeneficiaryRow(i){
 }
 
 async function submitDraft(){
+  if(!pageAtLeast('newreq','edit')){ showToast('ليست لديك صلاحية إرسال طلب صرف (قراءة فقط)','error'); return; }
   if(state.submittingDraft) return;
   state.submittingDraft = true;
   const btns = Array.from(document.querySelectorAll('.submit-draft-trigger'));
@@ -11137,9 +11146,10 @@ function renderNewRequest(app){
     <h1>${state.editingReqId ? 'تعديل الطلب' : 'طلب صرف جديد'}</h1>
     <p class="sub">رقم الطلب: <b>${d.number || 'سيُحدَّد تلقائياً عند الإرسال'}</b></p>
     <div class="card">
+      ${pageAtLeast('newreq','edit') ? '' : '<div class="warn-box" style="background:rgba(180,83,9,.12);border-right:4px solid #b45309;padding:8px 12px;border-radius:8px;margin-bottom:12px;">ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.</div>'}
       <label>عنوان الطلب</label>
       <div class="field-with-btn">
-        <input id="reasonInput" style="--fw:480px;" type="text" value="${d.reason||''}" placeholder="مثال: رواتب شهر 8-2026 أو عهدة">
+        <input id="reasonInput" style="--fw:580px;" type="text" value="${d.reason||''}" placeholder="مثال: رواتب شهر 8-2026 أو عهدة">
         <button type="button" class="btn btn-primary btn-md" tabindex="-1" onclick="toggleDocTextsBox()">تعديل نصوص الطباعة</button>
       </div>
       <div id="docTextsBox" class="calc-box" style="display:none;">
@@ -11179,7 +11189,7 @@ function renderNewRequest(app){
           const known = isKnownBeneficiary(b.name);
           const showUpload = !known || b._showUpload;
           return `
-          <div class="beneficiary-block">
+          <div class="beneficiary-block flow">
             <div class="beneficiary-block-header">مستفيد رقم ${i+1}${d.beneficiaries.length>1 ? `<span class="remove-b" onclick="removeBeneficiaryRow(${i})">إزالة ✕</span>` : ''}</div>
             <div class="row">
               <div>
@@ -11223,10 +11233,7 @@ function renderNewRequest(app){
             <div class="row">
               <div>
                 <label>خصم (اختياري)</label>
-                <div class="field-with-btn">
-                  <input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" oninput="updateTotalPreview()">
-                  <button type="button" class="btn btn-primary btn-md" tabindex="-1" onclick="toggleCalcBox(${i},'deduction')">حساب الخصم</button>
-                </div>
+                <div class="field-with-calc"><input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" oninput="updateTotalPreview()"><button type="button" class="calc-in" tabindex="-1" title="احسب الخصم" onclick="toggleCalcBox(${i},'deduction')">🧮</button></div>
               </div>
               <div>
                 <label>بيان الخصم (اختياري)</label>
@@ -11243,10 +11250,7 @@ function renderNewRequest(app){
             <div class="row">
               <div>
                 <label>إضافي (اختياري)</label>
-                <div class="field-with-btn">
-                  <input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" oninput="updateTotalPreview()">
-                  <button type="button" class="btn btn-primary btn-md" tabindex="-1" onclick="toggleCalcBox(${i},'extra')">حساب الإضافي</button>
-                </div>
+                <div class="field-with-calc"><input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" oninput="updateTotalPreview()"><button type="button" class="calc-in" tabindex="-1" title="احسب الإضافي" onclick="toggleCalcBox(${i},'extra')">🧮</button></div>
               </div>
               <div>
                 <label>بيان الإضافي (اختياري)</label>
@@ -11299,7 +11303,7 @@ function renderNewRequest(app){
       <div id="amountLimitWarning" style="display:none;background:var(--amber-bg);color:#1B2733;border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:12.5px;margin-top:10px;"></div>
 
       <div class="actions-row">
-        <button id="submitDraftBtn" class="btn btn-primary submit-draft-trigger btn-md" onclick="submitDraft()">${state.editingReqId ? 'حفظ التعديلات' : 'إرسال للاعتماد'}</button>
+        <button id="submitDraftBtn" class="btn btn-primary submit-draft-trigger btn-md" ${pageAtLeast('newreq','edit')?'':'disabled title="ليست لديك صلاحية الإرسال"'} onclick="submitDraft()">${state.editingReqId ? 'حفظ التعديلات' : 'إرسال للاعتماد'}</button>
         <button class="btn btn-ghost btn-md" onclick="${state.editingReqId ? 'state.editingReqId=null; state.view=\'dashboard\'; render();' : 'discardDraftAndCancel();'}">إلغاء${state.editingReqId ? '' : ' ومسح المسودة'}</button>
       </div>
     </div>
@@ -11310,7 +11314,7 @@ function renderNewRequest(app){
       <button id="amountLimitBadge" type="button" onclick="scrollToAmountWarning()" title="اضغط لعرض تفاصيل التحذير" style="display:none;background:var(--amber-bg);color:#1B2733;border:2px solid var(--amber);border-radius:24px;padding:9px 18px;font-size:15px;font-weight:700;white-space:nowrap;align-items:center;gap:8px;cursor:pointer;">
         <span style="font-size:22px;line-height:1;">⚠️</span> تجاوز الحد
       </button>
-      <button class="btn btn-primary submit-draft-trigger btn-md" onclick="submitDraft()">${state.editingReqId ? 'حفظ التعديلات' : 'إرسال للاعتماد'}</button>
+      <button class="btn btn-primary submit-draft-trigger btn-md" ${pageAtLeast('newreq','edit')?'':'disabled title="ليست لديك صلاحية الإرسال"'} onclick="submitDraft()">${state.editingReqId ? 'حفظ التعديلات' : 'إرسال للاعتماد'}</button>
       <button class="btn btn-ghost btn-md" onclick="${state.editingReqId ? 'state.editingReqId=null; state.view=\'dashboard\'; render();' : 'discardDraftAndCancel();'}">إلغاء</button>
     </div>
   `;
