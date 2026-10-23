@@ -310,6 +310,8 @@
   /* رأس الصفحات: العنوان في الشريط العلوي، واسم الشركة أبرز، وشريط التنقل ثابت، و«رجوع» يسارًا */
   .tb-page{color:#E8C766;font-weight:700;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;}
   .tb-page:empty{display:none;}
+  .adm-nav2 + .page-intro,.adm-subs-solo + .page-intro{margin-top:-4px;}
+  .page-intro{margin:12px 0 14px;font-size:13.5px;color:var(--muted);}
   .tb-page::before{content:'›';color:rgba(255,255,255,.5);margin-left:10px;}
   .brand-co-group .brand-sub{font-size:17px;font-weight:700;color:#fff;}
   .brand-name{font-weight:700;}
@@ -1779,9 +1781,17 @@ function fitNavBleed(){
 }
 // الصفحة تتغيّر بعد الرسم (أقسام تظهر، عرض يُضبط) فنُعيد الضبط كلما تغيّر حجم الصندوق
 (function(){ let raf=0; const again=()=>{ cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>{ try{ fitNavBleed(); }catch(e){} }); };
-  const hook=()=>{ if(window._nbRO) return; const a=document.getElementById('app'), m=document.getElementById('shellMain'); if(!a||!m||!window.ResizeObserver) return; window._nbRO=new ResizeObserver(again); window._nbRO.observe(a); window._nbRO.observe(m); };
+  const hook=()=>{ try{ if(!window._ptMO){ const ap=document.getElementById('app'); if(ap){ let t=0; window._ptMO=new MutationObserver(()=>{ cancelAnimationFrame(t); t=requestAnimationFrame(()=>{ try{ syncPageTitle(); }catch(e){} }); }); window._ptMO.observe(ap,{childList:true,subtree:true}); } } }catch(e){}
+    if(window._nbRO) return; const a=document.getElementById('app'), m=document.getElementById('shellMain'); if(!a||!m||!window.ResizeObserver) return; window._nbRO=new ResizeObserver(again); window._nbRO.observe(a); window._nbRO.observe(m); };
   window._hookNavBleed=hook; })();
 window.addEventListener('resize', ()=>{ clearTimeout(window._nbT); window._nbT=setTimeout(()=>{ try{ fitNavBleed(); }catch(e){} }, 160); });
+const PAGE_INTRO = {
+  'المنشأة':'الشركات والوحدات والهيكل التنظيمي للمؤسسة.',
+  'المستخدمون والصلاحيات':'حسابات المستخدمين وأدوارهم وما يظهر لكل منهم.',
+  'المالية':'بنود الميزانية والإيرادات والتقارير المالية.',
+  'الهوية والمستندات':'هوية النظام والشركات وترويسة المستندات المطبوعة.',
+  'القيود الدورية والإشعارات':'من يُنشئ القوالب الدورية ومن يصله إشعارها.'
+};
 function syncPageTitle(){
   document.querySelectorAll('h1[data-top]').forEach(h=>h.removeAttribute('data-top'));
   const tb = document.getElementById('tbPage'), app = document.getElementById('app');
@@ -1789,8 +1799,23 @@ function syncPageTitle(){
   if(!state.user || ['detail','printPreview','login'].includes(state.view)){ tb.textContent=''; return; }
   const h = app.querySelector('.adm-head h1') || app.querySelector('h1');
   if(!h){ tb.textContent=''; return; }
-  tb.textContent = h.textContent.replace(/\s+/g,' ').trim();
+  const title = h.textContent.replace(/\s+/g,' ').trim();
+  tb.textContent = title;
   h.setAttribute('data-top','1');
+  // سطر التعريف بالصفحة: في كل الصفحات، وفي موضع واحد ثابت (بعد صفّي التبويب مباشرة، وإلا في أول الصفحة)
+  const kids = [...app.children];
+  let intro = kids.find(e=>e.tagName==='P' && e.classList.contains('sub'));
+  const nav = app.querySelector(':scope > .adm-nav2') || app.querySelector(':scope > .adm-subs-solo');
+  if(!intro && PAGE_INTRO[title]){ intro = document.createElement('p'); intro.className='sub'; intro.textContent = PAGE_INTRO[title]; }
+  if(!intro) return;
+  intro.classList.add('page-intro');
+  if(nav){ if(nav.nextElementSibling!==intro) nav.after(intro); }
+  else {
+    const first = kids.find(e=>!e.matches('.adm-head,.back-link,.org-tree-print-head,.global-floating-bar,.sticky-submit-bar,.modal-overlay') && e!==intro && e.offsetParent!==null) || null;
+    const bl = kids.find(e=>e.classList.contains('back-link'));
+    if(bl){ if(bl.nextElementSibling!==intro) bl.after(intro); }
+    else if(first && first.previousElementSibling!==intro) first.before(intro);
+  }
 }
 function escH(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
