@@ -75,7 +75,7 @@
     border:none;border-radius:4px;padding:8px 10px;font-family:inherit;font-size:13px;width:150px;
   }
   .search-box button{
-    background:#2E4356;color:#fff;border:none;border-radius:4px;min-height:30px;padding:0 12px;font-size:13px;cursor:pointer;
+    background:#2E4356;color:#fff;border:none;border-radius:4px;min-height:40px;padding:0 12px;font-size:13px;cursor:pointer;
   }
   .role-chip{
     background:#2E4356;padding:7px 14px;border-radius:20px;font-size:13px;display:flex;align-items:center;gap:8px;
@@ -296,7 +296,7 @@
   .rep-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
   .rep-bar > *{flex:0 0 auto;}
   .rep-bar select,.rep-bar input[type=text],.rep-bar input[type=date],.rep-bar input[type=number]{
-    width:180px !important;max-width:180px !important;min-width:0;height:34px;font-size:12.5px;}
+    width:180px !important;max-width:180px !important;min-width:0;height:40px;font-size:12.5px;}
   .rep-bar select{padding:0 28px 0 10px;}
   .rep-bar label{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin:0 0 3px;}
   .rep-bar > div{flex:0 0 auto;}
@@ -304,14 +304,35 @@
   /* شريط فلاتر بعناوين فوق الأدوات — كل الأدوات بعرض واحد على الشبكة */
   .sel-add{display:flex;align-items:stretch;gap:6px;width:100%;}
   .sel-add > select,.sel-add > input{flex:1 1 0;min-width:0;width:auto;max-width:none;}
-  .mini-add{flex:0 0 38px;width:38px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--blue);font-size:20px;font-weight:700;line-height:1;cursor:pointer;padding:0;font-family:inherit;}
+  .mini-add{flex:0 0 32px;width:32px;border:0;border-radius:6px;background:#fff;color:var(--blue);font-size:20px;font-weight:700;line-height:1;cursor:pointer;padding:0;font-family:inherit;}
   .mini-add:hover{background:var(--blue-bg);}
   .mini-add.mini-edit{font-size:15px;}
   /* رأس الصفحات: العنوان في الشريط العلوي، واسم الشركة أبرز، وشريط التنقل ثابت، و«رجوع» يسارًا */
   .tb-page{color:#E8C766;font-weight:700;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;}
   .tb-page:empty{display:none;}
-  .tb-page::before{content:'‹';color:rgba(255,255,255,.5);margin-left:10px;}
+  .tb-page::before{content:'›';color:rgba(255,255,255,.5);margin-left:10px;}
   .brand-co-group .brand-sub{font-size:17px;font-weight:700;color:#fff;}
+  .brand-name{font-weight:700;}
+  /* صفّا التبويب: مسافة صغيرة تحت الشريط العلوي، وعرضهما بعرض الصفحة كالشريط العلوي */
+  .adm-nav2,.adm-subs-solo{top:calc(var(--topbar-h,66px) + 6px);box-shadow:0 -6px 0 var(--paper),0 1px 5px rgba(0,0,0,.13);}
+  @media (min-width:641px){
+    .adm-nav2,.adm-subs-solo{border-radius:0;}
+  }
+  /* ===== ارتفاع موحّد ٤٠ للأزرار والحقول والقوائم ===== */
+  input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=range]):not([type=color]),select{height:40px;padding-top:0;padding-bottom:0;}
+  #app th input,#app th select{height:auto !important;padding:3px 6px !important;}
+  .btn,.btn.btn-lg,.btn.btn-xs{--btn-h:40px;}
+  .rep-bar .btn,.rev-actions .btn{min-height:40px;}
+  .adm-t2,.adm-sub,.seg-btn{min-height:40px;}
+  /* الزر داخل الحقل: إطار واحد حول الحقل والزر، والزر أصغر منه بهامش ٤ */
+  .sel-add{align-items:center;border:1px solid var(--line);border-radius:8px;background:#fff;padding:3px 4px;height:40px;gap:4px;}
+  .sel-add:focus-within{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-bg);}
+  #app .sel-add > select,#app .sel-add > input{height:32px !important;border:0 !important;box-shadow:none !important;background:transparent;}
+  .mini-add{flex:0 0 32px;width:32px;height:32px;border:0;border-radius:6px;background:#22415C;color:#fff;}
+  .mini-add:hover{background:#2E5F8A;}
+  .mini-add.mini-edit{background:var(--blue-bg);color:var(--blue);}
+  .calc-in{height:32px !important;left:4px !important;background:#22415C;color:#fff;}
+  .calc-in:hover{background:#2E5F8A;}
   .back-link{display:block;width:fit-content;margin-right:auto;margin-left:0;}
   .adm-nav2,.adm-subs-solo{position:sticky;top:calc(var(--topbar-h,64px) - 1px);z-index:9;}
   @media (min-width:641px){
@@ -332,11 +353,11 @@
   .filt-bar select,.filt-bar input{width:100%;max-width:100%;}
   .filt-bar.filt-narrow{--fbw:180px;}
   .filt-bar.filt-wide{--fbw:380px;}
-  .rep-bar .btn{width:auto !important;min-width:0;min-height:34px;padding:0 12px;font-size:12.5px;white-space:nowrap;border-width:1px;box-shadow:none;}
+  .rep-bar .btn{width:auto !important;min-width:0;min-height:40px;padding:0 12px;font-size:12.5px;white-space:nowrap;border-width:1px;box-shadow:none;}
   /* أزرار نافذة المراجعة: عرض يتبع النص فلا ينكسر «إرسال نهائي الآن» سطرين */
-  .rev-actions .btn{width:auto !important;min-width:0;min-height:34px;padding:0 14px;font-size:12.5px;white-space:nowrap;}
+  .rev-actions .btn{width:auto !important;min-width:0;min-height:40px;padding:0 14px;font-size:12.5px;white-space:nowrap;}
   .rep-bar .rep-spacer{flex:1 1 auto;min-width:0;}
-  .rep-seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;height:34px;}
+  .rep-seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;height:40px;}
   .rep-seg button{padding:0 13px;font-size:12.5px;font-weight:700;cursor:pointer;border:none;white-space:nowrap;font-family:inherit;}
   /* الحاوية تلتصق بحقلها بدل أن تأخذ نصف السطر: كانت الحاوية 456 والحقل 300
      فيتولّد بينهما ثقب 168 بكسل. الآن تتجاور الحقول بفجوة واحدة ثابتة،
@@ -372,7 +393,7 @@
   input.b-statement, .row > *:has(> .b-statement){--fw:580px;}
   .field-with-calc{position:relative;display:block;width:100%;max-width:280px;}
   .field-with-calc input{width:100%;max-width:100%;padding-left:62px;}
-  .calc-in{position:absolute;left:5px;top:50%;transform:translateY(-50%);width:50px;height:30px;border:0;border-radius:6px;background:var(--blue-bg);color:var(--blue);cursor:pointer;font-size:13px;font-weight:600;line-height:1;padding:0;font-family:inherit;}
+  .calc-in{position:absolute;left:5px;top:50%;transform:translateY(-50%);width:50px;height:32px;border:0;border-radius:6px;background:#22415C;color:#fff;cursor:pointer;font-size:13px;font-weight:600;line-height:1;padding:0;font-family:inherit;}
   .calc-in:hover{background:var(--blue-bg);}
   .beneficiary-block{border:2px solid var(--line);border-radius:8px;padding:16px;margin-top:16px;background:var(--card);}
   .beneficiary-block-header{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
@@ -1746,6 +1767,21 @@ function renderBrand(){
   syncPageTitle();
 }
 // عنوان الصفحة يصعد إلى الشريط العلوي (شاشات ≥ 641 بكسل)؛ والجوال يُبقيه في الصفحة
+// صفّا التبويب يمتدّان لحدّي منطقة المحتوى (بين حافة الشاشة والقائمة الجانبية) كالشريط العلوي
+function fitNavBleed(){
+  if(window._hookNavBleed) window._hookNavBleed();
+  const ns=[...document.querySelectorAll('.adm-nav2,.adm-subs-solo')], sm=document.getElementById('shellMain');
+  ns.forEach(n=>{ n.style.marginLeft=''; n.style.marginRight=''; });
+  if(!sm || window.innerWidth<641 || !ns.length) return;
+  const cs=getComputedStyle(sm), b=sm.getBoundingClientRect(), L=b.left+parseFloat(cs.paddingLeft), R=b.right-parseFloat(cs.paddingRight);
+  const rs=ns.map(n=>n.getBoundingClientRect());
+  ns.forEach((n,i)=>{ n.style.marginLeft=(L-rs[i].left)+'px'; n.style.marginRight=(rs[i].right-R)+'px'; });
+}
+// الصفحة تتغيّر بعد الرسم (أقسام تظهر، عرض يُضبط) فنُعيد الضبط كلما تغيّر حجم الصندوق
+(function(){ let raf=0; const again=()=>{ cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>{ try{ fitNavBleed(); }catch(e){} }); };
+  const hook=()=>{ if(window._nbRO) return; const a=document.getElementById('app'), m=document.getElementById('shellMain'); if(!a||!m||!window.ResizeObserver) return; window._nbRO=new ResizeObserver(again); window._nbRO.observe(a); window._nbRO.observe(m); };
+  window._hookNavBleed=hook; })();
+window.addEventListener('resize', ()=>{ clearTimeout(window._nbT); window._nbT=setTimeout(()=>{ try{ fitNavBleed(); }catch(e){} }, 160); });
 function syncPageTitle(){
   document.querySelectorAll('h1[data-top]').forEach(h=>h.removeAttribute('data-top'));
   const tb = document.getElementById('tbPage'), app = document.getElementById('app');
@@ -5587,7 +5623,7 @@ function render(){
   ensureBottomBar();
   scrollActiveTabIntoView();
   refreshNotifIndicators();
-  navApplyPadding(); requestAnimationFrame(()=>navApplyPadding());
+  navApplyPadding(); fitNavBleed(); requestAnimationFrame(()=>{ navApplyPadding(); fitNavBleed(); });
   maybeCheckDeadlines();
   maybeMigrateNames();
   ensureOrgUnit();
@@ -6110,7 +6146,7 @@ function renderAccount(app){
       <div class="add-beneficiary" onclick="toggleSignatureCanvas()">أو ارسم توقيعك بالماوس/اللمس</div>
       <div id="signCanvasWrap" style="display:none;margin-top:8px;">
         <div class="row">
-          <div><label>لون القلم</label><input id="accSignColor" type="color" value="${me.signatureColor||'#1B2733'}" dir="ltr" style="height:38px;padding:2px;direction:ltr;"></div>
+          <div><label>لون القلم</label><input id="accSignColor" type="color" value="${me.signatureColor||'#1B2733'}" dir="ltr" style="height:40px;padding:2px;direction:ltr;"></div>
           <div><label>سماكة الخط</label>
             <select id="accSignWidth">
               <option value="1.4" ${me.signatureWidth==1.4?'selected':''}>رفيع</option>
@@ -7383,7 +7419,7 @@ function renderAdmin(app){
       <div class="row">
         <div><label>رمز الشركة (للترقيم)</label><input id="newCoCode" type="text" placeholder="مثال: QYM"></div>
         <div><label>رمز الإدارة (للطلبات المباشرة)</label><input id="newCoHqCode" type="text" placeholder="مثال: HQ"></div>
-        <div style="--fw:180px;"><label>اللون الرئيسي</label><input id="newCoColor" type="color" value="#C0392B" dir="ltr" style="height:38px;padding:2px;direction:ltr;max-width:180px;"></div>
+        <div style="--fw:180px;"><label>اللون الرئيسي</label><input id="newCoColor" type="color" value="#C0392B" dir="ltr" style="height:40px;padding:2px;direction:ltr;max-width:180px;"></div>
       </div>
       <label>شعار/ترويسة الشركة الافتراضية (اختياري)</label>
       <input id="newCoLogo" type="file" accept="image/*">
@@ -8192,6 +8228,10 @@ const QUICK_ADD_FIELDS = [
   {sel:'assignBudgetSel',  act:"quickAddBudgetItem('assignBudgetSel')",  tip:'إضافة بند جديد للميزانية', kind:'item'},
   {sel:'newUserCenter',    act:"quickAddCenter('newUserCenter')",        tip:'إضافة وحدة جديدة', kind:'admin'},
   {sel:'editUserCenter',   act:"quickAddCenter('editUserCenter')",       tip:'إضافة وحدة جديدة', kind:'admin'},
+  {sel:'nbiParent',       act:"quickAddBudgetItem('nbiParent')",   tip:'إضافة بند جديد للميزانية', kind:'item'},
+  {sel:'ebiParent',       act:"quickAddBudgetItem('ebiParent')",   tip:'إضافة بند جديد للميزانية', kind:'item'},
+  {sel:'newCenterParent', act:"quickAddCenter('newCenterParent')", tip:'إضافة وحدة جديدة', kind:'admin'},
+  {sel:'editCenterParent',act:"quickAddCenter('editCenterParent')",tip:'إضافة وحدة جديدة', kind:'admin'},
   {sel:'newCenterKind',    act:"quickAddUnitType('newCenterKind')",      tip:'إضافة نوع وحدة جديد', kind:'admin'},
   {sel:'editCenterKind',   act:"quickAddUnitType('editCenterKind')",     tip:'إضافة نوع وحدة جديد', kind:'admin'}
 ];
@@ -8206,6 +8246,9 @@ function attachQuickAdds(){
     b.setAttribute('onclick', f.act); wrap.appendChild(b);
   });
 }
+// القائمة المقترحة (datalist): عند الدخول للحقل يُفرَّغ مؤقتاً لتظهر كل الخيارات، ويعود النص إن لم يُختر غيره
+document.addEventListener('focusin', e=>{ const el=e.target; if(el && el.tagName==='INPUT' && el.getAttribute('list') && el.value){ el._prevVal=el.value; el.value=''; } });
+document.addEventListener('focusout', e=>{ const el=e.target; if(el && el.tagName==='INPUT' && el.getAttribute('list') && el.value==='' && el._prevVal){ el.value=el._prevVal; } if(el) el._prevVal=''; });
 const REC_STATUS = {pending_approval:'بانتظار الاعتماد', active:'مفعّل', paused:'موقوف مؤقتاً', ended:'منتهٍ'};
 const REC_ROLE_LABELS = {creator:'منشئ القالب', accountant:'المحاسب', cfo:'المدير المالي', admin:'مدير النظام'};
 
@@ -9048,7 +9091,7 @@ function renderCompanyEditForm(){
       <div class="row">
         <div><label>رمز الشركة</label><input id="editCoCode" type="text" value="${c.code}"></div>
         <div><label>رمز الإدارة</label><input id="editCoHqCode" type="text" value="${c.hqCode}"></div>
-        <div style="--fw:180px;"><label>اللون الرئيسي</label><input id="editCoColor" type="color" value="${c.primaryColor||'#C0392B'}" dir="ltr" style="height:38px;padding:2px;direction:ltr;max-width:180px;"></div>
+        <div style="--fw:180px;"><label>اللون الرئيسي</label><input id="editCoColor" type="color" value="${c.primaryColor||'#C0392B'}" dir="ltr" style="height:40px;padding:2px;direction:ltr;max-width:180px;"></div>
       </div>
       <div class="row">
         <div>
@@ -9503,7 +9546,7 @@ function startInlineEdit(el){
   const kind = el.dataset.kind, id = el.dataset.id, cur = el.textContent;
   el.outerHTML = `
     <span class="inline-edit-wrap" style="display:inline-flex;gap:4px;align-items:center;">
-      <input type="text" id="inlineEditInput" value="${escH(cur)}" style="min-height:30px;padding:2px 8px;font-size:inherit;width:auto;min-width:140px;" onclick="event.stopPropagation();" onkeydown="event.stopPropagation();">
+      <input type="text" id="inlineEditInput" value="${escH(cur)}" style="min-height:40px;padding:2px 8px;font-size:inherit;width:auto;min-width:140px;" onclick="event.stopPropagation();" onkeydown="event.stopPropagation();">
       <button type="button" class="btn btn-primary btn-xs" onclick="event.stopPropagation();saveInlineEdit('${kind}','${id}')">حفظ</button>
       <button type="button" class="btn btn-ghost btn-xs" onclick="event.stopPropagation();renderOrgTreeOnly()">إلغاء</button>
     </span>`;
@@ -10311,7 +10354,7 @@ function renderJobLevels(app){
 }
 function startLevelNameEdit(el,id){
   const cur = el.textContent;
-  el.outerHTML = `<span style="display:inline-flex;gap:4px;"><input type="text" id="levelNameInput" value="${escH(cur)}" style="min-height:30px;padding:2px 8px;width:auto;min-width:140px;"><button type="button" class="btn btn-primary btn-xs" onclick="saveLevelName('${id}')">حفظ</button></span>`;
+  el.outerHTML = `<span style="display:inline-flex;gap:4px;"><input type="text" id="levelNameInput" value="${escH(cur)}" style="min-height:40px;padding:2px 8px;width:auto;min-width:140px;"><button type="button" class="btn btn-primary btn-xs" onclick="saveLevelName('${id}')">حفظ</button></span>`;
   const inp = document.getElementById('levelNameInput'); if(inp){ inp.focus(); inp.select(); }
 }
 async function saveLevelName(id){
@@ -11047,7 +11090,7 @@ function devSwitcherHtml(){
         ⚙ تبديل سريع — وضع التجربة فقط
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${list.map(u=>`<button class="btn btn-ghost" style="width:auto;min-height:30px;padding:0 10px;font-size:12px;border-width:1px;box-shadow:none;"
+        ${list.map(u=>`<button class="btn btn-ghost" style="width:auto;min-height:40px;padding:0 10px;font-size:12px;border-width:1px;box-shadow:none;"
            onclick="devLoginAs('${escH(u.phone)}')" title="${escH((findRole(u.role)||{}).name||u.role)}">${escH(u.name)}</button>`).join('')}
       </div>
       <div class="file-hint" style="margin-top:8px;">كلمة المرور الموحّدة للتجربة: ${DEV_TEST_PASSWORD} — حسابا مدير النظام يُكتبان يدوياً.</div>
