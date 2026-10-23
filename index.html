@@ -2662,7 +2662,7 @@ function toWesternDigits(str){
   const map = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
   return dmyStr(String(str).replace(/[٠-٩]/g, ch=>map[ch]));
 }
-function dmyStr(x){ return String(x==null?'':x).replace(/(\d{4})[\/-](\d{2})[\/-](\d{2})/g,'$3/$2/$1'); }
+function dmyStr(x){ return String(x==null?'':x).replace(/(\d{4})[\/-](\d{2})[\/-](\d{2})/g,'$3-$2-$1'); }
 function fmtDate(){
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -2672,7 +2672,7 @@ function fmtDate(){
   const min = String(d.getMinutes()).padStart(2,'0');
   const ampm = h>=12 ? 'م' : 'ص';
   h = h % 12; if(h===0) h = 12;
-  return `${dd}/${mm}/${yyyy} ${h}:${min} ${ampm}`;
+  return `${dd}-${mm}-${yyyy} ${h}:${min} ${ampm}`;
 }
 function numberToArabicWords(n){
   const ones = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة'];
@@ -5038,7 +5038,7 @@ const STATUS_ORDER = {
 function statusBadge(status, isCancelled, isOwnTurn, isBig, overdue){
   if(isCancelled) return `<span class="badge" style="background:#E3E0D6;color:#56554F;">ملغى</span>`;
   if(status==='completed') return `<span class="badge badge-paid">تم الصرف</span>`;
-  if(status==='rejected') return `<span class="badge badge-rejected">مرفوض - يحتاج تعديل</span>`;
+  if(status==='rejected') return `<span class="badge badge-rejected" title="مرفوض: يحتاج تعديلًا ثم إعادة إرسال" style="white-space:nowrap;">مرفوض</span>`;
   const role = STATUS_ROLE_MAP[status];
   const label = isOwnTurn ? (overdue ? '⏰ بانتظار قرارك' : 'بانتظار قرارك') : `بانتظار ${role ? findRole(role).name : ''}`;
   return `<span class="badge badge-pending${(isOwnTurn || isBig) ? ' badge-own-turn' : ''}${overdue ? ' badge-overdue' : ''}" ${overdue ? 'title="متأخر: تجاوز مهلة الاعتماد"' : ''}>${label}</span>`;
@@ -5698,8 +5698,11 @@ function renderMobileTabs(){
   const items = [
     {key:'dashboard', ico:'📋', label:'الطلبات',  on:['dashboard','detail'].includes(state.view) && !open,
      act:`closeNavDrawer(); state.view='dashboard'; render(); window.scrollTo(0,0);`},
-    {key:'new',       ico:'➕', label:'جديد',     on:['newRequest','newRequestChoice'].includes(state.view) && !open,
-     act:`closeNavDrawer(); openNewRequestChoice();`},
+    (state.user.role==='admin' && !state.impersonatingFromAdmin)
+      ? {key:'viewas', ico:'👁', label:'عرض كمستخدم', on:state.view==='admin' && state.adminSubTab==='impersonate' && !open,
+         act:`closeNavDrawer(); state.view='admin'; state.adminSubTab='impersonate'; render(); window.scrollTo(0,0);`}
+      : {key:'new',       ico:'➕', label:'جديد',     on:['newRequest','newRequestChoice'].includes(state.view) && !open,
+         act:`closeNavDrawer(); openNewRequestChoice();`},
     {key:'bell',      ico:'🔔', label:'الإشعارات', on:false, dot:badge,
      act:`closeNavDrawer(); toggleBell(event);`},
     {key:'menu',      ico:'☰',  label:'القائمة',  on:open,
@@ -8058,7 +8061,7 @@ const REC_PRESETS = {
 const REC_STATUS = {pending_approval:'بانتظار الاعتماد', active:'مفعّل', paused:'موقوف مؤقتاً', ended:'منتهٍ'};
 const REC_ROLE_LABELS = {creator:'منشئ القالب', accountant:'المحاسب', cfo:'المدير المالي', admin:'مدير النظام'};
 
-function fmtDateDMY(s){ if(!s) return '—'; const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3]+'/'+m[2]+'/'+m[1] : String(s); }
+function fmtDateDMY(s){ if(!s) return '—'; const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3]+'-'+m[2]+'-'+m[1] : String(s); }
 function recToday(){ const d=new Date(), z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
 function recDiffDays(fromStr, toStr){ return Math.round((Date.parse(toStr+'T00:00:00Z')-Date.parse(fromStr+'T00:00:00Z'))/86400000); }
 function recIsFinance(){ return ['admin','accountant','cfo'].includes(state.user && state.user.role); }
@@ -8185,7 +8188,7 @@ function fmtStamp(ts){
   if(!ts) return '—';
   const d = new Date(ts); if(isNaN(d)) return String(ts);
   const z = n=>String(n).padStart(2,'0');
-  return z(d.getDate())+'/'+z(d.getMonth()+1)+'/'+d.getFullYear()+' '+z(d.getHours())+':'+z(d.getMinutes());
+  return z(d.getDate())+'-'+z(d.getMonth()+1)+'-'+d.getFullYear()+' '+z(d.getHours())+':'+z(d.getMinutes());
 }
 function recCanPost(){ return recIsFinance() && pageAtLeast('recurring','edit'); }
 function recCanCreate(){ return recCanManage() && pageAtLeast('recurring','full'); }
@@ -8449,6 +8452,9 @@ function renderRecurring(app){
 const ROLE_PLURAL = {admin:'مديرو النظام', cfo:'المديرون الماليون', accountant:'المحاسبون', employee:'الموظفون',
   dept_manager:'مديرو الإدارات والمراكز', senior_manager:'المديرون العامون', executive_manager:'المديرون التنفيذيون'};
 function roleGroupLabel(r){ return ROLE_PLURAL[r] || findRole(r).name; }
+const ROLE_ORDER = ['admin','cfo','accountant','executive_manager','senior_manager','dept_manager','employee'];
+function roleOrderedKeys(keys){ return keys.slice().sort((a,b)=>{ const x=ROLE_ORDER.indexOf(a), y=ROLE_ORDER.indexOf(b); return (x<0?99:x)-(y<0?99:y); }); }
+function gpToggleEvery(el){ const box = el.closest('.gp-wrap'); if(box) box.querySelectorAll('input[type=checkbox]').forEach(c=>{ if(c!==el) c.checked = el.checked; }); }
 function gpToggleAll(el){ const d = el.closest('details'); if(d) d.querySelectorAll('.gp-body input[type=checkbox]').forEach(c=>{ c.checked = el.checked; }); }
 function groupedUsersPicker(cls, selected, users, onchange){
   const groups = {};
@@ -8456,14 +8462,15 @@ function groupedUsersPicker(cls, selected, users, onchange){
   const order = ['admin','cfo','accountant','executive_manager','senior_manager','dept_manager','employee'];
   const keys = Object.keys(groups).sort((a,b)=>{ const x = order.indexOf(a), y = order.indexOf(b); return (x<0?99:x) - (y<0?99:y); });
   if(!keys.length) return '<span class="sub">لا مستخدمون</span>';
-  return keys.map(r=>{
+  const all = `<label class="gp-every" style="display:flex;gap:6px;align-items:center;margin:4px 0 8px;font-weight:600;"><input type="checkbox" onchange="gpToggleEvery(this)${onchange?'; '+onchange:''}"> تحديد كل المستخدمين</label>`;
+  return `<div class="gp-wrap">${all}` + keys.map(r=>{
     const us = groups[r], chosen = us.filter(u=>selected.includes(u.id)).length;
     return `<details class="gp-group" ${chosen?'open':''}>
       <summary><b>${escH(roleGroupLabel(r))}</b> <span class="sub">(${us.length}${chosen?' · محدد '+chosen:''})</span>
         <label class="gp-all" onclick="event.stopPropagation()"><input type="checkbox" onchange="gpToggleAll(this)${onchange?'; '+onchange:''}"> تحديد الكل</label></summary>
       <div class="gp-body">${us.map(u=>`<label><input type="checkbox" class="${cls}" value="${u.id}" ${selected.includes(u.id)?'checked':''}${onchange?` onchange="${onchange}"`:''}> ${escH(u.name)}</label>`).join('')}</div>
     </details>`;
-  }).join('');
+  }).join('') + '</div>';
 }
 
 // ── نموذج القالب ──
@@ -10246,7 +10253,7 @@ function renderRecCreatorsPanel(){
   const us = (state.users||[]).filter(u=>u.companyId===state.currentCompanyId && !['admin','accountant','cfo'].includes(u.role));
   const groups = {};
   us.forEach(u=>{ (groups[u.role] = groups[u.role] || []).push(u); });
-  const body = Object.keys(groups).length ? Object.keys(groups).map(r=>`
+  const body = Object.keys(groups).length ? roleOrderedKeys(Object.keys(groups)).map(r=>`
     <details class="gp-group" open><summary><b>${escH(roleGroupLabel(r))}</b> <span class="sub">(${groups[r].length})</span></summary>
       <div class="gp-body">${groups[r].map(u=>`<label><input type="checkbox" ${u.canManageRecurring?'checked':''} onchange="toggleRecurringPerm('${u.id}', this.checked)"> ${escH(u.name)}</label>`).join('')}</div>
     </details>`).join('') : '<div class="empty">لا يوجد مستخدمون آخرون في هذه الشركة</div>';
@@ -11167,6 +11174,7 @@ function renderNewRequest(app){
   app.innerHTML = `
     <span class="back-link" onclick="state.view='dashboard'; render();">→ رجوع</span>
     <h1>${state.editingReqId ? 'تعديل الطلب' : 'طلب صرف جديد'}</h1>
+    ${(()=>{ const rq = state.editingReqId && state.requests.find(r=>r.id===state.editingReqId); return rq && rq.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid #b91c1c;padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوض</b> — عدّل الطلب ثم أعد إرساله.</div>' : ''; })()}
     <p class="sub">رقم الطلب: <b>${d.number || 'سيُحدَّد تلقائياً عند الإرسال'}</b></p>
     <div class="card">
       ${pageAtLeast('newreq','edit') ? '' : '<div class="warn-box" style="background:rgba(180,83,9,.12);border-right:4px solid #b45309;padding:8px 12px;border-radius:8px;margin-bottom:12px;">ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.</div>'}
