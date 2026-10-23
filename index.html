@@ -2174,7 +2174,6 @@ function execBodyHtml(){
 function renderExecTab(app){
   const coName = (state.companies.find(c=>c.id===state.currentCompanyId)||{}).nameAr || '';
   app.innerHTML = wrapWithAdminSidebar(`
-    <span class="back-link no-print" onclick="state.view='${state.user.role==='admin'?'admin':'dashboard'}'; render();">→ رجوع</span>
     <h1 style="margin:0 0 4px;">التحليلات المالية</h1>
     ${analyticsTabsHtml('exec')}
     <div style="display:none;" class="print-header">
@@ -5952,7 +5951,6 @@ function renderAnalytics(app){
   }
 
   app.innerHTML = wrapWithAdminSidebar(`
-    <span class="back-link" onclick="state.view='dashboard'; render();">→ رجوع</span>
     <h1>التحليلات المالية</h1>
     ${analyticsTabsHtml('details')}
     <p class="sub">${scopedToOwnCenter ? 'إجمالي المصروف الفعلي لمركزك' : 'إجمالي المصروف الفعلي لكل المراكز والشركة'} (الطلبات المصروفة فقط)</p>
@@ -5993,7 +5991,6 @@ function renderAnalytics(app){
 function renderAccount(app){
   const me = state.users.find(u=>u.id===state.user.id);
   app.innerHTML = `
-    <span class="back-link" onclick="state.returnTo=null; state.view='dashboard'; render();">→ رجوع</span>
     <h1>حسابي — ${findRole(me.role).name}</h1>
     <p class="sub">${state.returnTo ? 'الرجاء رفع صورة التوقيع والختم أولاً لإكمال اعتماد الطلب.' : 'تحديث بياناتك الشخصية.'}</p>
     <div class="card flow">
@@ -6572,7 +6569,6 @@ function renderSigDesigner(app){
   }
 
   app.innerHTML = wrapWithAdminSidebar(`
-    <span class="back-link no-print" onclick="state.view='admin'; render();">→ رجوع</span>
     <h1>تصميم مواقع التوقيعات — ${SIG_DESIGNER_CONTEXTS[context].label}</h1>
     <p class="sub">حرّك المربعات واسحب زاويتها السفلى لتكبيرها/تصغيرها. التراكب مسموح. المقاس الفعلي: 20×${heightCm} سم.</p>
 
@@ -7121,7 +7117,6 @@ function renderCancelledArchive(app){
       </div>`;
   }).join('');
   app.innerHTML = wrapWithAdminSidebar(`
-    <span class="back-link no-print" onclick="state.view='admin'; render();">→ رجوع</span>
     <h1>أرشيف الطلبات الملغاة</h1>
     <p class="sub">${cancelled.length} طلب ملغى محفوظ بالأرشيف.</p>
     ${cancelled.length===0 ? `<div class="empty">لا توجد طلبات ملغاة حالياً</div>` : rows}
@@ -9645,7 +9640,7 @@ async function renderOrgTree(app){
   const treeHtml = `
     <div class="card" style="margin-bottom:16px;">
       ${treeRow({icon:'🏛', label:`<span class="org-editable" data-kind="org" data-id="${org?org.id:''}" onclick="event.stopPropagation();startInlineEdit(this)" style="cursor:pointer;text-decoration:underline dotted;">${escH(org?org.name:'المؤسسة')}</span>`,
-                 sub:(state._printingTree ? '' : 'اضغط السهم للطي/الفتح، واضغط أي اسم لتعديله'), toggleId:'org', dflt:true, indent:0, hasChildren:true})}
+                 sub:(state._printingTree ? '' : 'المؤسسة ← الشركات ← الإدارة أو المراكز ← الموظفون · السهم للطي والفتح، واضغط أي اسم لتعديله'), toggleId:'org', dflt:true, indent:0, hasChildren:true})}
       ${orgOpen ? `
         ${orgUnits.length ? orgUnits.map(c=>unitBlock(c,30,'📁')).join('') : ''}
         ${generalBlock}
@@ -9653,38 +9648,44 @@ async function renderOrgTree(app){
       ` : ''}
     </div>`;
 
-  app.innerHTML = wrapWithAdminSidebar(`
-    <div class="adm-subs adm-subs-solo no-print">
-      <button type="button" class="adm-sub ${treeViewMode()==='level'?'active':''}" onclick="setTreeView('level')" title="مسطّح: مرتّب بالمستوى الوظيفي ثم الاسم">حسب المستوى</button>
-      <button type="button" class="adm-sub ${treeViewMode()==='hier'?'active':''}" onclick="setTreeView('hier')" title="هرمي: كل شخص تحت مديره المباشر">هرمي حسب المدير</button>
+  const otab = state.orgTab || 'tree';
+  const nChecks = issues.reduce((n,x)=>n+x.issues.length,0);
+  const treePanel = `
+    <div class="no-print" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <div class="adm-subs adm-subs-inline" style="margin:0;">
+        <button type="button" class="adm-sub ${treeViewMode()==='level'?'active':''}" onclick="setTreeView('level')" title="مسطّح: مرتّب بالمستوى الوظيفي ثم الاسم">حسب المستوى</button>
+        <button type="button" class="adm-sub ${treeViewMode()==='hier'?'active':''}" onclick="setTreeView('hier')" title="هرمي: كل شخص تحت مديره المباشر">هرمي حسب المدير</button>
+      </div>
+      <button type="button" class="btn btn-ghost btn-md" style="margin-right:auto;" onclick="printOrgTree()" title="يطبع الشجرة كاملة">🖨 طباعة</button>
     </div>
-    <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span class="back-link" onclick="state.view='admin'; render();">→ رجوع</span>
-      <button type="button" class="btn btn-ghost btn-md" onclick="printOrgTree()">🖨 طباعة الشجرة كاملة</button>
-    </div>
-    <div class="org-tree-print-head">
-      <h1 style="margin:0 0 4px;">الهيكل التنظيمي</h1>
-      <div class="print-only" style="margin:0 0 2px;font-size:22px;font-weight:700;">الهيكل التنظيمي</div>
-      <div class="print-only sub" style="margin:0 0 6px;font-size:12px;">${escH(org?org.name:'')} — طُبعت بتاريخ ${escH(fmtDate())}</div>
-      <p class="sub" style="margin:0 0 14px;">شجرة قابلة للطي والفتح: المؤسسة ← الشركات ← إدارة الشركة أو المراكز/الإدارات ← الموظفون.</p>
-    </div>
-
+    <div class="org-tree-page">${treeHtml}</div>`;
+  const checkPanel = `
     <div class="card no-print" style="margin-bottom:16px;">
       <h2 style="margin:0 0 10px;font-size:15px;">فحص الهيكل</h2>
       ${issuesHtml}
-    </div>
-
+    </div>`;
+  const pathPanel = `
     <div class="card no-print" style="margin-bottom:16px;">
       <h2 style="margin:0 0 10px;font-size:15px;">معاينة مسار اعتماد طلب</h2>
-      <p class="sub" style="margin:0 0 10px;font-size:12px;">حسب حقلي "من يعتمد طلبه" و"من يعتمد ما اعتمده" لكل مستخدم، وهي نفس القاعدة التي يستخدمها محرك الاعتماد الفعلي للطلبات الجديدة.</p>
+      <p class="sub" style="margin:0 0 10px;font-size:12px;">حسب حقلي "من يعتمد طلبه" و"من يعتمد ما اعتمده" لكل مستخدم، وهي نفس القاعدة التي يستخدمها محرك الاعتماد.</p>
       <div class="row" style="align-items:flex-end;">
         <div><label>الموظف</label><select id="pathPreviewUser">${previewUserOptions}</select></div>
         <button type="button" class="btn btn-ghost btn-md" onclick="showPathPreview()">معاينة المسار</button>
       </div>
       <div id="pathPreviewResult" style="margin-top:10px;"></div>
+    </div>`;
+  app.innerHTML = wrapWithAdminSidebar(`
+    <div class="adm-subs adm-subs-solo no-print">
+      <button type="button" class="adm-sub ${otab==='tree'?'active':''}" onclick="state.orgTab='tree'; renderOrgTreeOnly();">🌳 الشجرة</button>
+      <button type="button" class="adm-sub ${otab==='check'?'active':''}" onclick="state.orgTab='check'; renderOrgTreeOnly();">🔍 فحص الهيكل${nChecks?' ('+nChecks+')':''}</button>
+      <button type="button" class="adm-sub ${otab==='path'?'active':''}" onclick="state.orgTab='path'; renderOrgTreeOnly();">🧭 معاينة مسار الاعتماد</button>
     </div>
-
-    <div class="org-tree-page">${treeHtml}</div>
+    <div class="org-tree-print-head">
+      <h1 style="margin:0 0 4px;">الهيكل التنظيمي</h1>
+      <div class="print-only" style="margin:0 0 2px;font-size:22px;font-weight:700;">الهيكل التنظيمي</div>
+      <div class="print-only sub" style="margin:0 0 6px;font-size:12px;">${escH(org?org.name:'')} — طُبعت بتاريخ ${escH(fmtDate())}</div>
+    </div>
+    ${otab==='check' ? checkPanel : otab==='path' ? pathPanel : treePanel}
   `);
   ensureBottomBar();
 }
@@ -10111,7 +10112,6 @@ function renderBarSettings(app){
       </div>`;
   }).join('');
   app.innerHTML = wrapWithAdminSidebar(`
-    <span class="back-link no-print" onclick="state.view='admin'; render();">→ رجوع</span>
     <h1 style="margin:0 0 4px;">إعدادات الشريط السفلي العام</h1>
     <p class="sub" style="margin:0 0 14px;">أزرار التنقل والاعتماد الأساسية (رجوع، معاينة، اعتماد/رفض، تسجيل التحويل...) ثابتة دائماً بالشريط ولا تظهر هنا، حماية لسير العمل الأساسي. هذي أزرار ثانوية فقط.</p>
     <div class="card">${rows}</div>
@@ -10139,7 +10139,6 @@ function renderJobLevels(app){
       </td>
     </tr>`).join('');
   app.innerHTML = wrapWithAdminSidebar(`
-    <span class="back-link no-print" onclick="state.view='admin'; render();">→ رجوع</span>
     <h1 style="margin:0 0 4px;">سلّم المستويات الوظيفية</h1>
     <p class="sub" style="margin:0 0 14px;">الأعلى بالجدول = أعلى مستوى. يُستخدم بالشجرة وفحص الهيكل ومعاينة المسار، ولا يغيّر محرك الاعتماد الفعلي.</p>
     <div class="filt-bar filt-wide" style="margin-bottom:14px;">
@@ -11053,7 +11052,7 @@ function renderDashboard(app){
             const paidEntry = r.history.find(h=>h.action==='تم الصرف');
             const paidTimeRaw = paidEntry ? toWesternDigits(paidEntry.time) : '';
             const paidParts = paidTimeRaw ? paidTimeRaw.split(' ') : [];
-            const paidDatePart = paidParts[0] || '';
+            const paidDatePart = (paidParts[0] || '').replace(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,(m,d,mo,y)=>d.padStart(2,'0')+'-'+mo.padStart(2,'0')+'-'+y);
             const paidTimePart = paidParts.slice(1).join(' ') || '';
             let createdTimePart = '';
             if(r.createdAtRaw){
@@ -11106,8 +11105,8 @@ function renderDashboard(app){
     ['completed','تم الصرف'],['rejected','مرفوض']
   ];
   const periodBar = `
-    <div class="filt-bar" style="justify-content:space-between;width:100%;">
-      <div class="filt-bar" style="flex:1;min-width:0;">
+    <div class="filt-bar filt-narrow no-print" style="--fbw:150px;justify-content:flex-start;width:100%;margin:6px 0 12px;">
+      <div class="filt-bar" style="flex:0 1 auto;min-width:0;--fbw:150px;">
         <div>
           <label>الفترة</label>
           <select onchange="state.dashPeriodMode=this.value; render();">
@@ -11137,6 +11136,7 @@ function renderDashboard(app){
           ${statusOptions.map(([v,l])=>`<option value="${v}" ${statusFilter===v?'selected':''}>${l}</option>`).join('')}
         </select>
       </div>
+      ${statusFilter!=='all' ? `<div style="flex:0 0 auto;"><button class="btn btn-ghost btn-sm" onclick="state.dashStatusFilter='all'; render();" title="يلغي ترشيح الحالة ويعرض كل الطلبات">إظهار الكل</button></div>` : ''}
     </div>
   `;
 
@@ -11150,18 +11150,13 @@ function renderDashboard(app){
   `;
 
   app.innerHTML = `
-    <h1 style="margin:0;">طلبات الصرف</h1>
+    <h1 style="margin:0;">${listTitle==='طلباتي' ? 'طلباتي' : 'طلبات الصرف'}</h1>
     <div class="title-with-badge">
       <p class="sub" style="margin:0;">${findRole(role).name} — ${findRole(role).desc}</p>
       ${pendingBadge}
     </div>
-    ${periodBar}
     ${statCards}
-    ${(canSeeExec() && role!=='admin') ? `<div class="actions-row" style="margin:20px 0;"><button type="button" class="btn btn-ghost btn-lg" onclick="openExecDashboard()">📊 اللوحة التنفيذية</button></div>` : '<div style="height:14px;"></div>'}
-    <h2 style="margin-top:10px;display:flex;align-items:center;gap:10px;">
-      ${listTitle}
-      ${statusFilter!=='all' ? `<button class="btn btn-ghost btn-sm" onclick="state.dashStatusFilter='all'; render();">إظهار الكل</button>` : ''}
-    </h2>
+    ${periodBar}
     ${listHtml}
   `;
 }
