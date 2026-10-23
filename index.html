@@ -1041,6 +1041,22 @@
     .org-tree-page .tree-row, .org-tree-page div[style*="padding-right"]{page-break-inside:avoid;white-space:normal !important;}
     .org-tree-page span[title]::after{content:none;}
   }
+  @media(max-width:380px){ input,select,textarea{max-width:100% !important;} .row > *{--fw:100% !important;} }
+  @media(max-width:640px){
+    /* الجوال: لا شيء يوسّع الصفحة عن عرض الشاشة */
+    body{overflow-x:clip;}
+    .container,.shell-main,.card{max-width:100%;min-width:0;box-sizing:border-box;}
+    .row > *{max-width:100%;}
+    .field-with-icon{gap:10px;}
+    .field-with-icon > div:first-child{flex:0 0 64px !important;}
+    .field-with-icon > div:last-child{flex:1 1 0 !important;min-width:0;}
+    .list-item{flex-wrap:wrap;gap:10px;}
+    .list-item > *{min-width:0;max-width:100%;}
+    .list-item > div[style*="display:flex"]{flex-wrap:wrap;}
+    #qyamAssistant > *{left:12px !important;}
+    .brand-img-block > *{min-width:0;max-width:100%;}
+    input[type=file]{max-width:100% !important;width:100%;min-width:0;}
+  }
   @media(max-width:640px){
     .global-floating-bar{padding:0 12px;}
     .gfb-inner{padding-left:44px;}
@@ -10124,7 +10140,7 @@ function renderJobLevels(app){
     </div>
     <div class="card">
       ${levels.length ? `
-        <table class="exec-table"><thead><tr><th>#</th><th>الاسم</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+        <div style="overflow-x:auto;max-width:100%;"><table class="exec-table"><thead><tr><th>#</th><th>الاسم</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
       ` : `
         <p class="sub">لا يوجد سلّم مستويات لهذه الشركة بعد.</p>
         <button type="button" class="btn btn-ghost btn-md" onclick="seedDefaultLevels()">توليد السلّم الافتراضي</button>
