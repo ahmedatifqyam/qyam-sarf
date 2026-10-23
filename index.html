@@ -34,7 +34,7 @@
   .brand-name{font-weight:600;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;}
   .brand-sep{width:1px;height:34px;background:rgba(255,255,255,.22);flex:0 0 1px;}
   .brand-sub{color:#9FC2DB;font-weight:400;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;display:block;}
-  @media (max-width:1000px){ .brand-co-group .brand-sub{display:none;} .brand-sep{display:none;} }
+  @media (max-width:1000px){ .brand-co-group .brand-sub{font-size:13px;max-width:200px;} .brand-sep{display:none;} }
   .topbar-right{display:flex;align-items:center;gap:12px;flex-wrap:nowrap;flex:1;justify-content:flex-start;min-width:0;}
   .topbar-right .tb-tools{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0;}
   .imp-float{position:fixed;top:calc(var(--topbar-h,66px) + 8px);left:0;right:var(--nav-w,0px);z-index:65;justify-content:center;pointer-events:none;}
@@ -1125,7 +1125,10 @@
     .brand-slot.is-blank{display:none;}       /* دعوة رفع الشعار مكانها الحاسوب، لا شريط الهاتف */
     .brand-name{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .brand-sep{display:none;}
-    .brand-co-group{display:none;}            /* اسم الشركة يظهر في القائمة الجانبية */
+    .brand-co-group{display:flex;min-width:0;flex:0 1 auto;}   /* اسم الشركة يبقى ظاهراً ويُقتطع عند الضيق */
+    .brand-co-group .brand-slot{display:none;}
+    .brand-co-group .brand-sub{font-size:11.5px;max-width:34vw;}
+    .topbar:has(.tb-company) .brand-co-group{display:none;}   /* من عنده قائمة شركات يراها فيها */
     .tb-tools{flex:0 0 auto;gap:4px;min-width:0;}
     .tb-impersonate{display:none;}            /* أداة مراجعة، مكانها الحاسوب */
     .bell-btn{display:none;}                  /* الجرس انتقل إلى شريط التبويب السفلي */
@@ -5538,6 +5541,7 @@ function render(){
   if(state.filePreviewModal){ app.insertAdjacentHTML('beforeend', renderFilePreviewModal()); }
 
   applyPageWidth();
+  { const ar = document.getElementById('qyamAssistant'); if(ar) ar.style.display = canSeeAssistant() ? '' : 'none'; }
   if(canSeeAssistant()) mountAssistant();
   applyPageSections();
   renderMobileTabs();
@@ -5696,6 +5700,8 @@ function renderMobileTabs(){
   const open = document.body.classList.contains('nav-drawer-open');
   // RTL: أول زرّ في الكود يظهر أقصى اليمين — فالترتيب البصري يمين←يسار كما هو مكتوب هنا
   const items = [
+    {key:'menu',      ico:'☰',  label:'القائمة',  on:open,
+     act: open ? `closeNavDrawer();` : `openNavDrawer();`},
     {key:'dashboard', ico:'📋', label:'الطلبات',  on:['dashboard','detail'].includes(state.view) && !open,
      act:`closeNavDrawer(); state.view='dashboard'; render(); window.scrollTo(0,0);`},
     (state.user.role==='admin' && !state.impersonatingFromAdmin)
@@ -5705,8 +5711,6 @@ function renderMobileTabs(){
          act:`closeNavDrawer(); openNewRequestChoice();`},
     {key:'bell',      ico:'🔔', label:'الإشعارات', on:false, dot:badge,
      act:`closeNavDrawer(); toggleBell(event);`},
-    {key:'menu',      ico:'☰',  label:'القائمة',  on:open,
-     act: open ? `closeNavDrawer();` : `openNavDrawer();`}
   ];
   el.innerHTML = `<div class="mtab-in">${items.map(it=>`
     <button type="button" class="mtab-btn${it.on?' active':''}" onclick="${it.act}" aria-label="${escH(it.label)}">
