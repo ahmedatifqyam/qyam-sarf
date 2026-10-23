@@ -307,6 +307,19 @@
   .mini-add{flex:0 0 38px;width:38px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--blue);font-size:20px;font-weight:700;line-height:1;cursor:pointer;padding:0;font-family:inherit;}
   .mini-add:hover{background:var(--blue-bg);}
   .mini-add.mini-edit{font-size:15px;}
+  /* رأس الصفحات: العنوان في الشريط العلوي، واسم الشركة أبرز، وشريط التنقل ثابت، و«رجوع» يسارًا */
+  .tb-page{color:#E8C766;font-weight:700;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;}
+  .tb-page:empty{display:none;}
+  .tb-page::before{content:'‹';color:rgba(255,255,255,.5);margin-left:10px;}
+  .brand-co-group .brand-sub{font-size:17px;font-weight:700;color:#fff;}
+  .back-link{display:block;width:fit-content;margin-right:auto;margin-left:0;}
+  .adm-nav2,.adm-subs-solo{position:sticky;top:calc(var(--topbar-h,64px) - 1px);z-index:9;}
+  @media (min-width:641px){
+    h1[data-top]{display:none;}
+    .adm-head:has(h1[data-top]){display:none;}
+  }
+  @media (max-width:640px){ .tb-page{display:none;} }
+  @media print{ h1[data-top]{display:block !important;} .tb-page{display:none;} }
   .dash-filt{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:6px 0 12px;flex-wrap:nowrap;}
   .dash-filt-right,.dash-filt-left{display:flex;align-items:flex-end;gap:12px;flex-wrap:nowrap;min-width:0;}
   .dash-filt-right > div{width:150px;}
@@ -1728,7 +1741,20 @@ function renderBrand(){
   box.innerHTML = `
     <div class="brand-group">${slot(systemLogo(),'brand-logo','أضف شعار النظام')}<span class="brand-name" title="${escH(sysName)}">${escH(sysName)}</span></div>
     ${coText || coLogoSrc ? `<span class="brand-sep"></span>
-    <div class="brand-group brand-co-group">${slot(coLogoSrc,'brand-cologo','أضف شعار الشركة')}<span class="brand-sub" title="${escH(coText)}"><span>${escH(coText)}</span></span></div>` : ''}`;
+    <div class="brand-group brand-co-group">${slot(coLogoSrc,'brand-cologo','أضف شعار الشركة')}<span class="brand-sub" title="${escH(coText)}"><span>${escH(coText)}</span></span></div>` : ''}
+    <span class="tb-page" id="tbPage"></span>`;
+  syncPageTitle();
+}
+// عنوان الصفحة يصعد إلى الشريط العلوي (شاشات ≥ 641 بكسل)؛ والجوال يُبقيه في الصفحة
+function syncPageTitle(){
+  document.querySelectorAll('h1[data-top]').forEach(h=>h.removeAttribute('data-top'));
+  const tb = document.getElementById('tbPage'), app = document.getElementById('app');
+  if(!tb || !app) return;
+  if(!state.user || ['detail','printPreview','login'].includes(state.view)){ tb.textContent=''; return; }
+  const h = app.querySelector('.adm-head h1') || app.querySelector('h1');
+  if(!h){ tb.textContent=''; return; }
+  tb.textContent = h.textContent.replace(/\s+/g,' ').trim();
+  h.setAttribute('data-top','1');
 }
 function escH(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
@@ -5552,6 +5578,7 @@ function render(){
   if(state.filePreviewModal){ app.insertAdjacentHTML('beforeend', renderFilePreviewModal()); }
 
   attachQuickAdds();
+  syncPageTitle();
   applyPageWidth();
   { const ar = document.getElementById('qyamAssistant'); if(ar) ar.style.display = canSeeAssistant() ? '' : 'none'; }
   if(canSeeAssistant()) mountAssistant();
@@ -8088,7 +8115,7 @@ const REC_PRESETS = {
 
 // ── إضافة سريعة بجوار القوائم المنسدلة (زر «+» صغير) ──
 // البند: يصحّ لكل من يستعمل الحقل (القاعدة تسمح لأي عضو في الشركة). التصنيف والوحدة ونوعها: مدير النظام فقط لأن القاعدة تمنع غيره
-function canQuickAdd(kind){ return !!state.user && (kind==='item' || state.user.role==='admin'); }
+function canQuickAdd(kind){ return !!state.user; }
 function quickAddBtn(act, tip, extra, kind){ return canQuickAdd(kind||'admin') ? `<button type="button" class="mini-add" tabindex="-1" onclick="${act}" title="${escH(tip)}">+</button>${extra||''}` : (extra||''); }
 function recCustomCats(){ try{ const j = JSON.parse((state.appSettings && state.appSettings.rec_categories) || 'null'); return {out:(j&&j.out)||[], in:(j&&j.in)||[]}; }catch(e){ return {out:[], in:[]}; } }
 function recAllCats(dir){ return [...new Set([...(REC_PRESETS[dir]||[]), ...(recCustomCats()[dir]||[])])]; }
