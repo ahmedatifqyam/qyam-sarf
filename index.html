@@ -251,6 +251,8 @@
   textarea{resize:vertical;min-height:70px;--fw:780px;}
   /* حسب النوع */
   input[type=number]{--fw:180px;}
+  .row > *:has(> #accIdle), .row > *:has(> #idlecap_default), .row > *:has(> [data-idlecap]){--fw:280px;}
+  input#accIdle, input#idlecap_default, input[data-idlecap]{--fw:280px;}
   input[type=date]{--fw:180px;}
   /* ١ عمود — نسبة · عدّاد · مقاس */
   #nbiPct, #ebiPct, #pfFontSize, #pfOffset, #accSignWidth,
@@ -3559,7 +3561,26 @@ async function logout(){ try{ await db.auth.signOut(); }catch(e){} clearSession(
 
 // ───────── إغلاق الدخول تلقائياً عند عدم النشاط ─────────
 // ٣٠ دقيقة بلا نقر أو كتابة أو تمرير؛ تنبيه قبل الإغلاق بدقيقة؛ وآخر نشاط مشترك بين كل التبويبات.
-const IDLE_LOGOUT_MS = 30*60*1000, IDLE_WARN_MS = 60*1000;
+const IDLE_DEFAULT_MIN = 30, IDLE_MIN_MIN = 5, IDLE_DEFAULT_CAP = 60, IDLE_WARN_MS = 60*1000;
+// السقف: أطول مهلة يسمح بها المدير لكل دور (التخزين: app_settings.idle_caps) — وإن لم يُحدَّد فالسقف الافتراضي ٦٠ دقيقة
+function idleCaps(){ try{ return JSON.parse((state.appSettings && state.appSettings.idle_caps) || '{}') || {}; }catch(e){ return {}; } }
+function idleCapFor(role){
+  const c = idleCaps(); let v = Number(c[role]); if(!(v>0)) v = Number(c.default); if(!(v>0)) v = IDLE_DEFAULT_CAP;
+  return Math.max(IDLE_MIN_MIN, v);
+}
+function idleLimitMin(){
+  const cap = idleCapFor(state.user ? state.user.role : '');
+  const mine = Number(state.myIdleMin) > 0 ? Number(state.myIdleMin) : IDLE_DEFAULT_MIN;
+  return Math.min(Math.max(mine, IDLE_MIN_MIN), cap);
+}
+async function loadMyIdle(){
+  if(!state.user) return;
+  state.myIdleMin = null;
+  try{
+    const r = await db.from('users').select('idle_minutes').eq('id', state.user.id).maybeSingle();
+    if(!r.error && r.data && r.data.idle_minutes) state.myIdleMin = r.data.idle_minutes;
+  }catch(e){}
+}
 const IDLE_KEY = 'qayam_last_act', IDLE_OUT_KEY = 'qayam_idle_logout';
 let _idleLocal = Date.now(), _idleWrite = 0;
 function idleLastAct(){ let t = _idleLocal; try{ t = Math.max(t, Number(localStorage.getItem(IDLE_KEY))||0); }catch(e){} return t; }
@@ -3580,11 +3601,13 @@ async function idleLogout(){
 window.addEventListener('storage', e=>{ if(e.key===IDLE_OUT_KEY && state.user && state.view!=='login'){ try{ saveDraftToStorage(); }catch(x){} logout(); } });
 setInterval(()=>{
   if(!state.user || state.view==='login') return;
+  if(state._idleFor !== state.user.id){ state._idleFor = state.user.id; loadMyIdle(); }
+  const LIM = idleLimitMin()*60000;
   const idle = Date.now() - idleLastAct();
-  if(idle >= IDLE_LOGOUT_MS){ idleLogout(); return; }
-  if(idle >= IDLE_LOGOUT_MS - IDLE_WARN_MS){
+  if(idle >= LIM){ idleLogout(); return; }
+  if(idle >= LIM - Math.min(IDLE_WARN_MS, LIM/2)){
     let w = document.getElementById('idleWarn');
-    const left = Math.max(1, Math.ceil((IDLE_LOGOUT_MS - idle)/1000));
+    const left = Math.max(1, Math.ceil((LIM - idle)/1000));
     if(!w){
       w = document.createElement('div'); w.id='idleWarn'; w.className='no-print'; w.dataset.keep='1';
       w.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(15,25,35,.55);display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl;';
@@ -5170,6 +5193,19 @@ async function saveAccount(){
 
   const updResult = await db.from('users').update(updates).eq('id', me.id);
   if(!(await dbCheck(updResult, 'حفظ بيانات الحساب'))) return;
+  // مهلة إغلاق الدخول (عمود منفصل: إن لم يُشغَّل ملف SQL ٧ بعد لا يفشل حفظ بقية البيانات)
+  const idleEl = document.getElementById('accIdle');
+  if(idleEl){
+    let v = parseInt(idleEl.value, 10); if(!(v>0)) v = null;
+    const cap = idleCapFor(state.user.role);
+    if(v!==null && v<IDLE_MIN_MIN){ v = IDLE_MIN_MIN; showToast('الحد الأدنى لمهلة الإغلاق '+IDLE_MIN_MIN+' دقائق','error'); }
+    if(v!==null && v>cap){ v = cap; showToast('أقصى مهلة مسموحة لدورك '+cap+' دقيقة، فضُبطت عليها','error'); }
+    if((v||null) !== (state.myIdleMin||null)){
+      const ir = await db.from('users').update({idle_minutes: v}).eq('id', me.id);
+      if(ir.error) showToast('تعذّر حفظ مهلة الإغلاق — يلزم تشغيل ملف SQL ٧ أولاً','error');
+      else { state.myIdleMin = v; idleStay(); }
+    }
+  }
 
   // تغيير كلمة المرور يمرّ عبر Supabase Auth لا عبر الجدول
   if(newPass){
@@ -6354,8 +6390,6 @@ function renderAccount(app){
       <div class="row">
         <div><label>البريد الإلكتروني</label>
           <input id="accEmail" type="email" value="${escH(me.email||'')}" placeholder="example@qyamkw.com"></div>
-        <div><label>كلمة مرور جديدة (اتركها فارغة لعدم التغيير)</label>
-          <input id="accPass" type="password" placeholder="••••••••"></div>
       </div>
     </div>
 
@@ -6428,8 +6462,47 @@ function renderAccount(app){
       </div>
     </div>
     ${pageWidthFieldHtml()}
+    <div class="card">
+      <h2 style="margin:0 0 4px;font-size:15px;">الأمان</h2>
+      <p class="file-hint" style="margin:0 0 6px;">كلمة المرور ومهلة إغلاق الدخول وإنهاء الجلسات. يُحفظ ما تغيّره هنا بزر «حفظ» أسفل الصفحة.</p>
+      <div class="row">
+        <div><label>كلمة مرور جديدة (اتركها فارغة لعدم التغيير)</label>
+          <input id="accPass" type="password" placeholder="••••••••" oninput="passStrengthHint(this)" autocomplete="new-password">
+          <div id="passStrength" class="file-hint" style="min-height:18px;"></div></div>
+        <div><label>إغلاق الدخول تلقائياً بعد (دقيقة)</label>
+          <input id="accIdle" type="number" min="${IDLE_MIN_MIN}" max="${idleCapFor(me.role)}" step="1" inputmode="numeric" dir="ltr" value="${state.myIdleMin||''}" placeholder="${IDLE_DEFAULT_MIN}">
+          <div class="file-hint">أقصى مدة مسموحة لدورك: <b>${idleCapFor(me.role)}</b> دقيقة (حددها مدير النظام)، والأدنى ${IDLE_MIN_MIN}. إن تركته فارغاً فالمدة ${IDLE_DEFAULT_MIN} دقيقة.</div></div>
+      </div>
+      <div class="row" style="margin-top:16px;">
+        <div style="--fw:280px;"><label>جلستك الحالية</label><div id="accSessInfo" class="file-hint">…</div></div>
+        <div style="--fw:280px;"><label>الأجهزة</label>
+          <button type="button" class="btn btn-ghost btn-md" onclick="logoutAllDevices()" title="يُنهي دخولك في كل الأجهزة والمتصفحات، ويلزم إعادة الدخول">إنهاء كل الجلسات</button></div>
+      </div>
+    </div>
   `;
   setupSignatureCanvas();
+  try{
+    db.auth.getSession().then(r=>{
+      const el = document.getElementById('accSessInfo'); const u = r && r.data && r.data.session && r.data.session.user;
+      if(el && u && u.last_sign_in_at) el.textContent = 'بدأت بتاريخ ' + new Date(u.last_sign_in_at).toLocaleString('ar-KW', {dateStyle:'medium', timeStyle:'short'});
+      else if(el) el.textContent = 'غير متاح';
+    });
+  }catch(e){}
+}
+function passStrengthHint(el){
+  const v = el.value, box = document.getElementById('passStrength'); if(!box) return;
+  if(!v){ box.textContent=''; return; }
+  let sc = 0; if(v.length>=8) sc++; if(v.length>=12) sc++; if(/[a-z]/.test(v)&&/[A-Z]/.test(v)) sc++; if(/\d/.test(v)) sc++; if(/[^A-Za-z0-9]/.test(v)) sc++;
+  const lab = v.length<6 ? ['ضعيفة جداً — أقل من ٦ خانات','#b91c1c'] : sc<=1 ? ['ضعيفة — يُنصح بـ٨ خانات فأكثر مع أرقام وحروف','#b45309'] : sc<=3 ? ['مقبولة','#8a6d00'] : ['قوية','#15803d'];
+  box.textContent = 'قوة كلمة المرور: ' + lab[0]; box.style.color = lab[1];
+}
+async function logoutAllDevices(){
+  const a = await askModal({title:'إنهاء الدخول من كل الأجهزة', text:'سيُغلق دخولك في هذا الجهاز وكل الأجهزة والمتصفحات الأخرى، وتحتاج إعادة تسجيل الدخول.', confirm:'إنهاء الدخول'});
+  if(!a) return;
+  try{ await db.auth.signOut({scope:'global'}); }catch(e){}
+  try{ localStorage.setItem(IDLE_OUT_KEY, String(Date.now())); }catch(e){}
+  await logout();
+  showToast('أُنهي دخولك من كل الأجهزة.');
 }
 
 function toggleSignatureCanvas(){
@@ -10890,6 +10963,20 @@ function renderRolesPanel(){
     </div>
     <h2 style="margin-top:20px;">الأدوار الوظيفية (${state.customRoles.length})</h2>
     ${jobRows}
+    <div class="card flow" style="margin-top:26px;">
+      <h2 style="margin:0 0 4px;font-size:15px;">مهلة إغلاق الدخول التلقائي (السقف لكل دور)</h2>
+      <p class="file-hint" style="margin:0 0 6px;">أطول مدة بلا نشاط يستطيع صاحب الدور أن يضبطها لنفسه من «حسابي ← الأمان» (من ${IDLE_MIN_MIN} إلى ١٤٤٠ دقيقة). اترك الحقل فارغاً ليأخذ السقف الافتراضي أدناه. مثال: اجعل من يعتمد الصرف ٣٠ دقيقة.</p>
+      <div class="row">
+        <div style="--fw:280px;"><label>السقف الافتراضي لكل الأدوار</label>
+          <input id="idlecap_default" type="number" min="${IDLE_MIN_MIN}" max="1440" dir="ltr" value="${Number(idleCaps().default)||''}" placeholder="${IDLE_DEFAULT_CAP}"></div>
+      </div>
+      <div class="row">
+        ${[...ROLES.map(r=>({id:r.id, name:findRole(r.id).name})), ...state.customRoles.map(r=>({id:r.id, name:r.name}))].map(r=>`
+        <div style="--fw:280px;"><label>${escH(r.name)}</label>
+          <input id="idlecap_${escH(r.id)}" data-idlecap="${escH(r.id)}" type="number" min="${IDLE_MIN_MIN}" max="1440" dir="ltr" value="${Number(idleCaps()[r.id])||''}" placeholder="الافتراضي"></div>`).join('')}
+      </div>
+      <div class="actions-row" data-bar-actions><button class="btn btn-primary btn-md" onclick="saveIdleCaps()">حفظ المهل</button></div>
+    </div>
     <h2 style="margin-top:26px;">الأدوار النظامية</h2>
     <p class="file-hint">يمكنك تعديل أسمائها (مثل «المدير العام»)، أما صلاحيات المحاسب والمدير المالي ومدير النظام فمرتبطة بمحرك الصرف ولا تُغيَّر هنا.</p>
     ${fixedRows}`;
@@ -10917,6 +11004,18 @@ async function saveJobRole(id){
   if(!(await dbCheck(result, 'حفظ الدور'))) return;
   r.name = name; r.defaultLevelName = lv; r.generalDefault = gen;
   showToast('تم حفظ الدور','success'); render();
+}
+async function saveIdleCaps(){
+  const caps = {};
+  const d = document.getElementById('idlecap_default'); if(d && d.value.trim()) caps.default = parseInt(d.value,10);
+  document.querySelectorAll('[data-idlecap]').forEach(el=>{ if(el.value.trim()) caps[el.dataset.idlecap] = parseInt(el.value,10); });
+  for(const k of Object.keys(caps)){
+    if(!(caps[k]>=IDLE_MIN_MIN && caps[k]<=1440)){ showToast('كل مهلة تكون بين '+IDLE_MIN_MIN+' و١٤٤٠ دقيقة','error'); return; }
+  }
+  const r = await db.from('app_settings').upsert({key:'idle_caps', value:JSON.stringify(caps)});
+  if(!(await dbCheck(r, 'حفظ مهل الإغلاق'))) return;
+  state.appSettings = state.appSettings||{}; state.appSettings.idle_caps = JSON.stringify(caps);
+  showToast('حُفظت مهل الإغلاق التلقائي','success'); render();
 }
 async function saveFixedRoleName(id){
   const name = (document.getElementById('fr_name_'+id).value||'').trim();
