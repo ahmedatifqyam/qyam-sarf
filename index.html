@@ -310,6 +310,9 @@
   /* رأس الصفحات: العنوان في الشريط العلوي، واسم الشركة أبرز، وشريط التنقل ثابت، و«رجوع» يسارًا */
   .tb-page{color:#E8C766;font-weight:700;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;}
   .tb-page:empty{display:none;}
+  .combo-panel{position:fixed;z-index:400;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.18);overflow-y:auto;padding:4px;}
+  .combo-opt{padding:9px 12px;border-radius:6px;font-size:14px;cursor:pointer;}
+  .combo-opt:hover,.combo-opt:active{background:var(--blue-bg);}
   .adm-nav2 + .page-intro,.adm-subs-solo + .page-intro{margin-top:-4px;}
   .page-intro{margin:12px 0 14px;font-size:13.5px;color:var(--muted);}
   .tb-page::before{content:'›';color:rgba(255,255,255,.5);margin-left:10px;}
@@ -1362,7 +1365,7 @@ async function checkDeadlines(){
       if(r && r.error) continue;   // سبقنا جهاز آخر أو تعذّر الحفظ
       req.approvalSteps.push({id:row.id, approverId:row.approver_id, sequenceOrder:row.sequence_order, roleLabel:row.role_label, status:'pending', actedAt:null, note:'', kind:'escalation', escalatedFrom:a.id, activatedAt:row.activated_at});
       req.approvalSteps.sort((x,y)=>x.sequenceOrder-y.sequenceOrder);
-      await pushHistory(req, {step:'pending_decision', actor:'النظام', userId:null, action:'إحالة تلقائية', note:`لتأخر ${a.name} أكثر من ${days} ${mode==='calendar'?'أيام':'أيام عمل'}؛ أُحيل الاعتماد أيضاً إلى ${tgt.user.name}`, time: fmtDate()});
+      await pushHistory(req, {step:'pending_decision', actor:'النظام', userId:null, action:'إحالة تلقائية', note:`لتأخر ${escH(a.name)} أكثر من ${days} ${mode==='calendar'?'أيام':'أيام عمل'}؛ أُحيل الاعتماد أيضاً إلى ${escH(tgt.user.name)}`, time: fmtDate()});
       n++;
     }
   } catch(e){ console.error('checkDeadlines', e); }
@@ -1817,6 +1820,10 @@ function syncPageTitle(){
     else if(first && first.previousElementSibling!==intro) first.before(intro);
   }
 }
+// وسيط آمن لنصٍّ يدخل داخل onclick: سلسلة JSON مهرَّبة لـ HTML
+function jsq(v){ return escH(JSON.stringify(String(v==null?'':v))); }
+// روابط المرفقات: صور وPDF بصيغة data فقط
+function safeDataUrl(u){ u=String(u||''); return /^data:(image\/(png|jpe?g|webp|gif)|application\/pdf);base64,[A-Za-z0-9+\/=]+$/.test(u) ? u : ''; }
 function escH(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // ─── تنسيق المبالغ: الجزء الصحيح عادي، الكسر (فلس) بخط أصغر ───
@@ -2000,7 +2007,7 @@ function renderBellPanel(){
     <div class="bell-item${i.isNew?' new':''}" onclick="openNotifItem('${i.reqId}','${i.kind}')">
       <span class="bell-ico">${icon[i.kind]}</span>
       <div style="flex:1;min-width:0;">
-        <div class="bell-title">${i.title}${i.overdue ? ' <span class="bell-late">⏰ متأخر</span>' : ''}</div>
+        <div class="bell-title">${escH(i.title)}${i.overdue ? ' <span class="bell-late">⏰ متأخر</span>' : ''}</div>
         <div class="bell-sub">${i.kind==='structure' ? highlightIssueText(i.sub) : escH(i.sub)}</div>
       </div>
       <span class="bell-time">${agoText(i.ts)}</span>
@@ -2219,7 +2226,7 @@ function execBodyHtml(){
     </div>` : '';
   const maxCount = Math.max.apply(null, d.stages.map(x=>x.count).concat([1]));
   const pipeline = d.stages.map(x=>`
-    <div class="pipe-row"><span class="pipe-lbl">${x.label}</span>
+    <div class="pipe-row"><span class="pipe-lbl">${escH(x.label)}</span>
       <div class="pipe-bar"><div class="${x.avg>OVERDUE_DAYS?'late':''}" style="width:${Math.round(x.count/maxCount*100)}%;"></div></div>
       <b style="width:28px;text-align:center;">${x.count}</b>
       <span class="pipe-age">${x.count ? 'متوسط الانتظار '+x.avg.toFixed(1)+' يوم' : '—'}</span></div>`).join('');
@@ -3276,15 +3283,15 @@ function renderTopbar(){
   const impersonateSwitcher = (state.user.role==='admin' && !state.impersonatingFromAdmin)
     ? `<select class="tb-impersonate" onchange="if(this.value) impersonateUser(this.value);" style="border-radius:6px;padding:8px 10px;font-size:13px;border:1px solid #2E4356;background:#2E4356;color:#fff;max-width:180px;">
         <option value="">👁 عرض كمستخدم...</option>
-        ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${u.name} — ${findRole(u.role).name}</option>`).join('')}
+        ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('')}
       </select>`
     : '';
   const searchResultsHtml = (state.searchResults && state.searchResults.length>0) ? `
     <div class="search-results">
       ${state.searchResults.map(r=>`
         <div class="search-result-item" onclick="openSearchResult('${r.id}')">
-          <span style="font-weight:700;">${r.number}</span>
-          <span style="color:var(--muted);font-size:12px;">${r.reason||''}</span>
+          <span style="font-weight:700;">${escH(r.number)}</span>
+          <span style="color:var(--muted);font-size:12px;">${escH(r.reason||'')}</span>
         </div>
       `).join('')}
     </div>` : '';
@@ -3605,7 +3612,7 @@ function renderDuplicateList(app){
     ${list.length===0 ? `<div class="empty">لا توجد طلبات ${mode==='recurring' ? 'متكررة معلّمة' : 'مصروفة'} بعد</div>` : list.map(r=>`
       <div class="list-item" onclick="duplicateFromRequest('${r.id}')">
         <div class="li-main">
-          <b>${r.reason} — ${r.number}</b>
+          <b>${escH(r.reason)} — ${escH(r.number)}</b>
           <span>${r.beneficiaries.map(b=>b.name).join('، ')} · ${fmtKWDHtml(r.totalAmount)} د.ك</span>
         </div>
         ${r.isRecurring ? `<span class="badge badge-approved">متكرر</span>` : ''}
@@ -3643,7 +3650,7 @@ async function setRequestStatus(req, newStatus){
 function deleteRequest(id){
   const req = state.requests.find(r=>r.id===id);
   if(!req || !isEditable(req)) return;
-  requestDeleteConfirm(`إبطال الطلب رقم ${req.number}؟ سيبقى محفوظاً بالأرشيف ويمكن استرجاعه لاحقاً.`, 'cancel_request', id);
+  requestDeleteConfirm(`إبطال الطلب رقم ${escH(req.number)}؟ سيبقى محفوظاً بالأرشيف ويمكن استرجاعه لاحقاً.`, 'cancel_request', id);
 }
 async function executeCancelRequest(id){
   const updates = {is_cancelled:true, cancelled_at:new Date().toISOString(), cancelled_by_id: state.user.id};
@@ -4671,7 +4678,7 @@ async function markDisbursed(req){
       amount: req.totalAmount,
       budgetItemId: req.budgetItemId,
       beneficiary: who,
-      description: `صرف الطلب ${req.number || ''} — ${req.reason}`.trim(),
+      description: `صرف الطلب ${req.number || ''} — ${escH(req.reason)}`.trim(),
       sourceType: 'request',
       sourceId: req.id
     });
@@ -4812,14 +4819,14 @@ function renderFilePreviewModal(){
     <div class="modal-overlay no-print" onclick="if(event.target===this) closeFilePreviewModal();">
       <div class="modal-box file-preview-box">
         <div class="file-preview-header">
-          <span>${m.fileName}</span>
+          <span>${escH(m.fileName)}</span>
           <div style="display:flex;gap:10px;">
-            <a class="btn btn-ghost btn-xs" href="${m.dataUrl}" download="${m.fileName}">تحميل</a>
+            <a class="btn btn-ghost btn-xs" href="${escH(safeDataUrl(m.dataUrl))}" download="${escH(m.fileName)}">تحميل</a>
             <button type="button" class="btn btn-ghost btn-xs" onclick="closeFilePreviewModal()">إغلاق</button>
           </div>
         </div>
         <div class="file-preview-body">
-          <img src="${m.dataUrl}" alt="${m.fileName}">
+          <img src="${escH(m.dataUrl)}" alt="${escH(m.fileName)}">
         </div>
       </div>
     </div>
@@ -4832,7 +4839,7 @@ function renderTransferFormModal(){
     <div class="modal-overlay" onclick="if(event.target===this){ state.transferFormReqId=null; render(); }">
       <div class="modal-box">
         <h2>تسجيل إثبات التحويل البنكي</h2>
-        <p class="sub">الطلب رقم ${req.number} — قبل المتابعة للاعتماد النهائي، الرجاء إدخال رقم/مرجع التحويل البنكي.</p>
+        <p class="sub">الطلب رقم ${escH(req.number)} — قبل المتابعة للاعتماد النهائي، الرجاء إدخال رقم/مرجع التحويل البنكي.</p>
         <label>رقم/مرجع التحويل</label>
         <input id="bankTransferRefInput" type="text" placeholder="مثال: TRF-2026-00123" autofocus>
         <div class="actions-row">
@@ -4850,7 +4857,7 @@ function renderManualSignModal(){
   return `
     <div class="modal-overlay" onclick="if(event.target===this){ state.manualSignReqId=null; render(); }">
       <div class="modal-box">
-        <h2>وقّع لاعتماد الطلب ${req.number}</h2>
+        <h2>وقّع لاعتماد الطلب ${escH(req.number)}</h2>
         <canvas id="manualSignCanvas" class="sign-canvas" width="320" height="140"></canvas>
         <div class="actions-row">
           <button type="button" class="btn btn-ghost btn-xs" onclick="clearManualSignCanvas()">مسح</button>
@@ -5075,7 +5082,7 @@ function renderDeleteConfirmModal(){
     <div class="modal-overlay" onclick="if(event.target===this) closeDeleteConfirm();">
       <div class="modal-box">
         <h2>تأكيد الحذف</h2>
-        <p class="sub" style="margin-bottom:14px;">${d.description}</p>
+        <p class="sub" style="margin-bottom:14px;">${escH(d.description)}</p>
         <label>أدخل كلمة مرور حسابك للتأكيد *</label>
         <input id="deleteConfirmPass" type="password" placeholder="••••••••" autofocus onkeydown="if(event.key==='Enter')confirmDeletePassword();">
         <div class="actions-row">
@@ -5093,7 +5100,7 @@ function renderRejectModal(){
   return `
     <div class="modal-overlay" onclick="if(event.target===this) closeRejectModal();">
       <div class="modal-box">
-        <h2>رفض الطلب ${req.number}</h2>
+        <h2>رفض الطلب ${escH(req.number)}</h2>
         <label>سبب الرفض *</label>
         <textarea id="modalRejectNote" placeholder="اكتب سبب الرفض هنا" autofocus></textarea>
         <div class="actions-row">
@@ -5222,7 +5229,7 @@ function renderRequestQRCode(req, extraClass){
       <a href="${verifyUrl}" target="_blank" rel="noopener" style="display:block;cursor:pointer;text-decoration:none;" title="انقر لفتح صفحة التحقق">
         <div class="request-qr-img">${svg}</div>
       </a>
-      <div class="request-qr-caption">انقر أو امسح للتحقق من بيانات السند<br>${req.number}</div>
+      <div class="request-qr-caption">انقر أو امسح للتحقق من بيانات السند<br>${escH(req.number)}</div>
     </div>`;
   }catch(e){
     console.error('تعذر عرض رمز QR', e);
@@ -5261,7 +5268,7 @@ function renderSignatureArea(req){
 
     let out = '';
     if(cfg.name && cfg.name.visible){
-      out += `<div style="position:absolute;left:${cfg.name.x*PX_TO_MM}mm;top:${cfg.name.y*PX_TO_MM}mm;width:${cfg.name.w*PX_TO_MM}mm;height:${cfg.name.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:${cfg.name.fontSize||14}px;" class="sign-name">${approveEntry.actor}</div>`;
+      out += `<div style="position:absolute;left:${cfg.name.x*PX_TO_MM}mm;top:${cfg.name.y*PX_TO_MM}mm;width:${cfg.name.w*PX_TO_MM}mm;height:${cfg.name.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:${cfg.name.fontSize||14}px;" class="sign-name">${escH(approveEntry.actor)}</div>`;
     }
     if(cfg.title && cfg.title.visible){
       out += `<div style="position:absolute;left:${cfg.title.x*PX_TO_MM}mm;top:${cfg.title.y*PX_TO_MM}mm;width:${cfg.title.w*PX_TO_MM}mm;height:${cfg.title.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:${cfg.title.fontSize||14}px;" class="sign-role-title">${escH(roleTitle)}</div>`;
@@ -5298,7 +5305,7 @@ function renderMiniSignatureRow(req){
 
     let out = '';
     if(cfg.name && cfg.name.visible){
-      out += `<div style="position:absolute;left:${cfg.name.x*PX_TO_MM}mm;top:${cfg.name.y*PX_TO_MM}mm;width:${cfg.name.w*PX_TO_MM}mm;height:${cfg.name.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:${cfg.name.fontSize||8}px;" class="sign-name">${approveEntry.actor}</div>`;
+      out += `<div style="position:absolute;left:${cfg.name.x*PX_TO_MM}mm;top:${cfg.name.y*PX_TO_MM}mm;width:${cfg.name.w*PX_TO_MM}mm;height:${cfg.name.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:${cfg.name.fontSize||8}px;" class="sign-name">${escH(approveEntry.actor)}</div>`;
     }
     if(cfg.title && cfg.title.visible){
       out += `<div style="position:absolute;left:${cfg.title.x*PX_TO_MM}mm;top:${cfg.title.y*PX_TO_MM}mm;width:${cfg.title.w*PX_TO_MM}mm;height:${cfg.title.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:${cfg.title.fontSize||7}px;" class="sign-role-title">${escH(roleTitle)}</div>`;
@@ -5358,8 +5365,8 @@ function buildBeneficiaryTable(b, i){
     <tr class="${altClass.trim()}">
       <td class="num" rowspan="${rowCount}">${i+1}</td>
       <td rowspan="${rowCount}">
-        <div class="cell-right">${b.name}</div>
-        ${b.nameEn ? `<div class="cell-left">${b.nameEn}</div>` : ''}
+        <div class="cell-right">${escH(b.name)}</div>
+        ${b.nameEn ? `<div class="cell-left">${escH(b.nameEn)}</div>` : ''}
       </td>
       <td rowspan="${rowCount}">
         <div class="cell-right">${b.statement || '—'}</div>
@@ -5486,9 +5493,9 @@ function renderLetterPages(req){
       <p class="doc-greeting" style="margin:0;padding-right:0;">تحية طيبة وبعد،...</p>
       <span class="doc-red" style="font-size:14px;font-weight:600;text-decoration:underline;">رقم الطلب: ${req.number || '— قيد المراجعة —'}</span>
     </div>
-    <div class="doc-subject-bar" style="margin-top:4px;">طلب صرف – <span>${req.reason}</span></div>
+    <div class="doc-subject-bar" style="margin-top:4px;">طلب صرف – <span>${escH(req.reason)}</span></div>
     <div style="margin-top:4px;font-size:13px;">بند الصرف: <b>${requestBudgetName(req) ? escH(requestBudgetName(req)) : 'غير محدد'}</b></div>
-    <p class="doc-body-text" style="margin-top:4px;">بالإشارة إلى الموضوع أعلاه، ${referenceText} <span class="doc-red">${req.detailedReason || req.reason}</span> وفق الجدول الآتي:</p>`;
+    <p class="doc-body-text" style="margin-top:4px;">بالإشارة إلى الموضوع أعلاه، ${referenceText} <span class="doc-red">${escH(req.detailedReason || req.reason)}</span> وفق الجدول الآتي:</p>`;
 
   const footer = `
     <div class="app-total-box">
@@ -5580,8 +5587,8 @@ function renderPrintPreview(app){
     <div class="doc-page attachment-page attachment-flow-page">
       ${chunk.map(a=>`
         <div class="attachment-flow-block">
-          <div class="attachment-title">مرفقات المستفيد: ${a.name}</div>
-          <img src="${a.img}" style="width:${a.wMM.toFixed(1)}mm;height:${a.hMM.toFixed(1)}mm;cursor:zoom-in;" onclick="openFilePreviewModal('${a.img}', 'مرفق ${a.name}')">
+          <div class="attachment-title">مرفقات المستفيد: ${escH(a.name)}</div>
+          <img src="${escH(safeDataUrl(a.img))}" style="width:${a.wMM.toFixed(1)}mm;height:${a.hMM.toFixed(1)}mm;cursor:zoom-in;" onclick="openFilePreviewModal(${jsq(a.img)}, ${jsq('مرفق '+a.name)})">
         </div>
       `).join('')}
       ${footerHtml(footerSpec, i+1, attachmentChunks.length, 'مرفقات — ')}
@@ -5977,7 +5984,7 @@ function exportAnalyticsCSV(){
   const meta = state._analyticsMeta || {};
   let csv = '\uFEFF';
   csv += 'الجهة,عدد الطلبات المصروفة,إجمالي المصروف (د.ك)\n';
-  rows.forEach(r=>{ csv += `"${r.name}",${r.count},${r.total}\n`; });
+  rows.forEach(r=>{ csv += `"${escH(r.name)}",${r.count},${r.total}\n`; });
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -6055,7 +6062,7 @@ function renderAnalytics(app){
         const monthlyHtml = selMonth==='all'
           ? (c.monthlyBudget!=null ? '<div class="sub" style="font-size:12px;margin-bottom:10px;">الميزانية الشهرية: اختر شهراً من الأعلى لعرضها.</div>' : '')
           : budgetBarHtml('الميزانية الشهرية (' + monthName + ' ' + yr + ')', c.monthlyBudget, centerConsumed(c.id, yr, Number(selMonth)-1));
-        return `<div style="padding:12px 0;border-top:1px solid var(--line);"><b style="display:block;margin-bottom:8px;">${c.name}</b>${monthlyHtml}${annualHtml}</div>`;
+        return `<div style="padding:12px 0;border-top:1px solid var(--line);"><b style="display:block;margin-bottom:8px;">${escH(c.name)}</b>${monthlyHtml}${annualHtml}</div>`;
       }).join('');
       budgetCardHtml = `
         <div class="card" style="margin-top:20px;">
@@ -6087,7 +6094,7 @@ function renderAnalytics(app){
       <table class="amount-table">
         <thead><tr><th>الجهة</th><th>عدد الطلبات المصروفة</th><th>إجمالي المصروف (د.ك)</th></tr></thead>
         <tbody>
-          ${rows.map(b=>`<tr><td>${b.name}</td><td>${b.count}</td><td class="num">${fmtKWDHtml(b.total)}</td></tr>`).join('')}
+          ${rows.map(b=>`<tr><td>${escH(b.name)}</td><td>${b.count}</td><td class="num">${fmtKWDHtml(b.total)}</td></tr>`).join('')}
         </tbody>
       </table>
       <div class="amount-box" style="margin-top:14px;">
@@ -6107,7 +6114,7 @@ function renderAnalytics(app){
 function renderAccount(app){
   const me = state.users.find(u=>u.id===state.user.id);
   app.innerHTML = `
-    <h1>حسابي — ${findRole(me.role).name}</h1>
+    <h1>حسابي — ${escH(findRole(me.role).name)}</h1>
     <p class="sub">${state.returnTo ? 'الرجاء رفع صورة التوقيع والختم أولاً لإكمال اعتماد الطلب.' : 'تحديث بياناتك الشخصية.'}</p>
     <div class="card flow">
       <h2 style="margin:0 0 4px;font-size:15px;">بياناتي</h2>
@@ -6119,13 +6126,13 @@ function renderAccount(app){
       </div>
       <div class="row">
         <div><label>الاسم (يظهر على المستندات والتوقيعات)</label>
-          <input id="accName" type="text" value="${me.name}"></div>
+          <input id="accName" type="text" value="${escH(me.name)}"></div>
         <div style="--fw:280px;"><label>رقم الهاتف</label>
-          <input type="text" value="${me.phone}" disabled style="background:#F0EEE7;"></div>
+          <input type="text" value="${escH(me.phone)}" disabled style="background:#F0EEE7;"></div>
       </div>
       <div class="row">
         <div><label>البريد الإلكتروني</label>
-          <input id="accEmail" type="email" value="${me.email||''}" placeholder="example@qyamkw.com"></div>
+          <input id="accEmail" type="email" value="${escH(me.email||'')}" placeholder="example@qyamkw.com"></div>
         <div><label>كلمة مرور جديدة (اتركها فارغة لعدم التغيير)</label>
           <input id="accPass" type="password" placeholder="••••••••"></div>
       </div>
@@ -6136,13 +6143,13 @@ function renderAccount(app){
       <p class="file-hint" style="margin:0 0 6px;">تُستخدم تلقائياً عند طلبات مثل الراتب، فلا تُعيد كتابتها في كل طلب.</p>
       <div class="row">
         <div><label>الاسم بالإنجليزية</label>
-          <input id="accNameEn" type="text" value="${me.nameEn||''}" placeholder="Name in English"></div>
+          <input id="accNameEn" type="text" value="${escH(me.nameEn||'')}" placeholder="Name in English"></div>
         <div><label>رقم الآيبان (IBAN)</label>
-          <input id="accIban" type="text" value="${me.iban||''}" placeholder="KW00 XXXX XXXX XXXX"></div>
+          <input id="accIban" type="text" value="${escH(me.iban||'')}" placeholder="KW00 XXXX XXXX XXXX"></div>
       </div>
       <div class="row">
         <div><label>الرقم المدني (اختياري)</label>
-          <input id="accCivilId" type="text" value="${me.civilId||''}" placeholder="رقمك المدني"></div>
+          <input id="accCivilId" type="text" value="${escH(me.civilId||'')}" placeholder="رقمك المدني"></div>
         <div></div>
       </div>
       <div class="row">
@@ -6685,7 +6692,7 @@ function renderSigDesigner(app){
   }
 
   app.innerHTML = wrapWithAdminSidebar(`
-    <h1>تصميم مواقع التوقيعات — ${SIG_DESIGNER_CONTEXTS[context].label}</h1>
+    <h1>تصميم مواقع التوقيعات — ${escH(SIG_DESIGNER_CONTEXTS[context].label)}</h1>
     <p class="sub">حرّك المربعات واسحب زاويتها السفلى لتكبيرها/تصغيرها. التراكب مسموح. المقاس الفعلي: 20×${heightCm} سم.</p>
 
     <div class="card" style="margin-bottom:14px;">
@@ -7085,15 +7092,15 @@ function askModal(opts){
         : x.type==='select'
         ? `<select id="ask_${x.id}">${(x.options||[]).map(([v,l])=>`<option value="${escH(v)}"${String(x.value)===String(v)?' selected':''}>${escH(l)}</option>`).join('')}</select>`
         : `<input id="ask_${x.id}" type="${x.type||'text'}" ${x.type==='number'?'step="0.001" min="0" dir="ltr"':''} value="${escH(x.value==null?'':x.value)}" autocomplete="${x.type==='password'?'new-password':'off'}">`;
-      return `<label>${x.label}</label>${ctl}${hint}`;
+      return `<label>${escH(x.label)}</label>${ctl}${hint}`;
     }).join('');
     const wrap = document.createElement('div');
     wrap.id = 'askModalRoot';
     wrap.innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) askModalDone(false);">
         <div class="modal-box">
-          <h2>${opts.title||''}</h2>
-          ${opts.text ? `<p class="sub" style="margin-bottom:12px;">${opts.text}</p>` : ''}
+          <h2>${escH(opts.title||'')}</h2>
+          ${opts.text ? `<p class="sub" style="margin-bottom:12px;">${escH(opts.text)}</p>` : ''}
           ${fields}
           <div id="askErr" style="color:var(--red);font-size:13px;min-height:18px;margin:6px 0;"></div>
           <div class="actions-row">
@@ -7139,7 +7146,7 @@ async function reverseTransaction(txId){
   const posted = await postTransaction({
     companyId: t.companyId, centerId: t.centerId, direction: t.direction==='out' ? 'in' : 'out',
     amount: t.amount, budgetItemId: t.budgetItemId, beneficiary: t.beneficiary,
-    description: `عكس: ${t.description}`, sourceType: t.sourceType, sourceId: t.sourceId,
+    description: `عكس: ${escH(t.description)}`, sourceType: t.sourceType, sourceId: t.sourceId,
     reversesId: t.id, note: reason
   });
   if(!posted){ await recReloadLedger(); render(); return; }
@@ -7221,8 +7228,8 @@ function renderCancelledArchive(app){
     return `
       <div class="list-item">
         <div class="li-main">
-          <b>${r.number}</b>
-          <span class="sub" style="display:block;">${r.reason} — ${fmtKWDHtml(r.totalAmount)} د.ك</span>
+          <b>${escH(r.number)}</b>
+          <span class="sub" style="display:block;">${escH(r.reason)} — ${fmtKWDHtml(r.totalAmount)} د.ك</span>
           <span class="sub" style="display:block;font-size:11.5px;">أُبطل بواسطة ${canceller ? canceller.name : '—'} بتاريخ ${dateStr}</span>
         </div>
         <div class="actions-row" style="margin:0;">
@@ -7457,7 +7464,7 @@ function renderAdmin(app){
     ${state.companies.map(c=>`
       <div class="list-item">
         <div class="li-main">
-          <b>${c.nameAr}</b>
+          <b>${escH(c.nameAr)}</b>
           <span>رمز: ${c.code} · رمز الإدارة: ${c.hqCode}${c.taxNumber ? ' · '+c.taxNumber : ''}</span>
         </div>
         <div style="display:flex;gap:10px;">
@@ -7553,8 +7560,8 @@ function renderAdmin(app){
     ${companyScopedUsers.map(u=>`
       <div class="list-item">
         <div class="li-main">
-          <b>${u.name}</b>
-          <span>${findRole(u.role).name} · ${getUserUnit(u)} · هاتف: ${u.phone} · الشركة: ${(state.companies.find(c=>c.id===u.companyId)||{}).nameAr || '⚠️ غير محددة'}${u.isGeneral ? ' · 🌐 مستخدم عام' : (u.companyId!==state.currentCompanyId ? ' · 🔗 مربوط من شركة أخرى' : '')}${u.noNextApprover||u.noRequestApprover ? ' · ⏹ مسار ينتهي عنده' : ''}</span>
+          <b>${escH(u.name)}</b>
+          <span>${escH(findRole(u.role).name)} · ${getUserUnit(u)} · هاتف: ${escH(u.phone)} · الشركة: ${(state.companies.find(c=>c.id===u.companyId)||{}).nameAr || '⚠️ غير محددة'}${u.isGeneral ? ' · 🌐 مستخدم عام' : (u.companyId!==state.currentCompanyId ? ' · 🔗 مربوط من شركة أخرى' : '')}${u.noNextApprover||u.noRequestApprover ? ' · ⏹ مسار ينتهي عنده' : ''}</span>
         </div>
         <div style="display:flex;gap:10px;">
           <button class="btn btn-ghost btn-xs" onclick="editUser('${u.id}')">تعديل</button>
@@ -7568,7 +7575,7 @@ function renderAdmin(app){
       <div class="row">
         <div><label>اختر المستخدم</label>
           <select id="impersonateSelect">
-            ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${u.name} — ${findRole(u.role).name}${u.centerId ? ' ('+ (state.centers.find(c=>c.id===u.centerId)?.name||'') +')' : ''}</option>`).join('')}
+            ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${escH(u.name)} — ${escH(findRole(u.role).name)}${u.centerId ? ' ('+ (state.centers.find(c=>c.id===u.centerId)?.name||'') +')' : ''}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -7816,7 +7823,7 @@ function exportBudgetReportCSV(){
       const tot = hc ? computeBudgetItemStats(b.id,true) : own;
       const prefix = '  '.repeat(depth);
       const row = [
-        `"${prefix}${b.name}"`,
+        `"${prefix}${escH(b.name)}"`,
         `"${BUDGET_TYPE_LABELS[b.type]||b.type}"`,
         own.rev.toFixed(3),
         own.profit.toFixed(3),
@@ -8271,9 +8278,34 @@ function attachQuickAdds(){
     b.setAttribute('onclick', f.act); wrap.appendChild(b);
   });
 }
-// القائمة المقترحة (datalist): عند الدخول للحقل يُفرَّغ مؤقتاً لتظهر كل الخيارات، ويعود النص إن لم يُختر غيره
-document.addEventListener('focusin', e=>{ const el=e.target; if(el && el.tagName==='INPUT' && el.getAttribute('list') && el.value){ el._prevVal=el.value; el.value=''; } });
-document.addEventListener('focusout', e=>{ const el=e.target; if(el && el.tagName==='INPUT' && el.getAttribute('list') && el.value==='' && el._prevVal){ el.value=el._prevVal; } if(el) el._prevVal=''; });
+// قائمة اختيار/كتابة: تُعرض كل الخيارات عند الدخول أو الضغط، وتُرشَّح عند الكتابة فقط
+(function(){
+  let panel=null, cur=null;
+  const close=()=>{ if(panel){ panel.remove(); panel=null; } cur=null; };
+  function open(inp, filter){
+    const dl=document.getElementById(inp.dataset.combo); if(!dl) return;
+    let opts=[...dl.options].map(o=>o.value).filter(Boolean);
+    const f=(filter||'').trim(); if(f) opts=opts.filter(v=>v.includes(f));
+    if(!opts.length){ close(); return; }
+    if(!panel){ panel=document.createElement('div'); panel.className='combo-panel'; panel.dir='rtl'; document.body.appendChild(panel); }
+    cur=inp; panel.innerHTML='';
+    opts.forEach(v=>{ const d=document.createElement('div'); d.className='combo-opt'; d.textContent=v;
+      d.addEventListener('pointerdown', ev=>{ ev.preventDefault(); inp.value=v; inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true})); close(); });
+      panel.appendChild(d); });
+    const r=inp.getBoundingClientRect(), room=window.innerHeight-r.bottom-8, h=Math.min(240, panel.scrollHeight);
+    panel.style.cssText='left:'+r.left+'px;width:'+r.width+'px;max-height:240px;'+(room>=Math.min(h,160) ? 'top:'+(r.bottom+2)+'px;' : 'bottom:'+(window.innerHeight-r.top+2)+'px;');
+  }
+  const isC=t=>t && t.dataset && t.dataset.combo;
+  document.addEventListener('focusin', e=>{ if(isC(e.target)) open(e.target,''); });
+  document.addEventListener('click', e=>{ if(isC(e.target) && !panel) open(e.target,''); });
+  document.addEventListener('input', e=>{ if(isC(e.target)) open(e.target, e.target.value); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') close(); });
+  document.addEventListener('focusout', e=>{ const t=e.target; if(isC(t)) setTimeout(()=>{ if(document.activeElement!==t) close(); },120); });
+  const place=()=>{ if(!panel||!cur) return; const r=cur.getBoundingClientRect(), room=window.innerHeight-r.bottom-8, h=Math.min(240,panel.scrollHeight);
+    panel.style.cssText='left:'+r.left+'px;width:'+r.width+'px;max-height:240px;'+(room>=Math.min(h,160) ? 'top:'+(r.bottom+2)+'px;' : 'bottom:'+(window.innerHeight-r.top+2)+'px;'); };
+  window.addEventListener('scroll', e=>{ if(panel && e.target!==panel && !panel.contains(e.target)) place(); }, true);
+  window.addEventListener('resize', place);
+})();
 const REC_STATUS = {pending_approval:'بانتظار الاعتماد', active:'مفعّل', paused:'موقوف مؤقتاً', ended:'منتهٍ'};
 const REC_ROLE_LABELS = {creator:'منشئ القالب', accountant:'المحاسب', cfo:'المدير المالي', admin:'مدير النظام'};
 
@@ -8715,7 +8747,7 @@ function recurringFormHtml(){
     <div class="card flow"><h2>بيانات القيد</h2>
       <div class="row">
         <div ${W}><label>النوع</label>${sel('rcDirection',[['out','صرف (مصروف)'],['in','إيراد']], v('direction','out'))}</div>
-        <div ${W}><label>التصنيف</label><div class="sel-add"><input id="rcCategory" list="rcCategoryList" type="text" value="${escH(v('category',''))}" placeholder="اختر أو اكتب" onchange="recPickCategory()" autocomplete="off"><datalist id="rcCategoryList"></datalist>${quickAddBtn('quickAddRecCategory()','إضافة تصنيف جديد للقائمة','<button type="button" class="mini-add mini-edit" tabindex="-1" onclick="editRecCategories()" title="تعديل أو حذف التصنيفات التي أضفتها">✎</button>')}</div></div>
+        <div ${W}><label>التصنيف</label><div class="sel-add"><input id="rcCategory" data-combo="rcCategoryList" type="text" value="${escH(v('category',''))}" placeholder="اختر أو اكتب" onchange="recPickCategory()" autocomplete="off"><datalist id="rcCategoryList"></datalist>${quickAddBtn('quickAddRecCategory()','إضافة تصنيف جديد للقائمة','<button type="button" class="mini-add mini-edit" tabindex="-1" onclick="editRecCategories()" title="تعديل أو حذف التصنيفات التي أضفتها">✎</button>')}</div></div>
         <div ${W}><label>اسم القالب</label><input id="rcName" type="text" value="${escH(v('name',''))}" placeholder="مثال: إيجار مقر حولي" autocomplete="off" ${W}></div>
       </div>
       <div class="row">
@@ -9109,8 +9141,8 @@ function renderCompanyEditForm(){
     <div class="card" style="border-color:var(--blue);">
       <h2>تعديل شركة</h2>
       <div class="row">
-        <div><label>الاسم بالعربي</label><input id="editCoNameAr" type="text" value="${c.nameAr}"></div>
-        <div><label>الاسم بالإنجليزي</label><input id="editCoNameEn" type="text" value="${c.nameEn||''}"></div>
+        <div><label>الاسم بالعربي</label><input id="editCoNameAr" type="text" value="${escH(c.nameAr)}"></div>
+        <div><label>الاسم بالإنجليزي</label><input id="editCoNameEn" type="text" value="${escH(c.nameEn||'')}"></div>
         <div><label>الرقم الضريبي / السجل التجاري</label><input id="editCoTax" type="text" value="${c.taxNumber||''}"></div>
       </div>
       <div class="row">
@@ -9199,7 +9231,7 @@ function deleteCompany(id){
     showToast('لا يمكن حذف آخر شركة في النظام', 'error');
     return;
   }
-  requestDeleteConfirm(`حذف شركة "${c.nameAr}" نهائياً؟`, 'company', id);
+  requestDeleteConfirm(`حذف شركة "${escH(c.nameAr)}" نهائياً؟`, 'company', id);
 }
 async function executeDeleteCompany(id){
   const delResult = await db.from('companies').delete().eq('id', id);
@@ -9266,7 +9298,7 @@ function renderCenterEditForm(){
     <div class="card" style="border-color:var(--blue);">
       <h2>تعديل وحدة</h2>
       <div class="row">
-        <div style="--fw:380px;"><label>اسم الوحدة</label><input id="editCenterName" type="text" value="${c.name}" style="--fw:380px;"></div>
+        <div style="--fw:380px;"><label>اسم الوحدة</label><input id="editCenterName" type="text" value="${escH(c.name)}" style="--fw:380px;"></div>
         <div><label>النوع</label><select id="editCenterKind">${unitTypeOptionsHtml(c.kind)}</select></div>
         <div><label>تتبع الوحدة</label><select id="editCenterParent">${unitOptionsHtml(c.companyId, c.parentId||'', {noneLabel:'— تحت الشركة مباشرة —', excludeId:c.id})}</select></div>
       </div>
@@ -9705,8 +9737,8 @@ function treeRow(opts){
       ${canToggle ? `onclick="toggleTreeNode('${opts.toggleId}',${opts.dflt?'true':'false'})"` : ''}>
       ${canToggle ? treeToggleHtml(opts.toggleId, opts.dflt) : '<span style="display:inline-block;width:16px;"></span>'}
       <span style="font-size:15px;">${opts.icon}</span>
-      <span style="font-weight:600;font-size:14.5px;white-space:nowrap;">${opts.label}</span>
-      ${opts.sub ? `<span class="sub" style="font-size:12.5px;margin-right:4px;">${opts.sub}</span>` : ''}
+      <span style="font-weight:600;font-size:14.5px;white-space:nowrap;">${escH(opts.label)}</span>
+      ${opts.sub ? `<span class="sub" style="font-size:12.5px;margin-right:4px;">${escH(opts.sub)}</span>` : ''}
     </div>`;
 }
 
@@ -10154,7 +10186,7 @@ function renderPrintSetupPanel(){
   return `
     <div class="card">
       <h2 style="margin:0 0 8px;">ترويسة الشركة: ${escH(co.nameAr||'—')}</h2>
-      <label>${BRAND_SPECS.letterhead.label}</label>
+      <label>${escH(BRAND_SPECS.letterhead.label)}</label>
       ${brandHintHtml('letterhead')}
       ${brandImgBlock('letterhead', co.id||'', co.logoData)}
       ${co.logoData ? '' : '<p class="sub" style="margin:8px 0 0;font-size:12.5px;">تستخدم هذي الشركة الترويسة الافتراضية (بدون بيانات تواصل أسفلها). بيانات التواصل تُكتب في التذييل أدناه.</p>'}
@@ -10178,7 +10210,7 @@ function renderPrintSetupPanel(){
       <div class="row">
         <div><label>نمط ترقيم الصفحات</label>
           <select id="pfNumStyle" onchange="updateFooterPreview()">
-            ${Object.entries(PAGE_NUM_STYLES).map(([k,v])=>`<option value="${k}" ${co.pageNumStyle===k||(!co.pageNumStyle&&k==='full')?'selected':''}>${v.label}</option>`).join('')}
+            ${Object.entries(PAGE_NUM_STYLES).map(([k,v])=>`<option value="${k}" ${co.pageNumStyle===k||(!co.pageNumStyle&&k==='full')?'selected':''}>${escH(v.label)}</option>`).join('')}
           </select></div>
         <div style="align-self:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-weight:600;"><input type="checkbox" id="pfShowLine" ${chk(co.footerShowLine!==false)} onchange="updateFooterPreview()"> إظهار الخط الأفقي</label></div>
       </div>
@@ -10218,7 +10250,7 @@ function renderBrandingPanel(){
         <div><input id="brandSysName" type="text" value="${escH(systemName())}" maxlength="60"></div>
         <div style="flex:0 0 auto;"><button type="button" class="btn btn-primary btn-md" onclick="saveSystemName()">حفظ الاسم</button></div>
       </div>
-      <label style="margin-top:14px;">${BRAND_SPECS.sysLogo.label}</label>
+      <label style="margin-top:14px;">${escH(BRAND_SPECS.sysLogo.label)}</label>
       ${brandHintHtml('sysLogo')}
       ${brandImgBlock('sysLogo','', systemLogo())}
     </div>
@@ -10229,7 +10261,7 @@ function renderBrandingPanel(){
         <div><input id="brandCoName" type="text" value="${escH(co?co.nameAr:'')}" maxlength="80"></div>
         <div style="flex:0 0 auto;"><button type="button" class="btn btn-primary btn-md" onclick="saveBrandCompanyName()">حفظ الاسم</button></div>
       </div>
-      <label style="margin-top:14px;">${BRAND_SPECS.coLogo.label}</label>
+      <label style="margin-top:14px;">${escH(BRAND_SPECS.coLogo.label)}</label>
       ${brandHintHtml('coLogo')}
       ${brandImgBlock('coLogo', co?co.id:'', co?co.brandLogo:'')}
       <p class="sub" style="margin:12px 0 0;font-size:12.5px;">ترويسة المستندات المطبوعة وتذييلها انتقلا إلى صفحة <a href="#" onclick="state.view='admin'; state.adminSubTab='printSetup'; render(); window.scrollTo(0,0); return false;">الطباعة والمستندات ← الترويسة والتذييل</a>.</p>
@@ -10758,7 +10790,7 @@ function renderUserEditForm(){
     <div class="card" id="userEditAnchor" style="border-color:var(--blue);">
       <h2>تعديل مستخدم</h2>
       <div class="row">
-        <div style="--fw:380px;"><label>الاسم</label><input id="editUserName" type="text" value="${u.name}" style="--fw:380px;"></div>
+        <div style="--fw:380px;"><label>الاسم</label><input id="editUserName" type="text" value="${escH(u.name)}" style="--fw:380px;"></div>
         <div><label>الدور</label>
           <select id="editUserRole" onchange="onRoleDefaults('edit')">
             ${ROLES.filter(r=>r.id!=='admin').map(r=>`<option value="${r.id}" ${r.id===u.role?'selected':''}>${escH(findRole(r.id).name)}</option>`).join('')}
@@ -10767,10 +10799,10 @@ function renderUserEditForm(){
         </div>
       </div>
       <div class="row">
-        <div><label>رقم الهاتف (وهو رقم الدخول)</label><input id="editUserPhone" type="text" name="qz-edit-user-phone" autocomplete="off" value="${u.phone}">
+        <div><label>رقم الهاتف (وهو رقم الدخول)</label><input id="editUserPhone" type="text" name="qz-edit-user-phone" autocomplete="off" value="${escH(u.phone)}">
           ${(()=>{ const al=(state.loginAliases||[]).filter(a=>a.userId===u.id);
             return al.length ? `<div class="file-hint" style="margin-top:4px;">أرقام قديمة ما زالت تصلح للدخول:${al.map(a=>
-              ` <span style="white-space:nowrap;"><bdi>${escH(a.phone)}</bdi> <button type="button" class="btn btn-ghost btn-xs" onclick="removeLoginAlias('${escH(a.phone)}')">إلغاء</button></span>`).join(' ·')}</div>` : ''; })()}
+              ` <span style="white-space:nowrap;"><bdi>${escH(a.phone)}</bdi> <button type="button" class="btn btn-ghost btn-xs" onclick="removeLoginAlias(${jsq(a.phone)})">إلغاء</button></span>`).join(' ·')}</div>` : ''; })()}
         </div>
       </div>
       <div class="row">
@@ -10780,7 +10812,7 @@ function renderUserEditForm(){
       <div class="row">
         <div><label>الشركة</label>
           <select id="editUserCompany">
-            ${state.companies.map(c=>`<option value="${c.id}" ${c.id===u.companyId?'selected':''}>${c.nameAr}</option>`).join('')}
+            ${state.companies.map(c=>`<option value="${c.id}" ${c.id===u.companyId?'selected':''}>${escH(c.nameAr)}</option>`).join('')}
           </select>
         </div>
         <div><label>المركز (لأدوار السكرتير/مدير المركز)</label>
@@ -11096,7 +11128,7 @@ function isDevMode(){
   try{
     const h = location.hostname;
     return h==='localhost' || h==='127.0.0.1' || h==='' || location.protocol==='file:'
-        || new URLSearchParams(location.search).has('dev');
+        || (new URLSearchParams(location.search).has('dev') && dbProjectRef()==='xisaigwntqeowathxpsr');
   }catch(e){ return false; }
 }
 function devSwitcherHtml(){
@@ -11116,7 +11148,7 @@ function devSwitcherHtml(){
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
         ${list.map(u=>`<button class="btn btn-ghost" style="width:auto;min-height:40px;padding:0 10px;font-size:12px;border-width:1px;box-shadow:none;"
-           onclick="devLoginAs('${escH(u.phone)}')" title="${escH((findRole(u.role)||{}).name||u.role)}">${escH(u.name)}</button>`).join('')}
+           onclick="devLoginAs(${jsq(u.phone)})" title="${escH((findRole(u.role)||{}).name||u.role)}">${escH(u.name)}</button>`).join('')}
       </div>
       <div class="file-hint" style="margin-top:8px;">كلمة المرور الموحّدة للتجربة: ${DEV_TEST_PASSWORD} — حسابا مدير النظام يُكتبان يدوياً.</div>
     </div>`;
@@ -11131,10 +11163,10 @@ async function devLoginAs(phone){
 function renderCustomDashboard(app){
   const role = findRole(state.user.role);
   app.innerHTML = `
-    <h1>${role.name}</h1>
-    <p class="sub">${role.desc}</p>
+    <h1>${escH(role.name)}</h1>
+    <p class="sub">${escH(role.desc)}</p>
     <div class="card">
-      <p>مرحباً ${state.user.name}. صلاحيات دور "${role.name}" قيد الإعداد حالياً من مدير النظام — بمجرد تفعيلها ستظهر لك شاشاتك الخاصة هنا.</p>
+      <p>مرحباً ${escH(state.user.name)}. صلاحيات دور "${escH(role.name)}" قيد الإعداد حالياً من مدير النظام — بمجرد تفعيلها ستظهر لك شاشاتك الخاصة هنا.</p>
     </div>
   `;
 }
@@ -11290,7 +11322,7 @@ function renderDashboard(app){
             return `
             <div class="req-card" onclick="openRequest('${r.id}')" style="${r.limitExceeded ? 'border:3px solid var(--red);' : ''}">
               <span data-label="رقم الطلب" class="req-field-value req-field-wrap" style="font-weight:700;">${r.number || `<span style="color:var(--amber);font-size:12px;">⏳ قيد المراجعة${reviewSecondsLeft(r)>0 ? ` <span data-countdown="${r.id}" dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(reviewSecondsLeft(r))}</span>` : ''}</span>`}</span>
-              <span data-label="الموضوع" class="req-field-value req-field-wrap"${r.isCancelled ? ' style="text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px;color:var(--muted);"' : ''}>${r.reason}${r.limitExceeded ? ' <span class="limit-tag">⚠ تجاوز السقف</span>' : ''}</span>
+              <span data-label="الموضوع" class="req-field-value req-field-wrap"${r.isCancelled ? ' style="text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px;color:var(--muted);"' : ''}>${escH(r.reason)}${r.limitExceeded ? ' <span class="limit-tag">⚠ تجاوز السقف</span>' : ''}</span>
               <span data-label="تاريخ الطلب" class="req-field-value">${r.dateGreg ? `<div>${dmyStr(r.dateGreg)}</div><div style="font-size:11px;color:var(--muted);">${createdTimePart}</div>` : '—'}</span>
               <span data-label="تاريخ الصرف" class="req-field-value">${paidEntry ? `<div>${paidDatePart}</div><div style="font-size:11px;color:var(--muted);">${paidTimePart}</div>` : '—'}</span>
               <span data-label="المستفيدون" class="req-field-value" style="padding-right:22px;">${r.beneficiaries.length}</span>
@@ -11371,7 +11403,7 @@ function renderDashboard(app){
   app.innerHTML = `
     <h1 style="margin:0;">${listTitle==='طلباتي' ? 'طلباتي' : 'طلبات الصرف'}</h1>
     <div class="title-with-badge">
-      <p class="sub" style="margin:0;">${findRole(role).name} — ${findRole(role).desc}</p>
+      <p class="sub" style="margin:0;">${escH(findRole(role).name)} — ${escH(findRole(role).desc)}</p>
       ${pendingBadge}
     </div>
     ${statCards}
@@ -11398,7 +11430,7 @@ function renderNewRequest(app){
       ${pageAtLeast('newreq','edit') ? '' : '<div class="warn-box" style="background:rgba(180,83,9,.12);border-right:4px solid #b45309;padding:8px 12px;border-radius:8px;margin-bottom:12px;">ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.</div>'}
       <label>عنوان الطلب</label>
       <div class="field-with-btn">
-        <input id="reasonInput" style="--fw:580px;" type="text" value="${d.reason||''}" placeholder="مثال: رواتب شهر 8-2026 أو عهدة">
+        <input id="reasonInput" style="--fw:580px;" type="text" value="${escH(d.reason||'')}" placeholder="مثال: رواتب شهر 8-2026 أو عهدة">
         <button type="button" class="btn btn-primary btn-md" tabindex="-1" onclick="toggleDocTextsBox()">تعديل نصوص الطباعة</button>
       </div>
       <div id="docTextsBox" class="calc-box" style="display:none;">
@@ -11443,30 +11475,30 @@ function renderNewRequest(app){
             <div class="row">
               <div>
                 <label>الاسم</label>
-                <input class="b-name" type="text" list="benList" value="${b.name||''}" placeholder="اسم الشخص أو الجهة" onchange="onBeneficiaryNameChange(${i},this.value)">
+                <input class="b-name" type="text" data-combo="benList" autocomplete="off" value="${escH(b.name||'')}" placeholder="اسم الشخص أو الجهة" onchange="onBeneficiaryNameChange(${i},this.value)">
                 <datalist id="benList">
-                  ${state.beneficiaries.filter(x=>x.companyId===state.currentCompanyId).map(x=>`<option value="${x.name}">`).join('')}
+                  ${state.beneficiaries.filter(x=>x.companyId===state.currentCompanyId).map(x=>`<option value="${escH(x.name)}">`).join('')}
                 </datalist>
               </div>
               <div>
                 <label>الاسم بالإنجليزية</label>
-                <input class="b-nameEn" type="text" value="${b.nameEn||''}" placeholder="Name in English">
+                <input class="b-nameEn" type="text" value="${escH(b.nameEn||'')}" placeholder="Name in English">
               </div>
             </div>
             <div class="row">
               <div>
                 <label>رقم الهوية</label>
-                <input class="b-civilId" type="text" value="${b.civilId||''}" placeholder="الرقم المدني / الهوية">
+                <input class="b-civilId" type="text" value="${escH(b.civilId||'')}" placeholder="الرقم المدني / الهوية">
               </div>
               <div>
                 <label>رقم الآيبان (IBAN)</label>
-                <input class="b-iban" type="text" value="${b.iban||''}" placeholder="KW00 XXXX XXXX XXXX">
+                <input class="b-iban" type="text" value="${escH(b.iban||'')}" placeholder="KW00 XXXX XXXX XXXX">
               </div>
             </div>
             <div class="row">
               <div>
                 <label>البيان *</label>
-                <input class="b-statement" type="text" value="${b.statement||''}" placeholder="مثال: مستحقات شهر أغسطس">
+                <input class="b-statement" type="text" value="${escH(b.statement||'')}" placeholder="مثال: مستحقات شهر أغسطس">
               </div>
             </div>
             <div class="row">
@@ -11476,7 +11508,7 @@ function renderNewRequest(app){
               </div>
               <div>
                 <label>ملاحظات (اختياري)</label>
-                <input class="b-notes" type="text" value="${b.notes||''}" placeholder="أي ملاحظة إضافية">
+                <input class="b-notes" type="text" value="${escH(b.notes||'')}" placeholder="أي ملاحظة إضافية">
               </div>
             </div>
             <div class="row">
@@ -11528,12 +11560,12 @@ function renderNewRequest(app){
               <div>
                 <label>صورة الهوية أو الفاتورة ${known ? '(اختياري - تحديث)' : '(مطلوبة - أول مرة)'}</label>
                 <input class="b-file-id" type="file" accept="image/*" onchange="handleAttachment(${i},'id',this)">
-                ${b.idFileName ? `<div class="file-hint">تم اختيار: ${b.idFileName} — <a href="#" onclick="event.preventDefault(); openFilePreviewModal('${b.idFileData}', '${b.idFileName}');">معاينة</a></div>` : ''}
+                ${b.idFileName ? `<div class="file-hint">تم اختيار: ${escH(b.idFileName)} — <a href="#" onclick="event.preventDefault(); openFilePreviewModal(${jsq(b.idFileData)}, ${jsq(b.idFileName)});">معاينة</a></div>` : ''}
               </div>
               <div>
                 <label>صورة معلومات البنك (اختياري)</label>
                 <input class="b-file-bank" type="file" accept="image/*" onchange="handleAttachment(${i},'bank',this)">
-                ${b.bankFileName ? `<div class="file-hint">تم اختيار: ${b.bankFileName} — <a href="#" onclick="event.preventDefault(); openFilePreviewModal('${b.bankFileData}', '${b.bankFileName}');">معاينة</a></div>` : ''}
+                ${b.bankFileName ? `<div class="file-hint">تم اختيار: ${escH(b.bankFileName)} — <a href="#" onclick="event.preventDefault(); openFilePreviewModal(${jsq(b.bankFileData)}, ${jsq(b.bankFileName)});">معاينة</a></div>` : ''}
               </div>
             </div>`}
           </div>
@@ -11620,8 +11652,8 @@ function renderAppRequestView(req){
     <tr class="${altClass.trim()}">
       <td class="num" rowspan="${rowCount}">${i+1}</td>
       <td rowspan="${rowCount}">
-        <div class="cell-right">${b.name}</div>
-        ${b.nameEn ? `<div class="cell-left">${b.nameEn}</div>` : ''}
+        <div class="cell-right">${escH(b.name)}</div>
+        ${b.nameEn ? `<div class="cell-left">${escH(b.nameEn)}</div>` : ''}
       </td>
       <td rowspan="${rowCount}">
         <div class="cell-right">${b.statement || '—'}</div>
@@ -11637,13 +11669,13 @@ function renderAppRequestView(req){
   return `
     <div class="app-req-header">
       <div>
-        <h1 style="margin:0;color:var(--blue);">${req.reason}</h1>
+        <h1 style="margin:0;color:var(--blue);">${escH(req.reason)}</h1>
       </div>
       <div class="app-req-meta">
         <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:15px;font-weight:700;color:var(--red);">
           <span>رقم الطلب:</span>
           ${req.number
-            ? `<span dir="ltr" style="unicode-bidi:isolate;">${req.number}</span>`
+            ? `<span dir="ltr" style="unicode-bidi:isolate;">${escH(req.number)}</span>`
             : `<span style="color:var(--amber);">قيد المراجعة</span>`}
         </div>
         <span style="font-size:15px;font-weight:600;color:var(--text);text-decoration:underline;line-height:1.15;">${req.dateHijri||'—'}</span>
@@ -11797,7 +11829,7 @@ function renderBudgetFloat(req){
     <div class="budget-fab no-print">
       <div class="budget-panel" id="budgetPanel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <b style="font-size:14px;">ميزانية مركز "${center.name}"</b>
+          <b style="font-size:14px;">ميزانية مركز "${escH(center.name)}"</b>
           <span style="cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;" onclick="document.getElementById('budgetPanel').classList.remove('open')">✕</span>
         </div>
         ${monthlyHtml}
@@ -11999,8 +12031,8 @@ function renderDetail(app){
         ${req.history.map(h=>`
           <div class="history-item">
             <div class="t">${h.time}</div>
-            <div><b>${h.actor}</b> — ${h.action} <span style="color:var(--muted);">(${STEP_LABELS[h.step]||h.step})</span>
-              ${h.note ? `<div style="color:var(--red);margin-top:2px;">${h.note}</div>` : ''}
+            <div><b>${escH(h.actor)}</b> — ${escH(h.action)} <span style="color:var(--muted);">(${escH(STEP_LABELS[h.step]||h.step)})</span>
+              ${h.note ? `<div style="color:var(--red);margin-top:2px;">${escH(h.note)}</div>` : ''}
             </div>
           </div>`).join('')}
       </div>
