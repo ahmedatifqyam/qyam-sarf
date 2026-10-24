@@ -3229,18 +3229,38 @@ function navHelpSubs(){
   if(canSeeAssistant() && ASSISTANT_WEBHOOK) subs.push({label:'المساعد الذكي', active:false, js:`openAssistant();`});
   return subs;
 }
-// يفتح نافذة المساعد (الفقاعة العائمة) من بند الشريط أو التبويب
+// المساعد: بند الشريط والتبويب مفتاح (يفتح ثم يغلق). ويُغلق تلقائياً إذا لم يُكتب فيه شيء
+// عند الانتقال لصفحة أخرى أو بعد دقيقتين من الخمول. وإذا بدأت محادثة فلا يُغلق من تلقائه.
+const ASSISTANT_IDLE_MS = 120000;
+let _astActivity = Date.now();
+function assistantParts(){
+  const root = document.getElementById('qyamAssistant'); if(!root) return {};
+  const tgl = root.querySelector('[class*="chat-window-toggle"]');
+  const win = root.querySelector('[class*="chat-window"]:not([class*="wrapper"]):not([class*="toggle"])');
+  return {root, tgl, win, open: !!(win && win.getBoundingClientRect().height > 60)};
+}
+function assistantUsed(){
+  const {root} = assistantParts(); if(!root) return false;
+  const ta = root.querySelector('textarea');
+  return !!root.querySelector('[class*="from-user"]') || !!(ta && ta.value.trim());
+}
+function assistantAutoClose(){
+  const p = assistantParts();
+  if(p.open && p.tgl && !assistantUsed()) p.tgl.click();
+}
 async function openAssistant(){
   if(!canSeeAssistant()) return;
   try{ if(!assistantMounted) await mountAssistant(); }catch(e){}
-  const root = document.getElementById('qyamAssistant'); if(!root) return;
-  let tgl = null;
-  for(let i=0;i<30 && !tgl;i++){ tgl = root.querySelector('[class*="chat-window-toggle"]'); if(!tgl) await new Promise(r=>setTimeout(r,100)); }
-  if(!tgl){ showToast('المساعد غير متاح الآن، حاول بعد قليل'); return; }
-  const win = root.querySelector('[class*="chat-window"]:not([class*="wrapper"]):not([class*="toggle"])');
-  const isOpen = win && win.getBoundingClientRect().height > 60;
-  if(!isOpen) tgl.click();
+  let p = assistantParts();
+  for(let i=0;i<30 && !p.tgl;i++){ await new Promise(r=>setTimeout(r,100)); p = assistantParts(); }
+  if(!p.tgl){ showToast('المساعد غير متاح الآن، حاول بعد قليل'); return; }
+  _astActivity = Date.now();
+  p.tgl.click();                                   // يفتح إن كان مغلقاً ويغلق إن كان مفتوحاً
 }
+['input','keydown','click','pointerdown'].forEach(ev=>document.addEventListener(ev, e=>{
+  if(e.target && e.target.closest && e.target.closest('#qyamAssistant')) _astActivity = Date.now();
+}, true));
+setInterval(()=>{ if(Date.now()-_astActivity > ASSISTANT_IDLE_MS) assistantAutoClose(); }, 10000);
 function navTopItems(){
   const u = state.user; if(!u) return [];
   const role = u.role, items = [];
@@ -5795,6 +5815,8 @@ function render(){
   syncPageTitle();
   applyPageWidth();
   { const ar = document.getElementById('qyamAssistant'); if(ar) ar.style.display = canSeeAssistant() ? '' : 'none'; }
+  if(state._astView!==undefined && state._astView!==state.view) assistantAutoClose();
+  state._astView = state.view;
   if(canSeeAssistant()) mountAssistant();
   injectGroupNav();
   applyPageSections();
