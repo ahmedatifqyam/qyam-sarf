@@ -1793,7 +1793,7 @@ function fitNavBleed(){
 }
 // الصفحة تتغيّر بعد الرسم (أقسام تظهر، عرض يُضبط) فنُعيد الضبط كلما تغيّر حجم الصندوق
 (function(){ let raf=0; const again=()=>{ cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>{ try{ fitNavBleed(); }catch(e){} }); };
-  const hook=()=>{ try{ if(!window._ptMO){ const ap=document.getElementById('app'); if(ap){ let t=0; window._ptMO=new MutationObserver(()=>{ cancelAnimationFrame(t); t=requestAnimationFrame(()=>{ try{ syncPageTitle(); }catch(e){} }); }); window._ptMO.observe(ap,{childList:true,subtree:true}); } } }catch(e){}
+  const hook=()=>{ try{ if(!window._ptMO){ const ap=document.getElementById('app'); if(ap){ let t=0; window._ptMO=new MutationObserver(()=>{ cancelAnimationFrame(t); t=requestAnimationFrame(()=>{ try{ syncPageTitle(); }catch(e){} try{ fitNavBleed(); }catch(e){} }); }); window._ptMO.observe(ap,{childList:true,subtree:true}); } } }catch(e){}
     if(window._nbRO) return; const a=document.getElementById('app'), m=document.getElementById('shellMain'); if(!a||!m||!window.ResizeObserver) return; window._nbRO=new ResizeObserver(again); window._nbRO.observe(a); window._nbRO.observe(m); };
   window._hookNavBleed=hook; })();
 window.addEventListener('resize', ()=>{ clearTimeout(window._nbT); window._nbT=setTimeout(()=>{ try{ fitNavBleed(); }catch(e){} }, 160); });
@@ -2022,7 +2022,7 @@ function renderBellPanel(){
       <span class="bell-time">${agoText(i.ts)}</span>
     </div>`).join('');
   p.innerHTML = `
-    <div class="bell-head"><span>🔔 الإشعارات</span><span style="display:flex;align-items:center;gap:10px;"><span onclick="toggleNotifSound()" style="cursor:pointer;font-size:15px;" title="${notifSoundEnabled()?'إيقاف صوت التنبيه':'تشغيل صوت التنبيه'}">${notifSoundEnabled()?'🔊':'🔇'}</span><span style="cursor:pointer;color:var(--muted);padding:0 6px;" onclick="toggleBell(event)">✕</span></span></div>
+    <div class="bell-head"><span>🔔 الإشعارات</span><span style="display:flex;align-items:center;gap:10px;"><span onclick="toggleNotifSound()" style="cursor:pointer;font-size:15px;white-space:nowrap;" title="صوت التنبيه: ${NOTIF_LEVELS[notifLevel()].name} — اضغط لتغيير المستوى (عالٍ، متوسط، منخفض، صامت)">${NOTIF_LEVELS[notifLevel()].ico} <small style="font-size:11.5px;color:var(--muted);">${NOTIF_LEVELS[notifLevel()].name}</small></span><span style="cursor:pointer;color:var(--muted);padding:0 6px;" onclick="toggleBell(event)">✕</span></span></div>
     ${rows || '<div class="bell-empty">لا توجد إشعارات</div>'}
     <div class="bell-foot">
       <button type="button" class="btn btn-ghost btn-md" onclick="markAllSeen()">تعليم الكل كمقروء</button>
@@ -2034,19 +2034,28 @@ function renderBellPanel(){
 }
 const AUTO_OPEN_NOTIFS = true;   // فتح لوحة الإشعارات وحدها عند الدخول وعند وصول إشعار جديد (غيّرها إلى false لإيقافه)
 // نغمة تنبيه قصيرة عند وصول إشعار (مولّدة بالمتصفح، بدون ملف صوتي خارجي)
-let _notifSoundOn = null;
-function notifSoundEnabled(){
-  if(_notifSoundOn===null){ try{ _notifSoundOn = localStorage.getItem('qayam_notif_sound')!=='0'; }catch(e){ _notifSoundOn = true; } }
-  return _notifSoundOn;
+// مستويات الصوت: ٣ عالٍ، ٢ متوسط، ١ منخفض (الصوت القديم)، ٠ صامت. الافتراضي عالٍ.
+const NOTIF_LEVELS = {3:{g:1.0, ico:'🔊', name:'عالٍ'}, 2:{g:0.5, ico:'🔉', name:'متوسط'}, 1:{g:0.16, ico:'🔈', name:'منخفض'}, 0:{g:0, ico:'🔇', name:'صامت'}};
+let _notifLevel = null;
+function notifLevel(){
+  if(_notifLevel===null){
+    try{
+      const v = localStorage.getItem('qayam_notif_vol');
+      if(v!==null && NOTIF_LEVELS[v]) _notifLevel = Number(v);
+      else _notifLevel = localStorage.getItem('qayam_notif_sound')==='0' ? 0 : 3;   // من كان قد أوقف الصوت يبقى صامتاً
+    }catch(e){ _notifLevel = 3; }
+  }
+  return _notifLevel;
 }
+function notifSoundEnabled(){ return notifLevel()>0; }
 function toggleNotifSound(){
-  _notifSoundOn = !notifSoundEnabled();
-  try{ localStorage.setItem('qayam_notif_sound', _notifSoundOn?'1':'0'); }catch(e){}
-  if(_notifSoundOn) playNotifSound();
+  _notifLevel = notifLevel()===0 ? 3 : notifLevel()-1;             // عالٍ ← متوسط ← منخفض ← صامت ← عالٍ
+  try{ localStorage.setItem('qayam_notif_vol', String(_notifLevel)); }catch(e){}
+  if(_notifLevel>0) playNotifSound();
   renderBellPanel();
 }
 function playNotifSound(){
-  if(!notifSoundEnabled()) return;
+  const g = NOTIF_LEVELS[notifLevel()].g; if(!g) return;
   try{
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if(!Ctx) return;
@@ -2058,7 +2067,7 @@ function playNotifSound(){
       const osc = ctx.createOscillator(), gain = ctx.createGain();
       osc.type = 'sine'; osc.frequency.value = freq;
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.16, start+0.012);
+      gain.gain.exponentialRampToValueAtTime(g, start+0.012);
       gain.gain.exponentialRampToValueAtTime(0.0001, start+dur);
       osc.connect(gain); gain.connect(ctx.destination);
       osc.start(start); osc.stop(start+dur+0.02);
@@ -8058,9 +8067,6 @@ function exportBudgetReportCSV(){
   a.click();
 }
 
-function printBudgetReport(){
-  window.print();
-}
 
 function renderBudgetReportTab(){
   const allItems = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId);
@@ -8337,7 +8343,6 @@ function renderBudgetReportTab(){
       <div class="rep-spacer"></div>
       <!-- ٥ تصدير + طباعة — أقصى اليسار -->
       <button class="btn btn-ghost" onclick="exportBudgetReportCSV()">📥 Excel</button>
-      <button class="btn btn-ghost" onclick="printBudgetReport()">🖨️ طباعة</button>
     </div>
 
     <!-- جدول البنود — تسعة أعمدة تحتاج 966 بكسل: يُمرَّر أفقياً ولا يُقتطع -->
