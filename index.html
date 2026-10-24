@@ -3188,25 +3188,21 @@ function navTopItems(){
   const role = u.role, items = [];
   items.push({head:'المعاملات المالية'});
   const pend = (typeof getMyPendingRequests==='function') ? getMyPendingRequests().length : 0;
-  items.push({key:'requests', ico:'📋', label:'طلبات الصرف', count: pend, active: ['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview'].includes(state.view),
+  items.push({key:'requests', ico:'📋', label:'الصرف', count: pend, active: ['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview'].includes(state.view),
               js: `state.view='dashboard'; render(); window.scrollTo(0,0);`});
-  if(pageLevel('newreq')!=='none') items.push({key:'newreq', ico:'➕', label:'طلب صرف جديد', active: state.view==='newRequest' || state.view==='newRequestChoice',
-              js: `openNewRequestChoice(); window.scrollTo(0,0);`});
   if(canSeeRevenues()){
-    items.push({key:'revenues', ico:'💰', label:'الإيرادات', active: state.view==='revenues' && Number(state.revenuesSec||0)===0,
+    items.push({key:'revenues', ico:'💰', label:'الإيراد', active: state.view==='revenues',
                 js: `openRevenues(0);`});
-    if(pageAtLeast('revenues','full')) items.push({key:'newrev', ico:'➕', label:'إيراد جديد', active: state.view==='revenues' && Number(state.revenuesSec||0)===1,
-                js: `openRevenues(1);`});
   }
   if(canSeeRecurring()){
     items.push({key:'recurring', ico:'🔁', label:'القيود الدورية', count: recDueCount(), active: state.view==='recurring',
                 js: `openRecurring(0);`});
   }
-  if(role!=='admin' && (pageLevel('ledger')!=='none' || pageLevel('analytics')!=='none')) items.push({head:'التقارير'});
-  if(role!=='admin' && pageLevel('ledger')!=='none') items.push({key:'ledger', ico:'📒', label:'دفتر الحركات', active: state.view==='ledger',
-              js: `openLedger(); window.scrollTo(0,0);`});
-  if(role!=='admin' && pageLevel('analytics')!=='none') items.push({key:'analytics', ico:'📊', label:'التحليلات المالية', active: state.view==='analytics',
-              js: `openAnalytics(); window.scrollTo(0,0);`});
+  if(role!=='admin' && (pageLevel('ledger')!=='none' || pageLevel('analytics')!=='none')){
+    const toLedger = pageLevel('ledger')!=='none';
+    items.push({key:'reports', ico:'📊', label:'التقارير', active: ['ledger','analytics'].includes(state.view),
+                js: toLedger ? `openLedger(); window.scrollTo(0,0);` : `openAnalytics(); window.scrollTo(0,0);`});
+  }
   if(role==='admin') items.push({key:'admin', ico:'⚙️', label:'لوحة التحكم', group:true, active: inAdminArea()});
   if(role!=='admin') items.push({key:'account', ico:'👤', label:'حسابي', active: state.view==='account',
               js: `openAccount(); window.scrollTo(0,0);`});
@@ -3269,6 +3265,14 @@ window.addEventListener('resize', ()=>{ clearTimeout(_navResizeT); _navResizeT=s
 function searchSectionIndex(){
   const out = [];
   navTopItems().filter(i=>!i.group && !i.head).forEach(i=>out.push({label:i.label, sub:'صفحة', js:i.js}));
+  // أسماء البنود التي دُمجت في الشريط الجانبي تبقى قابلة للبحث
+  out.push({label:'طلبات الصرف', sub:'الصرف', js:`state.view='dashboard'; render();`});
+  if(pageLevel('newreq')!=='none') out.push({label:'طلب صرف جديد', sub:'الصرف', js:`openNewRequestChoice();`});
+  if(canSeeRevenues()){ out.push({label:'الإيرادات', sub:'الإيراد', js:`openRevenues(0);`}); if(pageAtLeast('revenues','full')) out.push({label:'إيراد جديد', sub:'الإيراد', js:`openRevenues(1);`}); }
+  if(state.user && state.user.role!=='admin'){
+    if(pageLevel('ledger')!=='none') out.push({label:'دفتر الحركات', sub:'التقارير', js:`openLedger();`});
+    if(pageLevel('analytics')!=='none') out.push({label:'التحليلات المالية', sub:'التقارير', js:`openAnalytics();`});
+  }
   if(state.user && state.user.role==='admin'){
     ADMIN_NAV.forEach(g=>g.items.forEach(i=>out.push({label:i.head||i.label, sub:'لوحة التحكم — '+g.cat, js:adminNavAction(i)})));
   }
