@@ -3541,6 +3541,44 @@ function openSearchResult(reqId){
 
 async function logout(){ try{ await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
 
+// ───────── إغلاق الدخول تلقائياً عند عدم النشاط ─────────
+// ٣٠ دقيقة بلا نقر أو كتابة أو تمرير؛ تنبيه قبل الإغلاق بدقيقة؛ وآخر نشاط مشترك بين كل التبويبات.
+const IDLE_LOGOUT_MS = 30*60*1000, IDLE_WARN_MS = 60*1000;
+const IDLE_KEY = 'qayam_last_act', IDLE_OUT_KEY = 'qayam_idle_logout';
+let _idleLocal = Date.now(), _idleWrite = 0;
+function idleLastAct(){ let t = _idleLocal; try{ t = Math.max(t, Number(localStorage.getItem(IDLE_KEY))||0); }catch(e){} return t; }
+function idleMark(){
+  const n = Date.now(); _idleLocal = n;
+  if(n - _idleWrite > 5000){ _idleWrite = n; try{ localStorage.setItem(IDLE_KEY, String(n)); }catch(e){} }
+  const w = document.getElementById('idleWarn'); if(w && w.dataset.keep!=='1') w.remove();
+}
+['pointerdown','keydown','touchstart','scroll','input'].forEach(ev=>document.addEventListener(ev, idleMark, {capture:true, passive:true}));
+function idleStay(){ _idleWrite = 0; idleMark(); const w = document.getElementById('idleWarn'); if(w) w.remove(); }
+async function idleLogout(){
+  const w = document.getElementById('idleWarn'); if(w) w.remove();
+  try{ saveDraftToStorage(); }catch(e){}
+  try{ localStorage.setItem(IDLE_OUT_KEY, String(Date.now())); }catch(e){}
+  await logout();
+  showToast('أُغلق دخولك تلقائياً لعدم النشاط. سجّل الدخول من جديد.');
+}
+window.addEventListener('storage', e=>{ if(e.key===IDLE_OUT_KEY && state.user && state.view!=='login'){ try{ saveDraftToStorage(); }catch(x){} logout(); } });
+setInterval(()=>{
+  if(!state.user || state.view==='login') return;
+  const idle = Date.now() - idleLastAct();
+  if(idle >= IDLE_LOGOUT_MS){ idleLogout(); return; }
+  if(idle >= IDLE_LOGOUT_MS - IDLE_WARN_MS){
+    let w = document.getElementById('idleWarn');
+    const left = Math.max(1, Math.ceil((IDLE_LOGOUT_MS - idle)/1000));
+    if(!w){
+      w = document.createElement('div'); w.id='idleWarn'; w.className='no-print'; w.dataset.keep='1';
+      w.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(15,25,35,.55);display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl;';
+      w.innerHTML = '<div role="alertdialog" aria-modal="true" style="background:#fff;border-radius:14px;padding:22px 24px;max-width:380px;width:100%;text-align:right;box-shadow:0 10px 40px rgba(0,0,0,.3);"><h2 style="margin:0 0 8px;font-size:18px;">هل ما زلت هنا؟</h2><p style="margin:0 0 16px;line-height:1.7;">سيُغلق دخولك بعد <b id="idleLeft"></b> ثانية لعدم النشاط، حمايةً لبياناتك.</p><button type="button" class="btn btn-primary btn-md" onclick="idleStay()" title="يبقيك داخل النظام">ابقَ متصلاً</button></div>';
+      document.body.appendChild(w);
+    }
+    const sp = document.getElementById('idleLeft'); if(sp) sp.textContent = left;
+  }
+}, 1000);
+
 // يحوّل ما يكتبه المستخدم إلى بريد المصادقة: رقم هاتف ← <الرقم>@qyam.local ، وبريد ← كما هو
 const AUTH_EMAIL_DOMAIN = '@qyam.local';
 function loginIdToEmail(id){
