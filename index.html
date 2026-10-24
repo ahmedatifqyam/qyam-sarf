@@ -4907,7 +4907,24 @@ async function confirmManualSign(){
   await finalizeApprove(req, dataUrl);
 }
 
+// حدّ المرفقات: صور وPDF فقط وبحجم لا يزيد عن ٤ ميغابايت (يمنع تضخيم الجداول ورفع ملفات غريبة)
+const UPLOAD_MAX_BYTES = 4*1024*1024;
+function uploadProblem(file){
+  if(!file) return '';
+  if(!/^(image\/(png|jpe?g|webp|gif|svg\+xml)|application\/pdf)$/.test(file.type||'')) return 'نوع الملف غير مسموح — المسموح صور (PNG/JPG/WEBP/GIF) أو PDF';
+  if(file.size > UPLOAD_MAX_BYTES) return 'حجم الملف أكبر من ٤ ميغابايت — صغّر الصورة ثم أعد المحاولة';
+  return '';
+}
+document.addEventListener('change', e=>{
+  const t=e.target;
+  if(!t || t.tagName!=='INPUT' || t.type!=='file') return;
+  for(const f of (t.files||[])){
+    const msg=uploadProblem(f);
+    if(msg){ t.value=''; e.stopImmediatePropagation(); showToast(msg,'error'); return; }
+  }
+}, true);
 function readFileAsDataURL(file){
+  { const msg=uploadProblem(file); if(msg){ showToast(msg,'error'); return Promise.reject(new Error(msg)); } }
   return new Promise((resolve, reject)=>{
     const r = new FileReader();
     r.onload = e=>resolve(e.target.result);
