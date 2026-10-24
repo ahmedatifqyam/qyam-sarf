@@ -133,6 +133,7 @@
   .nav-sub{padding:2px 0 6px;}
   .nav-subcat{font-size:11px;font-weight:700;color:#7f93a8;margin:4px 14px 0;line-height:1.5;}
   .admin-nav-item{display:block;padding:7px 12px 7px 8px;margin:1px 0;line-height:1.5;border-radius:7px;cursor:pointer;font-size:13.5px;color:#cfd8e3;margin-right:18px;border-right:3px solid transparent;}
+  .admin-nav-item .nav-count{float:left;margin:2px 0 0;}
   .admin-nav-item:hover{background:rgba(255,255,255,.08);color:#fff;}
   .admin-nav-item.active{background:rgba(255,255,255,.13);color:#fff;font-weight:600;border-right-color:#D4AF37;}
   .app-nav[data-mode="collapsed"] .nav-label, .app-nav[data-mode="collapsed"] .nav-title, .app-nav[data-mode="collapsed"] .nav-caret,
@@ -3147,6 +3148,13 @@ function groupNavSets(){
     if(pageLevel('analytics')!=='none') rep.push({key:'analytics', label:'التحليلات المالية', views:['analytics'], js:go(`openAnalytics(); window.scrollTo(0,0);`)});
     if(rep.length) sets.push(rep);
   }
+  // المساعدة: الدليل | الخريطة | المساعد الذكي (الأخير يفتح نافذة المحادثة ولا يغيّر الصفحة)
+  const help = [
+    {key:'guide', label:'دليل المستخدم', views:['guide'], js:go(`openGuide();`)},
+    {key:'sitemap', label:'خريطة الموقع', views:['sitemap'], js:go(`openSiteMap();`)}
+  ];
+  if(canSeeAssistant() && ASSISTANT_WEBHOOK) help.push({key:'assistant', label:'المساعد الذكي', views:[], js:go(`openAssistant();`)});
+  sets.push(help);
   return sets;
 }
 function injectGroupNav(){
@@ -3183,31 +3191,64 @@ function setAccountSec(i){
   document.querySelectorAll('[data-accsec-tab]').forEach(b=>b.classList.toggle('active', Number(b.dataset.accsecTab)===i));
   window.scrollTo(0,0);
 }
+// مجموعات الشريط الجانبي القابلة للفتح والإغلاق: المعاملات المالية | لوحة التحكم | المساعدة
+function inFinArea(){
+  const v = state.view;
+  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring'].includes(v)) return true;
+  return !inAdminArea() && ['ledger','analytics'].includes(v);
+}
+function inHelpArea(){ return ['guide','sitemap'].includes(state.view); }
+function navGroupOf(){ return inAdminArea() ? 'admin' : inFinArea() ? 'fin' : inHelpArea() ? 'help' : null; }
+function navGroupPref(){ try{ return JSON.parse(localStorage.getItem('qayam_nav_groups')||'{}') || {}; }catch(e){ return {}; } }
+function navGroupSet(k, v){ const p = navGroupPref(); p[k] = !!v; try{ localStorage.setItem('qayam_nav_groups', JSON.stringify(p)); }catch(e){} }
+function navGroupIsOpen(k){
+  if(k==='admin') return inAdminArea();
+  const p = navGroupPref();
+  return (k in p) ? !!p[k] : (k==='fin');          // المالية مفتوحة لأول زيارة، والمساعدة مطوية
+}
+function navGroupToggle(k){ navGroupSet(k, !navGroupIsOpen(k)); renderAppNav(); }
+function navFinSubs(){
+  const role = state.user.role, subs = [];
+  const pend = (typeof getMyPendingRequests==='function') ? getMyPendingRequests().length : 0;
+  subs.push({label:'الصرف', count:pend, active:['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview'].includes(state.view),
+             js:`state.view='dashboard'; render(); window.scrollTo(0,0);`});
+  if(canSeeRevenues()) subs.push({label:'الإيراد', active:state.view==='revenues', js:`openRevenues(0);`});
+  if(canSeeRecurring()) subs.push({label:'القيود الدورية', count:recDueCount(), active:state.view==='recurring', js:`openRecurring(0);`});
+  if(role!=='admin' && (pageLevel('ledger')!=='none' || pageLevel('analytics')!=='none')){
+    const toLedger = pageLevel('ledger')!=='none';
+    subs.push({label:'التقارير', active:['ledger','analytics'].includes(state.view),
+               js: toLedger ? `openLedger(); window.scrollTo(0,0);` : `openAnalytics(); window.scrollTo(0,0);`});
+  }
+  return subs;
+}
+function navHelpSubs(){
+  const subs = [
+    {label:'دليل المستخدم', active:state.view==='guide', js:`openGuide(); window.scrollTo(0,0);`},
+    {label:'خريطة الموقع', active:state.view==='sitemap', js:`openSiteMap(); window.scrollTo(0,0);`}
+  ];
+  if(canSeeAssistant() && ASSISTANT_WEBHOOK) subs.push({label:'المساعد الذكي', active:false, js:`openAssistant();`});
+  return subs;
+}
+// يفتح نافذة المساعد (الفقاعة العائمة) من بند الشريط أو التبويب
+async function openAssistant(){
+  if(!canSeeAssistant()) return;
+  try{ if(!assistantMounted) await mountAssistant(); }catch(e){}
+  const root = document.getElementById('qyamAssistant'); if(!root) return;
+  let tgl = null;
+  for(let i=0;i<30 && !tgl;i++){ tgl = root.querySelector('[class*="chat-window-toggle"]'); if(!tgl) await new Promise(r=>setTimeout(r,100)); }
+  if(!tgl){ showToast('المساعد غير متاح الآن، حاول بعد قليل'); return; }
+  const win = root.querySelector('[class*="chat-window"]:not([class*="wrapper"]):not([class*="toggle"])');
+  const isOpen = win && win.getBoundingClientRect().height > 60;
+  if(!isOpen) tgl.click();
+}
 function navTopItems(){
   const u = state.user; if(!u) return [];
   const role = u.role, items = [];
-  items.push({head:'المعاملات المالية'});
-  const pend = (typeof getMyPendingRequests==='function') ? getMyPendingRequests().length : 0;
-  items.push({key:'requests', ico:'📋', label:'الصرف', count: pend, active: ['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview'].includes(state.view),
-              js: `state.view='dashboard'; render(); window.scrollTo(0,0);`});
-  if(canSeeRevenues()){
-    items.push({key:'revenues', ico:'💰', label:'الإيراد', active: state.view==='revenues',
-                js: `openRevenues(0);`});
-  }
-  if(canSeeRecurring()){
-    items.push({key:'recurring', ico:'🔁', label:'القيود الدورية', count: recDueCount(), active: state.view==='recurring',
-                js: `openRecurring(0);`});
-  }
-  if(role!=='admin' && (pageLevel('ledger')!=='none' || pageLevel('analytics')!=='none')){
-    const toLedger = pageLevel('ledger')!=='none';
-    items.push({key:'reports', ico:'📊', label:'التقارير', active: ['ledger','analytics'].includes(state.view),
-                js: toLedger ? `openLedger(); window.scrollTo(0,0);` : `openAnalytics(); window.scrollTo(0,0);`});
-  }
-  if(role==='admin') items.push({key:'admin', ico:'⚙️', label:'لوحة التحكم', group:true, active: inAdminArea()});
+  items.push({key:'fin', group:'fin', ico:'💰', label:'المعاملات المالية', active: inFinArea(), subs: navFinSubs()});
+  if(role==='admin') items.push({key:'admin', ico:'⚙️', label:'لوحة التحكم', group:'admin', active: inAdminArea()});
   if(role!=='admin') items.push({key:'account', ico:'👤', label:'حسابي', active: state.view==='account',
               js: `openAccount(); window.scrollTo(0,0);`});
-  items.push({key:'userGuide', ico:'📖', label:'دليل المستخدم', active: state.view==='guide', js:`openGuide(); window.scrollTo(0,0);`});
-  items.push({key:'siteMap', ico:'🗺️', label:'خريطة الموقع', active: state.view==='sitemap', js:`openSiteMap(); window.scrollTo(0,0);`});
+  items.push({key:'help', group:'help', ico:'❓', label:'المساعدة', active: inHelpArea(), subs: navHelpSubs()});
   return items;
 }
 // صندوق العمل يبقى بمنتصف الصفحة تماماً ما دام عرضه ≥ 840 بكسل، وإلا يُزاح بالقدر الأدنى اللازم كي لا يتداخل مع الشريط
@@ -3235,10 +3276,11 @@ function renderAppNav(){
   navApplyPadding(navW);
   const tb = document.querySelector('.topbar');
   document.documentElement.style.setProperty('--topbar-h', (tb ? Math.ceil(tb.getBoundingClientRect().height) : 64)+'px');
+  { const g = navGroupOf(); if(g && g!=='admin' && g!==state._navLastG) navGroupSet(g, true); state._navLastG = g; }
   const collapsed = mode==='collapsed';
   const itemHtml = it=>{
     if(it.head) return collapsed ? '<div class="nav-sep"></div>' : `<div class="nav-headlabel">${escH(it.head)}</div>`;
-    if(it.group){
+    if(it.group==='admin'){
       const open = inAdminArea() && !collapsed;
       // الشريط الجانبي: البنود العامة الخمسة فقط — تبويباتها تظهر داخل الصفحة
       const curG = inAdminArea() ? activeAdminGroup() : null;
@@ -3248,6 +3290,18 @@ function renderAppNav(){
       const headJs = collapsed ? `navPeekOpen();` : navClick(`state.view='admin'; render(); window.scrollTo(0,0);`);
       return `<div class="nav-group">
         <div class="nav-item${it.active?' active':''}" title="${escH(it.label)}" onclick="${headJs}"><span class="nav-ico">${it.ico}</span><span class="nav-label">${escH(it.label)}</span><span class="nav-caret">${open?'▲':'▼'}</span></div>
+        ${open ? `<div class="nav-sub">${sub}</div>` : ''}
+      </div>`;
+    }
+    if(it.group){
+      const open = navGroupIsOpen(it.group) && !collapsed;
+      const sub = it.subs.map(x=>
+        `<div class="admin-nav-item${x.active?' active':''}" data-nav-item data-nav-label="${escH(x.label)}" onclick="${navClick(x.js)}">${escH(x.label)}${x.count?`<span class="nav-count">${x.count}</span>`:''}</div>`
+      ).join('');
+      const headJs = collapsed ? `navPeekOpen();` : `navGroupToggle('${it.group}');`;
+      const totalCount = open ? 0 : it.subs.reduce((n,x)=>n+(x.count||0),0);
+      return `<div class="nav-group">
+        <div class="nav-item${it.active?' active':''}" title="${escH(it.label)}" onclick="${headJs}"><span class="nav-ico">${it.ico}</span><span class="nav-label">${escH(it.label)}</span>${totalCount?`<span class="nav-count">${totalCount}</span>`:''}<span class="nav-caret">${open?'▲':'▼'}</span></div>
         ${open ? `<div class="nav-sub">${sub}</div>` : ''}
       </div>`;
     }
@@ -3264,7 +3318,11 @@ window.addEventListener('resize', ()=>{ clearTimeout(_navResizeT); _navResizeT=s
 // ===================== البحث الموحّد: أقسام الموقع + الطلبات =====================
 function searchSectionIndex(){
   const out = [];
-  navTopItems().filter(i=>!i.group && !i.head).forEach(i=>out.push({label:i.label, sub:'صفحة', js:i.js}));
+  navTopItems().forEach(i=>{
+    if(i.group==='admin' || i.head) return;
+    if(i.subs) i.subs.forEach(x=>out.push({label:x.label, sub:i.label, js:x.js}));
+    else out.push({label:i.label, sub:'صفحة', js:i.js});
+  });
   // أسماء البنود التي دُمجت في الشريط الجانبي تبقى قابلة للبحث
   out.push({label:'طلبات الصرف', sub:'الصرف', js:`state.view='dashboard'; render();`});
   if(pageLevel('newreq')!=='none') out.push({label:'طلب صرف جديد', sub:'الصرف', js:`openNewRequestChoice();`});
@@ -5975,7 +6033,7 @@ function renderGuide(app){
   app.innerHTML = `
     <h1>دليل المستخدم</h1>
     <p class="sub">شرح خطوة بخطوة لكل صفحات النظام. <a href="#" onclick="event.preventDefault(); openSiteMap();" style="color:var(--blue);text-decoration:underline;">🗺️ خريطة الموقع</a></p>
-    <iframe title="دليل المستخدم" src="user-guide.html${a}" style="width:100%;height:calc(100vh - 230px);min-height:420px;border:1px solid var(--line);border-radius:12px;background:#fff;"></iframe>`;
+    <iframe title="دليل المستخدم" src="user-guide.html${a}" style="width:100%;height:calc(100vh - 270px);min-height:420px;border:1px solid var(--line);border-radius:12px;background:#fff;"></iframe>`;
 }
 function openSiteMap(){ state.view = 'sitemap'; render(); window.scrollTo(0,0); }
 
@@ -5999,6 +6057,8 @@ function siteMapPages(){
   if(pageLevel('analytics')!=='none' || isAdmin) P.push({g:'المالية', ico:'📊', label:'التحليلات المالية', desc:'رسوم وأرقام المصروف والمتاح.', js:`openAnalytics();`, guide:'acct', btns:[]});
   if(!isAdmin) P.push({g:'حسابي', ico:'👤', label:'حسابي', desc:'بياناتك وتوقيعك وكلمة مرورك.', js:`openAccount();`, guide:'start', btns:[['حفظ','يحفظ التعديلات']]});
   P.push({g:'مساعدة', ico:'📖', label:'دليل المستخدم', desc:'الشرح الكامل داخل النظام.', js:`openGuide();`, guide:'', btns:[]});
+  P.push({g:'مساعدة', ico:'🗺️', label:'خريطة الموقع', desc:'كل صفحات النظام المتاحة لك.', js:`openSiteMap();`, guide:'', btns:[]});
+  if(canSeeAssistant() && ASSISTANT_WEBHOOK) P.push({g:'مساعدة', ico:'💬', label:'المساعد الذكي', desc:'اسأل عن أي خطوة، أو ابدأ رسالتك بكلمة «ملاحظة» لتصل لمدير النظام.', js:`openAssistant();`, guide:'', btns:[]});
   if(isAdmin){
     ADMIN_NAV.forEach(gp=>gp.items.forEach(it=>{
       P.push({g:'لوحة التحكم — '+gp.cat, ico:'⚙️', label:it.label, desc:'', js:adminNavAction(it), guide:'admin', btns:[]});
