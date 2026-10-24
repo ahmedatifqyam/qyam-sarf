@@ -319,10 +319,10 @@
   .brand-co-group .brand-sub{font-size:17px;font-weight:700;color:#fff;}
   .brand-name{font-weight:700;}
   /* صفّا التبويب: مسافة صغيرة تحت الشريط العلوي، وعرضهما بعرض الصفحة كالشريط العلوي */
-  .adm-nav2,.adm-subs-solo{top:calc(var(--topbar-h,66px) + 2px);box-shadow:0 -2px 0 var(--paper),0 1px 5px rgba(0,0,0,.13);}
+  .adm-nav2,.adm-subs-solo{top:var(--topbar-h,66px);box-shadow:none;border:1px solid #BFD0DE;}
   @media (min-width:641px){
     .adm-nav2,.adm-subs-solo{border-radius:0;}
-    .adm-head + .adm-nav2,h1[data-top] + .adm-subs-solo,h1[data-top] + .adm-nav2,#app > .adm-subs-solo:first-child{margin-top:-26px;}
+    .adm-head + .adm-nav2,h1[data-top] + .adm-subs-solo,h1[data-top] + .adm-nav2,#app > .adm-subs-solo:first-child{margin-top:-28px;}
   }
   /* ===== ارتفاع موحّد ٤٠ للأزرار والحقول والقوائم ===== */
   input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=range]):not([type=color]),select{height:40px;padding-top:0;padding-bottom:0;}
@@ -340,7 +340,7 @@
   .calc-in{height:32px !important;left:4px !important;background:#22415C;color:#fff;}
   .calc-in:hover{background:#2E5F8A;}
   .back-link{display:block;width:fit-content;margin-right:auto;margin-left:0;}
-  .adm-nav2,.adm-subs-solo{position:sticky;top:calc(var(--topbar-h,64px) - 1px);z-index:9;}
+  .adm-nav2,.adm-subs-solo{position:sticky;top:var(--topbar-h,64px);z-index:9;}
   @media (min-width:641px){
     h1[data-top]{display:none;}
     .adm-head:has(h1[data-top]){display:none;}
