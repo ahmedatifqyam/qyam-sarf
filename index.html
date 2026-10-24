@@ -3418,6 +3418,7 @@ function toggleImpMin(v){ try{ localStorage.setItem('qayam_imp_min', v?'1':'0');
 // أيقونة الطباعة بالشريط العلوي: في الطلب تفتح معاينته وتطبع، وفي غيره تطبع الصفحة الحالية
 async function topPrint(){
   if(state.view==='detail' && state.activeReqId){ await openPrintPreview(state.activeReqId); setTimeout(()=>window.print(), 500); return; }
+  if(state.view==='orgTree' && typeof printOrgTree==='function'){ printOrgTree(); return; }   // الشجرة لها تجهيز خاص (A4 صفحة واحدة)
   window.print();
 }
 function renderTopbar(){
@@ -3464,7 +3465,7 @@ function renderTopbar(){
       ${companySwitcher}
       ${impersonateSwitcher}
       ${bellBtn}
-      <button type="button" class="tb-icon" id="printBtn" onclick="topPrint()" title="${state.view==='detail'||state.view==='printPreview' ? 'طباعة الطلب / حفظ PDF' : 'طباعة هذه الصفحة'}" aria-label="طباعة"><svg class="tb-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg></button>
+      <button type="button" class="tb-icon" id="printBtn" onclick="topPrint()" title="${state.view==='detail'||state.view==='printPreview' ? 'طباعة الطلب / حفظ PDF' : state.view==='orgTree' ? 'طباعة الشجرة كاملة' : 'طباعة هذه الصفحة'}" aria-label="طباعة"><svg class="tb-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg></button>
       <button type="button" class="tb-icon" id="searchBtn" onclick="toggleSearch()" title="بحث عن صفحة أو طلب (F أو Ctrl+F)" aria-label="بحث"><svg class="tb-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
       <button type="button" class="tb-icon" onclick="refreshNow(true)" title="تحديث بيانات الطلبات" aria-label="تحديث"><svg class="tb-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
     </div>
@@ -10116,7 +10117,6 @@ async function renderOrgTree(app){
         <button type="button" class="adm-sub ${treeViewMode()==='level'?'active':''}" onclick="setTreeView('level')" title="مسطّح: مرتّب بالمستوى الوظيفي ثم الاسم">حسب المستوى</button>
         <button type="button" class="adm-sub ${treeViewMode()==='hier'?'active':''}" onclick="setTreeView('hier')" title="هرمي: كل شخص تحت مديره المباشر">هرمي حسب المدير</button>
       </div>
-      <button type="button" class="btn btn-ghost btn-md" style="margin-right:auto;" onclick="printOrgTree()" title="يطبع الشجرة كاملة">🖨 طباعة</button>
     </div>
     <div class="org-tree-page">${treeHtml}</div>`;
   const checkPanel = `
