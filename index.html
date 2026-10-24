@@ -7092,15 +7092,15 @@ function askModal(opts){
         : x.type==='select'
         ? `<select id="ask_${x.id}">${(x.options||[]).map(([v,l])=>`<option value="${escH(v)}"${String(x.value)===String(v)?' selected':''}>${escH(l)}</option>`).join('')}</select>`
         : `<input id="ask_${x.id}" type="${x.type||'text'}" ${x.type==='number'?'step="0.001" min="0" dir="ltr"':''} value="${escH(x.value==null?'':x.value)}" autocomplete="${x.type==='password'?'new-password':'off'}">`;
-      return `<label>${escH(x.label)}</label>${ctl}${hint}`;
+      return `<label>${x.label}</label>${ctl}${hint}`;
     }).join('');
     const wrap = document.createElement('div');
     wrap.id = 'askModalRoot';
     wrap.innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) askModalDone(false);">
         <div class="modal-box">
-          <h2>${escH(opts.title||'')}</h2>
-          ${opts.text ? `<p class="sub" style="margin-bottom:12px;">${escH(opts.text)}</p>` : ''}
+          <h2>${opts.title||''}</h2>
+          ${opts.text ? `<p class="sub" style="margin-bottom:12px;">${opts.text}</p>` : ''}
           ${fields}
           <div id="askErr" style="color:var(--red);font-size:13px;min-height:18px;margin:6px 0;"></div>
           <div class="actions-row">
@@ -7146,7 +7146,7 @@ async function reverseTransaction(txId){
   const posted = await postTransaction({
     companyId: t.companyId, centerId: t.centerId, direction: t.direction==='out' ? 'in' : 'out',
     amount: t.amount, budgetItemId: t.budgetItemId, beneficiary: t.beneficiary,
-    description: `عكس: ${escH(t.description)}`, sourceType: t.sourceType, sourceId: t.sourceId,
+    description: `عكس: ${t.description}`, sourceType: t.sourceType, sourceId: t.sourceId,
     reversesId: t.id, note: reason
   });
   if(!posted){ await recReloadLedger(); render(); return; }
@@ -9737,8 +9737,8 @@ function treeRow(opts){
       ${canToggle ? `onclick="toggleTreeNode('${opts.toggleId}',${opts.dflt?'true':'false'})"` : ''}>
       ${canToggle ? treeToggleHtml(opts.toggleId, opts.dflt) : '<span style="display:inline-block;width:16px;"></span>'}
       <span style="font-size:15px;">${opts.icon}</span>
-      <span style="font-weight:600;font-size:14.5px;white-space:nowrap;">${escH(opts.label)}</span>
-      ${opts.sub ? `<span class="sub" style="font-size:12.5px;margin-right:4px;">${escH(opts.sub)}</span>` : ''}
+      <span style="font-weight:600;font-size:14.5px;white-space:nowrap;">${opts.label}</span>
+      ${opts.sub ? `<span class="sub" style="font-size:12.5px;margin-right:4px;">${opts.sub}</span>` : ''}
     </div>`;
 }
 
