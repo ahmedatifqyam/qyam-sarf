@@ -576,7 +576,7 @@
   .doc{
     background:#fff;border:1px solid var(--line);border-radius:8px;padding:28px;margin-bottom:20px;
   }
-  .doc-cancelled{position:relative;opacity:0.75;}
+  .doc-cancelled{position:relative;opacity:0.75;overflow:hidden;}
   .doc-cancelled::before{
     content:"ملغى";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);
     font-size:min(42vw,250px);line-height:1;font-weight:900;font-family:Arial,Helvetica,sans-serif;color:rgba(178,58,46,0.18);z-index:1;pointer-events:none;
@@ -585,7 +585,7 @@
   .doc-cancelled .app-req-header, .doc-cancelled .amount-table, .doc-cancelled .app-total-box{text-decoration:line-through;text-decoration-color:rgba(178,58,46,0.5);text-decoration-thickness:2px;}
   .print-watermark{
     position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);
-    font-size:55mm;line-height:1;font-weight:900;color:rgba(178,58,46,0.25);z-index:100;
+    font-size:55mm;line-height:1;font-weight:900;color:rgba(178,58,46,0.25);z-index:1;
     pointer-events:none;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;
   }
   .app-req-header{
