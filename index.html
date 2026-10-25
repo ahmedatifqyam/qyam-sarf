@@ -6044,7 +6044,7 @@ function renderPrintPreview(app){
   });
   if(curChunk.length) attachmentChunks.push(curChunk);
 
-  const cancelledWatermark = req.isCancelled ? `<div class="print-watermark" style="top:27%">ملغى</div><div class="print-watermark" style="top:73%">ملغى</div>` : '';
+  const cancelledWatermark = req.isCancelled ? `<div class="print-watermark" style="top:18%">ملغى</div><div class="print-watermark" style="top:50%">ملغى</div><div class="print-watermark" style="top:82%">ملغى</div>` : '';
 
   const totalPages = letterPages.length + attachmentChunks.length;
   const footerSpec = printFooterSpec(req);
