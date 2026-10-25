@@ -1640,7 +1640,7 @@ async function loadAll(){
 const AUTO_REFRESH_MS = 60000;
 
 function reqFingerprint(list){
-  return list.map(r=>[r.id, r.number||'', r.status, r.isCancelled?1:0, r.totalAmount, (r.history||[]).length,
+  return list.map(r=>[r.id, r.number||'', r.verifyCode||'', r.status, r.isCancelled?1:0, r.totalAmount, (r.history||[]).length,
     (r.approvalSteps||[]).map(x=>(x.status||'')[0]).join('')].join('|')).join(';');
 }
 async function refreshRequests(){
@@ -4778,6 +4778,8 @@ async function submitDraftInner(){
   }
   const h0 = req.history[0];
   await dbCheck(await db.from('request_history').insert({request_id:req.id, step:h0.step, actor:h0.actor, user_id:h0.userId, action:h0.action, note:h0.note, time:h0.time}), 'حفظ سجل الإنشاء');
+  // رقم التحقق يولّده الخادم عند الإنشاء؛ نقرؤه الآن حتى يظهر على السند دون الحاجة لتحديث الصفحة
+  try{ const vc = await db.from('requests').select('verify_code').eq('id', req.id).maybeSingle(); req.verifyCode = (vc && vc.data && vc.data.verify_code) || ''; }catch(e){ req.verifyCode = ''; }
   state.requests.push(req);
   clearDraftStorage();
   // تسجيل تجاوز الرصيد إن وُجد
@@ -5698,7 +5700,7 @@ function renderRequestQRCode(req, extraClass){
         <a href="${verifyUrl}" target="_blank" rel="noopener" style="display:block;cursor:pointer;text-decoration:none;" title="انقر لفتح صفحة التحقق من السند">
           <div class="request-qr-img">${svg}</div>
         </a>
-        <div class="request-qr-code" dir="ltr">${escH(req.verifyCode || req.number)}</div>
+        ${req.verifyCode ? `<div class="request-qr-code" dir="ltr">${escH(req.verifyCode)}</div>` : ''}
       </div>
       <div class="request-qr-hint">اضغط للتحقق</div>
     </div>`;
