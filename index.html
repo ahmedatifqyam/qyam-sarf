@@ -1513,7 +1513,7 @@ function dbCompanyToState(c){
     id:c.id, nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'', brandLogo:c.brand_logo_data||'',
     footerText:(c.footer_text===undefined ? null : c.footer_text), footerFontMode:c.footer_font_mode||'auto', footerFontSize:(c.footer_font_size!=null ? Number(c.footer_font_size) : 10), footerShowText:c.footer_show_text!==false, footerShowLine:c.footer_show_line!==false,
     footerTextColor:c.footer_text_color||'#111111', footerNumColor:c.footer_num_color||'#111111', footerLineColor:c.footer_line_color||'#888888', pageNumStyle:c.page_num_style||'full', footerOffset:(c.footer_offset_mm!=null ? Number(c.footer_offset_mm) : 4),
-    primaryColor:c.primary_color||'#C0392B', code:c.code, hqCode:c.hq_code||'HQ',
+    primaryColor:c.primary_color||'#C0392B', verifyPrefix:c.verify_prefix||'', code:c.code, hqCode:c.hq_code||'HQ',
     salutationText: c.salutation_text || 'الإخوة / الإدارة المالية',
     referenceText: c.reference_text || 'يرجى التكرم بالموافقة على صرف',
     cfoDelegationMode: c.cfo_delegation_mode || 'normal',
@@ -2501,16 +2501,31 @@ function renderVerifySettings(app){
           <input type="radio" name="vlevel" value="${o.v}" ${cur===o.v?'checked':''} onchange="state.verifyLevelDraft=this.value" style="margin-top:4px;">
           <span><b>${escH(o.label)}</b><div class="sub" style="font-size:12px;">${escH(o.desc)}</div></span>
         </label>`).join('')}
+      <h3 style="margin:18px 0 4px;font-size:15px;">رمز الشركة في رقم التحقق</h3>
+      <p class="sub" style="margin:0 0 8px;">أول حرفين من رقم التحقق المطبوع تحت الـQR (مثل Q8 للكويت أو EG لمصر). حرفان أو رقمان بالإنجليزية. الشركة التي بلا رمز تأخذ Q8. يسري على الطلبات الجديدة فقط.</p>
+      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>الشركة</th><th>الرمز</th><th>مثال</th></tr></thead><tbody>
+      ${(state.companies||[]).map(c=>{ const v = (state.verifyPrefixDraft||{})[c.id]; const cur = (v!==undefined ? v : (c.verifyPrefix||'')); return `<tr><td>${escH(c.nameAr)}</td>
+        <td><input type="text" dir="ltr" maxlength="2" placeholder="Q8" value="${escH(cur)}" style="width:70px;text-transform:uppercase;text-align:center;" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); state.verifyPrefixDraft=state.verifyPrefixDraft||{}; state.verifyPrefixDraft['${escH(c.id)}']=this.value;"></td>
+        <td dir="ltr">${escH(cur||'Q8')}-7K3M-92XD</td></tr>`; }).join('')}
+      </tbody></table></div>
       <div class="actions-row" data-bar-actions>
-        <button class="btn btn-primary btn-md" title="يحفظ مستوى العرض لكل صفحات التحقق" onclick="saveVerifyLevel()">حفظ</button>
+        <button class="btn btn-primary btn-md" title="يحفظ مستوى العرض ورموز الشركات" onclick="saveVerifyLevel()">حفظ</button>
       </div>
     </div>`);
 }
 async function saveVerifyLevel(){
   const v = state.verifyLevelDraft || verifyLevelNow();
   if(!/^[1-7]$/.test(v)) return;
+  const bad = Object.entries(state.verifyPrefixDraft||{}).find(([id,val])=> val && !/^[A-Z0-9]{2}$/.test(val));
+  if(bad){ showToast('رمز الشركة يجب أن يكون حرفين أو رقمين بالإنجليزية','error'); return; }
   const r = await db.from('app_settings').upsert({key:'verify_level', value:v});
   if(!(await dbCheck(r,'حفظ مستوى صفحة التحقق'))) return;
+  for(const [id,val] of Object.entries(state.verifyPrefixDraft||{})){
+    const rc = await db.from('companies').update({verify_prefix: val || null}).eq('id', id);
+    if(!(await dbCheck(rc,'حفظ رمز الشركة'))) return;
+    const co = (state.companies||[]).find(x=>x.id===id); if(co) co.verifyPrefix = val || '';
+  }
+  state.verifyPrefixDraft = null;
   state.appSettings = state.appSettings||{}; state.appSettings.verify_level = v; state.verifyLevelDraft = null;
   showToast('تم الحفظ','success'); render();
 }
