@@ -2476,12 +2476,14 @@ function secMarkAllShown(){
 // ═══ إعداد ما تعرضه صفحة التحقق من السند (يُطبَّق في الخادم، ملف SQL ١٠) ═══
 const VERIFY_LEVELS = [   // مرتبة من الأكثر حماية إلى الأقل (الرقم v داخلي يقرؤه الخادم ولا يظهر للمستخدم)
   {v:'4', label:'الإجمالي فقط', desc:'رقم الطلب والشركة والتاريخ والحالة والإجمالي، بلا أي أسماء. الأكثر حماية.'},
-  {v:'3', label:'المستفيدون بأسماء مختصرة', desc:'المستفيدون ومبالغهم بأسماء مختصرة، بلا بيان ولا سجل اعتماد.'},
-  {v:'2', label:'المستفيدون بأسمائهم الكاملة', desc:'المستفيدون ومبالغهم بأسمائهم الكاملة، بلا بيان ولا سجل اعتماد.'},
+  {v:'6', label:'أسماء المستفيدين مختصرة فقط', desc:'الإجمالي مع أسماء المستفيدين مختصرة (أحمد ع.)، بلا مبالغ ولا بيان ولا سجل اعتماد.'},
+  {v:'7', label:'أسماء المستفيدين كاملة فقط', desc:'الإجمالي مع أسماء المستفيدين كاملة، بلا مبالغ ولا بيان ولا سجل اعتماد.'},
+  {v:'3', label:'المستفيدون بأسماء مختصرة مع المبالغ', desc:'المستفيدون ومبالغهم بأسماء مختصرة، بلا بيان ولا سجل اعتماد.'},
+  {v:'2', label:'المستفيدون بأسمائهم الكاملة مع المبالغ', desc:'المستفيدون ومبالغهم بأسمائهم الكاملة، بلا بيان ولا سجل اعتماد.'},
   {v:'5', label:'كل البيانات بأسماء مختصرة (الافتراضي)', desc:'المستفيدون ومبالغهم والبيان وسجل الاعتماد، وكل الأسماء مختصرة (أحمد ع.).'},
   {v:'1', label:'كل البيانات بالأسماء كاملة', desc:'ما كانت تعرضه الصفحة سابقاً: المستفيدون والبيان وسجل الاعتماد بأسماء كاملة. الأقل حماية.'}
 ];
-function verifyLevelNow(){ const v = state.appSettings && state.appSettings.verify_level; return /^[1-5]$/.test(v||'') ? v : '5'; }
+function verifyLevelNow(){ const v = state.appSettings && state.appSettings.verify_level; return /^[1-7]$/.test(v||'') ? v : '5'; }
 function renderVerifySettings(app){
   const cur = state.verifyLevelDraft || verifyLevelNow();
   app.innerHTML = wrapWithAdminSidebar(`
@@ -2500,7 +2502,7 @@ function renderVerifySettings(app){
 }
 async function saveVerifyLevel(){
   const v = state.verifyLevelDraft || verifyLevelNow();
-  if(!/^[1-5]$/.test(v)) return;
+  if(!/^[1-7]$/.test(v)) return;
   const r = await db.from('app_settings').upsert({key:'verify_level', value:v});
   if(!(await dbCheck(r,'حفظ مستوى صفحة التحقق'))) return;
   state.appSettings = state.appSettings||{}; state.appSettings.verify_level = v; state.verifyLevelDraft = null;
@@ -2614,7 +2616,12 @@ async function renderVerifyPage(reqId){
 
     // هل يوجد أي مستفيد لديه خصم أو إضافي؟ — لتحديد هيكل الجدول بالكامل
     const anyAdjustments = benes.some(b => Number(b.deduction||0) > 0 || Number(b.extra||0) > 0);
-    const beneRowsHtml = benes.map((b,i)=>{
+    const namesOnly = r.level==6 || r.level==7;   // أسماء فقط بلا مبالغ
+    const beneRowsHtml = namesOnly ? benes.map((b,i)=>`
+          <tr style="background:${i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)'};">
+            <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
+            <td style="padding:6px 8px;font-size:13px;font-weight:600;">${esc(b.name)}</td>
+          </tr>`).join('') : benes.map((b,i)=>{
       const amount = Number(b.amount||0), ded = Number(b.deduction||0), extra = Number(b.extra||0);
       const net = amount - ded + extra;
       const bg = i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)';
@@ -2699,7 +2706,7 @@ async function renderVerifyPage(reqId){
     }).join('');
 
     // إجمالي صافي المستفيدين
-    const totalNet = r._hasBenes ? benes.reduce((s,b)=>s+Number(b.amount||0)-Number(b.deduction||0)+Number(b.extra||0),0) : Number(r.total_amount||0);
+    const totalNet = (r._hasBenes && !namesOnly) ? benes.reduce((s,b)=>s+Number(b.amount||0)-Number(b.deduction||0)+Number(b.extra||0),0) : Number(r.total_amount||0);
 
     app.innerHTML = `
       <div style="max-width:500px;margin:32px auto;padding:0 12px;direction:rtl;font-family:inherit;">
