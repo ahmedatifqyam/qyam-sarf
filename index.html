@@ -850,12 +850,12 @@
   .pf-demo{position:relative;width:210mm;height:34mm;background-color:#fff;background-repeat:no-repeat;background-size:210mm 297mm;background-position:bottom;transform-origin:top right;
     -webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .request-qr-block{
-    position:absolute;top:5mm;left:5mm;display:flex;flex-direction:column;align-items:center;gap:3px;
-    border:1px solid #999;border-radius:4px;padding:5px;background:#fff;
+    position:absolute;top:5mm;left:5mm;display:flex;flex-direction:column;align-items:center;gap:2px;
+    width:24mm;box-sizing:border-box;border:1px solid #999;border-radius:4px;padding:3px;background:#fff;
   }
   .doc-pages-wrap{position:relative;}
   .request-qr-img{width:16mm;height:16mm;}
-  .request-qr-caption{font-size:7px;color:#555;text-align:center;line-height:1.25;}
+  .request-qr-caption{font-size:6.5px;color:#555;text-align:center;line-height:1.2;white-space:nowrap;}
   .toast-host{
     position:fixed;top:calc(var(--topbar-h,64px) + 12px);left:20px;z-index:1000;
     display:flex;flex-direction:column;gap:10px;max-width:320px;
@@ -5676,7 +5676,7 @@ function renderRequestQRCode(req, extraClass){
       <a href="${verifyUrl}" target="_blank" rel="noopener" style="display:block;cursor:pointer;text-decoration:none;" title="انقر لفتح صفحة التحقق">
         <div class="request-qr-img">${svg}</div>
       </a>
-      <div class="request-qr-caption">انقر أو امسح للتحقق من بيانات السند<br>${escH(req.number)}${req.verifyCode ? `<br><span dir="ltr" style="font-weight:700;letter-spacing:.3px;">${escH(req.verifyCode)}</span>` : ''}</div>
+      <div class="request-qr-caption">امسح للتحقق<br><span dir="ltr" style="font-weight:700;">${escH(req.verifyCode || req.number)}</span></div>
     </div>`;
   }catch(e){
     console.error('تعذر عرض رمز QR', e);
