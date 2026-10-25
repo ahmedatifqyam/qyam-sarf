@@ -5667,7 +5667,8 @@ function generateQRSvg(text, sizePx){
 }
 function renderRequestQRCode(req, extraClass){
   try{
-  const verifyUrl = 'https://ahmedatifqyam.github.io/qyam-sarf/?verify=' + encodeURIComponent(req.verifyCode || req.id);
+  // الرابط يُبنى من عنوان الموقع الحالي، فيفتح QR النسخة التجريبية صفحة التحقق التجريبية، والحقيقية للحقيقية
+  const verifyUrl = location.origin + location.pathname + '?verify=' + encodeURIComponent(req.verifyCode || req.id);
   const svg = generateQRSvg(verifyUrl, 200);
   if(!svg) return '';
   return `
