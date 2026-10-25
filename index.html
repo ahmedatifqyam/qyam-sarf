@@ -2332,10 +2332,151 @@ async function seedIfEmpty(){
   await dbCheck(await db.from('users').insert(seeds), 'زرع الحسابات التجريبية');
 }
 
+// ═══════════ سجل الأمان والأخطاء (ملف SQL ٩) ═══════════
+// يلتقط أخطاء الواجهة ومحاولات الدخول ويرسلها لدالة qy_log_event. لا يُسجَّل أي كلمة مرور أبداً.
+// بلا الملف ٩ تفشل الدالة بصمت ويتوقف الإرسال لبقية الجلسة، ولا يتأثر عمل النظام.
+const QY_DEV_KEY = 'qayam_dev_id';
+let _qyLogOff = false, _qyLogCount = 0, _qyLogBusy = false; const _qyLogSeen = {};
+function qyDevice(){
+  let id = ''; try{ id = localStorage.getItem(QY_DEV_KEY) || ''; if(!id){ id = 'd' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); localStorage.setItem(QY_DEV_KEY, id); } }catch(e){ id = 'nostore'; }
+  const c = navigator.connection || {};
+  return {id, ua:(navigator.userAgent||'').slice(0,300), platform:navigator.platform||'', lang:navigator.language||'',
+          screen:(screen.width+'x'+screen.height), viewport:(innerWidth+'x'+innerHeight), tz:(Intl.DateTimeFormat().resolvedOptions().timeZone||''),
+          touch:(navigator.maxTouchPoints||0), net:(c.effectiveType||''), online:navigator.onLine};
+}
+function qyLog(kind, message, details, phone){
+  try{
+    if(_qyLogOff || _qyLogBusy || typeof db==='undefined') return;
+    const key = kind + '|' + String(message||'').slice(0,120), now = Date.now();
+    if(_qyLogSeen[key] && now - _qyLogSeen[key] < 60000) return;   // نفس الخطأ مرة كل دقيقة
+    if(++_qyLogCount > 60) return;                                  // سقف للجلسة الواحدة
+    _qyLogSeen[key] = now; _qyLogBusy = true;
+    Promise.resolve(db.rpc('qy_log_event', {p_kind:kind, p_page:(typeof state!=='undefined' && state.view)||'', p_message:String(message||'').slice(0,500),
+        p_details:String(details||'').slice(0,2000), p_phone:phone||null, p_device:qyDevice()}))
+      .then(r=>{ if(r && r.error && /qy_log_event|function|404|PGRST202/i.test((r.error.message||'')+(r.error.code||''))) _qyLogOff = true; })
+      .catch(()=>{}).finally(()=>{ _qyLogBusy = false; });
+  }catch(e){ _qyLogBusy = false; }
+}
+window.addEventListener('error', function(ev){
+  const m = ev && ev.message || ''; if(!m || /ResizeObserver loop/i.test(m)) return;
+  if(m==='Script error.' && !ev.filename) return;
+  qyLog('js_error', m, (ev.filename||'') + ':' + (ev.lineno||0) + ':' + (ev.colno||0) + ' | ' + ((ev.error && ev.error.stack)||'').slice(0,900));
+});
+window.addEventListener('unhandledrejection', function(ev){
+  const r = ev && ev.reason; const m = (r && (r.message || r.toString && r.toString())) || 'رفض غير معالج';
+  if(/ResizeObserver loop|AbortError|Failed to fetch.*qy_log_event/i.test(m)) return;
+  qyLog('promise_error', m, (r && r.stack || '').slice(0,900));
+});
+function qyUaShort(d){
+  const ua = (d && d.ua) || ''; if(!ua) return '—';
+  const br = /Edg\//.test(ua)?'Edge':/OPR\//.test(ua)?'Opera':/Chrome\//.test(ua)?'Chrome':/Firefox\//.test(ua)?'Firefox':/Safari\//.test(ua)?'Safari':'متصفح';
+  const os = /Android/.test(ua)?'Android':/iPhone|iPad|iOS/.test(ua)?'iOS':/Windows/.test(ua)?'Windows':/Mac OS/.test(ua)?'macOS':/Linux/.test(ua)?'Linux':'';
+  return br + (os?' · '+os:'') + (d.screen?' · '+d.screen:'');
+}
+const SEC_KIND_AR = {
+  step_status_by_other:'اعتماد/رفض من غير صاحب الخطوة', step_ins_acted:'إنشاء خطوة جاهزة المعتمدة', step_delete:'حذف خطوات طلب بدأ اعتماده',
+  req_restore:'استرجاع طلب ملغى', req_cancelled_edit:'تعديل طلب ملغى', req_cancel:'إلغاء طلب بلا صلاحية', req_status_stranger:'تغيير حالة طلب لا يخصه',
+  req_complete:'تأكيد صرف بلا صلاحية', req_reopen:'إعادة فتح طلب مصروف', req_status_forward:'رفع طلب لمراحل الصرف', req_locked_edit:'تعديل طلب مقفل',
+  req_edit_stranger:'تعديل طلب لا يخصه', req_item_locked:'تغيير بند طلب مقفل', req_bank_ref:'تسجيل تحويل بنكي بلا صلاحية', req_ins_owner:'إنشاء طلب باسم غيره',
+  req_ins_status:'إنشاء طلب بحالة متقدمة', req_delete:'حذف طلب بلا صلاحية', ben_cancelled:'تعديل مستفيدي طلب ملغى', ben_locked:'تعديل مستفيدي طلب مقفل', ben_stranger:'تعديل مستفيدي طلب لا يخصه',
+  js_error:'خطأ في الواجهة', promise_error:'خطأ غير معالج', db_error:'خطأ قاعدة بيانات', login_failed:'دخول فاشل', login_ok:'دخول ناجح', logout:'خروج'
+};
+async function loadSecUnread(){
+  try{
+    if(!state.user || state.user.role!=='admin') return;
+    const a = await db.from('qy_audit_alerts').select('id',{count:'exact',head:true}).eq('reviewed',false);
+    const b = await db.from('qy_client_events').select('id',{count:'exact',head:true}).eq('reviewed',false).in('kind',['js_error','promise_error','db_error','login_failed']);
+    if(a.error || b.error) return;
+    state.secUnread = (a.count||0) + (b.count||0); renderAppNav && renderAppNav();
+  }catch(e){}
+}
+async function loadSecurityLog(){
+  state.secLog = Object.assign({alerts:[], events:[], err:null}, state.secLog||{}, {loading:true}); render();
+  try{
+    const a = await db.from('qy_audit_alerts').select('*').order('at',{ascending:false}).limit(500);
+    const b = await db.from('qy_client_events').select('*').order('at',{ascending:false}).limit(800);
+    state.secLog.alerts = (a.data||[]); state.secLog.events = (b.data||[]);
+    state.secLog.err = (a.error||b.error) ? ((a.error||b.error).message + ' — شغّل ملف SQL ٩ إن لم تشغّله') : null;
+  }catch(e){ state.secLog.err = 'تعذر التحميل: ' + (e.message||e); }
+  state.secLog.loading = false;
+  const L = state.secLog; state.secUnread = L.alerts.filter(x=>!x.reviewed).length + L.events.filter(x=>!x.reviewed && x.kind!=='login_ok' && x.kind!=='logout').length;
+  render();
+}
+async function secMarkReviewed(table, ids){
+  if(!ids || !ids.length) return;
+  const r = await db.from(table).update({reviewed:true}).in('id', ids);
+  if(!(await dbCheck(r,'تعليم كمراجَع'))) return;
+  const L = state.secLog; const set = new Set(ids);
+  (table==='qy_audit_alerts' ? L.alerts : L.events).forEach(x=>{ if(set.has(x.id)) x.reviewed = true; });
+  state.secUnread = L.alerts.filter(x=>!x.reviewed).length + L.events.filter(x=>!x.reviewed && x.kind!=='login_ok' && x.kind!=='logout').length;
+  render();
+}
+function secVisibleRows(){
+  const L = state.secLog || {alerts:[], events:[]}, tab = state.secTab || 'alerts';
+  let rows = tab==='alerts' ? L.alerts : tab==='errors' ? L.events.filter(x=>['js_error','promise_error','db_error'].includes(x.kind)) : L.events.filter(x=>['login_failed','login_ok','logout'].includes(x.kind));
+  if(!state.secShowDone) rows = rows.filter(x=>!x.reviewed);
+  if(state.secKind) rows = rows.filter(x=>x.kind===state.secKind);
+  const q = (state.secQ||'').trim().toLowerCase();
+  if(q) rows = rows.filter(x=>JSON.stringify(x).toLowerCase().includes(q) || (SEC_KIND_AR[x.kind]||'').includes(q));
+  return rows;
+}
+function secUserName(id){ if(!id) return '—'; const u = (state.users||[]).find(x=>x.id===id); return u ? u.name : id; }
+function secWhen(t){ try{ return new Date(t).toLocaleString('ar-KW',{dateStyle:'short', timeStyle:'short'}); }catch(e){ return t||''; } }
+function renderSecurityLog(app){
+  const L = state.secLog, tab = state.secTab || 'alerts';
+  if(!L && !state._secLoading){ state._secLoading = true; setTimeout(()=>{ state._secLoading = false; loadSecurityLog(); }, 0); }
+  const rows = L ? secVisibleRows() : [];
+  const kinds = Array.from(new Set((tab==='alerts' ? (L?L.alerts:[]) : (L?L.events:[])).map(x=>x.kind).filter(k=>tab==='alerts' ? true : tab==='errors' ? ['js_error','promise_error','db_error'].includes(k) : ['login_failed','login_ok','logout'].includes(k))));
+  const failedByIp = {}; if(L && tab==='login'){ const cut = Date.now() - 864e5; L.events.forEach(x=>{ if(x.kind==='login_failed' && new Date(x.at).getTime()>cut){ const k = x.ip||x.device_id||'?'; failedByIp[k] = (failedByIp[k]||0)+1; } }); }
+  let head, body;
+  const done = (tbl,id,r)=> r.reviewed ? '<span class="file-hint">✓ تمت</span>' : `<button class="btn btn-ghost btn-sm" title="يخفي هذا السطر من القائمة بعد مراجعته" onclick="secMarkReviewed('${tbl}',[${id}])">تمت المراجعة</button>`;
+  if(tab==='alerts'){
+    head = '<th>الوقت</th><th>النوع</th><th>الطلب</th><th>من فعلها</th><th>صاحب الخطوة</th><th>التفاصيل</th><th></th>';
+    body = rows.map(r=>{ const rq = r.request_id ? (state.requests||[]).find(q=>q.id===r.request_id) : null;
+      return `<tr><td>${secWhen(r.at)}</td><td><b>${escH(SEC_KIND_AR[r.kind]||r.kind)}</b></td>
+      <td>${r.request_id ? `<a href="#" onclick="openSearchResult('${escH(r.request_id)}');return false;" title="يفتح الطلب">${escH(rq && rq.number ? rq.number : r.request_id)}</a>` : '—'}</td>
+      <td>${escH(secUserName(r.actor_user))}</td><td>${escH(secUserName(r.approver_id))}</td><td>${escH(r.details||'')}</td><td>${done('qy_audit_alerts',r.id,r)}</td></tr>`; }).join('');
+  } else if(tab==='errors'){
+    head = '<th>الوقت</th><th>النوع</th><th>الصفحة</th><th>الرسالة</th><th>المستخدم</th><th>الجهاز</th><th>IP</th><th></th>';
+    body = rows.map(r=>`<tr><td>${secWhen(r.at)}</td><td><b>${escH(SEC_KIND_AR[r.kind]||r.kind)}</b></td><td>${escH(r.page||'—')}</td>
+      <td style="max-width:360px;word-break:break-word;">${escH(r.message||'')}${r.details?`<details><summary class="file-hint">التفاصيل</summary><pre style="white-space:pre-wrap;font-size:11px;direction:ltr;text-align:left;">${escH(r.details)}</pre></details>`:''}</td>
+      <td>${escH(secUserName(r.user_id))}</td><td title="${escH((r.device&&r.device.ua)||'')}">${escH(qyUaShort(r.device))}</td><td dir="ltr">${escH(r.ip||'—')}</td><td>${done('qy_client_events',r.id,r)}</td></tr>`).join('');
+  } else {
+    head = '<th>الوقت</th><th>الحدث</th><th>الرقم المُدخَل / المستخدم</th><th>IP</th><th>الجهاز</th><th>فاشلة من نفس الجهة (٢٤ س)</th><th></th>';
+    body = rows.map(r=>{ const n = r.kind==='login_failed' ? (failedByIp[r.ip||r.device_id||'?']||1) : '';
+      return `<tr><td>${secWhen(r.at)}</td><td><b style="color:${r.kind==='login_failed'?'#b91c1c':'inherit'}">${escH(SEC_KIND_AR[r.kind]||r.kind)}</b></td>
+      <td>${r.kind==='login_failed' ? `<span dir="ltr">${escH(r.phone_tried||'—')}</span>` : escH(secUserName(r.user_id))}${r.message?`<div class="file-hint">${escH(r.message)}</div>`:''}</td>
+      <td dir="ltr">${escH(r.ip||'—')}</td><td title="${escH((r.device&&r.device.ua)||'')}">${escH(qyUaShort(r.device))}<div class="file-hint">${escH((r.device&&r.device.tz)||'')}</div></td>
+      <td>${n ? (n>=5?`<b style="color:#b91c1c">${n} ⚠</b>`:n) : ''}</td><td>${r.kind==='login_failed' ? done('qy_client_events',r.id,r) : ''}</td></tr>`; }).join('');
+  }
+  const tbl = rows.length ? `<div style="overflow-x:auto;"><table class="exec-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` :
+    `<p class="file-hint" style="padding:18px 4px;">${!L||L.loading?'جارٍ التحميل…':'لا توجد سجلات في هذا العرض.'}</p>`;
+  app.innerHTML = wrapWithAdminSidebar(`
+    <h1>سجل الأمان والأخطاء</h1>
+    <div class="card">
+      ${L && L.err ? `<p style="color:#b91c1c;margin:0 0 10px;">${escH(L.err)}</p>` : ''}
+      <div class="row" style="align-items:end;">
+        <div style="--fw:280px;"><label>بحث</label><input type="text" value="${escH(state.secQ||'')}" placeholder="اسم، رقم طلب، IP، رسالة…" oninput="state.secQ=this.value; clearTimeout(window._secT); window._secT=setTimeout(()=>{const p=this.selectionStart; render(); const e=document.querySelector('[data-secq]'); if(e){e.focus(); e.setSelectionRange(p,p);}},350)" data-secq></div>
+        <div style="--fw:280px;"><label>النوع</label><select onchange="state.secKind=this.value; render();"><option value="">الكل</option>${kinds.map(k=>`<option value="${escH(k)}" ${state.secKind===k?'selected':''}>${escH(SEC_KIND_AR[k]||k)}</option>`).join('')}</select></div>
+        <div style="--fw:280px;"><label style="display:flex;gap:6px;align-items:center;font-weight:400;"><input type="checkbox" ${state.secShowDone?'checked':''} onchange="state.secShowDone=this.checked; render();"> إظهار ما تمت مراجعته</label></div>
+      </div>
+      ${tbl}
+      <div class="actions-row" data-bar-actions>
+        <button class="btn btn-primary btn-md" title="يعيد تحميل السجلات من قاعدة البيانات" onclick="state.secLog=null; loadSecurityLog();">تحديث</button>
+        ${tab!=='login' || rows.some(r=>r.kind==='login_failed') ? `<button class="btn btn-ghost btn-md" title="يعلّم كل السطور الظاهرة الآن بأنها روجعت" onclick="secMarkAllShown()">مراجعة الكل</button>` : ''}
+      </div>
+    </div>`);
+}
+function secMarkAllShown(){
+  const tab = state.secTab || 'alerts', rows = secVisibleRows().filter(r=>!r.reviewed && (tab!=='login' || r.kind==='login_failed'));
+  secMarkReviewed(tab==='alerts' ? 'qy_audit_alerts' : 'qy_client_events', rows.map(r=>r.id));
+}
+
 async function dbCheck(result, label){
   if(result && result.error){
     console.error(label, result.error);
     const e = result.error;
+    qyLog('db_error', label+': '+(e.message||''), [e.details,e.hint,e.code].filter(Boolean).join(' | '));
     let msg = 'خطأ في قاعدة البيانات (' + label + '): ' + e.message;
     if(e.details) msg += ' | التفاصيل: ' + e.details;
     if(e.hint) msg += ' | تلميح: ' + e.hint;
@@ -2956,7 +3097,7 @@ function isCustomRole(role){
   return !['employee','dept_manager','senior_manager','executive_manager','accountant','cfo','admin'].includes(role);
 }
 
-const ADMIN_AREA_VIEWS = ['admin','orgTree','jobLevels','analytics','cancelledArchive','ledger','sigDesigner','barSettings'];
+const ADMIN_AREA_VIEWS = ['admin','orgTree','jobLevels','analytics','cancelledArchive','ledger','sigDesigner','barSettings','securityLog'];
 function inAdminArea(){ return !!state.user && state.user.role==='admin' && ADMIN_AREA_VIEWS.includes(state.view); }
 
 // ===================== صلاحيات الصفحات: من يرى أي صفحة وماذا يفعل فيها =====================
@@ -3316,11 +3457,11 @@ function renderAppNav(){
       // الشريط الجانبي: البنود العامة الخمسة فقط — تبويباتها تظهر داخل الصفحة
       const curG = inAdminArea() ? activeAdminGroup() : null;
       const sub = ADMIN_NAV.map(g=>
-        `<div class="admin-nav-item${curG && curG.gkey===g.gkey ? ' active':''}" data-nav-item data-nav-label="${escH(g.cat)}" onclick="${navClick(`openAdminGroup('${g.gkey}')`)}">${escH(g.cat)}</div>`
+        `<div class="admin-nav-item${curG && curG.gkey===g.gkey ? ' active':''}" data-nav-item data-nav-label="${escH(g.cat)}" onclick="${navClick(`openAdminGroup('${g.gkey}')`)}">${escH(g.cat)}${g.gkey==='seclog' && state.secUnread ? `<span class="nav-count">${state.secUnread}</span>` : ''}</div>`
       ).join('');
       const headJs = collapsed ? `navPeekOpen();` : navClick(`state.view='admin'; render(); window.scrollTo(0,0);`);
       return `<div class="nav-group">
-        <div class="nav-item${it.active?' active':''}" title="${escH(it.label)}" onclick="${headJs}"><span class="nav-ico">${it.ico}</span><span class="nav-label">${escH(it.label)}</span><span class="nav-caret">${open?'▲':'▼'}</span></div>
+        <div class="nav-item${it.active?' active':''}" title="${escH(it.label)}" onclick="${headJs}"><span class="nav-ico">${it.ico}</span><span class="nav-label">${escH(it.label)}</span>${!open && state.secUnread ? `<span class="nav-count">${state.secUnread}</span>` : ''}<span class="nav-caret">${open?'▲':'▼'}</span></div>
         ${open ? `<div class="nav-sub">${sub}</div>` : ''}
       </div>`;
     }
@@ -3557,7 +3698,7 @@ function openSearchResult(reqId){
   render();
 }
 
-async function logout(){ try{ await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
+async function logout(){ try{ if(state.user) qyLog('logout','خروج',''); await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
 
 // ───────── إغلاق الدخول تلقائياً عند عدم النشاط ─────────
 // ٣٠ دقيقة بلا نقر أو كتابة أو تمرير؛ تنبيه قبل الإغلاق بدقيقة؛ وآخر نشاط مشترك بين كل التبويبات.
@@ -3671,6 +3812,7 @@ async function attemptLogin(){
       email: await resolveLoginEmail(idInput), password: pass
     });
     if(error || !data?.user){
+      qyLog('login_failed', (error && error.message) || 'بيانات غير صحيحة', '', idInput);
       showToast('رقم الهاتف أو كلمة المرور غير صحيحة','error');
       return;
     }
@@ -3678,7 +3820,9 @@ async function attemptLogin(){
     if(btn) btn.textContent = 'جارٍ تحميل البيانات…';
     await loadAllAfterAuth();
     await finishLogin(data.user.id);
+    if(state.user){ qyLog('login_ok', 'دخول', ''); if(state.user.role==='admin') loadSecUnread(); }
   }catch(e){
+    qyLog('login_failed', 'تعذّر الاتصال: ' + ((e && e.message)||''), '', idInput);
     showToast('تعذّر الاتصال بالخادم — حاول مجدداً','error');
   }finally{
     if(btn){ btn.disabled = false; btn.textContent = 'دخول'; }
@@ -5297,7 +5441,7 @@ async function confirmDeletePassword(){
   const { error: vErr } = await db.auth.signInWithPassword({
     email: loginIdToEmail(me.phone), password: pass
   });
-  if(vErr){
+  if(vErr){ qyLog('login_failed','فشل تأكيد كلمة المرور قبل حذف','', (me&&me.phone)||'');
     showToast('كلمة المرور غير صحيحة', 'error');
     return;
   }
@@ -5888,6 +6032,7 @@ function render(){
   else if(state.view==='orgTree') renderOrgTree(app);
   else if(state.view==='jobLevels') renderJobLevels(app);
   else if(state.view==='barSettings') renderBarSettings(app);
+  else if(state.view==='securityLog') renderSecurityLog(app);
 
   if(state.rejectModalReqId){ app.insertAdjacentHTML('beforeend', renderRejectModal()); }
   if(state.pendingDelete){ app.insertAdjacentHTML('beforeend', renderDeleteConfirmModal()); }
@@ -7576,6 +7721,12 @@ const ADMIN_NAV = [
   {gkey:'recur', tab:'القيود الدورية والإشعارات', cat:'القيود الدورية والإشعارات', items:[
     {key:'recCreators', label:'من ينشئ القوالب', kind:'tab'},
     {key:'recNotify', label:'إشعارات اعتماد القوالب', kind:'tab'}
+  ]},
+  // ٦ سجل الأمان والأخطاء — تنبيهات الحماية وأخطاء الواجهة ومحاولات الدخول (ملف SQL ٩)
+  {gkey:'seclog', tab:'سجل الأمان والأخطاء', cat:'سجل الأمان والأخطاء', items:[
+    {key:'alerts', label:'تنبيهات الحماية', kind:'seclog'},
+    {key:'errors', label:'أخطاء الواجهة', kind:'seclog'},
+    {key:'login', label:'محاولات الدخول', kind:'seclog'}
   ]}
 ];
 // المجموعة النشطة: تُستنتج من البند المفتوح؛ وإن لم يُعرف أي بند يبقى آخر اختيار
@@ -7594,6 +7745,7 @@ function adminNavAction(item){
   const top = `window.scrollTo(0,0);`; // كل تبويب يفتح من أعلى الصفحة
   if(item.kind==='view') return `state.view='${item.key}'; render(); ${top}`;
   if(item.kind==='tab') return `state.view='admin'; state.adminSubTab='${item.key}'; state.pageSec={}; state.editingUserId=null; state.editingCompanyId=null; state.editingCenterId=null; render(); ${top}`;
+  if(item.kind==='seclog') return `state.view='securityLog'; state.secTab='${item.key}'; state.secKind=''; render(); ${top}`;
   if(item.kind==='exec') return `openExecDashboard(); ${top}`;
   if(item.kind==='sigFinal') return `${top} state.view='sigDesigner'; state.sigDesignerContext='final'; state.sigDesignerRole='dept_manager'; state.sigDesignerConfig=null; loadSigDesignerConfig(); ${top}`;
   if(item.kind==='sigMini') return `${top} state.view='sigDesigner'; state.sigDesignerContext='mini'; state.sigDesignerRole='dept_manager'; state.sigDesignerConfig=null; loadSigDesignerConfig(); ${top}`;
@@ -7696,6 +7848,7 @@ function adminNavIsActive(item){
   if(item.kind==='tab') return state.view==='admin' && state.adminSubTab===item.key;
   if(item.kind==='view') return state.view===item.key;
   // اللوحة التنفيذية والتفاصيل المالية قسمان في صفحة واحدة، فكلاهما يُبقي الصفحة نشطة
+  if(item.kind==='seclog') return state.view==='securityLog' && (state.secTab||'alerts')===item.key;
   if(item.kind==='exec') return state.view==='analytics';
   if(item.kind==='sigFinal') return state.view==='sigDesigner' && state.sigDesignerContext==='final';
   if(item.kind==='sigMini') return state.view==='sigDesigner' && state.sigDesignerContext==='mini';
@@ -10784,7 +10937,7 @@ async function reauthModal(title, text, confirm){
   if(!a) return false;
   const me = (state.users||[]).find(u=>u.id===state.user.id);
   const { error } = await db.auth.signInWithPassword({ email: loginIdToEmail(me.phone), password: a.pw });
-  if(error){ showToast('كلمة المرور غير صحيحة','error'); return false; }
+  if(error){ qyLog('login_failed','فشل تأكيد كلمة المرور قبل عملية حساسة','', (me&&me.phone)||''); showToast('كلمة المرور غير صحيحة','error'); return false; }
   return true;
 }
 
