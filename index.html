@@ -6457,9 +6457,6 @@ function renderAccount(app){
       ${me.stampData2 ? `<div class="sign-box"><img src="${me.stampData2}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:12px;color:var(--muted);">الختم الثاني الحالي</span></div>` : `<p class="file-hint">لا يوجد ختم ثاني محفوظ.</p>`}
       <input id="accStampFile2" type="file" accept="image/*">
 
-      <div class="actions-row" data-bar-actions>
-        <button class="btn btn-primary btn-md" onclick="saveAccount()">حفظ</button>
-      </div>
     </div>
     ${pageWidthFieldHtml()}
     <div class="card">
@@ -6478,6 +6475,9 @@ function renderAccount(app){
         <div style="--fw:280px;"><label>الأجهزة</label>
           <button type="button" class="btn btn-ghost btn-md" onclick="logoutAllDevices()" title="يُنهي دخولك في كل الأجهزة والمتصفحات، ويلزم إعادة الدخول">إنهاء كل الجلسات</button></div>
       </div>
+    </div>
+    <div class="actions-row" data-bar-actions>
+      <button class="btn btn-primary btn-md" onclick="saveAccount()" title="يحفظ كل ما غيّرته في صفحة حسابي: البيانات والتوقيع والأمان">حفظ</button>
     </div>
   `;
   setupSignatureCanvas();
