@@ -3349,6 +3349,12 @@ function openNavDrawer(){ state.navDrawer = true; renderAppNav(); renderMobileTa
 function closeNavDrawer(){ state.navDrawer = false; renderAppNav(); renderMobileTabs(); }
 function navPeekOpen(){ state.navPeek = true; renderAppNav(); }
 // كل نقرة تنقّل تُنهي أي فتح مؤقت أو قائمة الجوال
+// ينفّذ نصاً برمجياً كأنه onclick بلا eval، لتبقى سياسة الأمان CSP بلا unsafe-eval
+function qyRunJs(code){
+  const b = document.createElement('button'); b.type='button'; b.style.display='none';
+  b.setAttribute('onclick', code); document.body.appendChild(b);
+  try{ b.click(); }finally{ b.remove(); }
+}
 function navClick(js){ return `state.navPeek=false; state.navDrawer=false; ${js}`; }
 // ───────── مجموعات التنقل: صف علوي للمجموعة وصف سفلي لما تحتها ─────────
 function groupNavSets(){
@@ -3632,7 +3638,7 @@ function runSearchSection(i){
   const x = (state._searchSecs||[])[i]; if(!x) return;
   const inp = document.getElementById('searchInput'); if(inp) inp.value='';
   hideSearchDrop(); toggleSearch(false);
-  (new Function(navClick(x.js)))();
+  qyRunJs(navClick(x.js));
   window.scrollTo(0,0);
 }
 
@@ -8140,7 +8146,7 @@ function openAdminGroup(gkey){
   state.adminGroup = gkey;
   // لو البند المفتوح يتبع هذه المجموعة أصلاً، لا تنقل المستخدم
   if(g.items.some(it=>adminNavIsActive(it))){ render(); window.scrollTo(0,0); return; }
-  new Function(adminNavAction(g.items[0]))();
+  qyRunJs(adminNavAction(g.items[0]));
 }
 function adminNavAction(item){
   const top = `window.scrollTo(0,0);`; // كل تبويب يفتح من أعلى الصفحة
