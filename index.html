@@ -854,10 +854,11 @@
     box-sizing:border-box;border:1px solid #999;border-radius:4px;padding:3px 4px;background:#fff;
   }
   .doc-pages-wrap{position:relative;}
-  .request-qr-img{width:24mm;height:24mm;}
+  .request-qr-img{width:22mm;height:22mm;}
   .request-qr-row{display:flex;flex-direction:row;align-items:stretch;gap:2px;}
   /* رقم التحقق بجانب الرمز مكتوباً بالطول: متعامد مع سطر الكتابة في المستند */
-  .request-qr-hint{font-size:6.5px;color:#777;text-align:center;line-height:1.2;white-space:nowrap;}
+  /* التلميح خارج المربع وفوقه، فلا يزيد ارتفاع المربع ولا تتحرك نهايته السفلية (حتى لا يغطي التاريخ) */
+  .request-qr-hint{position:absolute;bottom:calc(100% + 1px);left:50%;transform:translateX(-50%);font-size:6.5px;color:#777;text-align:center;line-height:1.2;white-space:nowrap;}
   @media print{ .request-qr-hint{display:none !important;} }
   .request-qr-code{writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);font-size:8px;font-weight:700;color:#333;letter-spacing:.4px;white-space:nowrap;text-align:center;line-height:1;display:flex;align-items:center;justify-content:center;}
   .request-qr-caption{font-size:6.5px;color:#555;text-align:center;line-height:1.2;white-space:nowrap;}
