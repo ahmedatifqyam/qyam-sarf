@@ -1525,7 +1525,7 @@ function mapRequestRow(r){
     centerId:r.center_id, companyId:r.company_id, createdBy:r.created_by, createdById:r.created_by_id, dateGreg:r.date_greg, dateHijri:r.date_hijri,
     createdAtRaw:r.created_at, isRecurring: !!r.is_recurring,
     numberPrefix:r.number_prefix||null, numberSuffix:r.number_suffix||null, reviewUntil:r.review_until||null,
-    isCancelled: !!r.is_cancelled, cancelledAt: r.cancelled_at, cancelledById: r.cancelled_by_id, cancelReason: r.cancel_reason,
+    verifyCode: r.verify_code||'', isCancelled: !!r.is_cancelled, cancelledAt: r.cancelled_at, cancelledById: r.cancelled_by_id, cancelReason: r.cancel_reason,
     bankTransferRef: r.bank_transfer_ref||'', bankTransferAt: r.bank_transfer_at, fastTracked: !!r.fast_tracked, limitExceeded: !!r.limit_exceeded,
     budgetItemId: r.budget_item_id||null,
     beneficiaries:(r.request_beneficiaries||[]).map(b=>({
@@ -2551,120 +2551,28 @@ async function renderVerifyPage(reqId){
   const app = document.getElementById('app');
   const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   app.innerHTML = `<div class="spinner"></div><p class="sub" style="text-align:center;">جارٍ التحقق من الطلب...</p>`;
+  const verifyFormHtml = `<form onsubmit="event.preventDefault(); const v=this.querySelector('input').value.trim(); if(v) location.href='?verify='+encodeURIComponent(v);" style="background:var(--paper);border-radius:12px;padding:14px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+      <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:6px;">تحقق من سند آخر برقم التحقق</label>
+      <div style="display:flex;gap:8px;"><input type="text" dir="ltr" placeholder="QY-XXXX-XXXX" maxlength="20" autocomplete="off" style="flex:1;min-width:0;"><button class="btn btn-primary btn-md" type="submit" title="يبحث عن السند برقم التحقق المطبوع بجانب رمز QR">تحقق</button></div></form>`;
+  if(!reqId || !String(reqId).trim()){ app.innerHTML = `<div style="max-width:500px;margin:48px auto;padding:0 12px;direction:rtl;">${verifyFormHtml}</div>`; return; }
   try{
     // صفحة عامة لا تتطلب تسجيل دخول: تمرّ بدالة تُعيد حقولاً محدودة لطلب واحد،
     // فلا يحتاج دور anon أي صلاحية قراءة على جداول الطلبات.
     const {data: vr, error} = await db.rpc('verify_request', {p_id: reqId});
-    const r = vr ? {...vr,
-      request_beneficiaries: vr.beneficiaries || [],
-      request_history: vr.history || []} : null;
+    const r = vr || null;
     if(error || !r){
-      app.innerHTML = `<div class="card" style="max-width:420px;margin:60px auto;text-align:center;"><h2 style="color:var(--red);">⚠️ طلب غير موجود</h2><p class="sub">لم يتم العثور على أي طلب بهذا الرمز. قد يكون الرمز غير صحيح أو الطلب تم حذفه.</p></div>`;
+      app.innerHTML = `<div class="card" style="max-width:420px;margin:60px auto;text-align:center;"><h2 style="color:var(--red);">⚠️ طلب غير موجود</h2><p class="sub">لم يتم العثور على أي طلب بهذا الرمز. قد يكون الرمز غير صحيح، أو الطلب محذوف، أو تجاوزت عدد المحاولات المسموح (٣٠ في الدقيقة).</p></div><div style="max-width:420px;margin:12px auto;padding:0 12px;direction:rtl;">${verifyFormHtml}</div>`;
       return;
     }
     const company = r.company || null;
     const statusLabel = r.is_cancelled ? 'ملغى' : (r.status==='completed' ? 'تم الصرف' : (r.status==='rejected' ? 'مرفوض' : 'قيد الاعتماد'));
     const statusColor = r.is_cancelled ? '#56554F' : (r.status==='completed' ? 'var(--green)' : (r.status==='rejected' ? 'var(--red)' : 'var(--amber)'));
-
-    const benes = r.request_beneficiaries || [];
-
-    // استخدام الدوال العامة مباشرة
     const fmtAmt = (val) => fmtKWD(val,{noUnit:true});
-    const fmtAmtPlain = (val) => { const n=Number(val||0); const p=n.toFixed(3).split('.'); return `${Number(p[0]).toLocaleString('en')}.${p[1]}`; };
-
-    // هل يوجد أي مستفيد لديه خصم أو إضافي؟ — لتحديد هيكل الجدول بالكامل
-    const anyAdjustments = benes.some(b => Number(b.deduction||0) > 0 || Number(b.extra||0) > 0);
-    const beneRowsHtml = benes.map((b,i)=>{
-      const amount = Number(b.amount||0), ded = Number(b.deduction||0), extra = Number(b.extra||0);
-      const net = amount - ded + extra;
-      const bg = i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)';
-      const netHtml = `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(net)}</b> <span style="font-size:10px;color:var(--muted);">د.ك</span>`;
-      if(anyAdjustments){
-        // عمود الحسابات بـ direction:rtl: أول عنصر في المصفوفة يظهر أقصى اليمين.
-        // فالترتيب البصري من اليمين: المبلغ ← − الخصم ← + الإضافي
-        let calcParts = [];
-        calcParts.push(`<span style="font-variant-numeric:tabular-nums;color:var(--ink);">${fmtAmt(amount)}</span>`);
-        if(ded>0)   calcParts.push(`<span style="color:var(--red);">−&nbsp;${fmtAmt(ded)}</span>`);
-        if(extra>0) calcParts.push(`<span style="color:var(--green);">+&nbsp;${fmtAmt(extra)}</span>`);
-        const calcDisplay = (ded>0||extra>0) ? calcParts.join(' ') : '';
-        return `
-          <tr style="background:${bg};">
-            <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
-            <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
-            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:right;direction:rtl;color:var(--muted);border-left:1px solid var(--line);">${calcDisplay}</td>
-            <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
-          </tr>`;
-      } else {
-        // لا توجد تعديلات: 3 أعمدة فقط (# | الاسم | الإجمالي)
-        return `
-          <tr style="background:${bg};">
-            <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
-            <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
-            <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
-          </tr>`;
-      }
-    }).join('');
-
-    // نجمع آخر اعتماد لكل مستخدم على حدة (لا حسب اسم الخطوة، لأن خطوات القرار بالمحرك الجديد تتشارك نفس الاسم)
-    const lastApprovalByUser = {};
-    (r.request_history||[]).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(h=>{
-      if(h.action==='اعتماد') lastApprovalByUser[h.user_id || h.actor] = h;
-    });
-    const approvals = Object.values(lastApprovalByUser).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-    // ترجمة اسم الخطوة من الكود إلى عربي
-    const stepLabelAr = s => {
-      const map = {
-        'pending_decision':'قيد اعتماد القرار','pending_manager':'اعتماد المدير','pending_senior':'اعتماد المدير الأعلى',
-        'pending_executive':'اعتماد المدير التنفيذي','pending_transfer_request':'طلب التحويل (المحاسب)',
-        'pending_transfer_approval':'اعتماد التحويل (المدير المالي)','pending_disbursement':'إتمام الصرف (المحاسب)',
-        'pending_accountant':'اعتماد المحاسب','pending_cfo':'اعتماد المدير المالي',
-        'completed':'تم الصرف','created':'إنشاء الطلب','rejected':'مرفوض'
-      };
-      return map[s] || s || '';
-    };
-
-    const approvalsHtml = approvals.map(h=>{
-      const roleId = STATUS_ROLE_MAP[h.step];
-      const rawStep = roleId ? findRole(roleId).name : stepLabelAr(h.step);
-      // إخفاء "قيد اعتماد القرار" واستبدالها بـ "معتمد"
-      const stepName = (rawStep === 'قيد اعتماد القرار' || h.step === 'pending_decision') ? 'معتمد' : rawStep;
-      return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;">
-          <div style="text-align:right;flex:1;">
-            <span style="font-weight:600;font-size:13px;">${esc(h.actor)}</span>
-            ${stepName ? `<span style="font-size:11px;color:var(--muted);margin-right:6px;">· ${esc(stepName)}</span>` : ''}
-          </div>
-          <div style="font-size:11px;color:var(--muted);text-align:left;direction:ltr;white-space:nowrap;flex-shrink:0;">${esc(toWesternDigits(h.time||''))}</div>
-        </div>`;
-    }).join('');
-
-    // سجل الطلب — نخفي أحداث "تخطّى تلقائي" الداخلية
-    const allHistory = (r.request_history||[]).slice()
-      .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))
-      .filter(h => h.action !== 'تخطّى تلقائي' && h.action !== 'تخطى تلقائي' && h.action !== 'تخطٍّ تلقائي' && h.action !== 'تخطٍ تلقائي');
-    const actionColor = a => a==='اعتماد'?'var(--green)':a==='رفض'?'var(--red)':a==='إلغاء'?'var(--muted)':a==='تم الصرف'?'var(--green)':'var(--amber)';
-    const historyHtml = allHistory.map(h=>{
-      const rawStepLabel = stepLabelAr(h.step);
-      const stepLabel = (rawStepLabel === 'قيد اعتماد القرار' || h.step === 'pending_decision') ? 'معتمد' : rawStepLabel;
-      return `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;">
-        <div style="text-align:right;flex:1;min-width:0;">
-          <span style="font-weight:600;color:${actionColor(h.action)};font-size:12px;">${esc(h.action)}</span>
-          ${h.actor ? `<span style="font-size:12px;"> — ${esc(h.actor)}</span>` : ''}
-          ${stepLabel ? `<span style="font-size:11px;color:var(--muted);"> · ${esc(stepLabel)}</span>` : ''}
-          ${h.note ? `<div style="font-size:10.5px;color:var(--muted);font-style:italic;margin-top:2px;">${esc(h.note)}</div>` : ''}
-        </div>
-        <div style="font-size:11px;color:var(--muted);text-align:left;direction:ltr;white-space:nowrap;flex-shrink:0;">${esc(toWesternDigits(h.time||''))}</div>
-      </div>`;
-    }).join('');
-
-    // إجمالي صافي المستفيدين
-    const totalNet = benes.reduce((s,b)=>s+Number(b.amount||0)-Number(b.deduction||0)+Number(b.extra||0),0);
-
+    const total = Number(r.total_amount||0);
+    // صفحة عامة بأقل بيانات: رقم الطلب والشركة والتاريخ والحالة والإجمالي فقط (لا مستفيدين ولا بيان ولا سجل اعتماد)
+    const row = (label, val, last) => `<tr${last?'':' style="border-bottom:1px solid var(--line);"'}><td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;width:90px;vertical-align:baseline;">${label}</td><td style="padding:8px 0;font-size:13px;text-align:right;vertical-align:baseline;">${val}</td></tr>`;
     app.innerHTML = `
       <div style="max-width:500px;margin:32px auto;padding:0 12px;direction:rtl;font-family:inherit;">
-
-        <!-- رأس الصفحة: شعار يسار + اسم وبيان يمينه -->
         <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);display:flex;align-items:center;gap:14px;">
           ${company && (company.brand_logo_data || company.logo_data) ? `<img src="${company.brand_logo_data || company.logo_data}" style="height:52px;width:52px;object-fit:contain;flex-shrink:0;border-radius:8px;">` : ''}
           <div style="flex:1;min-width:0;">
@@ -2672,60 +2580,18 @@ async function renderVerifyPage(reqId){
             <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">تحقق من صحة سند الصرف</div>
           </div>
         </div>
-
-        <!-- معلومات الطلب — جدول بعمودين: التسمية يمين، القيمة يسار (في RTL: العمود الأول=يمين) -->
         <div style="background:var(--paper);border-radius:12px;padding:4px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
           <table style="width:100%;border-collapse:collapse;">
-            <tr style="border-bottom:1px solid var(--line);">
-              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;width:90px;vertical-align:baseline;">رقم الطلب</td>
-              <td style="padding:8px 0;font-size:13px;font-weight:700;direction:ltr;text-align:right;vertical-align:baseline;">${esc(r.number)}</td>
-            </tr>
-            <tr style="border-bottom:1px solid var(--line);">
-              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;vertical-align:baseline;">البيان</td>
-              <td style="padding:8px 0;font-size:13px;text-align:right;vertical-align:baseline;">${esc(r.reason)}</td>
-            </tr>
-            <tr style="border-bottom:1px solid var(--line);">
-              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;vertical-align:baseline;">التاريخ</td>
-              <td style="padding:8px 0;font-size:12.5px;text-align:right;vertical-align:baseline;">${esc(dmyStr(r.date_greg||''))}${r.date_hijri?' ('+esc(r.date_hijri)+' هـ)':''}</td>
-            </tr>
-            <tr>
-              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;vertical-align:baseline;">الحالة</td>
-              <td style="padding:8px 0;font-size:13px;font-weight:700;color:${statusColor};text-align:right;vertical-align:baseline;">${statusLabel}</td>
-            </tr>
+            ${row('رقم الطلب', `<b dir="ltr">${esc(r.number)}</b>`)}
+            ${r.verify_code ? row('رقم التحقق', `<b dir="ltr">${esc(r.verify_code)}</b>`) : ''}
+            ${row('التاريخ', esc(dmyStr(r.date_greg||'')) + (r.date_hijri ? ' ('+esc(r.date_hijri)+' هـ)' : ''))}
+            ${row('الحالة', `<b style="color:${statusColor};">${statusLabel}</b>`)}
+            ${row('الإجمالي', `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(total)}</b> <span style="font-size:10px;color:var(--muted);">د.ك</span><div style="font-size:12px;color:var(--muted);margin-top:3px;">${amountToArabicWords(total)}</div>`, true)}
           </table>
         </div>
-
-        <!-- المستفيدون -->
-        <div style="background:var(--paper);border-radius:12px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-          <div style="padding:12px 16px;font-weight:700;font-size:13.5px;border-bottom:1px solid var(--line);">المستفيدون (${benes.length})</div>
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <tbody>${beneRowsHtml || '<tr><td colspan="3" style="padding:12px;text-align:center;color:var(--muted);">لا يوجد مستفيدون</td></tr>'}</tbody>
-          </table>
-          <!-- الإجمالي والتفقيط بنفس الخلفية الداكنة -->
-          <div style="background:var(--ink,#1B2733);color:#fff;padding:12px 16px 10px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-              <b style="font-size:14px;">الإجمالي الكلي</b>
-              <b style="font-size:16px;direction:ltr;font-variant-numeric:tabular-nums;">${fmtAmt(totalNet)} <span style="font-size:0.75em;font-weight:400;">د.ك</span></b>
-            </div>
-            <div style="font-size:13px;color:rgba(255,255,255,0.75);border-top:1px solid rgba(255,255,255,0.15);padding-top:7px;">${amountToArabicWords(totalNet)}</div>
-          </div>
-        </div>
-
-        <!-- الاعتمادات -->
-        ${approvalsHtml ? `
-        <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-          <div style="font-weight:700;font-size:13.5px;margin-bottom:10px;">الاعتمادات</div>
-          ${approvalsHtml}
-        </div>` : ''}
-
-        <!-- سجل الطلب الكامل -->
-        ${historyHtml ? `
-        <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-          <div style="font-weight:700;font-size:13.5px;margin-bottom:8px;">سجل الطلب</div>
-          ${historyHtml}
-        </div>` : ''}
-
-        <p style="margin-top:12px;font-size:11px;color:var(--muted);text-align:center;">هذه الصفحة تعرض البيانات المباشرة من قاعدة بيانات النظام، وتؤكد أن السند أصلي وغير معدَّل.</p>
+        ${r.is_cancelled ? `<div style="background:#fbeceb;color:#B23A2E;border-radius:12px;padding:12px 16px;margin-bottom:12px;text-align:center;font-weight:700;">هذا السند ملغى ولا يُعتدّ به</div>` : ''}
+        ${verifyFormHtml}
+        <p style="margin-top:12px;font-size:11px;color:var(--muted);text-align:center;">تؤكد هذه الصفحة أن السند صادر من النظام وتعرض حالته الحالية. للتفاصيل الكاملة راجع الجهة المصدِرة.</p>
       </div>`;
   }catch(e){
     console.error('خطأ بصفحة التحقق', e);
@@ -5619,7 +5485,7 @@ function generateQRSvg(text, sizePx){
 }
 function renderRequestQRCode(req, extraClass){
   try{
-  const verifyUrl = 'https://ahmedatifqyam.github.io/qyam-sarf/?verify=' + encodeURIComponent(req.id);
+  const verifyUrl = 'https://ahmedatifqyam.github.io/qyam-sarf/?verify=' + encodeURIComponent(req.verifyCode || req.id);
   const svg = generateQRSvg(verifyUrl, 200);
   if(!svg) return '';
   return `
@@ -5627,7 +5493,7 @@ function renderRequestQRCode(req, extraClass){
       <a href="${verifyUrl}" target="_blank" rel="noopener" style="display:block;cursor:pointer;text-decoration:none;" title="انقر لفتح صفحة التحقق">
         <div class="request-qr-img">${svg}</div>
       </a>
-      <div class="request-qr-caption">انقر أو امسح للتحقق من بيانات السند<br>${escH(req.number)}</div>
+      <div class="request-qr-caption">انقر أو امسح للتحقق من بيانات السند<br>${escH(req.number)}${req.verifyCode ? `<br><span dir="ltr" style="font-weight:700;letter-spacing:.3px;">${escH(req.verifyCode)}</span>` : ''}</div>
     </div>`;
   }catch(e){
     console.error('تعذر عرض رمز QR', e);
