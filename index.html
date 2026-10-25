@@ -5369,12 +5369,15 @@ async function openAttachmentsModal(kind, idx, masterName){
   const m = state.attModal;
   if(kind==='master'){ m.master = state.beneficiaries.find(x=>x.name===masterName && x.id) || null; m.name = masterName; }
   else { const b = state.draft.beneficiaries[idx]; m.name = (b.name||'').trim(); m.master = attMasterOf(m); }
-  render();
+  if(kind==='master') attRefresh(); else render();
   try{ if(m.master) m.rows = await attLoadRows(m.master.id); }catch(e){ showToast('تعذّر تحميل المرفقات: ' + e.message, 'error'); }
   m.loading = false; attRefresh();
 }
 function closeAttachmentsModal(){
   const wasDraft = state.attModal && state.attModal.kind==='draft';
+  if(state.attModal && state.attModal.kind==='master'){
+    state.attModal = null; const r = document.getElementById('attModalRoot'); if(r) r.remove(); return;
+  }
   state.attModal = null;
   if(wasDraft && state.view==='newRequest') syncDraftFromDOM();
   render();
@@ -5693,8 +5696,8 @@ async function saveAccount(){
   const newNameEn = document.getElementById('accNameEn').value.trim();
   const newIban = document.getElementById('accIban').value.trim();
   const newCivilId = document.getElementById('accCivilId').value.trim();
-  const idInfoFile = document.getElementById('accIdFile').files[0];
-  const bankInfoFile = document.getElementById('accBankFile').files[0];
+  const idInfoFile = (document.getElementById('accIdFile')||{files:[]}).files[0];
+  const bankInfoFile = (document.getElementById('accBankFile')||{files:[]}).files[0];
   const signModeEl = document.getElementById('accSignatureMode');
   const signColorEl = document.getElementById('accSignColor');
   const signWidthEl = document.getElementById('accSignWidth');
@@ -5758,13 +5761,15 @@ async function saveAccount(){
 
   if(me.nameEn && me.iban){
     let master = state.beneficiaries.find(x=>x.name===me.name);
-    const payload = {name: me.name, name_en: me.nameEn, iban: me.iban};
-    if(me.idFileData) payload.id_file_data = me.idFileData;
-    if(me.bankFileData) payload.bank_file_data = me.bankFileData;
-    await dbCheck(await db.from('beneficiaries_master').upsert(payload, {onConflict:'name'}), 'حفظ بيانات المستفيد');
+    const payload = {name: me.name, name_en: me.nameEn, iban: me.iban, national_id: me.civilId||'', company_id: state.currentCompanyId};
+    const mUp = await db.from('beneficiaries_master').upsert(payload, {onConflict:'name'}).select('id,company_id').maybeSingle();
+    await dbCheck(mUp, 'حفظ بيانات المستفيد');
+    const mId = mUp && mUp.data ? mUp.data.id : undefined;
+    const mCo = mUp && mUp.data && mUp.data.company_id ? mUp.data.company_id : state.currentCompanyId;
     if(!master){
-      state.beneficiaries.push({name: me.name, nameEn: me.nameEn, iban: me.iban, idFileData: me.idFileData||'', bankFileData: me.bankFileData||''});
+      state.beneficiaries.push({id: mId, name: me.name, nameEn: me.nameEn, iban: me.iban, civilId: me.civilId||'', idFileData: me.idFileData||'', bankFileData: me.bankFileData||'', companyId: mCo});
     } else {
+      if(mId) master.id = mId; master.companyId = mCo;
       master.nameEn = me.nameEn; master.iban = me.iban;
       if(me.idFileData) master.idFileData = me.idFileData;
       if(me.bankFileData) master.bankFileData = me.bankFileData;
@@ -6947,12 +6952,13 @@ function renderAccount(app){
         <div></div>
       </div>
       <div class="row">
-        <div><label>صورة البطاقة المدنية (اختياري)</label>
-          ${me.idFileData ? `<div class="file-hint">✓ محفوظة</div>` : ''}
-          <input id="accIdFile" type="file" accept="image/*"></div>
-        <div><label>صورة معلومات البنك (اختياري)</label>
-          ${me.bankFileData ? `<div class="file-hint">✓ محفوظة</div>` : ''}
-          <input id="accBankFile" type="file" accept="image/*"></div>
+        <div>
+          <label>المرفقات (بطاقة مدنية، حساب بنكي، وغيرها)</label>
+          ${(()=>{ const mm = state.beneficiaries.find(x=>x.name===me.name && x.id); return mm
+            ? `<button type="button" class="btn btn-ghost btn-sm" onclick="openAttachmentsModal('master',null,${jsq(me.name)})">📎 مرفقات${((state.attCounts||{})[mm.id]||0) ? ' ('+state.attCounts[mm.id]+')' : ''}</button>
+               <div class="file-hint" style="margin-top:6px;">صور أو PDF — تُحفظ في مجلد خاص وتظهر عند اختيارك مستفيداً في أي طلب.</div>`
+            : `<div class="file-hint">لتفعيل المرفقات: املأ الاسم بالإنجليزية والآيبان ثم اضغط «حفظ»، وبعدها يظهر زر المرفقات هنا ويظهر اسمك في قائمة المستفيدين.</div>`; })()}
+        </div>
       </div>
     </div>
 
