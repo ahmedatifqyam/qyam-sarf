@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>نظام طلبات الصرف - شركة القيم الكويتية</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Cairo:wght@900&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#1B2733; --paper:#F7F6F2; --card:#FFFFFF;
@@ -578,15 +578,15 @@
   }
   .doc-cancelled{position:relative;opacity:0.75;}
   .doc-cancelled::before{
-    content:"ملغى";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);
-    font-size:80px;font-weight:800;color:rgba(178,58,46,0.18);z-index:5;pointer-events:none;
+    content:"ملغى";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);
+    font-size:min(60vw,360px);line-height:1;font-weight:900;font-family:'Cairo',sans-serif;color:rgba(178,58,46,0.18);z-index:5;pointer-events:none;
     white-space:nowrap;
   }
   .doc-cancelled .app-req-header, .doc-cancelled .amount-table, .doc-cancelled .app-total-box{text-decoration:line-through;text-decoration-color:rgba(178,58,46,0.5);text-decoration-thickness:2px;}
   .print-watermark{
-    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);
-    font-size:110px;font-weight:800;color:rgba(178,58,46,0.25);z-index:100;
-    pointer-events:none;white-space:nowrap;font-family:'Times New Roman',serif;
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);
+    font-size:78mm;line-height:1;font-weight:900;color:rgba(178,58,46,0.25);z-index:100;
+    pointer-events:none;white-space:nowrap;font-family:'Cairo',sans-serif;
   }
   .app-req-header{
     display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;
