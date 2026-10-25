@@ -854,10 +854,12 @@
     box-sizing:border-box;border:1px solid #999;border-radius:4px;padding:3px 4px;background:#fff;
   }
   .doc-pages-wrap{position:relative;}
-  .request-qr-img{width:20mm;height:20mm;}
+  .request-qr-img{width:24mm;height:24mm;}
   .request-qr-row{display:flex;flex-direction:row;align-items:stretch;gap:2px;}
   /* رقم التحقق بجانب الرمز مكتوباً بالطول: متعامد مع سطر الكتابة في المستند */
-  .request-qr-code{writing-mode:vertical-rl;text-orientation:mixed;font-size:7px;font-weight:700;color:#333;letter-spacing:.4px;white-space:nowrap;text-align:center;line-height:1;display:flex;align-items:center;justify-content:center;}
+  .request-qr-hint{font-size:6.5px;color:#777;text-align:center;line-height:1.2;white-space:nowrap;}
+  @media print{ .request-qr-hint{display:none !important;} }
+  .request-qr-code{writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);font-size:8px;font-weight:700;color:#333;letter-spacing:.4px;white-space:nowrap;text-align:center;line-height:1;display:flex;align-items:center;justify-content:center;}
   .request-qr-caption{font-size:6.5px;color:#555;text-align:center;line-height:1.2;white-space:nowrap;}
   .toast-host{
     position:fixed;top:calc(var(--topbar-h,64px) + 12px);left:20px;z-index:1000;
@@ -5676,13 +5678,13 @@ function renderRequestQRCode(req, extraClass){
   if(!svg) return '';
   return `
     <div class="request-qr-block${extraClass ? ' '+extraClass : ''}">
-      <div class="request-qr-caption">امسح أو اضغط للتحقق</div>
       <div class="request-qr-row">
-        <a href="${verifyUrl}" target="_blank" rel="noopener" style="display:block;cursor:pointer;text-decoration:none;" title="انقر لفتح صفحة التحقق">
+        <a href="${verifyUrl}" target="_blank" rel="noopener" style="display:block;cursor:pointer;text-decoration:none;" title="انقر لفتح صفحة التحقق من السند">
           <div class="request-qr-img">${svg}</div>
         </a>
         <div class="request-qr-code" dir="ltr">${escH(req.verifyCode || req.number)}</div>
       </div>
+      <div class="request-qr-hint">اضغط للتحقق</div>
     </div>`;
   }catch(e){
     console.error('تعذر عرض رمز QR', e);
