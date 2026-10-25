@@ -851,10 +851,13 @@
     -webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .request-qr-block{
     position:absolute;top:5mm;left:5mm;display:flex;flex-direction:column;align-items:center;gap:2px;
-    width:24mm;box-sizing:border-box;border:1px solid #999;border-radius:4px;padding:3px;background:#fff;
+    box-sizing:border-box;border:1px solid #999;border-radius:4px;padding:3px 4px;background:#fff;
   }
   .doc-pages-wrap{position:relative;}
-  .request-qr-img{width:16mm;height:16mm;}
+  .request-qr-img{width:20mm;height:20mm;}
+  .request-qr-row{display:flex;flex-direction:row;align-items:stretch;gap:2px;}
+  /* رقم التحقق بجانب الرمز مكتوباً بالطول: متعامد مع سطر الكتابة في المستند */
+  .request-qr-code{writing-mode:vertical-rl;text-orientation:mixed;font-size:7px;font-weight:700;color:#333;letter-spacing:.4px;white-space:nowrap;text-align:center;line-height:1;display:flex;align-items:center;justify-content:center;}
   .request-qr-caption{font-size:6.5px;color:#555;text-align:center;line-height:1.2;white-space:nowrap;}
   .toast-host{
     position:fixed;top:calc(var(--topbar-h,64px) + 12px);left:20px;z-index:1000;
@@ -5673,10 +5676,13 @@ function renderRequestQRCode(req, extraClass){
   if(!svg) return '';
   return `
     <div class="request-qr-block${extraClass ? ' '+extraClass : ''}">
-      <a href="${verifyUrl}" target="_blank" rel="noopener" style="display:block;cursor:pointer;text-decoration:none;" title="انقر لفتح صفحة التحقق">
-        <div class="request-qr-img">${svg}</div>
-      </a>
-      <div class="request-qr-caption">امسح للتحقق<br><span dir="ltr" style="font-weight:700;">${escH(req.verifyCode || req.number)}</span></div>
+      <div class="request-qr-caption">امسح أو اضغط للتحقق</div>
+      <div class="request-qr-row">
+        <a href="${verifyUrl}" target="_blank" rel="noopener" style="display:block;cursor:pointer;text-decoration:none;" title="انقر لفتح صفحة التحقق">
+          <div class="request-qr-img">${svg}</div>
+        </a>
+        <div class="request-qr-code" dir="ltr">${escH(req.verifyCode || req.number)}</div>
+      </div>
     </div>`;
   }catch(e){
     console.error('تعذر عرض رمز QR', e);
