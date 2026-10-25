@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vmi3593541.contaboserver.net https://cdn.jsdelivr.net; frame-src 'self' blob: data:; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vmi3593541.contaboserver.net https://cdn.jsdelivr.net; frame-src 'self' blob: data:; media-src 'self' blob: data:; worker-src blob: https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>نظام طلبات الصرف - شركة القيم الكويتية</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1507,7 +1507,7 @@ function dbCenterToState(c){
   };
 }
 function dbBeneficiaryToState(b){
-  return {name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', idFileName:'', idFileData:b.id_file_data||'', bankFileName:'', bankFileData:b.bank_file_data||'', companyId:b.company_id};
+  return {id:b.id, name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', idFileName:'', idFileData:b.id_file_data||'', bankFileName:'', bankFileData:b.bank_file_data||'', companyId:b.company_id};
 }
 function dbCompanyToState(c){
   return {
@@ -4614,7 +4614,11 @@ async function submitDraftInner(){
     if(b.iban) master.iban = b.iban;
     if(b.civilId) master.civilId = b.civilId;
     delete b._idFileName; delete b._idFileData; delete b._bankFileName; delete b._bankFileData;
-    await dbCheck(await db.from('beneficiaries_master').upsert(payload, {onConflict:'name'}), 'حفظ بيانات المستفيد');
+    const upRes = await db.from('beneficiaries_master').upsert(payload, {onConflict:'name'}).select('id').maybeSingle();
+    await dbCheck(upRes, 'حفظ بيانات المستفيد');
+    if(upRes && upRes.data && upRes.data.id) master.id = upRes.data.id;
+    const draftB = (d.beneficiaries||[]).find(x=>(x.name||'').trim()===b.name);
+    if(draftB && (draftB._pend||[]).length) await attFlushPending(draftB, master);
   }
 
   const total = beneficiaries.reduce((s,b)=>s + Math.max(b.amount - b.deduction + (b.extra||0), 0), 0);
@@ -5244,6 +5248,314 @@ async function submitBankTransfer(){
   await finalizeApprove(req, null);
 }
 
+/* ═══ المرفقات المتعددة (صور + PDF) في مجلد خاص — الجزء ٧ ═══ */
+const ATT_MAX_FILES = 10, ATT_MAX_BYTES = 10*1024*1024;
+const ATT_LABELS = ['هوية','حساب بنكي','فاتورة','عقد','أخرى'];
+const ATT_EXT = {'image/jpeg':'jpg','image/png':'png','image/webp':'webp','application/pdf':'pdf'};
+const PDFJS_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const ATT_MAX_PX = 1700;            // أقصى عرض/ارتفاع لصور المعاينة والطباعة
+function attFmtSize(n){ n=Number(n)||0; return n>=1048576 ? (n/1048576).toFixed(1)+' MB' : Math.max(1,Math.round(n/1024))+' KB'; }
+// نوع الملف الحقيقي من أول بايتات (لا نثق باسمه ولا بنوعه المُعلَن)
+async function attSniff(file){
+  const b = new Uint8Array(await file.slice(0,12).arrayBuffer());
+  const s = (i,n)=>String.fromCharCode(...b.slice(i,i+n));
+  if(b[0]===0xFF && b[1]===0xD8 && b[2]===0xFF) return 'image/jpeg';
+  if(b[0]===0x89 && s(1,3)==='PNG') return 'image/png';
+  if(s(0,4)==='RIFF' && s(8,4)==='WEBP') return 'image/webp';
+  if(s(0,4)==='%PDF') return 'application/pdf';
+  return null;
+}
+function attLoadScript(src){
+  return new Promise((res,rej)=>{
+    const s = document.createElement('script'); s.src = src; s.onload = ()=>res(); s.onerror = ()=>rej(new Error('تعذّر تحميل مكتبة قراءة PDF — تحقق من الاتصال'));
+    document.head.appendChild(s);
+  });
+}
+async function attPdfLib(){
+  if(!window.pdfjsLib) await attLoadScript(PDFJS_SRC);
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+  return window.pdfjsLib;
+}
+function attCanvasToJpeg(src, w, h){
+  const k = Math.min(1, ATT_MAX_PX / Math.max(w, h));
+  const cw = Math.max(1, Math.round(w*k)), ch = Math.max(1, Math.round(h*k));
+  const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+  const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0,0,cw,ch); cx.drawImage(src, 0, 0, cw, ch);
+  return cv.toDataURL('image/jpeg', 0.88);
+}
+// صورة → رابط data مضغوط الأبعاد (لتعمل في المعاينة والطباعة)
+function attImageToDataUrl(blob){
+  return new Promise((res,rej)=>{
+    const u = URL.createObjectURL(blob), im = new Image();
+    im.onload = ()=>{ try{ res(attCanvasToJpeg(im, im.naturalWidth||1, im.naturalHeight||1)); }catch(e){ rej(e); } URL.revokeObjectURL(u); };
+    im.onerror = ()=>{ URL.revokeObjectURL(u); rej(new Error('تعذّر قراءة الصورة')); };
+    im.src = u;
+  });
+}
+// PDF → قائمة صفحات (روابط data)، حتى 30 صفحة
+async function attPdfToPages(buf){
+  const lib = await attPdfLib();
+  const doc = await lib.getDocument({data: buf, isEvalSupported:false}).promise;
+  const pages = [], n = Math.min(doc.numPages, 30);
+  for(let i=1;i<=n;i++){
+    const pg = await doc.getPage(i), vp = pg.getViewport({scale: 1.6});
+    const cv = document.createElement('canvas'); cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+    const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0,0,cv.width,cv.height);
+    await pg.render({canvasContext: cx, viewport: vp}).promise;
+    pages.push(attCanvasToJpeg(cv, cv.width, cv.height));
+  }
+  return pages;
+}
+async function attBlobToPages(blob, mime){
+  return mime==='application/pdf' ? attPdfToPages(await blob.arrayBuffer()) : [await attImageToDataUrl(blob)];
+}
+async function attFetchRowBlob(row){
+  const sg = await db.storage.from('attachments').createSignedUrl(row.path, 300);
+  if(sg.error || !sg.data) throw new Error('تعذّر فتح المرفق: ' + ((sg.error&&sg.error.message)||''));
+  const r = await fetch(sg.data.signedUrl);
+  if(!r.ok) throw new Error('تعذّر تحميل المرفق');
+  return r.blob();
+}
+async function attRowPages(row){
+  state.attPagesCache = state.attPagesCache || {};
+  if(state.attPagesCache[row.id]) return state.attPagesCache[row.id];
+  const pages = await attBlobToPages(await attFetchRowBlob(row), row.mime);
+  state.attPagesCache[row.id] = pages;
+  return pages;
+}
+async function attLoadRows(masterId){
+  const r = await db.from('qy_attachments').select('*').eq('master_id', masterId).order('created_at');
+  if(r.error) throw new Error(r.error.message);
+  state.attCounts = state.attCounts || {}; state.attCounts[masterId] = r.data.length;
+  return r.data;
+}
+async function attLoadCounts(){
+  if(state._attCountsBusy || state.attCounts) return;
+  state._attCountsBusy = true;
+  try{
+    const r = await db.from('qy_attachments').select('master_id');
+    const m = {}; (r.data||[]).forEach(x=>{ m[x.master_id] = (m[x.master_id]||0)+1; });
+    state.attCounts = m;
+    if(state.view==='newRequest' && !state.attModal){ syncDraftFromDOM(); render(); }
+  }catch(e){ state.attCounts = {}; }
+  state._attCountsBusy = false;
+}
+// يرفع ملفاً واحداً (تخزين ثم صف بيانات؛ إن فشل الصف يُحذف الملف)
+async function attUploadOne(master, file, label, mime){
+  const path = master.companyId + '/' + master.id + '/' + (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2))) + '.' + ATT_EXT[mime];
+  const up = await db.storage.from('attachments').upload(path, file, {contentType: mime, upsert:false});
+  if(up.error) throw new Error(up.error.message);
+  const ins = await db.from('qy_attachments').insert({master_id: master.id, company_id: master.companyId, label, file_name: String(file.name||'ملف').slice(0,200), mime, size_bytes: file.size, path}).select().single();
+  if(ins.error){ await db.storage.from('attachments').remove([path]); throw new Error(ins.error.message); }
+  state.attCounts = state.attCounts || {}; state.attCounts[master.id] = (state.attCounts[master.id]||0) + 1;
+  return ins.data;
+}
+function attCurrentLabel(){
+  const sel = document.getElementById('attLabelSel'); const v = sel ? sel.value : 'هوية';
+  if(v!=='أخرى') return v;
+  const c = (document.getElementById('attLabelCustom')||{}).value||'';
+  return c.trim().slice(0,60) || 'أخرى';
+}
+function attMasterOf(m){
+  if(m.kind==='master') return m.master;
+  const b = state.draft && state.draft.beneficiaries[m.idx];
+  const name = b ? (b.name||'').trim() : '';
+  return name ? (state.beneficiaries.find(x=>x.name===name && x.companyId===state.currentCompanyId && x.id) || null) : null;
+}
+async function openAttachmentsModal(kind, idx, masterName){
+  if(kind==='draft'){ syncDraftFromDOM(); }
+  state.attModal = {kind, idx, master: null, rows: [], loading: true, busy: false, preview: null, name: ''};
+  const m = state.attModal;
+  if(kind==='master'){ m.master = state.beneficiaries.find(x=>x.name===masterName && x.id) || null; m.name = masterName; }
+  else { const b = state.draft.beneficiaries[idx]; m.name = (b.name||'').trim(); m.master = attMasterOf(m); }
+  render();
+  try{ if(m.master) m.rows = await attLoadRows(m.master.id); }catch(e){ showToast('تعذّر تحميل المرفقات: ' + e.message, 'error'); }
+  m.loading = false; attRefresh();
+}
+function closeAttachmentsModal(){
+  const wasDraft = state.attModal && state.attModal.kind==='draft';
+  state.attModal = null;
+  if(wasDraft && state.view==='newRequest') syncDraftFromDOM();
+  render();
+}
+function attRefresh(){
+  const old = document.getElementById('attModalRoot'); if(old) old.remove();
+  if(state.attModal){ const app = document.getElementById('app'); if(app) app.insertAdjacentHTML('beforeend', renderAttachmentsModal()); }
+}
+async function attPick(input){
+  const m = state.attModal; if(!m) return;
+  const files = Array.from(input.files||[]); input.value = '';
+  if(!files.length) return;
+  const label = attCurrentLabel();
+  const draftItem = (m.kind==='draft') ? state.draft.beneficiaries[m.idx] : null;
+  if(draftItem && !m.master) draftItem._pend = draftItem._pend || [];
+  m.busy = true; attRefresh();
+  let ok = 0;
+  for(const f of files){
+    try{
+      const have = (m.master ? m.rows.length : 0) + (draftItem && draftItem._pend ? draftItem._pend.length : 0);
+      if(have >= ATT_MAX_FILES) throw new Error('الحد الأقصى ' + ATT_MAX_FILES + ' مرفقات لكل مستفيد');
+      if(f.size > ATT_MAX_BYTES) throw new Error('حجم «' + f.name + '» يتجاوز 10 ميجابايت');
+      if(f.size < 1) throw new Error('الملف «' + f.name + '» فارغ');
+      const mime = await attSniff(f);
+      if(!mime) throw new Error('«' + f.name + '»: النوع غير مقبول (المقبول: JPG وPNG وWEBP وPDF)');
+      if(m.master){ m.rows.push(await attUploadOne(m.master, f, label, mime)); }
+      else { draftItem._pend.push({file: f, label, mime}); }
+      ok++;
+    }catch(e){ showToast(e.message, 'error'); }
+  }
+  m.busy = false; attRefresh();
+  if(ok) showToast(m.master ? ('تم رفع ' + ok + ' ملف') : ('أُضيف ' + ok + ' ملف — يُرفع عند إرسال الطلب'), 'success');
+}
+async function attPreview(key){
+  const m = state.attModal; if(!m) return;
+  let title = '', loader;
+  if(key==='legacy-id'){ const mm=m.master; title='هوية (قديم)'; loader = async()=>[mm.idFileData]; }
+  else if(key==='legacy-bank'){ const mm=m.master; title='حساب بنكي (قديم)'; loader = async()=>[mm.bankFileData]; }
+  else if(key.startsWith('p')){ const it = state.draft.beneficiaries[m.idx]._pend[Number(key.slice(1))]; title = it.label + ' — ' + it.file.name; loader = ()=>attBlobToPages(it.file, it.mime); }
+  else { const row = m.rows.find(r=>r.id===key); if(!row) return; title = row.label + ' — ' + row.file_name; loader = ()=>attRowPages(row); }
+  m.preview = {title, pages: [], loading: true}; attRefresh();
+  try{ m.preview.pages = await loader(); }catch(e){ showToast(e.message, 'error'); m.preview = null; }
+  if(m.preview) m.preview.loading = false;
+  attRefresh();
+}
+function attClosePreview(){ if(state.attModal){ state.attModal.preview = null; attRefresh(); } }
+async function attDownload(key){
+  const m = state.attModal; if(!m) return;
+  try{
+    let url, name;
+    if(key==='legacy-id'){ url = m.master.idFileData; name = 'هوية'; }
+    else if(key==='legacy-bank'){ url = m.master.bankFileData; name = 'حساب-بنكي'; }
+    else if(key.startsWith('p')){ const it = state.draft.beneficiaries[m.idx]._pend[Number(key.slice(1))]; url = URL.createObjectURL(it.file); name = it.file.name; }
+    else {
+      const row = m.rows.find(r=>r.id===key); name = row.file_name;
+      const sg = await db.storage.from('attachments').createSignedUrl(row.path, 120, {download: row.file_name});
+      if(sg.error) throw new Error(sg.error.message);
+      url = sg.data.signedUrl;
+    }
+    const a = document.createElement('a'); a.href = url; a.download = name; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ showToast('تعذّر التحميل: ' + e.message, 'error'); }
+}
+async function attDelete(key){
+  const m = state.attModal; if(!m) return;
+  if(key.startsWith('p')){
+    const arr = state.draft.beneficiaries[m.idx]._pend; arr.splice(Number(key.slice(1)), 1); attRefresh(); return;
+  }
+  const row = m.rows.find(r=>r.id===key); if(!row) return;
+  if(!confirm('حذف المرفق «' + row.file_name + '» نهائياً؟')) return;
+  m.busy = true; attRefresh();
+  try{
+    const d = await db.from('qy_attachments').delete().eq('id', row.id).select('id');
+    if(d.error) throw new Error(d.error.message);
+    if(!d.data || !d.data.length) throw new Error('لا تملك صلاحية حذف هذا المرفق');
+    await db.storage.from('attachments').remove([row.path]);
+    m.rows = m.rows.filter(r=>r.id!==row.id);
+    state.attCounts[m.master.id] = m.rows.length;
+    if(state.attPagesCache) delete state.attPagesCache[row.id];
+    qyLog('attachment_delete', 'حذف مرفق: ' + row.label, 'master=' + m.master.id);
+  }catch(e){ showToast('تعذّر الحذف: ' + e.message, 'error'); }
+  m.busy = false; attRefresh();
+}
+// بعد حفظ المستفيد (لأول مرة) نرفع ما اختاره المستخدم قبل الإرسال
+async function attFlushPending(draftB, master){
+  const pend = draftB._pend || []; if(!pend.length || !master || !master.id) return;
+  let ok = 0;
+  for(const p of pend){
+    try{ await attUploadOne(master, p.file, p.label, p.mime); ok++; }
+    catch(e){ showToast('تعذّر رفع «' + p.file.name + '»: ' + e.message, 'error'); }
+  }
+  draftB._pend = [];
+  if(ok) showToast('رُفع ' + ok + ' مرفق للمستفيد ' + master.name, 'success');
+}
+function attButtonHtml(i, b){
+  const name = (b.name||'').trim();
+  const mst = name ? state.beneficiaries.find(x=>x.name===name && x.companyId===state.currentCompanyId && x.id) : null;
+  const saved = mst ? ((state.attCounts||{})[mst.id]||0) + (mst.idFileData?1:0) + (mst.bankFileData?1:0) : 0;
+  const pend = (b._pend||[]).length;
+  const n = saved + pend;
+  if(!state.attCounts && !state._attCountsBusy) setTimeout(attLoadCounts, 0);
+  return `<button type="button" class="btn btn-ghost btn-sm" onclick="openAttachmentsModal('draft',${i})">📎 مرفقات${n ? ' (' + n + ')' : ''}</button>
+    ${pend ? `<span class="file-hint" style="margin-right:8px;">${pend} ملف بانتظار الرفع عند الإرسال</span>` : ''}`;
+}
+function renderAttachmentsModal(){
+  const m = state.attModal; if(!m) return '';
+  const pend = (m.kind==='draft' && !m.master) ? (state.draft.beneficiaries[m.idx]._pend||[]) : [];
+  const icon = mime => mime==='application/pdf' ? '📄' : '🖼️';
+  const btn = (act, key, txt, cls) => `<button type="button" class="btn ${cls||'btn-ghost'} btn-xs" onclick="${act}('${key}')">${txt}</button>`;
+  const item = (key, ic, label, nm, meta, canDel, legacy) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);">
+      <div style="font-size:22px;">${ic}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;">${escH(label)}${legacy?' <span class="file-hint">(مرفق قديم)</span>':''}</div>
+        <div class="file-hint" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:right;">${escH(nm)}${meta?' · '+escH(meta):''}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">${btn('attPreview',key,'معاينة')}${btn('attDownload',key,'تحميل')}${canDel?btn('attDelete',key,'حذف','btn-ghost'):''}</div>
+    </div>`;
+  let list = '';
+  if(m.loading) list = '<p class="sub">جارٍ التحميل…</p>';
+  else {
+    const mm = m.master;
+    if(mm && mm.idFileData) list += item('legacy-id','🖼️','هوية','صورة محفوظة سابقاً','',false,true);
+    if(mm && mm.bankFileData) list += item('legacy-bank','🖼️','حساب بنكي','صورة محفوظة سابقاً','',false,true);
+    list += m.rows.map(r=>item(r.id, icon(r.mime), r.label, r.file_name, attFmtSize(r.size_bytes), true, false)).join('');
+    list += pend.map((p,k)=>item('p'+k, icon(p.mime), p.label, p.file.name, attFmtSize(p.file.size), true, false)).join('');
+    if(!list) list = '<p class="sub">لا توجد مرفقات بعد.</p>';
+  }
+  const preview = m.preview ? `
+    <div class="file-preview-body" style="max-height:62vh;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><b>${escH(m.preview.title)}</b>
+        <button type="button" class="btn btn-ghost btn-xs" onclick="attClosePreview()">رجوع للقائمة</button></div>
+      ${m.preview.loading ? '<p class="sub">جارٍ تجهيز المعاينة…</p>' : m.preview.pages.map(u=>`<img src="${escH(safeDataUrl(u))}" style="margin-bottom:10px;border:1px solid var(--line);">`).join('')}
+    </div>` : '';
+  const upload = m.preview ? '' : `
+    <div style="margin-top:14px;padding:12px;background:var(--paper);border-radius:8px;">
+      <div class="row" style="align-items:flex-end;">
+        <div><label>نوع المرفق</label>
+          <select id="attLabelSel" onchange="document.getElementById('attLabelCustom').style.display=(this.value==='أخرى'?'':'none')">
+            ${ATT_LABELS.map(l=>`<option>${escH(l)}</option>`).join('')}
+          </select></div>
+        <div><label>&nbsp;</label><input id="attLabelCustom" type="text" maxlength="60" placeholder="اكتب اسم المرفق" style="display:none;"></div>
+      </div>
+      <div style="margin-top:8px;"><input type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onchange="attPick(this)" ${m.busy?'disabled':''}></div>
+      <p class="file-hint" style="margin-top:6px;">صور (JPG / PNG / WEBP) أو PDF · حتى ${ATT_MAX_FILES} ملفات لكل مستفيد · الملف الواحد حتى 10 ميجابايت.
+      ${m.master ? '' : '<br>سيُرفع كل ما تختاره هنا عند إرسال الطلب.'}</p>
+      ${m.busy ? '<p class="sub">جارٍ الرفع…</p>' : ''}
+    </div>`;
+  return `
+    <div id="attModalRoot" class="modal-overlay no-print" onclick="if(event.target===this) closeAttachmentsModal();">
+      <div class="modal-box" style="max-width:min(94vw,680px);max-height:90vh;overflow:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;">
+          <h2 style="margin:0;">مرفقات: ${escH(m.name||'مستفيد جديد')}</h2>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="closeAttachmentsModal()">إغلاق</button>
+        </div>
+        ${m.preview ? preview : list}
+        ${upload}
+      </div>
+    </div>`;
+}
+// مرفقات طلب كاملة للطباعة: صفحات جاهزة (صور data) لكل مستفيد
+async function attCollectForRequest(req){
+  const out = [];
+  const byName = []; const seen = {};
+  req.beneficiaries.forEach(b=>{
+    const mst = state.beneficiaries.find(x=>x.name===b.name && x.id);
+    if(mst && !seen[mst.id]){ seen[mst.id] = 1; byName.push({name:b.name, id:mst.id}); }
+  });
+  if(!byName.length) return out;
+  const r = await db.from('qy_attachments').select('*').in('master_id', byName.map(x=>x.id)).order('created_at');
+  if(r.error){ showToast('تعذّر تحميل المرفقات للطباعة: ' + r.error.message, 'error'); return out; }
+  for(const who of byName){
+    for(const row of r.data.filter(x=>x.master_id===who.id)){
+      try{
+        const pages = await attRowPages(row);
+        pages.forEach((u,i)=>out.push({name: who.name, img: u, label: row.label + (pages.length>1 ? ' (' + (i+1) + '/' + pages.length + ')' : '')}));
+      }catch(e){ showToast('تعذّر تجهيز «' + row.file_name + '» للطباعة: ' + e.message, 'error'); }
+    }
+  }
+  return out;
+}
+
 function openFilePreviewModal(dataUrl, fileName){
   state.filePreviewModal = {dataUrl, fileName: fileName||'مرفق'};
   render();
@@ -5646,6 +5958,9 @@ async function openPrintPreview(reqId){
         if(master.bankFileData) images.push(master.bankFileData);
       }
     });
+    state.attPrint = state.attPrint || {};
+    try{ state.attPrint[reqId] = await attCollectForRequest(req); }catch(e){ state.attPrint[reqId] = []; showToast('تعذّر تجهيز المرفقات الجديدة للطباعة','error'); }
+    state.attPrint[reqId].forEach(x=>images.push(x.img));
   }
   state.attachmentDims = state.attachmentDims || {};
   const toMeasure = images.filter(src=>!state.attachmentDims[src]);
@@ -6021,6 +6336,7 @@ function renderPrintPreview(app){
       if(master.bankFileData) attachmentImages.push({name:b.name, img:master.bankFileData});
     }
   });
+  ((state.attPrint||{})[req.id]||[]).forEach(x=>attachmentImages.push(x));
 
   const letterPages = renderLetterPages(req);
 
@@ -6061,7 +6377,7 @@ function renderPrintPreview(app){
     <div class="doc-page attachment-page attachment-flow-page">
       ${chunk.map(a=>`
         <div class="attachment-flow-block">
-          <div class="attachment-title">مرفقات المستفيد: ${escH(a.name)}</div>
+          <div class="attachment-title">مرفقات المستفيد: ${escH(a.name)}${a.label?' — '+escH(a.label):''}</div>
           <img src="${escH(safeDataUrl(a.img))}" style="width:${a.wMM.toFixed(1)}mm;height:${a.hMM.toFixed(1)}mm;cursor:zoom-in;" onclick="openFilePreviewModal(${jsq(a.img)}, ${jsq('مرفق '+a.name)})">
         </div>
       `).join('')}
@@ -6116,6 +6432,7 @@ function render(){
   if(state.manualSignReqId){ app.insertAdjacentHTML('beforeend', renderManualSignModal()); setupManualSignCanvas(); }
   if(state.transferFormReqId){ app.insertAdjacentHTML('beforeend', renderTransferFormModal()); }
   if(state.filePreviewModal){ app.insertAdjacentHTML('beforeend', renderFilePreviewModal()); }
+  if(state.attModal){ app.insertAdjacentHTML('beforeend', renderAttachmentsModal()); }
 
   attachQuickAdds();
   syncPageTitle();
@@ -12095,24 +12412,7 @@ function renderNewRequest(app){
               <button type="button" class="btn btn-primary btn-xs" onclick="applyExtraCalc(${i})">تطبيق</button>
               <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCalcBox(${i},'extra')">إلغاء</button>
             </div>
-            ${known && !showUpload ? `
-            <div class="row">
-              <div class="file-hint" style="color:var(--green);">✓ المرفقات (الهوية والبنك) محفوظة مسبقاً لهذا المستفيد
-                <span class="add-beneficiary" style="margin-right:8px;" onclick="toggleAttachmentUpdate(${i})">تحديث المرفقات</span>
-              </div>
-            </div>` : `
-            <div class="row">
-              <div>
-                <label>صورة الهوية أو الفاتورة ${known ? '(اختياري - تحديث)' : '(مطلوبة - أول مرة)'}</label>
-                <input class="b-file-id" type="file" accept="image/*" onchange="handleAttachment(${i},'id',this)">
-                ${b.idFileName ? `<div class="file-hint">تم اختيار: ${escH(b.idFileName)} — <a href="#" onclick="event.preventDefault(); openFilePreviewModal(${jsq(b.idFileData)}, ${jsq(b.idFileName)});">معاينة</a></div>` : ''}
-              </div>
-              <div>
-                <label>صورة معلومات البنك (اختياري)</label>
-                <input class="b-file-bank" type="file" accept="image/*" onchange="handleAttachment(${i},'bank',this)">
-                ${b.bankFileName ? `<div class="file-hint">تم اختيار: ${escH(b.bankFileName)} — <a href="#" onclick="event.preventDefault(); openFilePreviewModal(${jsq(b.bankFileData)}, ${jsq(b.bankFileName)});">معاينة</a></div>` : ''}
-              </div>
-            </div>`}
+            <div class="row"><div>${attButtonHtml(i, b)}</div></div>
           </div>
         `}).join('')}
       </div>
