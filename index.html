@@ -2472,6 +2472,41 @@ function secMarkAllShown(){
   secMarkReviewed(tab==='alerts' ? 'qy_audit_alerts' : 'qy_client_events', rows.map(r=>r.id));
 }
 
+
+// ═══ إعداد ما تعرضه صفحة التحقق من السند (يُطبَّق في الخادم، ملف SQL ١٠) ═══
+const VERIFY_LEVELS = [
+  {v:'5', label:'٥ — كل البيانات بأسماء مختصرة (الافتراضي)', desc:'المستفيدون ومبالغهم والبيان وسجل الاعتماد، وكل الأسماء مختصرة (أحمد ع.).'},
+  {v:'3', label:'٣ — المستفيدون بأسماء مختصرة', desc:'المستفيدون ومبالغهم بأسماء مختصرة، بلا بيان ولا سجل اعتماد.'},
+  {v:'2', label:'٢ — المستفيدون بأسمائهم الكاملة', desc:'المستفيدون ومبالغهم بأسمائهم الكاملة، بلا بيان ولا سجل اعتماد.'},
+  {v:'1', label:'١ — كل البيانات بالأسماء كاملة', desc:'ما كانت تعرضه الصفحة سابقاً: المستفيدون والبيان وسجل الاعتماد بأسماء كاملة. الأقل حماية.'},
+  {v:'4', label:'٤ — الإجمالي فقط', desc:'رقم الطلب والشركة والتاريخ والحالة والإجمالي، بلا أي أسماء. الأكثر حماية.'}
+];
+function verifyLevelNow(){ const v = state.appSettings && state.appSettings.verify_level; return /^[1-5]$/.test(v||'') ? v : '5'; }
+function renderVerifySettings(app){
+  const cur = state.verifyLevelDraft || verifyLevelNow();
+  app.innerHTML = wrapWithAdminSidebar(`
+    <h1 style="margin:0 0 4px;">ما تعرضه صفحة التحقق من السند</h1>
+    <p class="sub" style="margin:0 0 14px;">الصفحة التي يفتحها من يمسح رمز QR من السند المطبوع. الاختيار يسري على كل الشركات، ويُطبَّق في الخادم فلا يمكن تجاوزه من المتصفح. أرقام التحقق المتاحة لمن يملك السند فقط، فاختر ما تقبل أن يراه أي حامل لنسخة منه.</p>
+    <div class="card">
+      ${VERIFY_LEVELS.map(o=>`
+        <label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);font-weight:400;cursor:pointer;">
+          <input type="radio" name="vlevel" value="${o.v}" ${cur===o.v?'checked':''} onchange="state.verifyLevelDraft=this.value" style="margin-top:4px;">
+          <span><b>${escH(o.label)}</b><div class="sub" style="font-size:12px;">${escH(o.desc)}</div></span>
+        </label>`).join('')}
+      <div class="actions-row" data-bar-actions>
+        <button class="btn btn-primary btn-md" title="يحفظ مستوى العرض لكل صفحات التحقق" onclick="saveVerifyLevel()">حفظ</button>
+      </div>
+    </div>`);
+}
+async function saveVerifyLevel(){
+  const v = state.verifyLevelDraft || verifyLevelNow();
+  if(!/^[1-5]$/.test(v)) return;
+  const r = await db.from('app_settings').upsert({key:'verify_level', value:v});
+  if(!(await dbCheck(r,'حفظ مستوى صفحة التحقق'))) return;
+  state.appSettings = state.appSettings||{}; state.appSettings.verify_level = v; state.verifyLevelDraft = null;
+  showToast('تم الحفظ','success'); render();
+}
+
 async function dbCheck(result, label){
   if(result && result.error){
     console.error(label, result.error);
@@ -2570,6 +2605,24 @@ async function renderVerifyPage(reqId){
     const fmtAmt = (val) => fmtKWD(val,{noUnit:true});
     const total = Number(r.total_amount||0);
     // صفحة عامة بأقل بيانات: رقم الطلب والشركة والتاريخ والحالة والإجمالي فقط (لا مستفيدين ولا بيان ولا سجل اعتماد)
+    // المستفيدون وسجل الاعتماد يظهران حسب مستوى العرض الذي يحدده مدير النظام (الخادم هو الذي يقرر ما يُرسَل)
+    const stepAr = {pending_decision:'معتمد',pending_manager:'اعتماد المدير',pending_senior:'اعتماد المدير الأعلى',pending_executive:'اعتماد المدير التنفيذي',pending_transfer_request:'طلب التحويل',pending_transfer_approval:'اعتماد التحويل',pending_disbursement:'إتمام الصرف',pending_accountant:'اعتماد المحاسب',pending_cfo:'اعتماد المدير المالي',completed:'تم الصرف',created:'إنشاء الطلب',rejected:'مرفوض'};
+    const benes = Array.isArray(r.beneficiaries) ? r.beneficiaries : null;
+    const beneHtml = benes ? `
+      <div style="background:var(--paper);border-radius:12px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+        <div style="padding:12px 16px;font-weight:700;font-size:13.5px;border-bottom:1px solid var(--line);">المستفيدون (${benes.length})</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;"><tbody>${benes.map((b,i)=>{
+          const am=Number(b.amount||0), de=Number(b.deduction||0), ex=Number(b.extra||0);
+          const adj = (de>0||ex>0) ? `<div style="font-size:11px;color:var(--muted);">${fmtAmt(am)}${de>0?` − ${fmtAmt(de)}`:''}${ex>0?` + ${fmtAmt(ex)}`:''}</div>` : '';
+          return `<tr style="border-bottom:1px solid var(--line);"><td style="padding:7px 10px;color:var(--muted);width:24px;text-align:center;">${i+1}</td><td style="padding:7px 8px;font-weight:600;">${esc(b.name)}</td><td style="padding:7px 12px;text-align:left;white-space:nowrap;direction:ltr;font-variant-numeric:tabular-nums;"><b>${fmtAmt(am-de+ex)}</b> <span style="font-size:10px;color:var(--muted);">د.ك</span>${adj}</td></tr>`;
+        }).join('') || '<tr><td style="padding:12px;text-align:center;color:var(--muted);">لا يوجد مستفيدون</td></tr>'}</tbody></table>
+      </div>` : '';
+    const hist = Array.isArray(r.history) ? r.history.filter(h=>!/^تخط/.test(h.action||'')) : null;
+    const histHtml = hist && hist.length ? `
+      <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+        <div style="font-weight:700;font-size:13.5px;margin-bottom:8px;">سجل الطلب</div>
+        ${hist.map(h=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;"><div style="flex:1;min-width:0;"><span style="font-weight:600;font-size:12px;color:${h.action==='رفض'?'var(--red)':'var(--green)'};">${esc(h.action)}</span>${h.actor?`<span style="font-size:12px;"> — ${esc(h.actor)}</span>`:''}${stepAr[h.step]?`<span style="font-size:11px;color:var(--muted);"> · ${esc(stepAr[h.step])}</span>`:''}</div><div style="font-size:11px;color:var(--muted);direction:ltr;white-space:nowrap;">${esc(toWesternDigits(h.time||''))}</div></div>`).join('')}
+      </div>` : '';
     const row = (label, val, last) => `<tr${last?'':' style="border-bottom:1px solid var(--line);"'}><td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;width:90px;vertical-align:baseline;">${label}</td><td style="padding:8px 0;font-size:13px;text-align:right;vertical-align:baseline;">${val}</td></tr>`;
     app.innerHTML = `
       <div style="max-width:500px;margin:32px auto;padding:0 12px;direction:rtl;font-family:inherit;">
@@ -2584,11 +2637,14 @@ async function renderVerifyPage(reqId){
           <table style="width:100%;border-collapse:collapse;">
             ${row('رقم الطلب', `<b dir="ltr">${esc(r.number)}</b>`)}
             ${r.verify_code ? row('رقم التحقق', `<b dir="ltr">${esc(r.verify_code)}</b>`) : ''}
+            ${r.reason ? row('البيان', esc(r.reason)) : ''}
             ${row('التاريخ', esc(dmyStr(r.date_greg||'')) + (r.date_hijri ? ' ('+esc(r.date_hijri)+' هـ)' : ''))}
             ${row('الحالة', `<b style="color:${statusColor};">${statusLabel}</b>`)}
             ${row('الإجمالي', `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(total)}</b> <span style="font-size:10px;color:var(--muted);">د.ك</span><div style="font-size:12px;color:var(--muted);margin-top:3px;">${amountToArabicWords(total)}</div>`, true)}
           </table>
         </div>
+        ${beneHtml}
+        ${histHtml}
         ${r.is_cancelled ? `<div style="background:#fbeceb;color:#B23A2E;border-radius:12px;padding:12px 16px;margin-bottom:12px;text-align:center;font-weight:700;">هذا السند ملغى ولا يُعتدّ به</div>` : ''}
         ${verifyFormHtml}
         <p style="margin-top:12px;font-size:11px;color:var(--muted);text-align:center;">تؤكد هذه الصفحة أن السند صادر من النظام وتعرض حالته الحالية. للتفاصيل الكاملة راجع الجهة المصدِرة.</p>
@@ -2963,7 +3019,7 @@ function isCustomRole(role){
   return !['employee','dept_manager','senior_manager','executive_manager','accountant','cfo','admin'].includes(role);
 }
 
-const ADMIN_AREA_VIEWS = ['admin','orgTree','jobLevels','analytics','cancelledArchive','ledger','sigDesigner','barSettings','securityLog'];
+const ADMIN_AREA_VIEWS = ['admin','orgTree','jobLevels','analytics','cancelledArchive','ledger','sigDesigner','barSettings','securityLog','verifySettings'];
 function inAdminArea(){ return !!state.user && state.user.role==='admin' && ADMIN_AREA_VIEWS.includes(state.view); }
 
 // ===================== صلاحيات الصفحات: من يرى أي صفحة وماذا يفعل فيها =====================
@@ -5899,6 +5955,7 @@ function render(){
   else if(state.view==='jobLevels') renderJobLevels(app);
   else if(state.view==='barSettings') renderBarSettings(app);
   else if(state.view==='securityLog') renderSecurityLog(app);
+  else if(state.view==='verifySettings') renderVerifySettings(app);
 
   if(state.rejectModalReqId){ app.insertAdjacentHTML('beforeend', renderRejectModal()); }
   if(state.pendingDelete){ app.insertAdjacentHTML('beforeend', renderDeleteConfirmModal()); }
@@ -7581,7 +7638,8 @@ const ADMIN_NAV = [
     {key:'printSetup', label:'الترويسة والتذييل', kind:'tab'},
     {key:'sigFinal', label:'التوقيعات: الصفحة الأخيرة', tab:'توقيعات: الصفحة الأخيرة', head:'تصميم مواقع التوقيعات — الصفحة الأخيرة', kind:'sigFinal'},
     {key:'sigMini', label:'التوقيعات: الشريط المصغّر', tab:'توقيعات: الشريط المصغّر', head:'تصميم مواقع التوقيعات — الشريط المصغّر', kind:'sigMini'},
-    {key:'barSettings', label:'الشريط السفلي العام', tab:'الشريط السفلي', kind:'view'}
+    {key:'barSettings', label:'الشريط السفلي العام', tab:'الشريط السفلي', kind:'view'},
+    {key:'verifySettings', label:'صفحة التحقق من السند', tab:'صفحة التحقق', kind:'view'}
   ]},
   // ٥ القيود الدورية والإشعارات — من ينشئ القوالب ولمن تصل إشعارات اعتمادها
   {gkey:'recur', tab:'القيود الدورية والإشعارات', cat:'القيود الدورية والإشعارات', items:[
