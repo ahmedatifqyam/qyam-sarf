@@ -3273,6 +3273,13 @@ function placeAssistantClose(){
 }
 
 let assistantMounted = false;
+// تبديل المستخدم (دخول بالنيابة / عودة / خروج): تُمحى محادثة المساعد وجلستها حتى لا تظهر لغير صاحبها
+function assistantReset(){
+  try{ Object.keys(localStorage).filter(k=>k.indexOf('n8n-chat')>=0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+  try{ Object.keys(sessionStorage).filter(k=>k.indexOf('n8n-chat')>=0).forEach(k=>sessionStorage.removeItem(k)); }catch(e){}
+  const root = document.getElementById('qyamAssistant'); if(root) root.innerHTML = '';
+  assistantMounted = false;
+}
 function canSeeAssistant(){ return !!state.user && (!ASSISTANT_ROLES || ASSISTANT_ROLES.includes(state.user.role)); }
 
 async function mountAssistant(){
@@ -3725,6 +3732,7 @@ function openAdmin(){
 function impersonateUser(userId){
   const target = state.users.find(u=>u.id===userId);
   if(!target) return;
+  assistantReset(); state.dashOwner='all';
   state.impersonatingFromAdmin = state.user.id;
   state.user = {id: target.id, role: target.role, name: target.name};
   setupCompanyAccess(target);
@@ -3736,6 +3744,7 @@ function impersonateUser(userId){
 function returnToAdmin(){
   const admin = state.users.find(u=>u.id===state.impersonatingFromAdmin);
   if(!admin) return;
+  assistantReset(); state.dashOwner='all';
   state.user = {id: admin.id, role: admin.role, name: admin.name};
   setupCompanyAccess(admin);
   state.impersonatingFromAdmin = null;
@@ -3774,7 +3783,7 @@ function openSearchResult(reqId){
   render();
 }
 
-async function logout(){ try{ if(state.user) qyLog('logout','خروج',''); await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
+async function logout(){ assistantReset(); state.dashOwner='all'; try{ if(state.user) qyLog('logout','خروج',''); await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
 
 // ───────── إغلاق الدخول تلقائياً عند عدم النشاط ─────────
 // ٣٠ دقيقة بلا نقر أو كتابة أو تمرير؛ تنبيه قبل الإغلاق بدقيقة؛ وآخر نشاط مشترك بين كل التبويبات.
@@ -4091,6 +4100,11 @@ async function setRequestStatus(req, newStatus){
   req.status = newStatus;
 }
 
+function deleteRequestCfo(id){
+  const req = state.requests.find(r=>r.id===id);
+  if(!req) return;
+  requestDeleteConfirm(`إبطال الطلب رقم ${escH(req.number)}؟ سيبقى محفوظاً بالأرشيف ويمكن استرجاعه لاحقاً.`, 'cancel_request', id);
+}
 function deleteRequest(id){
   const req = state.requests.find(r=>r.id===id);
   if(!req || !isEditable(req)) return;
@@ -4101,7 +4115,8 @@ async function executeCancelRequest(id){
   const result = await db.from('requests').update(updates).eq('id', id);
   if(!(await dbCheck(result, 'إبطال الطلب'))) return;
   const req = state.requests.find(r=>r.id===id);
-  if(req){ req.isCancelled = true; req.cancelledAt = updates.cancelled_at; req.cancelledById = state.user.id; }
+  if(req){ req.isCancelled = true; req.cancelledAt = updates.cancelled_at; req.cancelledById = state.user.id;
+    await pushHistory(req, {step:req.status, actor:state.user.name, userId:state.user.id, action:'إبطال الطلب', note:'', time:fmtDate()}); }
   state.view='dashboard';
   showToast('تم إبطال الطلب ونقله للأرشيف', 'success');
   render();
@@ -4113,6 +4128,7 @@ async function restoreRequest(id){
   const result = await db.from('requests').update(updates).eq('id', id);
   if(!(await dbCheck(result, 'استرجاع الطلب'))) return;
   req.isCancelled = false; req.cancelledAt = null; req.cancelledById = null;
+  await pushHistory(req, {step:req.status, actor:state.user.name, userId:state.user.id, action:'استرجاع الطلب', note:'', time:fmtDate()});
   showToast('تم استرجاع الطلب', 'success');
   render();
 }
@@ -4626,6 +4642,7 @@ async function submitDraftInner(){
     const draftB = (d.beneficiaries||[]).find(x=>(x.name||'').trim()===b.name);
     if(draftB && (draftB._pend||[]).length) await attFlushPending(draftB, master);
   }
+  if(state.editingReqId && ATT_REQ_QUEUE.length) await attFlushReqQueue(state.editingReqId);
 
   const total = beneficiaries.reduce((s,b)=>s + Math.max(b.amount - b.deduction + (b.extra||0), 0), 0);
   const beneRows = beneficiaries.map(b=>({name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, statement:b.statement, notes:b.notes, amount:b.amount, deduction:b.deduction, deduction_note:b.deductionNote, extra:b.extra||0, extra_note:b.extraNote}));
@@ -4642,7 +4659,7 @@ async function submitDraftInner(){
       chg.push('البند: ' + (bn ? bn : 'غير محدد'));
     }
     if(req.reason !== reasonInput) chg.push('العنوان');
-    if(Math.abs((Number(req.totalAmount)||0) - total) > 0.0005) chg.push('المبلغ: ' + fmtKWD(total) + ' د.ك');
+    if(Math.abs((Number(req.totalAmount)||0) - total) > 0.0005) chg.push('المبلغ: ' + fmtKWDPlain(total) + ' د.ك');
     if(wasRecurring !== nowRecurring) chg.push(nowRecurring ? 'صار متكرراً' : 'لم يعد متكرراً');
     const histEntry = {step: req.status, actor: state.user.name, userId: state.user.id, action:'تعديل الطلب', note: chg.join(' · '), time: fmtDate()};
     // budget_item_id وis_recurring كانا ناقصَين من هذه الجملة، فكان الاختيار يضيع بلا أثر
@@ -4792,6 +4809,7 @@ async function submitDraftInner(){
   // رقم التحقق يولّده الخادم عند الإنشاء؛ نقرؤه الآن حتى يظهر على السند دون الحاجة لتحديث الصفحة
   try{ const vc = await db.from('requests').select('verify_code').eq('id', req.id).maybeSingle(); req.verifyCode = (vc && vc.data && vc.data.verify_code) || ''; }catch(e){ req.verifyCode = ''; }
   state.requests.push(req);
+  if(ATT_REQ_QUEUE.length) await attFlushReqQueue(req.id);
   clearDraftStorage();
   // تسجيل تجاوز الرصيد إن وُجد
   if(state._pendingOverrunLog){
@@ -5334,32 +5352,39 @@ async function attRowPages(row){
   state.attPagesCache[row.id] = pages;
   return pages;
 }
-async function attLoadRows(masterId){
+async function attLoadRows(masterId, reqId){
   const r = await db.from('qy_attachments').select('*').eq('master_id', masterId).order('created_at');
   if(r.error) throw new Error(r.error.message);
-  state.attCounts = state.attCounts || {}; state.attCounts[masterId] = r.data.length;
-  return r.data;
+  const fixed = r.data.filter(x=>!x.request_id);
+  state.attCounts = state.attCounts || {}; state.attCounts[masterId] = fixed.length;
+  // الثابتة للمستفيد + المرتبطة بهذا الطلب فقط (مرفقات الطلبات الأخرى لا تظهر)
+  return r.data.filter(x=>!x.request_id || (reqId && x.request_id===reqId));
 }
 async function attLoadCounts(){
   if(state._attCountsBusy || state.attCounts) return;
   state._attCountsBusy = true;
   try{
-    const r = await db.from('qy_attachments').select('master_id');
-    const m = {}; (r.data||[]).forEach(x=>{ m[x.master_id] = (m[x.master_id]||0)+1; });
+    const r = await db.from('qy_attachments').select('master_id,request_id');
+    const m = {}; (r.data||[]).forEach(x=>{ if(!x.request_id) m[x.master_id] = (m[x.master_id]||0)+1; });
     state.attCounts = m;
     if(state.view==='newRequest' && !state.attModal){ syncDraftFromDOM(); render(); }
   }catch(e){ state.attCounts = {}; }
   state._attCountsBusy = false;
 }
 // يرفع ملفاً واحداً (تخزين ثم صف بيانات؛ إن فشل الصف يُحذف الملف)
-async function attUploadOne(master, file, label, mime){
+async function attUploadOne(master, file, label, mime, reqId){
   const path = master.companyId + '/' + master.id + '/' + (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2))) + '.' + ATT_EXT[mime];
   const up = await db.storage.from('attachments').upload(path, file, {contentType: mime, upsert:false});
   if(up.error) throw new Error(up.error.message);
-  const ins = await db.from('qy_attachments').insert({master_id: master.id, company_id: master.companyId, label, file_name: String(file.name||'ملف').slice(0,200), mime, size_bytes: file.size, path}).select().single();
+  const row = {master_id: master.id, company_id: master.companyId, label, file_name: String(file.name||'ملف').slice(0,200), mime, size_bytes: file.size, path};
+  if(reqId) row.request_id = reqId;
+  const ins = await db.from('qy_attachments').insert(row).select().single();
   if(ins.error){ await db.storage.from('attachments').remove([path]); throw new Error(ins.error.message); }
-  state.attCounts = state.attCounts || {}; state.attCounts[master.id] = (state.attCounts[master.id]||0) + 1;
+  if(!reqId){ state.attCounts = state.attCounts || {}; state.attCounts[master.id] = (state.attCounts[master.id]||0) + 1; }
   return ins.data;
+}
+function attCurrentScope(){
+  const sel = document.getElementById('attScopeSel'); return sel && sel.value==='req' ? 'req' : 'fixed';
 }
 function attCurrentLabel(){
   const sel = document.getElementById('attLabelSel'); const v = sel ? sel.value : 'هوية';
@@ -5380,7 +5405,8 @@ async function openAttachmentsModal(kind, idx, masterName){
   if(kind==='master'){ m.master = state.beneficiaries.find(x=>x.name===masterName && x.id) || null; m.name = masterName; }
   else { const b = state.draft.beneficiaries[idx]; m.name = (b.name||'').trim(); m.master = attMasterOf(m); }
   if(kind==='master') attRefresh(); else render();
-  try{ if(m.master) m.rows = await attLoadRows(m.master.id); }catch(e){ showToast('تعذّر تحميل المرفقات: ' + e.message, 'error'); }
+  m.reqId = (kind==='draft' && state.editingReqId) ? state.editingReqId : null;
+  try{ if(m.master) m.rows = await attLoadRows(m.master.id, m.reqId); }catch(e){ showToast('تعذّر تحميل المرفقات: ' + e.message, 'error'); }
   m.loading = false; attRefresh();
 }
 function closeAttachmentsModal(){
@@ -5401,25 +5427,26 @@ async function attPick(input){
   const files = Array.from(input.files||[]); input.value = '';
   if(!files.length) return;
   const label = attCurrentLabel();
+  const scope = (m.kind==='draft') ? attCurrentScope() : 'fixed';
   const draftItem = (m.kind==='draft') ? state.draft.beneficiaries[m.idx] : null;
   if(draftItem && !m.master) draftItem._pend = draftItem._pend || [];
   m.busy = true; attRefresh();
   let ok = 0;
   for(const f of files){
     try{
-      const have = (m.master ? m.rows.length : 0) + (draftItem && draftItem._pend ? draftItem._pend.length : 0);
+      const have = (m.master ? m.rows.filter(r=>!r.request_id).length : 0) + (draftItem && draftItem._pend ? draftItem._pend.filter(q=>q.scope!=='req').length : 0);
       if(have >= ATT_MAX_FILES) throw new Error('الحد الأقصى ' + ATT_MAX_FILES + ' مرفقات لكل مستفيد');
       if(f.size > ATT_MAX_BYTES) throw new Error('حجم «' + f.name + '» يتجاوز 10 ميجابايت');
       if(f.size < 1) throw new Error('الملف «' + f.name + '» فارغ');
       const mime = await attSniff(f);
       if(!mime) throw new Error('«' + f.name + '»: النوع غير مقبول (المقبول: JPG وPNG وWEBP وPDF)');
-      if(m.master){ m.rows.push(await attUploadOne(m.master, f, label, mime)); }
-      else { draftItem._pend.push({file: f, label, mime}); }
+      if(m.master && (scope==='fixed' || m.reqId)){ m.rows.push(await attUploadOne(m.master, f, label, mime, scope==='req' ? m.reqId : null)); }
+      else { draftItem._pend = draftItem._pend || []; draftItem._pend.push({file: f, label, mime, scope}); }
       ok++;
     }catch(e){ showToast(e.message, 'error'); }
   }
   m.busy = false; attRefresh();
-  if(ok) showToast(m.master ? ('تم رفع ' + ok + ' ملف') : ('أُضيف ' + ok + ' ملف — يُرفع عند إرسال الطلب'), 'success');
+  if(ok) showToast((m.master && (scope==='fixed' || m.reqId)) ? ('تم رفع ' + ok + ' ملف') : ('أُضيف ' + ok + ' ملف — يُرفع عند إرسال الطلب'), 'success');
 }
 async function attPreview(key){
   const m = state.attModal; if(!m) return;
@@ -5452,6 +5479,19 @@ async function attDownload(key){
 }
 async function attDelete(key){
   const m = state.attModal; if(!m) return;
+  if(key==='legacy-id' || key==='legacy-bank'){
+    if(!confirm('حذف هذا المرفق القديم نهائياً؟')) return;
+    const col = key==='legacy-id' ? 'id_file_data' : 'bank_file_data';
+    m.busy = true; attRefresh();
+    try{
+      const d = await db.from('beneficiaries_master').update({[col]: null}).eq('id', m.master.id).select('id');
+      if(d.error) throw new Error(d.error.message);
+      if(!d.data || !d.data.length) throw new Error('لا تملك صلاحية حذف هذا المرفق');
+      if(key==='legacy-id'){ m.master.idFileData = ''; m.master.idFileName = ''; } else { m.master.bankFileData = ''; m.master.bankFileName = ''; }
+      qyLog('attachment_delete', 'حذف مرفق قديم: ' + key, 'master=' + m.master.id);
+    }catch(e){ showToast('تعذّر الحذف: ' + e.message, 'error'); }
+    m.busy = false; attRefresh(); return;
+  }
   if(key.startsWith('p')){
     const arr = state.draft.beneficiaries[m.idx]._pend; arr.splice(Number(key.slice(1)), 1); attRefresh(); return;
   }
@@ -5464,17 +5504,29 @@ async function attDelete(key){
     if(!d.data || !d.data.length) throw new Error('لا تملك صلاحية حذف هذا المرفق');
     await db.storage.from('attachments').remove([row.path]);
     m.rows = m.rows.filter(r=>r.id!==row.id);
-    state.attCounts[m.master.id] = m.rows.length;
+    state.attCounts[m.master.id] = m.rows.filter(r=>!r.request_id).length;
     if(state.attPagesCache) delete state.attPagesCache[row.id];
     qyLog('attachment_delete', 'حذف مرفق: ' + row.label, 'master=' + m.master.id);
   }catch(e){ showToast('تعذّر الحذف: ' + e.message, 'error'); }
   m.busy = false; attRefresh();
 }
 // بعد حفظ المستفيد (لأول مرة) نرفع ما اختاره المستخدم قبل الإرسال
+let ATT_REQ_QUEUE = [];
+// مرفقات «لهذا الطلب» تنتظر حتى يُنشأ الطلب ويُعرف رقمه الداخلي
+async function attFlushReqQueue(reqId){
+  const q = ATT_REQ_QUEUE; ATT_REQ_QUEUE = [];
+  let ok = 0;
+  for(const x of q){
+    try{ await attUploadOne(x.master, x.p.file, x.p.label, x.p.mime, reqId); ok++; }
+    catch(e){ showToast('تعذّر رفع «' + x.p.file.name + '»: ' + e.message, 'error'); }
+  }
+  if(ok) showToast('رُفع ' + ok + ' مرفق خاص بالطلب', 'success');
+}
 async function attFlushPending(draftB, master){
   const pend = draftB._pend || []; if(!pend.length || !master || !master.id) return;
   let ok = 0;
   for(const p of pend){
+    if(p.scope==='req'){ ATT_REQ_QUEUE.push({master, p}); continue; }
     try{ await attUploadOne(master, p.file, p.label, p.mime); ok++; }
     catch(e){ showToast('تعذّر رفع «' + p.file.name + '»: ' + e.message, 'error'); }
   }
@@ -5493,7 +5545,7 @@ function attButtonHtml(i, b){
 }
 function renderAttachmentsModal(){
   const m = state.attModal; if(!m) return '';
-  const pend = (m.kind==='draft' && !m.master) ? (state.draft.beneficiaries[m.idx]._pend||[]) : [];
+  const pend = (m.kind==='draft') ? (state.draft.beneficiaries[m.idx]._pend||[]) : [];
   const icon = mime => mime==='application/pdf' ? '📄' : '🖼️';
   const btn = (act, key, txt, cls) => `<button type="button" class="btn ${cls||'btn-ghost'} btn-xs" onclick="${act}('${key}')">${txt}</button>`;
   const item = (key, ic, label, nm, meta, canDel, legacy) => `
@@ -5509,10 +5561,10 @@ function renderAttachmentsModal(){
   if(m.loading) list = '<p class="sub">جارٍ التحميل…</p>';
   else {
     const mm = m.master;
-    if(mm && mm.idFileData) list += item('legacy-id','🖼️','هوية','صورة محفوظة سابقاً','',false,true);
-    if(mm && mm.bankFileData) list += item('legacy-bank','🖼️','حساب بنكي','صورة محفوظة سابقاً','',false,true);
-    list += m.rows.map(r=>item(r.id, icon(r.mime), r.label, r.file_name, attFmtSize(r.size_bytes), true, false)).join('');
-    list += pend.map((p,k)=>item('p'+k, icon(p.mime), p.label, p.file.name, attFmtSize(p.file.size), true, false)).join('');
+    if(mm && mm.idFileData) list += item('legacy-id','🖼️','هوية','صورة محفوظة سابقاً','',true,true);
+    if(mm && mm.bankFileData) list += item('legacy-bank','🖼️','حساب بنكي','صورة محفوظة سابقاً','',true,true);
+    list += m.rows.map(r=>item(r.id, icon(r.mime), r.label + (r.request_id ? ' · لهذا الطلب' : ''), r.file_name, attFmtSize(r.size_bytes), true, false)).join('');
+    list += pend.map((p,k)=>item('p'+k, icon(p.mime), p.label + (p.scope==='req' ? ' · لهذا الطلب' : ''), p.file.name, attFmtSize(p.file.size), true, false)).join('');
     if(!list) list = '<p class="sub">لا توجد مرفقات بعد.</p>';
   }
   const preview = m.preview ? `
@@ -5525,9 +5577,11 @@ function renderAttachmentsModal(){
     <div style="margin-top:14px;padding:12px;background:var(--paper);border-radius:8px;">
       <div class="row" style="align-items:flex-end;">
         <div><label>نوع المرفق</label>
-          <select id="attLabelSel" onchange="document.getElementById('attLabelCustom').style.display=(this.value==='أخرى'?'':'none')">
+          <select id="attLabelSel" onchange="document.getElementById('attLabelCustom').style.display=(this.value==='أخرى'?'':'none'); var sc=document.getElementById('attScopeSel'); if(sc) sc.value=(this.value==='فاتورة'?'req':'fixed');">
             ${ATT_LABELS.map(l=>`<option>${escH(l)}</option>`).join('')}
           </select></div>
+        ${m.kind==='draft' ? `<div><label>يُحفظ</label>
+          <select id="attScopeSel"><option value="fixed">ثابت للمستفيد (يظهر في كل طلب)</option><option value="req">لهذا الطلب فقط</option></select></div>` : ''}
         <div><label>&nbsp;</label><input id="attLabelCustom" type="text" maxlength="60" placeholder="اكتب اسم المرفق" style="display:none;"></div>
       </div>
       <div style="margin-top:8px;"><input type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onchange="attPick(this)" ${m.busy?'disabled':''}></div>
@@ -5559,7 +5613,7 @@ async function attCollectForRequest(req){
   const r = await db.from('qy_attachments').select('*').in('master_id', byName.map(x=>x.id)).order('created_at');
   if(r.error){ showToast('تعذّر تحميل المرفقات للطباعة: ' + r.error.message, 'error'); return out; }
   for(const who of byName){
-    for(const row of r.data.filter(x=>x.master_id===who.id)){
+    for(const row of r.data.filter(x=>x.master_id===who.id && (!x.request_id || x.request_id===req.id))){
       try{
         const pages = await attRowPages(row);
         pages.forEach((u,i)=>out.push({name: who.name, img: u, label: row.label + (pages.length>1 ? ' (' + (i+1) + '/' + pages.length + ')' : '')}));
@@ -5962,10 +6016,18 @@ function getImageDims(dataUrl){
 }
 // يفتح معاينة الطلب ثم يطلق مباشرة نافذة الطباعة/الحفظ كـPDF، لمن يريد الملف مباشرة بلا توقف عند المعاينة
 async function downloadRequestPdf(reqId){
-  await openPrintPreview(reqId);
+  await openPrintPreview(reqId, true);   // الطباعة تنتظر اكتمال المرفقات
   setTimeout(()=>window.print(), 150);
 }
-async function openPrintPreview(reqId){
+async function qyMeasureImages(list){
+  state.attachmentDims = state.attachmentDims || {};
+  const toMeasure = list.filter(src=>!state.attachmentDims[src]);
+  if(toMeasure.length){
+    const results = await Promise.all(toMeasure.map(getImageDims));
+    toMeasure.forEach((src,idx)=>{ state.attachmentDims[src] = results[idx]; });
+  }
+}
+async function openPrintPreview(reqId, wait){
   const req = state.requests.find(r=>r.id===reqId);
   const images = [];
   if(req){
@@ -5977,15 +6039,19 @@ async function openPrintPreview(reqId){
       }
     });
     state.attPrint = state.attPrint || {};
-    try{ state.attPrint[reqId] = await attCollectForRequest(req); }catch(e){ state.attPrint[reqId] = []; showToast('تعذّر تجهيز المرفقات الجديدة للطباعة','error'); }
+    const loadNew = async ()=>{
+      try{ state.attPrint[reqId] = await attCollectForRequest(req); }catch(e){ state.attPrint[reqId] = []; showToast('تعذّر تجهيز المرفقات الجديدة للطباعة','error'); }
+      await qyMeasureImages(state.attPrint[reqId].map(x=>x.img));
+    };
+    if(wait){ await loadNew(); }
+    else {
+      // المعاينة تُفتح فوراً بما هو جاهز؛ المرفقات الجديدة تُحمَّل بالخلفية ثم تُضاف
+      state.attPrint[reqId] = state.attPrint[reqId] || [];
+      loadNew().then(()=>{ if(state.view==='printPreview' && state.activeReqId===reqId) render(); });
+    }
     state.attPrint[reqId].forEach(x=>images.push(x.img));
   }
-  state.attachmentDims = state.attachmentDims || {};
-  const toMeasure = images.filter(src=>!state.attachmentDims[src]);
-  if(toMeasure.length){
-    const results = await Promise.all(toMeasure.map(getImageDims));
-    toMeasure.forEach((src,idx)=>{ state.attachmentDims[src] = results[idx]; });
-  }
+  await qyMeasureImages(images);
   state.activeReqId = reqId;
   state.view = 'printPreview';
   render();
@@ -6444,6 +6510,14 @@ function render(){
   else if(state.view==='barSettings') renderBarSettings(app);
   else if(state.view==='securityLog') renderSecurityLog(app);
   else if(state.view==='verifySettings') renderVerifySettings(app);
+
+  // حقول الدور والشركة وسلسلة الاعتماد يغيّرها مدير النظام وحده (الخادم يمنع غيره) — تُقفل لغيره بدل أن يظهر له خطأ
+  if(state.user && state.user.role!=='admin'){
+    ['editUserRole','editUserCompany','editUserManager','editUserRequestApprover','editUserNextApprover','editUserLevel','editUserCenter','editUserGeneral','editUserDeadline','editUserEscMode','editUserEscUser'].forEach(id=>{
+      const e = document.getElementById(id); if(e){ e.disabled = true; e.title = 'تغيير هذا الحقل لمدير النظام وحده'; }
+    });
+    document.querySelectorAll('[data-access-company],[data-ucm-company]').forEach(e=>{ e.disabled = true; });
+  }
 
   if(state.rejectModalReqId){ app.insertAdjacentHTML('beforeend', renderRejectModal()); }
   if(state.pendingDelete){ app.insertAdjacentHTML('beforeend', renderDeleteConfirmModal()); }
@@ -8086,7 +8160,7 @@ function renderCancelledArchive(app){
         </div>
         <div class="actions-row" style="margin:0;">
           <button class="btn btn-ghost btn-xs" onclick="openRequest('${r.id}')">عرض</button>
-          <button class="btn btn-approve btn-sm" onclick="restoreRequest('${r.id}')">استرجاع</button>
+          ${(state.user.role==='admin' || r.createdById===state.user.id) ? `<button class="btn btn-approve btn-sm" onclick="restoreRequest('${r.id}')">استرجاع</button>` : ''}
           ${state.user.role==='admin' ? `<button class="btn btn-reject btn-sm" onclick="deleteRequestPermanently('${r.id}')" title="يُمحى من قاعدة البيانات ولا يُسترجع">حذف نهائي</button>` : ''}
         </div>
       </div>`;
@@ -11859,19 +11933,20 @@ async function saveUserEdit(){
     }
     await loadLoginAliases();
   }
-  const result = await db.from('users').update({
+  const isAdminNow = state.user.role==='admin';
+  const result = await db.from('users').update(isAdminNow ? {
     name, phone, role, center_id: centerId||null, manager_id: managerId||null, company_id: companyId||null,
     job_title: jobTitle||null, level_id: levelId||null, request_approver_id: requestApproverId||null, next_approver_id: nextApproverId||null,
     is_general: isGeneral, no_request_approver: noRequestApprover, no_next_approver: noNextApprover,
     approval_deadline_days: approvalDeadlineDays, escalate_mode: escalateMode||null, escalate_user_id: escalateUserId||null
-  }).eq('id', u.id);
+  } : { name, phone, job_title: jobTitle||null }).eq('id', u.id);
   if(!(await dbCheck(result, 'تعديل المستخدم'))) return;
   u.name = name; u.phone = phone; u.role = role; u.centerId = centerId || null; u.managerId = managerId || null; u.companyId = companyId || null;
   u.jobTitle = jobTitle || ''; u.levelId = levelId || null; u.requestApproverId = requestApproverId || null; u.nextApproverId = nextApproverId || null;
   u.isGeneral = isGeneral; u.noRequestApprover = noRequestApprover; u.noNextApprover = noNextApprover;
   u.approvalDeadlineDays = approvalDeadlineDays; u.escalateMode = escalateMode; u.escalateUserId = escalateUserId||null;
   // ربط المستخدم بشركات إضافية (المستخدم العام لا يحتاج روابط: الخانة تشمل الشركات الحالية والمستقبلية)
-  if(coChecks.length || generalEl){
+  if(isAdminNow && (coChecks.length || generalEl)){
     const wanted = isGeneral ? [] : linkedIds.filter(id=>id!==u.companyId);
     const had = (state.userCompanyLinks||[]).filter(l=>l.userId===u.id).map(l=>l.companyId);
     const toAdd = wanted.filter(id=>!had.includes(id)), toRemove = had.filter(id=>!wanted.includes(id));
@@ -11886,7 +11961,7 @@ async function saveUserEdit(){
   }
   // المدير المباشر بالشركات الأخرى (للموظف المرتبط بأكثر من شركة)
   const ucmSelects = document.querySelectorAll('[data-ucm-company]');
-  for(const sel of ucmSelects){
+  for(const sel of (isAdminNow ? ucmSelects : [])){
     const companyId2 = sel.getAttribute('data-ucm-company');
     const mgrVal = sel.value || null;
     const existing = (state.userCompanyManagers||[]).find(x=>x.userId===u.id && x.companyId===companyId2);
@@ -12084,6 +12159,19 @@ function renderDashboard(app){
   // طلب في نافذة المراجعة لا يراه إلا صاحبه — فهو بلا رقم، أي غير موجود عند غيره
   visibleRequests = visibleRequests.filter(r=>!isUnderReview(r) || r.createdById===myId);
 
+  // مرشّح «صاحب الطلب»: الكل / طلباتي / (لمدير النظام) مستخدم بعينه
+  const ownerCandidates = [];
+  { const seenO = {}; visibleRequests.forEach(r=>{ if(r.createdById && !seenO[r.createdById]){ seenO[r.createdById]=1; ownerCandidates.push({id:r.createdById, name:r.createdBy||r.createdById}); } }); }
+  const ownerSel = state.dashOwner || 'all';
+  if(ownerSel==='mine') visibleRequests = visibleRequests.filter(r=>r.createdById===myId);
+  else if(ownerSel!=='all') visibleRequests = visibleRequests.filter(r=>r.createdById===ownerSel);
+  const ownerFilterHtml = `<div class="dash-status"><label>عرض طلبات</label>
+    <select onchange="state.dashOwner=this.value; render();">
+      <option value="all" ${ownerSel==='all'?'selected':''}>الكل</option>
+      <option value="mine" ${ownerSel==='mine'?'selected':''}>طلباتي</option>
+      ${role==='admin' ? ownerCandidates.filter(o=>o.id!==myId).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')).map(o=>`<option value="${escH(o.id)}" ${ownerSel===o.id?'selected':''}>${escH(o.name)}</option>`).join('') : ''}
+    </select></div>`;
+
   const myPendingCount = getMyPendingRequests().length;
   const pendingBadge = myPendingCount>0
     ? `<div class="pending-badge" style="cursor:pointer;" onclick="state.dashStatusFilter='mypending'; render();">لديك <b>${myPendingCount}</b> ${myPendingCount===1?'طلب':'طلبات'} بانتظار اعتمادك</div>`
@@ -12262,6 +12350,7 @@ function renderDashboard(app){
         </div>` : ''}
       </div>
       <div class="dash-filt-left">
+        ${ownerFilterHtml}
         ${statusFilter!=='all' ? `<button class="btn btn-ghost btn-sm" onclick="state.dashStatusFilter='all'; render();" title="يلغي ترشيح الحالة ويعرض كل الطلبات">إظهار الكل</button>` : ''}
         <div class="dash-status">
           <label>حالة الطلب</label>
@@ -12862,7 +12951,7 @@ function renderDetail(app){
     ${req.isCancelled ? `
       <div class="note-box no-print" style="background:#F3F2ED;border-color:#B8B4A8;">
         <b>هذا الطلب ملغى</b> — تم إبطاله ${req.cancelledAt ? 'بتاريخ ' + fmtDateDMY(req.cancelledAt) : ''}.
-        ${state.user.role==='admin' ? `<button class="btn btn-approve btn-sm2" style="margin-right:10px;" onclick="restoreRequest('${req.id}')"><span class="bl1">استرجاع</span><span class="bl2">الطلب</span></button>` : ''}
+        ${(state.user.role==='admin' || req.createdById===state.user.id) ? `<button class="btn btn-approve btn-sm2" style="margin-right:10px;" onclick="restoreRequest('${req.id}')"><span class="bl1">استرجاع</span><span class="bl2">الطلب</span></button>` : ''}
       </div>` : ''}
     ${req.fastTracked ? `
       <div class="note-box no-print" style="background:var(--amber-bg);border-color:var(--amber);color:var(--amber);">
@@ -12878,7 +12967,10 @@ function renderDetail(app){
               <div class="doc-actions-row" data-bar-actions>
                 <button class="btn btn-ghost btn-sm" onclick="editRequest('${req.id}')">تعديل الطلب</button>
                 <button class="btn btn-reject btn-sm" onclick="deleteRequest('${req.id}')">إبطال الطلب</button>
-              </div>` : ''}
+              </div>` : ((state.user.role==='cfo' && !req.isCancelled && TAIL_FLOW.includes(req.status) && req.status!=='completed') ? `
+              <div class="doc-actions-row" data-bar-actions>
+                <button class="btn btn-reject btn-sm" onclick="deleteRequestCfo('${req.id}')">إبطال الطلب</button>
+              </div>` : '')}
           </div>
           <div class="stepper" style="margin:0;">${stepperHtml}</div>
         </div>
