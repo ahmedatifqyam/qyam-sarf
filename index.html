@@ -4997,6 +4997,10 @@ async function approve(req){
     render();
     return;
   }
+  if(req.status==='pending_transfer_request' && isUnspecifiedBudget(req.budgetItemId)){
+    showToast('حدّد بند الميزانية أولاً من بطاقة «بند غير محدد» أعلى الطلب، ثم سجّل التحويل','error');
+    return;
+  }
   if(state.user.role==='accountant' && req.status==='pending_transfer_request'){
     const center = req.centerId ? state.centers.find(c=>c.id===req.centerId) : null;
     const requireTransferRef = !center || center.requireBankTransferRef!==false;
@@ -5941,6 +5945,9 @@ function statusBadge(status, isCancelled, isOwnTurn, isBig, overdue){
   if(status==='completed') return `<span class="badge badge-paid">تم الصرف</span>`;
   if(status==='rejected') return `<span class="badge badge-rejected" title="مرفوض: يحتاج تعديلًا ثم إعادة إرسال" style="white-space:nowrap;">مرفوض</span>`;
   const role = STATUS_ROLE_MAP[status];
+  if(!isOwnTurn && TAIL_FLOW.includes(status)){
+    return `<span class="badge badge-pending${isBig ? ' badge-own-turn' : ''}" title="اكتمل اعتماد القرار — بانتظار ${role ? findRole(role).name : ''}">جارٍ الصرف</span>`;
+  }
   const label = isOwnTurn ? (overdue ? '⏰ بانتظار قرارك' : 'بانتظار قرارك') : `بانتظار ${role ? findRole(role).name : ''}`;
   return `<span class="badge badge-pending${(isOwnTurn || isBig) ? ' badge-own-turn' : ''}${overdue ? ' badge-overdue' : ''}" ${overdue ? 'title="متأخر: تجاوز مهلة الاعتماد"' : ''}>${label}</span>`;
 }
