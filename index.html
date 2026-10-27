@@ -4636,7 +4636,7 @@ async function submitDraftInner(){
     if(b.iban) master.iban = b.iban;
     if(b.civilId) master.civilId = b.civilId;
     delete b._idFileName; delete b._idFileData; delete b._bankFileName; delete b._bankFileData;
-    const upRes = await db.from('beneficiaries_master').upsert(payload, {onConflict:'name'}).select('id').maybeSingle();
+    const upRes = await db.from('beneficiaries_master').upsert(payload, {onConflict:'company_id,name'}).select('id').maybeSingle();
     await dbCheck(upRes, 'حفظ بيانات المستفيد');
     if(upRes && upRes.data && upRes.data.id) master.id = upRes.data.id;
     const draftB = (d.beneficiaries||[]).find(x=>(x.name||'').trim()===b.name);
@@ -5826,7 +5826,7 @@ async function saveAccount(){
   if(me.nameEn && me.iban){
     let master = state.beneficiaries.find(x=>x.name===me.name);
     const payload = {name: me.name, name_en: me.nameEn, iban: me.iban, national_id: me.civilId||'', company_id: state.currentCompanyId};
-    const mUp = await db.from('beneficiaries_master').upsert(payload, {onConflict:'name'}).select('id,company_id').maybeSingle();
+    const mUp = await db.from('beneficiaries_master').upsert(payload, {onConflict:'company_id,name'}).select('id,company_id').maybeSingle();
     await dbCheck(mUp, 'حفظ بيانات المستفيد');
     const mId = mUp && mUp.data ? mUp.data.id : undefined;
     const mCo = mUp && mUp.data && mUp.data.company_id ? mUp.data.company_id : state.currentCompanyId;
