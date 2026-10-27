@@ -1990,8 +1990,13 @@ function computeNotifications(){
   // إشعار path_reset — يظهر للمعتمِدين السابقين عندما يُعيد الأدمن المسار والاعتماد
   if(state.user){
     const horizon = Date.now() - 30*86400000;
-    state.requests.filter(r=>r.companyId===state.currentCompanyId && !r.isCancelled).forEach(r=>{
+    // يظهر فقط ما يزال بانتظار اعتماده فعلاً، ومرة واحدة لكل طلب (آخر إعادة مسار)، ولا يبقى بعد أن يُعتمد أو يُرفض أو يتغير مساره
+    const _myPendIds = new Set(getMyPendingRequests().map(x=>x.id));
+    state.requests.filter(r=>r.companyId===state.currentCompanyId && !r.isCancelled && _myPendIds.has(r.id)).forEach(r=>{
+      const _prs = (r.history||[]).filter(h=>h.action==='path_reset' && h.note && h.note==='notif_target:'+state.user.id);
+      const _lastPr = _prs.length ? _prs[_prs.length-1] : null;
       (r.history||[]).forEach(h=>{
+        if(h!==_lastPr) return;
         if(h.action!=='path_reset') return;
         if(!h.note || !h.note.startsWith('notif_target:')) return;
         const targetId = h.note.replace('notif_target:','');
