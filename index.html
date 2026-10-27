@@ -1323,8 +1323,8 @@ const STATUS_ROLE_MAP = {
 };
 const OLD_DECISION_STATUSES = ['pending_manager','pending_senior','pending_executive'];
 // يبني مسار القرار الصاعد لصاحب الطلب (نفس منطق معاينة المسار بالهيكل التنظيمي بالضبط)
-function buildDecisionChain(requester){
-  const {chain, error} = computeApprovalChainPreview(requester.id);
+function buildDecisionChain(requester, companyId){
+  const {chain, error} = computeApprovalChainPreview(requester.id, companyId);
   return {steps: chain.map(u=>({approverId:u.id})), error};
 }
 // أول خطوة قرار لم تُعتمد بعد (الأقل ترتيباً من بين المعلّقة) — هذا هو "دور" الطلب الفعلي بمرحلة pending_decision
@@ -4729,7 +4729,7 @@ async function submitDraftInner(){
   }
 
   const creatorUser = state.users.find(u=>u.id===state.user.id);
-  const {steps: rawChain, error: chainError} = buildDecisionChain(creatorUser);
+  const {steps: rawChain, error: chainError} = buildDecisionChain(creatorUser, state.currentCompanyId);
   if(chainError){
     showToast('تعذّر بناء مسار اعتماد الطلب: '+chainError+'. راجع مدير النظام لتصحيح الهيكل التنظيمي.', 'error');
     return;
@@ -4934,7 +4934,7 @@ async function rebuildChainIfUntouched(req){
   if(!creator) return false;
   let freshChain, freshStatus;
   if(isNewEngine){
-    const {steps, error} = buildDecisionChain(creator);
+    const {steps, error} = buildDecisionChain(creator, req.companyId);
     if(error) return false; // حلقة دائرية بالهيكل — لا نلمس الطلب، يبقى كما هو حتى يُصلَح الهيكل
     freshChain = steps.map(s=>({roleLabel:'pending_decision', approverId:s.approverId}));
     freshStatus = freshChain.length ? 'pending_decision' : 'pending_transfer_request';
@@ -5190,7 +5190,7 @@ async function markDisbursed(req){
 async function rebuildRequestPath(req){
   const creator = state.users.find(u=>u.id===req.createdById);
   if(!creator){ showToast('تعذر إيجاد صاحب الطلب', 'error'); return; }
-  const {steps: newSteps, error: chainError} = buildDecisionChain(creator);
+  const {steps: newSteps, error: chainError} = buildDecisionChain(creator, req.companyId);
   if(chainError){
     showToast('تعذّر إعادة البناء: '+chainError, 'error');
     return;
@@ -5219,7 +5219,7 @@ async function rebuildRequestPathAndReset(req){
 
   const creator = state.users.find(u=>u.id===req.createdById);
   if(!creator){ showToast('تعذر إيجاد صاحب الطلب', 'error'); return; }
-  const {steps: newSteps, error: chainError} = buildDecisionChain(creator);
+  const {steps: newSteps, error: chainError} = buildDecisionChain(creator, req.companyId);
   if(chainError){
     showToast('تعذّر إعادة البناء: '+chainError, 'error');
     return;
@@ -10444,12 +10444,12 @@ function companyUsers(companyId){
   return state.users.filter(u=>u.role!=='admin' && userHasCompany(u, companyId));
 }
 // معاينة مسار اعتماد طلب — حسب الحقلين "من يعتمد طلبه" و"من يعتمد ما اعتمده"، افتراضهما المدير المباشر
-function computeApprovalChainPreview(userId){
+function computeApprovalChainPreview(userId, companyId){
   const requester = state.users.find(u=>u.id===userId);
   if(!requester) return {chain:[], error:'مستخدم غير موجود'};
   const chain = [];
   const visited = new Set([userId]);
-  let currentId = requester.noRequestApprover ? null : (requester.requestApproverId || requester.managerId);
+  let currentId = requester.noRequestApprover ? null : (requester.requestApproverId || (companyId ? managerForCompany(requester, companyId) : requester.managerId));
   let error = null;
   while(currentId){
     if(visited.has(currentId)){ error = 'حلقة دائرية: تكرر "'+((state.users.find(u=>u.id===currentId)||{}).name||currentId)+'"'; break; }
@@ -10457,8 +10457,13 @@ function computeApprovalChainPreview(userId){
     visited.add(currentId);
     const approver = state.users.find(u=>u.id===currentId);
     if(!approver) break;
+    // معتمِد لا ينتمي لشركة الطلب يظهر «غير معروف» لمن لا يراه: نوقف البناء برسالة واضحة بدل مسار معطوب
+    if(companyId && typeof userHasCompany==='function' && !userHasCompany(approver, companyId)){
+      error = 'المعتمِد «'+approver.name+'» غير مرتبط بشركة الطلب — حدّد مديراً لصاحب الطلب في هذه الشركة (المدير المباشر لكل شركة)';
+      break;
+    }
     chain.push(approver);
-    currentId = approver.noNextApprover ? null : (approver.nextApproverId || approver.managerId);
+    currentId = approver.noNextApprover ? null : (approver.nextApproverId || (companyId ? managerForCompany(approver, companyId) : approver.managerId));
   }
   return {chain, error};
 }
@@ -10896,7 +10901,7 @@ async function renderOrgTree(app){
 function showPathPreview(){
   const sel = document.getElementById('pathPreviewUser');
   if(!sel) return;
-  const {chain, error} = computeApprovalChainPreview(sel.value);
+  const {chain, error} = computeApprovalChainPreview(sel.value, state.currentCompanyId);
   const host = document.getElementById('pathPreviewResult');
   if(!host) return;
   const names = chain.map(u=>escH(u.name)+' ('+escH(findRole(u.role).name)+')');
@@ -12943,7 +12948,7 @@ function renderDetail(app){
   let debugPanelHtml = '';
   if(state.user.role==='admin'){
     const creator = state.users.find(u=>u.id===req.createdById);
-    const freshBuild = creator ? buildDecisionChain(creator) : {steps:[], error:null};
+    const freshBuild = creator ? buildDecisionChain(creator, req.companyId) : {steps:[], error:null};
     const freshChain = freshBuild.steps;
     const stepsRows = (req.approvalSteps||[]).map(s=>{
       const u = state.users.find(x=>x.id===s.approverId);
