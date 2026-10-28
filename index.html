@@ -1441,7 +1441,11 @@ function manualEscalationTarget(req){
   return (tu && userHasCompany(tu, req.companyId)) ? tu : null;
 }
 function myDecisionStep(req, userId){
-  return currentDecisionGroup(req).find(s=>s.approverId===userId) || null;
+  const g = currentDecisionGroup(req);
+  const own = g.find(s=>s.approverId===userId);
+  if(own) return own;
+  const dl = delegatedFromIds(userId, req.companyId, req.id);   // بالإنابة عن معتمِد أسند إليّ
+  return dl.length ? (g.find(s=>dl.includes(s.approverId)) || null) : null;
 }
 // المحاسب الذي نفّذ خطوة "طلب التحويل" لهذا الطلب (لازم لتحديد وجهة التفويض)
 function transferRequestActor(req){
@@ -1491,6 +1495,7 @@ let state = {
   draft: null,
   editingReqId: null,
   users: [],
+  handovers: [],
   editingUserId: null,
   returnTo: null
 };
@@ -1512,6 +1517,7 @@ function dbUserToState(u){
     notifSeenAt:u.notif_seen_at||null,
     jobTitle:u.job_title||'', levelId:u.level_id||null,
     requestApproverId:u.request_approver_id||null, nextApproverId:u.next_approver_id||null, execSubstituteId:u.exec_substitute_id||null,
+    isSuspended:!!u.is_suspended, suspendedAt:u.suspended_at||null, suspendedNote:u.suspended_note||'',
     isGeneral:!!u.is_general, noRequestApprover:!!u.no_request_approver, noNextApprover:!!u.no_next_approver,
     approvalDeadlineDays:(u.approval_deadline_days===undefined||u.approval_deadline_days===null ? null : Number(u.approval_deadline_days)), escalateMode:u.escalate_mode||'', escalateUserId:u.escalate_user_id||null
   };
@@ -1577,7 +1583,7 @@ const USER_COLS = 'id,phone,name,role,center_id,signature_data,stamp_data,email,
   + 'id_file_data,bank_file_data,signature_mode,signature_color,signature_width,company_id,'
   + 'national_id,stamp_data_2,manager_id,notif_seen_at,job_title,level_id,request_approver_id,'
   + 'next_approver_id,exec_substitute_id,is_general,no_request_approver,no_next_approver,'
-  + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id';
+  + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id,is_suspended,suspended_at,suspended_note';
 
 async function reloadUsers(){
   const {data} = await db.from('users').select(USER_COLS);
@@ -1592,6 +1598,7 @@ async function loadAllAfterAuth(){
     await backfillCompanyIfMissing();
     await loadAll();
   }
+  await loadHandovers();
   await syncAllUntouchedRequestPaths();
 }
 
@@ -1711,9 +1718,12 @@ async function refreshNow(manual){
   let freshCount = 0;
   try{
     const before = new Set(computeNotifications().items.map(i=>i.key));
-    const changed0 = await refreshRequests();
+    const hoBefore = JSON.stringify((state.handovers||[]).map(h=>[h.id,h.status]));
+    await loadHandovers();
+    const hoChanged = hoBefore !== JSON.stringify((state.handovers||[]).map(h=>[h.id,h.status]));
+    const changed0 = (await refreshRequests());
     let rchanged = false; try{ rchanged = !!(await refreshRecurring()); }catch(e){}
-    const changed = (changed0===null) ? null : (changed0 || rchanged);
+    const changed = (changed0===null) ? null : (changed0 || rchanged || hoChanged);
     if(changed===null){ if(manual) showToast('تعذر التحديث، تحقق من الاتصال','error'); return; }
     const fresh = computeNotifications().items.filter(i=>!before.has(i.key));
     freshCount = fresh.length;
@@ -1724,7 +1734,7 @@ async function refreshNow(manual){
     }
     if(fresh.length===1){
       const i = fresh[0];
-      showToast(i.kind==='recurring' ? i.title.replace('🔁 ','')+': '+i.sub :  i.kind==='pending' ? 'وصلك طلب جديد بانتظار اعتمادك' : i.kind==='path_reset' ? 'أُعيد مسار طلب — يحتاج اعتمادك: '+i.number : i.kind==='rejected' ? 'رُفض طلبك '+i.number : i.kind==='paid' ? 'تم صرف طلبك '+i.number : (i.kind==='structure' || i.kind==='reset') ? i.title : 'تم اعتماد طلبك '+i.number, (i.kind==='rejected' || i.kind==='structure') ? 'error' : (i.kind==='path_reset' ? 'warn' : 'success'));
+      showToast(i.kind==='recurring' ? i.title.replace('🔁 ','')+': '+i.sub :  i.kind==='pending' ? 'وصلك طلب جديد بانتظار اعتمادك' : i.kind==='path_reset' ? 'أُعيد مسار طلب — يحتاج اعتمادك: '+i.number : (i.kind==='handover' || i.kind==='handover_res') ? i.title : i.kind==='rejected' ? 'رُفض طلبك '+i.number : i.kind==='paid' ? 'تم صرف طلبك '+i.number : (i.kind==='structure' || i.kind==='reset') ? i.title : 'تم اعتماد طلبك '+i.number, (i.kind==='rejected' || i.kind==='structure') ? 'error' : (i.kind==='path_reset' ? 'warn' : 'success'));
     } else if(fresh.length>1){ showToast('وصلك '+fresh.length+' إشعارات جديدة', 'success'); }
     if(fresh.length) playNotifSound();
     if(changed) state._viewStale = true;
@@ -2011,15 +2021,28 @@ function computeNotifications(){
       });
     });
   }
+  (state.handovers||[]).filter(h=>h.company_id===state.currentCompanyId).forEach(h=>{
+    if(h.to_user_id===me && h.status==='pending'){
+      const ts = tsOf(h.created_at), key='ho:'+h.id;
+      items.push({key, kind:'handover', reqId:h.id, number:'', ts, isNew:(ts>seen||isFreshKey(key)), overdue:false,
+        title:'طلب إسناد معاملات إليك', sub:hoUserName(h.from_user_id)+' — '+(HO_REASONS[h.reason]||'')+' — '+hoPeriod(h)});
+    }
+    if(h.from_user_id===me && (h.status==='accepted'||h.status==='rejected') && tsOf(h.decided_at) > Date.now()-14*86400000){
+      const ts = tsOf(h.decided_at), key='hor:'+h.id+':'+h.status;
+      items.push({key, kind:'handover_res', reqId:h.id, number:'', ts, isNew:(ts>seen||isFreshKey(key)), overdue:false,
+        title: h.status==='accepted' ? 'قَبِل '+hoUserName(h.to_user_id)+' إسناد معاملاتك' : 'رفض '+hoUserName(h.to_user_id)+' إسناد معاملاتك',
+        sub: h.status==='rejected' ? ('السبب: '+(h.reject_reason||'')+(h.suggested_user_id?' — اقترح: '+hoUserName(h.suggested_user_id):'')) : hoPeriod(h)});
+    }
+  });
   items.push(...computeAdminStructureItems());
   items.push(...computeRecurringItems());
   items.sort((a,b)=> (a.kind==='pending'?0:1)-(b.kind==='pending'?0:1) || (b.overdue-a.overdue) || (b.ts-a.ts));
-  const pendingCount = items.filter(i=>i.kind==='pending' || i.kind==='path_reset').length;
-  const unreadEvents = items.filter(i=>i.kind!=='pending' && i.kind!=='path_reset' && i.kind!=='structure' && i.kind!=='reset' && i.kind!=='recurring' && i.isNew).length;
+  const pendingCount = items.filter(i=>i.kind==='pending' || i.kind==='path_reset' || i.kind==='handover').length;
+  const unreadEvents = items.filter(i=>i.kind!=='pending' && i.kind!=='path_reset' && i.kind!=='handover' && i.kind!=='structure' && i.kind!=='reset' && i.kind!=='recurring' && i.isNew).length;
   const recurringCount = items.filter(i=>i.kind==='recurring').length;
   const recurringNew = items.filter(i=>i.kind==='recurring' && i.isNew).length;
   const structureIssues = items.filter(i=>i.kind==='structure' || i.kind==='reset').length;
-  const newPending = items.filter(i=>(i.kind==='pending'||i.kind==='path_reset') && i.isNew).length;
+  const newPending = items.filter(i=>(i.kind==='pending'||i.kind==='path_reset'||i.kind==='handover') && i.isNew).length;
   return {items:items.slice(0,40), pendingCount, unreadEvents, newPending, structureIssues, recurringCount, unread:unreadEvents+newPending+structureIssues+recurringNew, badge:pendingCount+unreadEvents+structureIssues+recurringCount};
 }
 function updateBellBadge(n){
@@ -2139,6 +2162,7 @@ function markAllSeen(){
 }
 function openNotifItem(id, kind){
   state.bellOpen = false;
+  if(kind==='handover' || kind==='handover_res'){ persistNotifSeen(latestServerTs()); renderBellPanel(); openHandovers(); return; }
   if(kind==='recurring'){
     markRecurringSeen(computeRecurringItems().map(i=>i.key));
     renderBellPanel(); refreshNotifIndicators();
@@ -2845,7 +2869,7 @@ async function restoreSession(){
     if(!authUid){ clearSession(); return; }
 
     const user = state.users.find(u => u.authId === authUid);
-    if(!user){ await db.auth.signOut(); clearSession(); return; }
+    if(!user || user.isSuspended){ await db.auth.signOut(); clearSession(); return; }
 
     // «تذكّرني» غير مفعّل ومضت المهلة ⇒ اخرج
     try{
@@ -3454,7 +3478,7 @@ function setAccountSec(i){
 // مجموعات الشريط الجانبي القابلة للفتح والإغلاق: المعاملات المالية | لوحة التحكم | المساعدة
 function inFinArea(){
   const v = state.view;
-  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring'].includes(v)) return true;
+  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers'].includes(v)) return true;
   return !inAdminArea() && ['ledger','analytics'].includes(v);
 }
 function inHelpArea(){ return ['guide','sitemap'].includes(state.view); }
@@ -3472,6 +3496,7 @@ function navFinSubs(){
   const pend = (typeof getMyPendingRequests==='function') ? getMyPendingRequests().length : 0;
   subs.push({label:'الصرف', count:pend, active:['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview'].includes(state.view),
              js:`state.view='dashboard'; render(); window.scrollTo(0,0);`});
+  subs.push({label:'الإسناد', count:(typeof hoMyPendingToMeCount==='function'?hoMyPendingToMeCount():0), active:state.view==='handovers', js:`openHandovers();`});
   if(canSeeRevenues()) subs.push({label:'الإيراد', active:state.view==='revenues', js:`openRevenues(0);`});
   if(canSeeRecurring()) subs.push({label:'القيود الدورية', count:recDueCount(), active:state.view==='recurring', js:`openRecurring(0);`});
   if(role!=='admin' && (pageLevel('ledger')!=='none' || pageLevel('analytics')!=='none')){
@@ -3950,6 +3975,11 @@ async function finishLogin(authUid){
   if(!user){
     await db.auth.signOut();
     showToast('الحساب غير مرتبط بمستخدم في النظام — راجع مدير النظام','error');
+    return;
+  }
+  if(user.isSuspended){
+    await db.auth.signOut();
+    showToast('هذا الحساب موقوف — راجع مدير النظام','error');
     return;
   }
   state.user = {id:user.id, role:user.role, name:user.name};
@@ -5063,7 +5093,8 @@ async function approve(req){
 
 async function finalizeApprove(req, signatureOverride){
   const label = 'اعتماد';
-  const delegationNote = (req.status==='pending_transfer_approval' && state.user.role!=='cfo') ? 'بالتفويض عن المدير المالي' : '';
+  let delegationNote = (req.status==='pending_transfer_approval' && state.user.role!=='cfo') ? 'بالتفويض عن المدير المالي' : '';
+  if(req.status==='pending_decision'){ const _st = myDecisionStep(req, state.user.id); if(_st && _st.approverId!==state.user.id) delegationNote = 'بالإنابة عن '+hoUserName(_st.approverId); }
   await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action: label, note:delegationNote, time: fmtDate(), signatureOverride: signatureOverride||''});
   let newStatus;
   if(req.status==='pending_decision'){
@@ -5890,7 +5921,9 @@ async function confirmRejectModal(){
   if(!note){ showToast('الرجاء كتابة سبب الرفض','error'); return; }
   const req = state.requests.find(r=>r.id===state.rejectModalReqId);
   state.rejectModalReqId = null;
-  await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action:'رفض الطلب', note, time: fmtDate()});
+  let _rejNote = note;
+  if(req.status==='pending_decision'){ const _st2 = myDecisionStep(req, state.user.id); if(_st2 && _st2.approverId!==state.user.id) _rejNote = '(بالإنابة عن '+hoUserName(_st2.approverId)+') '+note; }
+  await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action:'رفض الطلب', note:_rejNote, time: fmtDate()});
   const rgroup = req.status==='pending_decision' ? currentDecisionGroup(req) : [];
   const step = req.status==='pending_decision' ? (rgroup.find(s=>s.approverId===state.user.id) || currentDecisionStep(req)) : (req.approvalSteps||[]).find(s=>s.roleLabel===req.status);
   if(step){
@@ -6535,6 +6568,7 @@ function render(){
   else if(state.view==='barSettings') renderBarSettings(app);
   else if(state.view==='securityLog') renderSecurityLog(app);
   else if(state.view==='verifySettings') renderVerifySettings(app);
+  else if(state.view==='handovers') renderHandovers(app);
 
   // حقول الدور والشركة وسلسلة الاعتماد يغيّرها مدير النظام وحده (الخادم يمنع غيره) — تُقفل لغيره بدل أن يظهر له خطأ
   if(state.user && state.user.role!=='admin'){
@@ -6546,6 +6580,7 @@ function render(){
 
   if(state.rejectModalReqId){ app.insertAdjacentHTML('beforeend', renderRejectModal()); }
   if(state.pendingDelete){ app.insertAdjacentHTML('beforeend', renderDeleteConfirmModal()); }
+  if(state.suspendCheck){ app.insertAdjacentHTML('beforeend', renderSuspendModal()); }
   if(state.manualSignReqId){ app.insertAdjacentHTML('beforeend', renderManualSignModal()); setupManualSignCanvas(); }
   if(state.transferFormReqId){ app.insertAdjacentHTML('beforeend', renderTransferFormModal()); }
   if(state.filePreviewModal){ app.insertAdjacentHTML('beforeend', renderFilePreviewModal()); }
@@ -7024,11 +7059,238 @@ function renderAnalytics(app){
   state._analyticsMeta = {selYear, selMonth};
 }
 
+// ===================== إسناد المعاملات =====================
+const HO_REASONS = {leave:'ترك العمل نهائياً', transfer:'نقل إلى شركة/جهة أخرى', vacation:'إجازة', absence:'غياب/مهمة'};
+const HO_STATUS = {pending:'بانتظار موافقة المستلِم', accepted:'مقبول', rejected:'مرفوض', cancelled:'ملغى'};
+function hoToday(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function hoUserName(id){ const u=(state.users||[]).find(x=>x.id===id); return u ? u.name : '(غير معروف)'; }
+function hoActive(h){ const t=hoToday(); return h.status==='accepted' && h.from_date<=t && (!h.to_date || h.to_date>=t); }
+function hoCovers(h, reqId){ return h.scope_all || (h.request_ids||[]).includes(reqId); }
+// المعتمِدون الذين أنوب عنهم في طلب معيّن
+function delegatedFromIds(userId, companyId, reqId){
+  return (state.handovers||[]).filter(h=>h.to_user_id===userId && h.company_id===companyId && hoActive(h) && hoCovers(h, reqId)).map(h=>h.from_user_id);
+}
+function qyIsApproverOn(r, userId){
+  const dl = delegatedFromIds(userId, r.companyId, r.id);
+  return (r.approvalSteps||[]).some(s=>s.approverId===userId || dl.includes(s.approverId));
+}
+async function loadHandovers(){
+  try{
+    const r = await db.from('qy_handovers').select('*').order('created_at',{ascending:false});
+    if(!r.error && r.data) state.handovers = r.data;
+  }catch(e){}
+}
+function hoCompanyUsers(excludeIds){
+  return companyUsers(state.currentCompanyId).filter(u=>!(excludeIds||[]).includes(u.id));
+}
+function hoStatusBadge(h){
+  const cls = h.status==='accepted' ? 'badge-paid' : (h.status==='rejected' ? 'badge-rejected' : 'badge-pending');
+  return `<span class="badge ${cls}">${HO_STATUS[h.status]||h.status}</span>${hoActive(h)?' <span class="file-hint">(نشط الآن)</span>':''}`;
+}
+function hoPeriod(h){
+  return 'من ' + fmtDateDMY(h.from_date) + (h.to_date ? ' إلى ' + fmtDateDMY(h.to_date) : ' — مفتوح');
+}
+function hoScopeText(h){
+  if(h.scope_all) return 'كل المعاملات المعلّقة والقادمة';
+  const ids = h.request_ids||[];
+  const nums = ids.map(id=>{ const r=(state.requests||[]).find(x=>x.id===id); return r ? (r.number||'قيد المراجعة') : id; });
+  return 'طلبات محددة: ' + nums.join('، ');
+}
+function openHandovers(){ state.hoReject=null; state.hoForm=null; state.view='handovers'; render(); window.scrollTo(0,0); }
+function hoMyPendingToMeCount(){
+  if(!state.user) return 0;
+  return (state.handovers||[]).filter(h=>h.company_id===state.currentCompanyId && h.to_user_id===state.user.id && h.status==='pending').length;
+}
+function hoCard(h, mode){
+  const mine = h.to_user_id===state.user.id, fromMe = h.from_user_id===state.user.id;
+  const isAdmin = state.user.role==='admin';
+  let actions = '';
+  if(h.status==='pending' && mine) actions += `<button class="btn btn-approve btn-sm" onclick="hoAccept('${h.id}')">قبول الإسناد</button><button class="btn btn-reject btn-sm" onclick="hoRejectOpen('${h.id}')">رفض</button>`;
+  if((h.status==='pending'||h.status==='accepted') && (fromMe || isAdmin)) actions += `<button class="btn btn-ghost btn-sm" onclick="hoCancel('${h.id}')">إلغاء الإسناد</button>`;
+  if(h.status==='rejected' && h.suggested_user_id && (fromMe||isAdmin)) actions += `<button class="btn btn-primary btn-sm" onclick="hoReassign('${h.id}')">إسناد إلى ${escH(hoUserName(h.suggested_user_id))} (مقترح الرافض)</button>`;
+  const rejForm = (state.hoReject===h.id) ? `
+    <div style="margin-top:10px;padding:10px;background:var(--paper);border-radius:8px;">
+      <label>سبب الرفض (مطلوب)</label>
+      <textarea id="hoRejReason" rows="2" placeholder="مثال: أنا في إجازة في الفترة نفسها"></textarea>
+      <label style="margin-top:8px;">الشخص الذي ترى أنه الأنسب للإسناد (اختياري)</label>
+      <select id="hoRejSuggest"><option value="">— بدون اقتراح —</option>
+        ${hoCompanyUsers([state.user.id, h.from_user_id]).map(u=>`<option value="${escH(u.id)}">${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('')}</select>
+      <div class="actions-row"><button class="btn btn-reject btn-sm" onclick="hoRejectConfirm('${h.id}')">تأكيد الرفض</button><button class="btn btn-ghost btn-sm" onclick="state.hoReject=null;render();">تراجع</button></div>
+    </div>` : '';
+  return `<div class="list-item" style="display:block;">
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <div><b>${escH(hoUserName(h.from_user_id))}</b> ← إلى → <b>${escH(hoUserName(h.to_user_id))}</b></div>
+      <div>${hoStatusBadge(h)}</div>
+    </div>
+    <div class="sub" style="margin-top:4px;">${escH(HO_REASONS[h.reason]||h.reason)} · ${hoPeriod(h)} · ${escH(hoScopeText(h))}${h.needs_approval?'':' · <i>بدون اشتراط موافقة</i>'}</div>
+    ${h.note ? `<div class="sub" style="margin-top:2px;">ملاحظة: ${escH(h.note)}</div>` : ''}
+    ${h.status==='rejected' ? `<div class="note-box" style="margin-top:6px;"><b>سبب الرفض:</b> ${escH(h.reject_reason||'')}${h.suggested_user_id ? ' — <b>اقتراحه:</b> '+escH(hoUserName(h.suggested_user_id)) : ''}</div>` : ''}
+    ${actions ? `<div class="actions-row" style="margin-top:8px;">${actions}</div>` : ''}
+    ${rejForm}
+  </div>`;
+}
+function renderHandovers(app){
+  const me = state.user, isAdmin = me.role==='admin';
+  const all = (state.handovers||[]).filter(h=>h.company_id===state.currentCompanyId);
+  const toMePending = all.filter(h=>h.to_user_id===me.id && h.status==='pending');
+  const toMeActive = all.filter(h=>h.to_user_id===me.id && hoActive(h));
+  const mineAll = all.filter(h=>h.from_user_id===me.id);
+  const others = isAdmin ? all.filter(h=>h.from_user_id!==me.id) : [];
+  const f = state.hoForm;
+  let form = '';
+  if(f){
+    const fromId = isAdmin && f.fromId ? f.fromId : me.id;
+    const myReqs = state.requests.filter(r=>r.companyId===state.currentCompanyId && !r.isCancelled && r.status!=='completed' && r.status!=='rejected' && (r.approvalSteps||[]).some(s=>s.approverId===fromId && s.status==='pending'));
+    form = `<div class="card flow" style="margin-bottom:14px;">
+      <h2 style="margin:0 0 6px;font-size:15px;">إسناد جديد</h2>
+      ${isAdmin ? `<div><label>إسناد نيابةً عن</label><select id="hoFrom" onchange="state.hoForm.fromId=this.value;render();">
+        ${hoCompanyUsers([]).map(u=>`<option value="${escH(u.id)}" ${u.id===fromId?'selected':''}>${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('')}</select></div>` : ''}
+      <div class="row">
+        <div><label>المستلِم</label><select id="hoTo"><option value="">— اختر —</option>
+          ${hoCompanyUsers([fromId]).map(u=>`<option value="${escH(u.id)}" ${f.toId===u.id?'selected':''}>${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('')}</select></div>
+        <div><label>السبب</label><select id="hoReason">${Object.keys(HO_REASONS).map(k=>`<option value="${k}" ${f.reason===k?'selected':''}>${HO_REASONS[k]}</option>`).join('')}</select></div>
+      </div>
+      <div class="row">
+        <div><label>من تاريخ</label><input id="hoFromDate" type="date" value="${f.fromDate||hoToday()}"></div>
+        <div><label>إلى تاريخ (اتركه فارغاً للإسناد المفتوح)</label><input id="hoToDate" type="date" value="${f.toDate||''}"></div>
+      </div>
+      <div><label>النطاق</label>
+        <label style="display:flex;gap:6px;align-items:center;"><input type="radio" name="hoScope" value="all" ${f.scope!=='some'?'checked':''} style="width:auto;" onchange="state.hoForm.scope='all';render();"> كل المعاملات المعلّقة والقادمة</label>
+        <label style="display:flex;gap:6px;align-items:center;"><input type="radio" name="hoScope" value="some" ${f.scope==='some'?'checked':''} style="width:auto;" onchange="state.hoForm.scope='some';render();"> طلبات محددة فقط</label>
+        ${f.scope==='some' ? (myReqs.length ? myReqs.map(r=>`<label style="display:flex;gap:6px;align-items:center;margin-right:20px;"><input type="checkbox" class="hoReqChk" value="${escH(r.id)}" style="width:auto;"> ${escH(r.number||'قيد المراجعة')} — ${escH(r.reason)} — ${fmtKWDPlain(r.totalAmount)} د.ك</label>`).join('') : '<p class="file-hint">لا توجد طلبات معلّقة بانتظار هذا الشخص حالياً.</p>') : ''}
+      </div>
+      <label style="display:flex;gap:6px;align-items:center;margin-top:8px;"><input id="hoNeedsApproval" type="checkbox" ${f.needsApproval===false?'':'checked'} style="width:auto;"> يتطلب موافقة المستلِم (إن أُلغي الخيار يسري الإسناد فوراً)</label>
+      <div><label>ملاحظة (اختياري${isAdmin?'، واكتب السبب إن كان الإسناد طارئاً':''})</label><input id="hoNote" type="text" maxlength="200" value="${escH(f.note||'')}"></div>
+      <div class="actions-row"><button class="btn btn-primary btn-md" onclick="hoCreate()">إرسال الإسناد</button><button class="btn btn-ghost btn-md" onclick="state.hoForm=null;render();">إلغاء</button></div>
+    </div>`;
+  }
+  const sec = (title, arr, empty)=>`<h2 style="font-size:15px;margin:18px 0 6px;">${title}</h2>${arr.length ? arr.map(h=>hoCard(h)).join('') : `<p class="sub">${empty}</p>`}`;
+  app.innerHTML = `
+    <h1 style="margin:0;">إسناد المعاملات</h1>
+    <p class="sub">عند تركك العمل أو نقلك أو سفرك أو إجازتك: أسند معاملاتك المعلّقة لزميل يعتمدها بدلاً منك، ويظهر ذلك في سجل كل طلب («بالإنابة عن»).</p>
+    <div class="actions-row"><button class="btn btn-primary btn-md" onclick="state.hoForm={scope:'all',reason:'vacation'};render();">+ إسناد جديد</button>
+    ${isAdmin ? `<button class="btn btn-ghost btn-md" onclick="state.hoForm={scope:'all',reason:'leave',needsApproval:true,fromId:''};render();">+ إسناد نيابةً عن موظف</button>` : ''}</div>
+    ${form}
+    ${sec('طلبات إسناد بانتظار ردّك', toMePending, 'لا توجد طلبات إسناد بانتظارك.')}
+    ${sec('إسنادات نشطة إليك حالياً', toMeActive, 'لا توجد إسنادات نشطة إليك.')}
+    ${sec('إسنادات أنشأتها', mineAll, 'لم تُنشئ أي إسناد.')}
+    ${isAdmin ? sec('كل إسنادات الشركة (لمدير النظام)', others, 'لا توجد إسنادات أخرى.') : ''}`;
+}
+async function hoCreate(){
+  const me = state.user, isAdmin = me.role==='admin';
+  const f = state.hoForm; if(!f) return;
+  const fromId = isAdmin ? ((document.getElementById('hoFrom')||{}).value || f.fromId || '') : me.id;
+  const toId = document.getElementById('hoTo').value;
+  const reason = document.getElementById('hoReason').value;
+  const fromDate = document.getElementById('hoFromDate').value || hoToday();
+  const toDate = document.getElementById('hoToDate').value || null;
+  const scopeSome = f.scope==='some';
+  const ids = scopeSome ? [...document.querySelectorAll('.hoReqChk:checked')].map(x=>x.value) : null;
+  const needs = document.getElementById('hoNeedsApproval').checked;
+  const note = document.getElementById('hoNote').value.trim();
+  if(!fromId){ showToast('اختر الموظف الذي يُسند عنه','error'); return; }
+  if(!toId){ showToast('اختر المستلِم','error'); return; }
+  if(toId===fromId){ showToast('لا يصح الإسناد لنفسه','error'); return; }
+  if(toDate && toDate<fromDate){ showToast('تاريخ النهاية قبل البداية','error'); return; }
+  if(scopeSome && !ids.length){ showToast('اختر طلباً واحداً على الأقل أو غيّر النطاق إلى «الكل»','error'); return; }
+  if(isAdmin && !needs && !note){ showToast('الإسناد الفوري بلا موافقة يحتاج ملاحظة بالسبب','error'); return; }
+  const row = {company_id:state.currentCompanyId, from_user_id:fromId, to_user_id:toId, reason, scope_all:!scopeSome, request_ids:ids, from_date:fromDate, to_date:toDate, needs_approval:needs, note:note||null, created_by:me.id};
+  const r = await db.from('qy_handovers').insert(row).select().single();
+  if(!(await dbCheck(r,'إنشاء الإسناد'))) return;
+  state.hoForm = null;
+  await loadHandovers();
+  qyLog('handover_create','إسناد من '+hoUserName(fromId)+' إلى '+hoUserName(toId),'');
+  showToast(needs ? 'أُرسل الإسناد وبانتظار موافقة المستلِم' : 'سرى الإسناد فوراً','success');
+  render();
+}
+async function hoSetStatus(id, patch, okMsg){
+  const r = await db.from('qy_handovers').update(patch).eq('id', id).select('id');
+  if(!(await dbCheck(r,'تحديث الإسناد'))) return false;
+  if(!r.data || !r.data.length){ showToast('لم يُنفَّذ التحديث (صلاحية؟)','error'); return false; }
+  await loadHandovers(); showToast(okMsg,'success'); render(); return true;
+}
+function hoAccept(id){ return hoSetStatus(id, {status:'accepted'}, 'قبلت الإسناد — صرت تعتمد بدلاً منه'); }
+function hoRejectOpen(id){ state.hoReject = id; render(); }
+async function hoRejectConfirm(id){
+  const reason = (document.getElementById('hoRejReason').value||'').trim();
+  const sug = document.getElementById('hoRejSuggest').value || null;
+  if(!reason){ showToast('اكتب سبب الرفض','error'); return; }
+  state.hoReject = null;
+  await hoSetStatus(id, {status:'rejected', reject_reason:reason, suggested_user_id:sug}, 'تم الرفض وأُبلغ صاحب الإسناد');
+}
+async function hoCancel(id){
+  if(!confirm('إلغاء هذا الإسناد؟ تعود المعاملات لصاحبها فوراً.')) return;
+  await hoSetStatus(id, {status:'cancelled'}, 'أُلغي الإسناد');
+}
+async function hoReassign(id){
+  const h = (state.handovers||[]).find(x=>x.id===id); if(!h || !h.suggested_user_id) return;
+  const row = {company_id:h.company_id, from_user_id:h.from_user_id, to_user_id:h.suggested_user_id, reason:h.reason, scope_all:h.scope_all, request_ids:h.request_ids, from_date:h.from_date, to_date:h.to_date, needs_approval:true, note:'بعد رفض '+hoUserName(h.to_user_id)+' واقتراحه', created_by:state.user.id};
+  const r = await db.from('qy_handovers').insert(row).select().single();
+  if(!(await dbCheck(r,'إسناد إلى المقترح'))) return;
+  await loadHandovers(); showToast('أُرسل الإسناد إلى '+hoUserName(h.suggested_user_id),'success'); render();
+}
+
+// ===================== إيقاف الحساب (ترك العمل) =====================
+function suspendFindings(uid){
+  const reqs = state.requests.filter(r=>!r.isCancelled && r.status==='pending_decision' && (r.approvalSteps||[]).some(s=>s.approverId===uid && s.status==='pending'));
+  const subs = state.users.filter(u=>u.managerId===uid || u.requestApproverId===uid || u.nextApproverId===uid);
+  const hoIn = (state.handovers||[]).filter(h=>h.to_user_id===uid && (h.status==='accepted'||h.status==='pending'));
+  const hoOut = (state.handovers||[]).filter(h=>h.from_user_id===uid && hoActive(h));
+  const own = state.requests.filter(r=>!r.isCancelled && r.createdById===uid && r.status!=='completed' && r.status!=='rejected');
+  return {reqs, subs, hoIn, hoOut, own};
+}
+function openSuspendCheck(uid){ state.suspendCheck = uid; render(); }
+function closeSuspendCheck(){ state.suspendCheck = null; render(); }
+function renderSuspendModal(){
+  const uid = state.suspendCheck; const u = state.users.find(x=>x.id===uid); if(!u) return '';
+  if(u.isSuspended){
+    return `<div class="modal-overlay no-print" onclick="if(event.target===this) closeSuspendCheck();"><div class="modal-box" style="max-width:min(94vw,520px);">
+      <h2 style="margin-top:0;">إعادة تفعيل ${escH(u.name)}</h2>
+      <p class="sub">أُوقف الحساب ${u.suspendedAt ? 'بتاريخ '+fmtDateDMY(u.suspendedAt) : ''}${u.suspendedNote ? ' — '+escH(u.suspendedNote) : ''}. عند إعادة التفعيل يستطيع الدخول بحسابه نفسه ويعود لقوائم الاختيار.</p>
+      <div class="actions-row"><button class="btn btn-approve btn-md" onclick="suspendApply('${u.id}', false)">إعادة التفعيل</button><button class="btn btn-ghost btn-md" onclick="closeSuspendCheck()">إغلاق</button></div></div></div>`;
+  }
+  const f = suspendFindings(uid);
+  const list = (arr, fn)=> arr.length ? '<ul style="margin:4px 0 0;padding-right:18px;">'+arr.slice(0,8).map(fn).join('')+(arr.length>8?'<li>…والمزيد</li>':'')+'</ul>' : '';
+  const warn = f.reqs.length || f.subs.length;
+  return `<div class="modal-overlay no-print" onclick="if(event.target===this) closeSuspendCheck();"><div class="modal-box" style="max-width:min(94vw,620px);max-height:90vh;overflow:auto;">
+    <h2 style="margin-top:0;">فحص قبل إيقاف ${escH(u.name)}</h2>
+    <p class="sub">إيقاف الحساب يمنعه من الدخول فوراً ويُنهي جلساته، وتبقى سجلاته وأسماؤه في الطلبات القديمة. لا يُحذف شيء.</p>
+    <div class="note-box" style="${f.reqs.length?'border-color:var(--amber);':''}"><b>طلبات بانتظار اعتماده (${f.reqs.length}):</b> ${f.reqs.length ? list(f.reqs, r=>`<li>${escH(r.number||'قيد المراجعة')} — ${escH(r.reason)}</li>`) : 'لا يوجد.'}</div>
+    <div class="note-box" style="margin-top:8px;${f.subs.length?'border-color:var(--amber);':''}"><b>مرؤوسون يتبعونه في المسار (${f.subs.length}):</b> ${f.subs.length ? list(f.subs, x=>`<li>${escH(x.name)}</li>`) : 'لا يوجد.'}</div>
+    <div class="note-box" style="margin-top:8px;"><b>طلبات أنشأها ولم تكتمل (${f.own.length}):</b> تبقى وتكمل مسارها.</div>
+    <div class="note-box" style="margin-top:8px;"><b>إسناد قائم:</b> ${f.hoOut.length ? 'أسند معاملاته إلى '+f.hoOut.map(h=>escH(hoUserName(h.to_user_id))).join('، ') : 'لا يوجد إسناد نشط منه.'}${f.hoIn.length ? '<br>وهو مستلِم لإسنادات من غيره (ستتعطل).' : ''}</div>
+    ${warn ? `<p class="warn-box" style="margin-top:10px;">⚠ قبل الإيقاف أسند معاملاته إلى زميل (زر «إسناد نيابةً عنه») وأعد تعيين مدير لمرؤوسيه، وإلا توقفت طلباتهم.</p>` : ''}
+    <label style="margin-top:8px;">ملاحظة الإيقاف (اختياري)</label><input id="suspNote" type="text" maxlength="150" placeholder="مثال: ترك العمل 2026-10-31">
+    <div class="actions-row">
+      <button class="btn btn-reject btn-md" onclick="suspendApply('${u.id}', true)">إيقاف الحساب الآن</button>
+      <button class="btn btn-ghost btn-md" onclick="state.suspendCheck=null; state.hoForm={scope:'all',reason:'leave',needsApproval:true,fromId:'${u.id}'}; state.editingUserId=null; state.view='handovers'; render();">إسناد معاملاته نيابةً عنه</button>
+      <button class="btn btn-ghost btn-md" onclick="closeSuspendCheck()">إغلاق</button>
+    </div></div></div>`;
+}
+async function suspendApply(uid, suspend){
+  if(state.user.role!=='admin'){ showToast('الإيقاف من صلاحية مدير النظام','error'); return; }
+  if(uid===state.user.id){ showToast('لا يمكنك إيقاف حسابك','error'); return; }
+  const note = suspend ? ((document.getElementById('suspNote')||{}).value||'').trim() : '';
+  const r = await db.rpc('admin_set_suspended', {p_user_id: uid, p_suspended: suspend, p_note: note||null});
+  if(!(await dbCheck(r, suspend ? 'إيقاف الحساب' : 'إعادة التفعيل'))) return;
+  const u = state.users.find(x=>x.id===uid);
+  if(u){ u.isSuspended = suspend; u.suspendedAt = suspend ? new Date().toISOString() : null; u.suspendedNote = note; }
+  qyLog(suspend?'user_suspend':'user_reactivate', (suspend?'إيقاف ':'إعادة تفعيل ')+(u?u.name:uid), '');
+  state.suspendCheck = null;
+  showToast(suspend ? 'أُوقف الحساب' : 'أُعيد تفعيل الحساب','success'); render();
+}
+
 function renderAccount(app){
   const me = state.users.find(u=>u.id===state.user.id);
   app.innerHTML = `
     <h1>حسابي — ${escH(findRole(me.role).name)}</h1>
     <p class="sub">${state.returnTo ? 'الرجاء رفع صورة التوقيع والختم أولاً لإكمال اعتماد الطلب.' : 'تحديث بياناتك الشخصية.'}</p>
+    <div class="card flow">
+      <h2 style="margin:0 0 4px;font-size:15px;">إسناد المعاملات</h2>
+      <p class="file-hint" style="margin:0 0 6px;">ستغيب أو تنتقل أو تترك العمل؟ أسند معاملاتك لزميل يعتمدها بدلاً منك.</p>
+      <div class="actions-row"><button class="btn btn-ghost btn-sm" onclick="openHandovers()">فتح صفحة الإسناد${(typeof hoMyPendingToMeCount==='function' && hoMyPendingToMeCount()) ? ' ('+hoMyPendingToMeCount()+' بانتظارك)' : ''}</button></div>
+    </div>
+
     <div class="card flow">
       <h2 style="margin:0 0 4px;font-size:15px;">بياناتي</h2>
       <div class="row">
@@ -10441,7 +10703,7 @@ function userHasCompany(u, companyId){
   return u.companyId===companyId || !!u.isGeneral || (state.userCompanyLinks||[]).some(l=>l.userId===u.id && l.companyId===companyId);
 }
 function companyUsers(companyId){
-  return state.users.filter(u=>u.role!=='admin' && userHasCompany(u, companyId));
+  return state.users.filter(u=>u.role!=='admin' && !u.isSuspended && userHasCompany(u, companyId));
 }
 // معاينة مسار اعتماد طلب — حسب الحقلين "من يعتمد طلبه" و"من يعتمد ما اعتمده"، افتراضهما المدير المباشر
 function computeApprovalChainPreview(userId, companyId){
@@ -10458,6 +10720,7 @@ function computeApprovalChainPreview(userId, companyId){
     const approver = state.users.find(u=>u.id===currentId);
     if(!approver) break;
     // معتمِد لا ينتمي لشركة الطلب يظهر «غير معروف» لمن لا يراه: نوقف البناء برسالة واضحة بدل مسار معطوب
+    if(approver.isSuspended){ error = 'المعتمِد «'+approver.name+'» موقوف الحساب — أسند معاملاته أو غيّر مدير صاحب الطلب'; break; }
     if(companyId && typeof userHasCompany==='function' && !userHasCompany(approver, companyId)){
       error = 'المعتمِد «'+approver.name+'» غير مرتبط بشركة الطلب — حدّد مديراً لصاحب الطلب في هذه الشركة (المدير المباشر لكل شركة)';
       break;
@@ -11716,7 +11979,7 @@ async function maybeMigrateNames(){
 // فلتر قائمة المدير المباشر: 'company'=الشركة الحالية | 'general'=العامّون+الشركة | 'all'=الكل
 function mgrOptions(currentCompanyId, selectedId, excludeId, filterMode){
   filterMode = filterMode || 'company';
-  let pool = state.users.filter(u=>u.role!=='admin' && u.id!==excludeId);
+  let pool = state.users.filter(u=>u.role!=='admin' && u.id!==excludeId && !u.isSuspended);
   if(filterMode==='company') pool = pool.filter(u=>u.companyId===currentCompanyId && !u.isGeneral);
   else if(filterMode==='general') pool = pool.filter(u=>u.companyId===currentCompanyId || u.isGeneral);
   // 'all': كل المستخدمين
@@ -11900,6 +12163,9 @@ function renderUserEditForm(){
       <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" onclick="saveUserEdit()">حفظ التعديلات</button>
         <button class="btn btn-ghost btn-sm" onclick="state.editingUserId=null; render();">إلغاء</button>
+        ${state.user.role==='admin' && u.id!==state.user.id ? (u.isSuspended
+          ? `<button class="btn btn-approve btn-sm" onclick="openSuspendCheck('${u.id}')">إعادة تفعيل الحساب</button>`
+          : `<button class="btn btn-reject btn-sm" onclick="openSuspendCheck('${u.id}')">إيقاف الحساب (ترك العمل)</button>`) : ''}
       </div>
     </div>
   `;
@@ -12168,20 +12434,20 @@ function renderDashboard(app){
     visibleRequests = state.requests.slice();
   } else if(role==='accountant'){
     visibleRequests = state.requests.filter(r=>
-      r.createdById===myId || (r.approvalSteps||[]).some(s=>s.approverId===myId) ||
+      r.createdById===myId || qyIsApproverOn(r, myId) ||
       ['pending_transfer_request','pending_transfer_approval','pending_disbursement','pending_accountant','pending_cfo','completed'].includes(r.status) ||
       r.history.some(h=>['pending_transfer_request','pending_disbursement','pending_accountant'].includes(h.step))
     );
   } else if(role==='cfo'){
     visibleRequests = state.requests.filter(r=>
-      r.createdById===myId || (r.approvalSteps||[]).some(s=>s.approverId===myId) ||
+      r.createdById===myId || qyIsApproverOn(r, myId) ||
       ['pending_transfer_approval','pending_disbursement','pending_cfo','completed'].includes(r.status) ||
       r.history.some(h=>['pending_transfer_approval','pending_cfo'].includes(h.step))
     );
   } else {
     // موظف، أو أي دور آخر (مدير إدارة/أعلى/تنفيذي أو أي دور مخصص): يرى طلباته هو، وأي طلب هو معتمِد قرار فيه (حالياً أو سابقاً) بغض النظر عن دوره
     visibleRequests = state.requests.filter(r=>
-      r.createdById===myId || (r.approvalSteps||[]).some(s=>s.approverId===myId) || r.status===role || r.history.some(h=>h.step===role)
+      r.createdById===myId || qyIsApproverOn(r, myId) || r.status===role || r.history.some(h=>h.step===role)
     );
   }
 
