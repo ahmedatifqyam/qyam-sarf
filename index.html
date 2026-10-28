@@ -10641,7 +10641,7 @@ async function addUser(){
   // لا تُكتب القيمة الوهمية '__org_mgmt__' في العمود لأن عليه مفتاحاً أجنبياً نحو centers.
   const orgUnitRow = state.centers.find(c=>c.scope==='org');
   const finalCId = isGeneral ? (orgUnitRow ? orgUnitRow.id : null) : (centerId||null);
-  const jr = jobRoleLevel(role, chosenCo||state.currentCompanyId);
+  const jr = jobRoleLevel(role, chosenCo||state.currentCompanyId) || defaultLevelFor(role, chosenCo||state.currentCompanyId);
   const levelId = jr ? jr.id : null;
   if(!name || !phone || !pass){ showToast('الرجاء تعبئة جميع الحقول','error'); return; }
   if(!isGeneral && !chosenCo){ showToast('اختر الشركة','error'); return; }
@@ -10681,9 +10681,17 @@ function goEditUser(id){
 
 // ===================== المرحلة الأولى: الهيكل التنظيمي، المستويات، ومسار الاعتماد (بيانات فقط — غير مفعّلة بمحرك الاعتماد) =====================
 const DEFAULT_LEVEL_RANK = {senior_manager:1, executive_manager:2, cfo:3, dept_manager:4, accountant:5, employee:6};
+// اسم المستوى المقابل لكل دور افتراضي — لإيجاد مستواه ضمن مستويات شركة المستخدم نفسها
+const DEFAULT_LEVEL_NAME = {senior_manager:'المدير العام', executive_manager:'المدير التنفيذي', cfo:'المدير المالي', dept_manager:'مدير الإدارة / المركز', accountant:'المحاسب', employee:'موظف'};
+function defaultLevelFor(role, companyId){
+  const nm = DEFAULT_LEVEL_NAME[role]; if(!nm) return null;
+  return (state.jobLevels||[]).find(l=>l.companyId===companyId && l.name===nm) || null;
+}
 function userRank(u){
   if(!u) return 999;
   if(u.levelId){ const lv = state.jobLevels.find(l=>l.id===u.levelId); if(lv) return lv.sortOrder; }
+  // بلا مستوى محدد: نقارن على مقياس مستويات الشركة نفسه، لا على جدول الأدوار القديم (١–٦) فيختلط المقياسان
+  { const dl = defaultLevelFor(u.role, u.companyId); if(dl) return dl.sortOrder; }
   if(DEFAULT_LEVEL_RANK[u.role]!=null) return DEFAULT_LEVEL_RANK[u.role];
   if(isCustomRole(u.role)){ const lv = jobRoleLevel(u.role, u.companyId); return lv ? lv.sortOrder : 6; }
   return 999;
@@ -12082,10 +12090,10 @@ function renderUserEditForm(){
         <div><label>المسمى الوظيفي</label><input id="editUserJobTitle" type="text" value="${escH(u.jobTitle||'')}" placeholder="اختياري، مثل: محاسب أول"></div>
       </div>
       <div class="row">
-        <div><label>المستوى الوظيفي</label>
-          <select id="editUserLevel">
-            <option value="">— افتراضي حسب الدور (${escH(levelLabel(u))}) —</option>
-            ${levelsForCompany(u.companyId).map(l=>`<option value="${l.id}" ${l.id===u.levelId?'selected':''}>${escH(l.name)}</option>`).join('')}
+        <div><label>المستوى الوظيفي <span style="color:#b42318">*</span></label>
+          <select id="editUserLevel" required>
+            ${(!u.levelId && !defaultLevelFor(u.role,u.companyId)) ? '<option value="">— اختر المستوى (مطلوب) —</option>' : ''}
+            ${(()=>{ const dl=(!u.levelId)?defaultLevelFor(u.role,u.companyId):null; return levelsForCompany(u.companyId).map(l=>`<option value="${l.id}" ${(l.id===u.levelId||(dl&&l.id===dl.id))?'selected':''}>${escH(l.name)}</option>`).join(''); })()}
           </select>
         </div>
       </div>
@@ -12185,7 +12193,17 @@ async function saveUserEdit(){
   const jobTitleEl = document.getElementById('editUserJobTitle');
   const jobTitle = jobTitleEl ? jobTitleEl.value.trim() : (u.jobTitle||'');
   const levelEl = document.getElementById('editUserLevel');
-  const levelId = levelEl ? levelEl.value : (u.levelId||'');
+  let levelId = levelEl ? levelEl.value : (u.levelId||'');
+  // المستوى مطلوب ويجب أن يتبع الشركة المختارة: عند تغيير الشركة نقابله بالاسم في الشركة الجديدة
+  if(levelEl && levelsForCompany(companyId).length){
+    const cur = state.jobLevels.find(l=>l.id===levelId);
+    if(!cur){ showToast('اختر المستوى الوظيفي — حقل مطلوب','error'); return; }
+    if(cur.companyId!==companyId){
+      const same = state.jobLevels.find(l=>l.companyId===companyId && l.name===cur.name);
+      if(!same){ showToast('الشركة الجديدة لا تحوي مستوى «'+cur.name+'» — أنشئه أو اختر مستوى مناسباً بعد حفظ الشركة','error'); return; }
+      levelId = same.id;
+    }
+  }
   const reqApEl = document.getElementById('editUserRequestApprover');
   const reqVal = reqApEl ? reqApEl.value : (u.noRequestApprover ? 'none' : (u.requestApproverId||''));
   const noRequestApprover = reqVal==='none';
