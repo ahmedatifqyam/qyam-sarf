@@ -7312,6 +7312,93 @@ async function suspendApply(uid, suspend){
   showToast(suspend ? 'أُوقف الحساب' : 'أُعيد تفعيل الحساب','success'); render();
 }
 
+// ===================== نوافذ تُضاف إلى body مباشرة (لا تمر عبر render فلا تضيع حقول النماذج المفتوحة) =====================
+function qyBodyModalClose(id){ document.querySelectorAll('[data-qy-bm="'+(id||'bm')+'"]').forEach(e=>e.remove()); }
+function qyBodyModal(html, id){
+  qyBodyModalClose(id);
+  const d = document.createElement('div'); d.className = 'modal-overlay no-print'; d.setAttribute('data-qy-bm', id||'bm'); d.dir = 'rtl';
+  d.innerHTML = html;
+  d.addEventListener('click', e=>{ if(e.target===d) d.remove(); });
+  document.body.appendChild(d); return d;
+}
+
+// ===================== فحص قبل نقل مستخدم من شركة =====================
+function moveFindings(uid, removedIds){
+  const inCo = r => removedIds.includes(r.companyId) && !r.isCancelled;
+  const reqs = state.requests.filter(r=>inCo(r) && r.status==='pending_decision' && (r.approvalSteps||[]).some(s=>s.approverId===uid && s.status==='pending'));
+  const own  = state.requests.filter(r=>inCo(r) && r.createdById===uid && r.status!=='completed' && r.status!=='rejected');
+  const subs = state.users.filter(x=>x.id!==uid && removedIds.some(c=>userHasCompany(x,c)) && (x.managerId===uid || x.requestApproverId===uid || x.nextApproverId===uid));
+  return {reqs, own, subs};
+}
+function showMoveCheck(u, removedIds, f){
+  const list = (arr, fn)=> arr.length ? '<ul style="margin:4px 0 0;padding-right:18px;">'+arr.slice(0,8).map(fn).join('')+(arr.length>8?'<li>…والمزيد</li>':'')+'</ul>' : '';
+  const coNames = removedIds.map(id=>(state.companies.find(c=>c.id===id)||{}).nameAr||id).join('، ');
+  qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,640px);max-height:90vh;overflow:auto;text-align:right;">
+    <h2 style="margin-top:0;">تنبيه قبل نقل ${escH(u.name)} من: ${escH(coNames)}</h2>
+    <p class="sub">هذا المستخدم له ارتباطات قائمة في الشركة التي سيخرج منها. نقله دون ترتيب يُعطّل المسار فلا تظهر الطلبات لأحد.</p>
+    ${f.reqs.length ? `<div class="note-box" style="border-color:var(--amber);"><b>طلبات بانتظار اعتماده (${f.reqs.length}):</b>${list(f.reqs, r=>`<li>${escH(r.number||'قيد المراجعة')} — ${escH(r.reason)}</li>`)}</div>` : ''}
+    ${f.own.length ? `<div class="note-box" style="margin-top:8px;"><b>طلبات أنشأها ولم تكتمل (${f.own.length}):</b> تكمل مسارها، وقد تعود إليه للتعديل فيبقى حقه فيها محفوظاً.${list(f.own, r=>`<li>${escH(r.number||'قيد المراجعة')} — ${escH(r.reason)}</li>`)}</div>` : ''}
+    ${f.subs.length ? `<div class="note-box" style="margin-top:8px;border-color:var(--amber);"><b>مرؤوسون يتبعونه (${f.subs.length}):</b>${list(f.subs, x=>`<li>${escH(x.name)}</li>`)}</div>` : ''}
+    <div class="actions-row" style="margin-top:12px;">
+      <button class="btn btn-primary btn-md" onclick="qyBodyModalClose('move'); state.hoForm={scope:'all',reason:'leave',needsApproval:true,fromId:'${u.id}'}; state.editingUserId=null; state.view='handovers'; render();">أسند معاملاته أولاً</button>
+      <button class="btn btn-reject btn-md" onclick="qyBodyModalClose('move'); state._moveOk=true; saveUserEdit();">انقل على أي حال</button>
+      <button class="btn btn-ghost btn-md" onclick="qyBodyModalClose('move')">إلغاء</button>
+    </div></div>`, 'move');
+}
+
+// ===================== فحص المسارات: المحفوظ في كل طلب مقابل مسار الشركة الآن =====================
+function pathCheckRows(companyId){
+  const nm = id => (state.users.find(u=>u.id===id)||{}).name || 'غير معروف';
+  return state.requests.filter(r=>r.companyId===companyId && !r.isCancelled && r.status==='pending_decision').map(r=>{
+    const creator = state.users.find(u=>u.id===r.createdById);
+    const saved = (r.approvalSteps||[]).slice().sort((a,b)=>a.sequenceOrder-b.sequenceOrder);
+    const now = creator ? computeApprovalChainPreview(creator.id, companyId) : {chain:[], error:'صاحب الطلب غير موجود'};
+    const nowIds = now.chain.map(u=>u.id);
+    const pend = saved.filter(s=>s.status==='pending').map(s=>s.approverId);
+    let st = 'ok', why = 'سليم';
+    if(now.error){ st='bad'; why = now.error; }
+    else {
+      const badId = pend.find(id=>{ const a = state.users.find(u=>u.id===id); return !a || a.isSuspended || !userHasCompany(a, companyId); });
+      if(badId){ const a = state.users.find(u=>u.id===badId); st='bad'; why = 'معتمِد الخطوة «'+nm(badId)+'» '+(!a?'غير موجود':a.isSuspended?'موقوف الحساب':'لم يعد مرتبطاً بشركة الطلب'); }
+      else if(pend.length && pend.join('|') !== nowIds.slice(nowIds.length-pend.length).join('|')){ st='diff'; why='يختلف عن مسار الشركة الآن'; }
+    }
+    return {r, creator, saved, nowNames: now.chain.map(u=>u.name), st, why, nm};
+  });
+}
+function openPathCheck(){ state._pcCo = state._pcCo || state.currentCompanyId; renderPathCheck(); }
+function renderPathCheck(){
+  const co = state._pcCo || state.currentCompanyId;
+  const rows = pathCheckRows(co);
+  const badge = st => st==='ok' ? '<span style="color:#15803d;font-weight:700;">✓ سليم</span>' : st==='diff' ? '<span style="color:#b45309;font-weight:700;">≠ مختلف</span>' : '<span style="color:#b42318;font-weight:700;">✕ معطّل</span>';
+  const cell = 'padding:8px 10px;border-bottom:1px solid var(--line,#ddd);text-align:center;vertical-align:top;';
+  const body = rows.length ? rows.map(x=>{
+    const savedTxt = x.saved.map(s=>`${escH(x.nm(s.approverId))}${s.status==='approved'?' ✓':s.status==='pending'?' ⏳':''}`).join(' ← ') || '—';
+    return `<tr>
+      <td style="${cell}">${escH(x.r.number||'قيد المراجعة')}<br><span style="font-size:12px;opacity:.75;">${escH(x.r.reason||'')}</span></td>
+      <td style="${cell}">${escH(x.creator?x.creator.name:'—')}</td>
+      <td style="${cell}">${savedTxt}</td>
+      <td style="${cell}">${x.nowNames.length ? x.nowNames.map(escH).join(' ← ') : '—'}</td>
+      <td style="${cell}">${badge(x.st)}<br><span style="font-size:12px;">${escH(x.why)}</span></td>
+      <td style="${cell}">${x.st==='ok' ? '' : `<button class="btn btn-ghost btn-xs" onclick="pathCheckRebuild('${x.r.id}')">إعادة بناء المسار</button>`}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6" style="${cell}">لا توجد طلبات قيد القرار في هذه الشركة.</td></tr>`;
+  qyBodyModal(`<div class="modal-box" style="max-width:min(96vw,1100px);max-height:90vh;overflow:auto;text-align:right;">
+    <h2 style="margin-top:0;">فحص المسارات</h2>
+    <p class="sub">يقارن المسار المحفوظ في كل طلب قيد القرار بالمسار الذي كان سيُبنى لو أُنشئ الطلب اليوم. للقراءة فقط؛ لا يتغير شيء إلا بضغطك «إعادة بناء المسار».</p>
+    <label>الشركة</label>
+    <select onchange="state._pcCo=this.value; renderPathCheck();" style="max-width:360px;">${state.companies.map(c=>`<option value="${c.id}" ${c.id===co?'selected':''}>${escH(c.nameAr)}</option>`).join('')}</select>
+    <table dir="rtl" style="width:100%;border-collapse:collapse;margin-top:12px;">
+      <thead><tr>${['الطلب','صاحب الطلب','المسار المحفوظ في الطلب','مسار الشركة الآن','الحالة',''].map(h=>`<th style="${cell}background:var(--paper,#f4f4f4);">${h}</th>`).join('')}</tr></thead>
+      <tbody>${body}</tbody></table>
+    <div class="actions-row" style="margin-top:12px;"><button class="btn btn-ghost btn-md" onclick="qyBodyModalClose('pc')">إغلاق</button></div>
+  </div>`, 'pc');
+}
+async function pathCheckRebuild(reqId){
+  const req = state.requests.find(r=>r.id===reqId); if(!req) return;
+  await rebuildRequestPathAndReset(req);
+  renderPathCheck();
+}
+
 function renderAccount(app){
   const me = state.users.find(u=>u.id===state.user.id);
   app.innerHTML = `
@@ -8629,7 +8716,7 @@ function applyPageSections(){
   if(!key || !SECTIONED_PAGES.includes(key)) return;
 
   const skip = el => el.id==='secTabs' || el.classList.contains('adm-head') ||
-                     el.classList.contains('adm-tabs2') || el.classList.contains('gfb-spacer') ||
+                     el.classList.contains('adm-tabs2') || el.classList.contains('gfb-spacer') || el.classList.contains('modal-overlay') ||
                      el.classList.contains('global-floating-bar');
   const secs = []; let cur = null;
   for(const el of Array.from(app.children)){
@@ -8809,7 +8896,8 @@ function renderAdmin(app){
         <button class="btn btn-primary btn-md" onclick="addUser()">إضافة المستخدم</button>
       </div>
     </div>
-    <h2 style="margin-top:24px;">مستخدمو الشركة الحالية</h2>
+    <div class="actions-row" style="margin-top:24px;"><button class="btn btn-ghost btn-sm" onclick="openPathCheck()">فحص المسارات</button></div>
+    <h2 style="margin-top:8px;">مستخدمو الشركة الحالية</h2>
     ${state.editingUserId ? renderUserEditForm() : ''}
     ${companyScopedUsers.map(u=>`
       <div class="list-item">
@@ -12266,6 +12354,18 @@ async function saveUserEdit(){
   const linkedIds = coChecks.filter(c=>c.checked).map(c=>c.getAttribute('data-access-company'));
   if(!name || !phone){ showToast('الرجاء تعبئة الاسم ورقم الهاتف','error'); return; }
   if(state.users.some(x=>x.phone===phone && x.id!==u.id)){ showToast('رقم الهاتف مستخدم من قبل','error'); return; }
+  // نقل المستخدم من شركة: تحذير إن كانت له معاملات أو مرؤوسون هناك (يتخطاه «انقل على أي حال»)
+  { const moveOk = !!state._moveOk; state._moveOk = false;
+    if(!moveOk && state.user.role==='admin'){
+      const oldIds = state.companies.map(c=>c.id).filter(cid=>userHasCompany(u,cid));
+      const keep = cid => isGeneral || cid===companyId || linkedIds.includes(cid);
+      const removed = oldIds.filter(cid=>!keep(cid));
+      if(removed.length){
+        const f = moveFindings(u.id, removed);
+        if(f.reqs.length || f.own.length || f.subs.length){ showMoveCheck(u, removed, f); return; }
+      }
+    }
+  }
   // كلمة المرور اختيارية عند التعديل: تُترك فارغة لتبقى كما هي
   if(pass){
     if(pass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن ٦ خانات','error'); return; }
@@ -12332,8 +12432,24 @@ async function saveUserEdit(){
   render();
 }
 
-function deleteUser(id){
+async function deleteUser(id){
   const u = state.users.find(x=>x.id===id);
+  // الحذف النهائي لمن بلا أي أثر في أي شركة؛ وإلا فالإيقاف
+  const checks = [['requests','created_by','طلبات'],['request_history','user_id','قرارات وسجل'],['request_approval_steps','approver_id','خطوات اعتماد'],['transactions','created_by','حركات مالية'],['qy_attachments','created_by','مرفقات'],['recurring_templates','created_by','قيود دورية']];
+  const used = [];
+  for(const [t,c,l] of checks){
+    const r = await db.from(t).select('*',{count:'exact',head:true}).eq(c,id);
+    if(r.error){ showToast('تعذّر فحص أثر المستخدم قبل الحذف: '+(r.error.message||''),'error'); return; }
+    if(r.count>0) used.push(l+' ('+r.count+')');
+  }
+  const h = await db.from('qy_handovers').select('*',{count:'exact',head:true}).or('from_user_id.eq.'+id+',to_user_id.eq.'+id+',created_by.eq.'+id);
+  if(h.error){ showToast('تعذّر فحص الإسناد قبل الحذف: '+(h.error.message||''),'error'); return; }
+  if(h.count>0) used.push('إسناد ('+h.count+')');
+  if(used.length){
+    showToast('لا يُحذف «'+(u?u.name:'')+'» لأن له أثراً: '+used.join('، ')+' — أوقف الحساب بدلاً من حذفه','error');
+    openSuspendCheck(id);
+    return;
+  }
   requestDeleteConfirm(`حذف المستخدم "${u?u.name:''}" نهائياً؟`, 'user', id);
 }
 async function executeDeleteUser(id){
