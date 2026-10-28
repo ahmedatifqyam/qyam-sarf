@@ -1884,7 +1884,10 @@ function fmtKWD(val, opts){
   const frac  = parts[1];
   const unit  = opts&&opts.noUnit ? '' : ' <span style="font-size:0.75em;color:var(--muted);">د.ك</span>';
   // الرقم معزول باتجاهه، وإلا أزاحت الصفحة العربية إشارة السالب إلى آخره
-  return `<bdi dir="ltr">${whole}<span style="font-size:0.72em;opacity:.85;">.${frac}</span></bdi>${unit}`;
+  // تلميح عند الوقوف على المبلغ: قيمته بالحروف
+  let tip = '';
+  try{ if(isFinite(n) && Math.abs(n) < 1e12){ tip = (n<0 ? 'سالب ' : '') + amountToArabicWords(Math.abs(n)); } }catch(e){}
+  return `<bdi dir="ltr"${tip ? ' title="'+tip+'"' : ''}>${whole}<span style="font-size:0.72em;opacity:.85;">.${frac}</span></bdi>${unit}`;
 }
 function fmtKWDPlain(val){ const n=Number(val||0); const p=n.toFixed(3).split('.');
   // \u2066 … \u2069 يعزلان الرقم فلا تُزاح إشارة السالب في النصّ العربي
@@ -3833,7 +3836,7 @@ function openSearchResult(reqId){
   render();
 }
 
-async function logout(){ state._loggingOut = true; assistantReset(); state.dashOwner='all'; try{ if(state.user) qyLog('logout','خروج',''); await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state._loggingOut=false; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
+async function logout(){ state._loggingOut = true; assistantReset(); state.dashOwner='all'; try{ if(state.user) qyLog('logout','خروج',''); await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state._loggingOut=false; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; state._navStack=[]; state._navPrev=null; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
 
 // ───────── إغلاق الدخول تلقائياً عند عدم النشاط ─────────
 // ٣٠ دقيقة بلا نقر أو كتابة أو تمرير؛ تنبيه قبل الإغلاق بدقيقة؛ وآخر نشاط مشترك بين كل التبويبات.
@@ -6535,10 +6538,39 @@ function renderPrintPreview(app){
   `;
 }
 
+// ===== سجل التنقل: زر «رجوع» يعيد إلى الصفحة التي جئت منها فعلاً =====
+function navSnap(){ return {view:state.view, activeReqId:state.activeReqId, adminSubTab:state.adminSubTab}; }
+function navKey(x){ return x.view+'|'+((x.view==='detail'||x.view==='printPreview')?x.activeReqId:'')+'|'+(x.view==='admin'?x.adminSubTab:''); }
+function navTrack(){
+  const cur = navSnap(), prev = state._navPrev;
+  if(prev && navKey(prev)!==navKey(cur)){
+    if(prev.view==='admin' && cur.view!=='admin'){ state.editingUserId=null; state.editingCompanyId=null; state.editingCenterId=null; }   // صندوق التعديل لا يبقى مفتوحاً بعد مغادرة الإدارة
+    if(!state._navPopping && prev.view!=='login' && cur.view!=='login'){
+      prev.scrollY = window.scrollY;
+      (state._navStack = state._navStack||[]).push(prev);
+      if(state._navStack.length>30) state._navStack.shift();
+    }
+  }
+  state._navPopping = false;
+  state._navPrev = cur;
+}
+function navBack(fallback){
+  const st = state._navStack || [];
+  const here = navKey(navSnap());
+  let t = st.pop();
+  while(t && (navKey(t)===here || t.view==='newRequest' || t.view==='login' || (t.view==='detail' && !state.requests.some(r=>r.id===t.activeReqId)))) t = st.pop();
+  state._navPopping = true;
+  if(t){ state.view=t.view; state.activeReqId=t.activeReqId; if(t.adminSubTab) state.adminSubTab=t.adminSubTab; }
+  else state.view = fallback || 'dashboard';
+  render();
+  const y = t ? (t.scrollY||0) : 0;
+  setTimeout(()=>window.scrollTo(0,y), 0);
+}
 function render(){
   if(state.pendingEscalate && state.pendingEscalate.reqId!==state.activeReqId) state.pendingEscalate = null;
   if(state.user && !viewAllowed(state.view)) state.view = 'dashboard';
   if(state.view!=='ledger') state._inLedger = false;
+  navTrack();
   state._viewStale = false;
   if(state.user) startReviewTicker();   // عدّاد نافذة المراجعة إن كان لي طلب لم يُرقَّم بعد
   renderBrand();
@@ -6891,20 +6923,20 @@ function renderGlobalFloatingBar(){
   } else if(state.view==='detail'){
     const req = state.requests.find(r=>r.id===state.activeReqId);
     buttons = `
-      <button class="btn btn-ghost btn-md" onclick="state.view='dashboard'; render();">→ رجوع</button>
+      <button class="btn btn-ghost btn-md" onclick="navBack('dashboard')">→ رجوع</button>
       ${req ? `<button class="btn btn-primary btn-md" onclick="openPrintPreview('${req.id}')">معاينة الطلب</button><button class="btn btn-ghost btn-md" onclick="downloadRequestPdf('${req.id}')">تحميل PDF</button>` : ''}
     `;
   } else if(state.view==='printPreview'){
     buttons = `
-      <button class="btn btn-ghost btn-md" onclick="state.view='detail'; render();">→ رجوع للطلب</button>
+      <button class="btn btn-ghost btn-md" onclick="navBack('detail')">→ رجوع</button>
       <button class="btn btn-primary btn-lg" onclick="window.print()">طباعة / تحميل PDF</button>
     `;
   } else if(state.view==='duplicateList'){
-    buttons = `<button class="btn btn-ghost btn-md" onclick="state.view='newRequestChoice'; render(); window.scrollTo(0,0);">→ رجوع</button>`;
+    buttons = `<button class="btn btn-ghost btn-md" onclick="navBack('newRequestChoice')">→ رجوع</button>`;
   } else if(inAdminArea()){
     buttons = ''; // التنقل بصفحات الأدمن عبر الشريط الجانبي، فلا حاجة لزر رجوع مكرر
   } else {
-    buttons = `<button class="btn btn-ghost btn-md" onclick="state.view='dashboard'; render();">→ رجوع</button>`;
+    buttons = `<button class="btn btn-ghost btn-md" onclick="navBack('dashboard')">→ رجوع</button>`;
   }
   const waIcon = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#25D366"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.2-3.5-.7-2.9-1.1-4.8-4.1-5-4.3-.1-.2-1.2-1.6-1.2-3s.7-2.1 1-2.4c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5.2.6.8 2 .9 2.1.1.2.1.3 0 .5-.6 1.2-1.2 1.1-.6 2 .9 1.6 1.7 2.1 3 2.7.2.1.4.1.5-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1.2.1 1.5.7 1.8.9.3.1.4.2.5.3.1.2.1.9-.1 1.6z"/></svg>`;
   const contactBlock = `
@@ -10641,7 +10673,7 @@ async function addUser(){
   // لا تُكتب القيمة الوهمية '__org_mgmt__' في العمود لأن عليه مفتاحاً أجنبياً نحو centers.
   const orgUnitRow = state.centers.find(c=>c.scope==='org');
   const finalCId = isGeneral ? (orgUnitRow ? orgUnitRow.id : null) : (centerId||null);
-  const jr = jobRoleLevel(role, chosenCo||state.currentCompanyId) || defaultLevelFor(role, chosenCo||state.currentCompanyId);
+  const jr = jobRoleLevel(role, chosenCo||state.currentCompanyId) || defaultLevelFor(role, chosenCo||state.currentCompanyId) || lowestLevelFor(chosenCo||state.currentCompanyId);
   const levelId = jr ? jr.id : null;
   if(!name || !phone || !pass){ showToast('الرجاء تعبئة جميع الحقول','error'); return; }
   if(!isGeneral && !chosenCo){ showToast('اختر الشركة','error'); return; }
@@ -10686,6 +10718,11 @@ const DEFAULT_LEVEL_NAME = {senior_manager:'المدير العام', executive_
 function defaultLevelFor(role, companyId){
   const nm = DEFAULT_LEVEL_NAME[role]; if(!nm) return null;
   return (state.jobLevels||[]).find(l=>l.companyId===companyId && l.name===nm) || null;
+}
+// أدنى مستوى في الشركة (أكبر رقم ترتيب) — يُستخدم عند غياب المستوى بدل رفض الحفظ
+function lowestLevelFor(companyId){
+  const ls = (state.jobLevels||[]).filter(l=>l.companyId===companyId);
+  return ls.length ? ls.reduce((a,b)=>b.sortOrder>a.sortOrder?b:a) : null;
 }
 function userRank(u){
   if(!u) return 999;
@@ -12092,8 +12129,8 @@ function renderUserEditForm(){
       <div class="row">
         <div><label>المستوى الوظيفي <span style="color:#b42318">*</span></label>
           <select id="editUserLevel" required>
-            ${(!u.levelId && !defaultLevelFor(u.role,u.companyId)) ? '<option value="">— اختر المستوى (مطلوب) —</option>' : ''}
-            ${(()=>{ const dl=(!u.levelId)?defaultLevelFor(u.role,u.companyId):null; return levelsForCompany(u.companyId).map(l=>`<option value="${l.id}" ${(l.id===u.levelId||(dl&&l.id===dl.id))?'selected':''}>${escH(l.name)}</option>`).join(''); })()}
+            
+            ${(()=>{ const dl=(!u.levelId)?(defaultLevelFor(u.role,u.companyId)||lowestLevelFor(u.companyId)):null; return levelsForCompany(u.companyId).map(l=>`<option value="${l.id}" ${(l.id===u.levelId||(dl&&l.id===dl.id))?'selected':''}>${escH(l.name)}</option>`).join(''); })()}
           </select>
         </div>
       </div>
@@ -12194,14 +12231,18 @@ async function saveUserEdit(){
   const jobTitle = jobTitleEl ? jobTitleEl.value.trim() : (u.jobTitle||'');
   const levelEl = document.getElementById('editUserLevel');
   let levelId = levelEl ? levelEl.value : (u.levelId||'');
-  // المستوى مطلوب ويجب أن يتبع الشركة المختارة: عند تغيير الشركة نقابله بالاسم في الشركة الجديدة
+  // المستوى مطلوب ويجب أن يتبع الشركة المختارة: نقابله بالاسم عند تغيير الشركة، وإن لم يوجد نأخذ أدنى مستوى مع ملاحظة
+  let levelNote = '';
   if(levelEl && levelsForCompany(companyId).length){
     const cur = state.jobLevels.find(l=>l.id===levelId);
-    if(!cur){ showToast('اختر المستوى الوظيفي — حقل مطلوب','error'); return; }
-    if(cur.companyId!==companyId){
-      const same = state.jobLevels.find(l=>l.companyId===companyId && l.name===cur.name);
-      if(!same){ showToast('الشركة الجديدة لا تحوي مستوى «'+cur.name+'» — أنشئه أو اختر مستوى مناسباً بعد حفظ الشركة','error'); return; }
-      levelId = same.id;
+    if(!cur || cur.companyId!==companyId){
+      const same = cur ? state.jobLevels.find(l=>l.companyId===companyId && l.name===cur.name) : null;
+      if(same) levelId = same.id;
+      else {
+        const low = defaultLevelFor(role, companyId) || lowestLevelFor(companyId);
+        levelId = low.id;
+        levelNote = (cur ? 'لا يوجد مستوى «'+cur.name+'» في الشركة الجديدة، ' : 'لم يُحدَّد مستوى، ')+'فعُيّن له المستوى «'+low.name+'»';
+      }
     }
   }
   const reqApEl = document.getElementById('editUserRequestApprover');
@@ -12287,7 +12328,7 @@ async function saveUserEdit(){
     else state.userCompanyManagers.push({userId:u.id, companyId:companyId2, managerId:mgrVal});
   }
   state.editingUserId = null;
-  showToast('تم حفظ تعديلات المستخدم', 'success');
+  showToast('تم حفظ تعديلات المستخدم' + (levelNote ? ' — ملاحظة: ' + levelNote : ''), levelNote ? 'info' : 'success');
   render();
 }
 
