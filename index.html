@@ -8566,7 +8566,7 @@ function renderCancelledArchive(app){
         </div>
         <div class="actions-row" style="margin:0;">
           <button class="btn btn-ghost btn-xs" onclick="openRequest('${r.id}')">عرض</button>
-          ${(state.user.role==='admin' || r.createdById===state.user.id) ? `<button class="btn btn-approve btn-sm" onclick="restoreRequest('${r.id}')">استرجاع</button>` : ''}
+          ${canRestoreReq(r) ? `<button class="btn btn-approve btn-sm" onclick="restoreRequest('${r.id}')">استرجاع</button>` : ''}
           ${state.user.role==='admin' ? `<button class="btn btn-reject btn-sm" onclick="deleteRequestPermanently('${r.id}')" title="يُمحى من قاعدة البيانات ولا يُسترجع">حذف نهائي</button>` : ''}
         </div>
       </div>`;
@@ -12856,9 +12856,17 @@ function renderDashboard(app){
 }
 
 // ===== طلباتي في شركاتي السابقة: مغلق افتراضياً ويُفلتر بالحالة والشركة والفترة حتى لا تكثر الطلبات القديمة =====
+// الاسترجاع: لمدير النظام، أو لصاحب الطلب إن كان ما زال مرتبطاً بشركة الطلب (يعمل فيها إضافياً/بارتايم)
+function canRestoreReq(r){
+  if(!state.user || !r) return false;
+  if(state.user.role==='admin') return true;
+  if(r.createdById!==state.user.id) return false;
+  const me = state.users.find(u=>u.id===state.user.id);
+  return !!me && userHasCompany(me, r.companyId);
+}
 function oldCoReqList(){
   const me = state.user && state.user.id;
-  return state.requests.filter(r=>r.createdById===me && r.companyId!==state.currentCompanyId && !r.isCancelled);
+  return state.requests.filter(r=>r.createdById===me && r.companyId!==state.currentCompanyId);
 }
 function renderOldCoPanel(){
   const all = oldCoReqList(); if(!all.length) return '';
@@ -12868,8 +12876,9 @@ function renderOldCoPanel(){
   const head = `<button type="button" class="btn btn-ghost btn-md" style="margin-top:20px;" onclick="state.oldReq.open=!state.oldReq.open; render();">${f.open?'▾':'◂'} طلباتي في شركاتي الأخرى (${all.length})</button>`;
   if(!f.open) return `<div class="no-print">${head}</div>`;
   let list = all.filter(r=> f.co==='all' || r.companyId===f.co);
-  if(f.status==='pending') list = list.filter(r=>!['completed','rejected'].includes(r.status));
-  else if(f.status==='done') list = list.filter(r=>r.status==='completed');
+  if(f.status==='pending') list = list.filter(r=>!r.isCancelled && !['completed','rejected'].includes(r.status));
+  else if(f.status==='done') list = list.filter(r=>!r.isCancelled && r.status==='completed');
+  else if(f.status==='cancelled') list = list.filter(r=>r.isCancelled);
   if(f.from) list = list.filter(r=>r.createdAtRaw && String(r.createdAtRaw).slice(0,10) >= f.from);
   if(f.to) list = list.filter(r=>r.createdAtRaw && String(r.createdAtRaw).slice(0,10) <= f.to);
   list.sort((a,b)=>tsOf(b.createdAtRaw)-tsOf(a.createdAtRaw));
@@ -12877,7 +12886,7 @@ function renderOldCoPanel(){
   const rows = list.length ? list.map(r=>`<tr style="cursor:pointer;" onclick="openRequest('${r.id}')">
       <td style="${cell}font-weight:700;">${escH(r.number||'قيد المراجعة')}</td>
       <td style="${cell}">${escH(coName(r.companyId))}</td>
-      <td style="${cell}">${escH(r.reason||'')}</td>
+      <td style="${cell}${r.isCancelled?'text-decoration:line-through;color:var(--muted);':''}">${escH(r.reason||'')}</td>
       <td style="${cell}">${r.dateGreg ? dmyStr(r.dateGreg) : '—'}</td>
       <td style="${cell}font-weight:700;">${fmtKWDHtml(r.totalAmount)} د.ك</td>
       <td style="${cell}">${statusBadge(r.status, r.isCancelled, false, true)}</td></tr>`).join('')
@@ -12890,7 +12899,8 @@ function renderOldCoPanel(){
         <div><label>الحالة</label><select onchange="state.oldReq.status=this.value; render();">
           <option value="pending" ${f.status==='pending'?'selected':''}>غير معتمدة</option>
           <option value="done" ${f.status==='done'?'selected':''}>معتمدة (تم الصرف)</option>
-          <option value="all" ${f.status==='all'?'selected':''}>الكل</option></select></div>
+          <option value="cancelled" ${f.status==='cancelled'?'selected':''}>ملغاة</option>
+          <option value="all" ${f.status==='all'?'selected':''}>الكل (تشمل الملغاة)</option></select></div>
         <div><label>الشركة</label><select onchange="state.oldReq.co=this.value; render();">
           <option value="all">كل الشركات</option>${cos.map(c=>`<option value="${c}" ${f.co===c?'selected':''}>${escH(coName(c))}</option>`).join('')}</select></div>
         <div><label>من تاريخ</label><input type="date" value="${escH(f.from)}" onchange="state.oldReq.from=this.value; render();"></div>
@@ -13469,7 +13479,7 @@ function renderDetail(app){
     ${req.isCancelled ? `
       <div class="note-box no-print" style="background:#F3F2ED;border-color:#B8B4A8;">
         <b>هذا الطلب ملغى</b> — تم إبطاله ${req.cancelledAt ? 'بتاريخ ' + fmtDateDMY(req.cancelledAt) : ''}.
-        ${(state.user.role==='admin' || req.createdById===state.user.id) ? `<button class="btn btn-approve btn-sm2" style="margin-right:10px;" onclick="restoreRequest('${req.id}')"><span class="bl1">استرجاع</span><span class="bl2">الطلب</span></button>` : ''}
+        ${canRestoreReq(req) ? `<button class="btn btn-approve btn-sm2" style="margin-right:10px;" onclick="restoreRequest('${req.id}')"><span class="bl1">استرجاع</span><span class="bl2">الطلب</span></button>` : ''}
       </div>` : ''}
     ${req.fastTracked ? `
       <div class="note-box no-print" style="background:var(--amber-bg);border-color:var(--amber);color:var(--amber);">
