@@ -1579,15 +1579,27 @@ function mapRequestRow(r){
 
 // أعمدة المستخدم التي تُنزَّل للمتصفح — بلا عمود password إطلاقاً.
 // المصادقة تتم في الخادم عبر Supabase Auth، فلا داعي لأن يرى المتصفح كلمات المرور.
-const USER_COLS = 'id,phone,name,role,center_id,signature_data,stamp_data,email,name_en,iban,'
-  + 'id_file_data,bank_file_data,signature_mode,signature_color,signature_width,company_id,'
-  + 'national_id,stamp_data_2,manager_id,notif_seen_at,job_title,level_id,request_approver_id,'
+// البيانات الشخصية (الآيبان والرقم المدني وصور الهوية والبنك) لا تُنزَّل مع القائمة: تأتي من qy_users_private لصاحبها ولمدير النظام فقط
+const USER_COLS = 'id,phone,name,role,center_id,signature_data,stamp_data,email,name_en,'
+  + 'signature_mode,signature_color,signature_width,company_id,'
+  + 'stamp_data_2,manager_id,notif_seen_at,job_title,level_id,request_approver_id,'
   + 'next_approver_id,exec_substitute_id,is_general,no_request_approver,no_next_approver,direct_to_transfer,'
   + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id,is_suspended,suspended_at,suspended_note';
 
 async function reloadUsers(){
   const {data} = await db.from('users').select(USER_COLS);
-  if(data) state.users = data.map(dbUserToState);
+  if(data){ state.users = data.map(dbUserToState); await mergeUserPrivate(); }
+}
+// يدمج البيانات الشخصية: من الدالة الآمنة إن وُجدت، وإلا (قاعدة لم تُحدَّث بعد) من الأعمدة مباشرة كما كان
+async function mergeUserPrivate(){
+  try{
+    let r = await db.rpc('qy_users_private');
+    if(r.error) r = await db.from('users').select('id,iban,national_id,id_file_data,bank_file_data');
+    if(r.error || !r.data) return;
+    const map = {}; r.data.forEach(x=>{ map[x.id] = x; });
+    (state.users||[]).forEach(u=>{ const p = map[u.id]; if(!p) return;
+      u.iban = p.iban||''; u.civilId = p.national_id||''; u.idFileData = p.id_file_data||''; u.bankFileData = p.bank_file_data||''; });
+  }catch(e){}
 }
 
 // التحميل الكامل بعد ثبوت الهوية. الزرع لا يلزم إلا على قاعدة فارغة فعلاً.
@@ -1632,6 +1644,7 @@ async function loadAll(){
   state.companies        = d(0).map(dbCompanyToState);
   state.centers          = d(1).map(dbCenterToState);
   state.users            = d(2).map(dbUserToState);
+  if(r[2] && r[2].error) console.error('تحميل المستخدمين', r[2].error);
   state.userCompanyLinks = d(3).map(x=>({userId:x.user_id, companyId:x.company_id}));
   state.customRoles      = d(4).map(r0=>({id:r0.id, companyId:r0.company_id, name:r0.name, description:r0.description||'', defaultLevelName:r0.default_level_name||'موظف', generalDefault:!!r0.general_default}));
   state.beneficiaries    = d(5).map(dbBeneficiaryToState);
@@ -1660,7 +1673,7 @@ async function loadAll(){
   state.resetRequests  = d(16).map(r=>({id:r.id, phone:r.phone, userId:r.user_id, companyId:r.company_id,
     status:r.status, requestedAt:r.requested_at, handledBy:r.handled_by, handledAt:r.handled_at}));
   state.pagePerms = d(17);
-  await loadRecurring();
+  await Promise.all([loadRecurring(), mergeUserPrivate()]);
 }
 
 
@@ -1805,7 +1818,7 @@ function renderBrand(){
   const center = userCenterLabel();
   const goBrand = "state.view='admin'; state.adminSubTab='branding'; render(); window.scrollTo(0,0);";
   const slot = (src, cls, emptyTitle) => src
-    ? `<div class="brand-slot"><img class="${cls}" src="${src}" alt=""></div>`
+    ? `<div class="brand-slot"><img class="${cls}" src="${escH(src)}" alt=""></div>`
     : (isAdmin ? `<div class="brand-slot is-blank" title="${emptyTitle}" onclick="${goBrand}">🖼</div>` : '');
   const sysName = systemName();
   const coText = co ? co + (center ? ' — ' + center : '') : '';
@@ -1872,6 +1885,8 @@ function syncPageTitle(){
 function jsq(v){ return escH(JSON.stringify(String(v==null?'':v))); }
 // روابط المرفقات: صور وPDF بصيغة data فقط
 function safeDataUrl(u){ u=String(u||''); return /^data:(image\/(png|jpe?g|webp|gif)|application\/pdf);base64,[A-Za-z0-9+\/=]+$/.test(u) ? u : ''; }
+// خلية CSV آمنة: علامات التنصيص مضاعفة، وما يبدأ بـ = + - @ يُسبق بفاصلة عليا فلا يفسّره Excel صيغة
+function csvCell(v){ let t = String(v==null?'':v); if(/^[=+\-@\t\r]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g,'""') + '"'; }
 function escH(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // ─── تنسيق المبالغ: الجزء الصحيح عادي، الكسر (فلس) بخط أصغر ───
@@ -2383,7 +2398,7 @@ function renderExecTab(app){
 }
 
 async function seedIfEmpty(){
-  const {count} = await db.from('users').select('*', {count:'exact', head:true});
+  const {count} = await db.from('users').select('id', {count:'exact', head:true});
   if(count && count>0) return;
   await dbCheck(await db.from('companies').insert([{id:'co_qayam', name_ar:'شركة القيم الكويتية', name_en:'Qayam Kuwait Company', code:'QYM', hq_code:'HQ', primary_color:'#C0392B'}]), 'زرع بيانات الشركة الافتراضية');
   await dbCheck(await db.from('centers').insert([{id:'c_qortoba', name:'مركز شباب قرطبة', letterhead_data:null, company_id:'co_qayam', code:'QRT'}]), 'زرع بيانات المركز الافتراضي');
@@ -2815,7 +2830,7 @@ async function renderVerifyPage(reqId){
 
         <!-- رأس الصفحة: شعار يسار + اسم وبيان يمينه -->
         <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);display:flex;align-items:center;gap:14px;">
-          ${company && (company.brand_logo_data || company.logo_data) ? `<img src="${company.brand_logo_data || company.logo_data}" style="height:52px;width:52px;object-fit:contain;flex-shrink:0;border-radius:8px;">` : ''}
+          ${company && (company.brand_logo_data || company.logo_data) ? `<img src="${escH(company.brand_logo_data || company.logo_data)}" style="height:52px;width:52px;object-fit:contain;flex-shrink:0;border-radius:8px;">` : ''}
           <div style="flex:1;min-width:0;">
             <div style="font-size:17px;font-weight:700;line-height:1.3;">${esc(company ? company.name_ar : 'نظام الصرف')}</div>
             <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">تحقق من صحة سند الصرف</div>
@@ -3116,7 +3131,7 @@ function numberToArabicWords(n){
     if(num===0) return '';
     if(num===1) return singular;
     if(num===2) return dual;
-    if(num>=3 && num<=10) return threeDigits(num, true) + ' ' + plural;
+    if(num>=3 && num<=10) return threeDigits(num, false) + ' ' + plural;   // ألف ومليون مذكّران: ثلاثة آلاف لا ثلاث آلاف
     return threeDigits(num, feminine) + ' ' + singular;
   }
   if(n===0) return 'صفر';
@@ -3133,11 +3148,15 @@ function numberToArabicWords(n){
 }
 
 function amountToArabicWords(amount){
-  const dinars = Math.floor(amount);
-  const fils = Math.round((amount - dinars) * 1000);
+  // التقريب على مستوى الفلس أولاً، فلا يصير 1.9996 «دينار وألف فلس»
+  const totalFils = Math.round(Number(amount||0) * 1000);
+  const dinars = Math.floor(totalFils / 1000);
+  const fils = totalFils % 1000;
   let text = '';
   if(dinars>0){
-    if(dinars===2){
+    if(dinars===1){
+      text += 'دينار كويتي واحد';
+    } else if(dinars===2){
       text += 'ديناران كويتيان';
     } else {
       text += numberToArabicWords(dinars) + (dinars===1?' دينار كويتي' : (dinars>=3&&dinars<=10)?' دنانير كويتية':' دينار كويتي');
@@ -3145,7 +3164,7 @@ function amountToArabicWords(amount){
   }
   if(fils>0){
     if(text) text += ' و';
-    text += numberToArabicWords(fils) + ' فلس';
+    text += fils===1 ? 'فلس واحد' : fils===2 ? 'فلسان' : numberToArabicWords(fils) + ' فلس';
   }
   if(!text) text = 'صفر دينار كويتي';
   return 'فقط ' + text + ' لا غير';
@@ -3750,7 +3769,7 @@ function renderTopbar(){
   const bellBtn = `<button type="button" class="bell-btn" onclick="toggleBell(event)" title="الإشعارات" aria-label="الإشعارات"><svg class="tb-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="bell-badge${bn.badge?' on':''}" id="bellBadge">${bn.badge>99?'99+':bn.badge}</span></button>`;
   const companySwitcher = (state.myCompanyIds && state.myCompanyIds.length>1)
     ? `<select class="tb-company" onchange="switchCompany(this.value)" style="border-radius:6px;padding:8px 10px;font-size:13px;border:1px solid #2E4356;background:#2E4356;color:#fff;">
-        ${state.myCompanyIds.map(id=>{ const c = state.companies.find(x=>x.id===id); return `<option value="${id}" ${id===state.currentCompanyId?'selected':''}>${c?c.nameAr:id}</option>`; }).join('')}
+        ${state.myCompanyIds.map(id=>{ const c = state.companies.find(x=>x.id===id); return `<option value="${escH(id)}" ${id===state.currentCompanyId?'selected':''}>${escH(c?c.nameAr:id)}</option>`; }).join('')}
       </select>`
     : '';
   const impersonateSwitcher = (state.user.role==='admin' && !state.impersonatingFromAdmin)
@@ -4161,7 +4180,7 @@ function renderDuplicateList(app){
       <div class="list-item" onclick="duplicateFromRequest('${r.id}')">
         <div class="li-main">
           <b>${escH(r.reason)} — ${escH(r.number)}</b>
-          <span>${r.beneficiaries.map(b=>b.name).join('، ')} · ${fmtKWDHtml(r.totalAmount)} د.ك</span>
+          <span>${escH(r.beneficiaries.map(b=>b.name).join('، '))} · ${fmtKWDHtml(r.totalAmount)} د.ك</span>
         </div>
         ${r.isRecurring ? `<span class="badge badge-approved">متكرر</span>` : ''}
       </div>
@@ -4186,13 +4205,17 @@ function editRequest(id){
 
 async function pushHistory(req, entry){
   const result = await db.from('request_history').insert({request_id:req.id, step:entry.step, actor:entry.actor, user_id:entry.userId, action:entry.action, note:entry.note, time:entry.time, signature_override: entry.signatureOverride||null});
-  await dbCheck(result, 'حفظ سجل الإجراء');
+  if(!(await dbCheck(result, 'حفظ سجل الإجراء'))) return false;
   req.history.push(entry);
+  return true;
 }
 async function setRequestStatus(req, newStatus){
-  const result = await db.from('requests').update({status:newStatus}).eq('id', req.id);
-  await dbCheck(result, 'تحديث حالة الطلب');
+  const result = await db.from('requests').update({status:newStatus}).eq('id', req.id).select('id');
+  if(!(await dbCheck(result, 'تحديث حالة الطلب'))) return false;
+  // تحديث لم يطابق أي صف (صلاحية أو طلب تغيّر) يُعد فشلاً، لا نجاحاً صامتاً
+  if(!result.data || !result.data.length){ showToast('تعذّر تحديث حالة الطلب: لم يعد متاحاً لك. حدّث الصفحة.','error'); return false; }
   req.status = newStatus;
+  return true;
 }
 
 function deleteRequestCfo(id){
@@ -4697,11 +4720,13 @@ async function submitDraftInner(){
   d.beneficiaries.forEach(b=>{
     const name = (b.name||'').trim();
     if(!name) return;
-    const amount = parseFloat(b.amount);
-    const deduction = parseFloat(b.deduction) || 0;
-    const extra = parseFloat(b.extra) || 0;
+    // الدينار بثلاث خانات (فلس): يُقرَّب كل مبلغ حتى لا تتراكم كسور الحساب العشري في المجاميع
+    const r3 = v => Math.round(v*1000)/1000;
+    const amount = r3(parseFloat(b.amount));
+    const deduction = r3(parseFloat(b.deduction) || 0);
+    const extra = r3(parseFloat(b.extra) || 0);
     if(isNaN(amount) || amount<=0){ hasInvalidAmount = true; }
-    if(deduction < 0 || deduction > amount){ badDeduction = true; }
+    if(deduction < 0 || deduction > amount || extra < 0){ badDeduction = true; }
     if(!(b.statement||'').trim()){ missingStatement = true; }
     beneficiaries.push({
       name, nameEn:(b.nameEn||'').trim(), iban:(b.iban||'').trim(), civilId:(b.civilId||'').trim(),
@@ -4715,7 +4740,7 @@ async function submitDraftInner(){
   });
   if(beneficiaries.length===0){ showToast('الرجاء إدخال بيانات مستفيد واحد على الأقل','error'); return; }
   if(hasInvalidAmount){ showToast('الرجاء إدخال مبلغ صحيح لكل مستفيد','error'); return; }
-  if(badDeduction){ showToast('قيمة الخصم غير صحيحة (يجب ألا تتجاوز المبلغ)','error'); return; }
+  if(badDeduction){ showToast('قيمة الخصم أو الإضافي غير صحيحة (لا سالب، والخصم لا يتجاوز المبلغ)','error'); return; }
   if(missingStatement){ showToast('حقل البيان إلزامي لكل مستفيد','error'); return; }
 
   for(const b of beneficiaries){
@@ -4739,7 +4764,7 @@ async function submitDraftInner(){
   }
   if(state.editingReqId && ATT_REQ_QUEUE.length) await attFlushReqQueue(state.editingReqId);
 
-  const total = beneficiaries.reduce((s,b)=>s + Math.max(b.amount - b.deduction + (b.extra||0), 0), 0);
+  const total = Math.round(beneficiaries.reduce((s,b)=>s + Math.max(b.amount - b.deduction + (b.extra||0), 0), 0)*1000)/1000;
   const beneRows = beneficiaries.map(b=>({name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, statement:b.statement, notes:b.notes, amount:b.amount, deduction:b.deduction, deduction_note:b.deductionNote, extra:b.extra||0, extra_note:b.extraNote}));
 
   if(state.editingReqId){
@@ -4754,32 +4779,33 @@ async function submitDraftInner(){
       chg.push('البند: ' + (bn ? bn : 'غير محدد'));
     }
     if(req.reason !== reasonInput) chg.push('العنوان');
-    if(Math.abs((Number(req.totalAmount)||0) - total) > 0.0005) chg.push('المبلغ: ' + fmtKWDPlain(total) + ' د.ك');
+    if(Math.abs((Number(req.totalAmount)||0) - total) > 0.0005) chg.push('المبلغ: ' + fmtKWDPlain(total));
     if(wasRecurring !== nowRecurring) chg.push(nowRecurring ? 'صار متكرراً' : 'لم يعد متكرراً');
     const histEntry = {step: req.status, actor: state.user.name, userId: state.user.id, action:'تعديل الطلب', note: chg.join(' · '), time: fmtDate()};
+    // الترتيب يحمي من نصف تعديل: المستفيدون الجدد أولاً، ثم بيانات الطلب، ثم حذف القدامى.
+    // إن فشلت خطوة يُتراجع عمّا قبلها فيبقى الطلب كما كان تماماً.
+    const {data: oldRows} = await db.from('request_beneficiaries').select('id').eq('request_id', req.id);
+    const oldIds = (oldRows||[]).map(r=>r.id);
+    const insertResult = await db.from('request_beneficiaries').insert(beneRows.map(r=>({...r, request_id:req.id}))).select('id');
+    if(insertResult.error){
+      console.error('إضافة المستفيدين الجدد', insertResult.error);
+      showToast('فشل حفظ المستفيدين الجدد: ' + arDbMessage(insertResult.error) + ' — أُلغي التعديل، والطلب كما كان.', 'error');
+      return;
+    }
+    const newIds = (insertResult.data||[]).map(r=>r.id);
     // budget_item_id وis_recurring كانا ناقصَين من هذه الجملة، فكان الاختيار يضيع بلا أثر
-    if(!(await dbCheck(await db.from('requests').update({reason:reasonInput, detailed_reason:detailedReasonInput||null, total_amount:total, status:newStatus, limit_exceeded:newLimitExceeded, budget_item_id:budgetItemId, is_recurring:nowRecurring}).eq('id', req.id), 'تحديث بيانات الطلب'))) return;
+    const upd = await db.from('requests').update({reason:reasonInput, detailed_reason:detailedReasonInput||null, total_amount:total, status:newStatus, limit_exceeded:newLimitExceeded, budget_item_id:budgetItemId, is_recurring:nowRecurring}).eq('id', req.id).select('id');
+    if(!(await dbCheck(upd, 'تحديث بيانات الطلب')) || !upd.data || !upd.data.length){
+      if(newIds.length) await db.from('request_beneficiaries').delete().in('id', newIds);
+      if(!upd.error) showToast('تعذّر حفظ التعديل: الطلب لم يعد قابلاً للتعديل. حدّث الصفحة.','error');
+      return;
+    }
     req.limitExceeded = newLimitExceeded;
     req.budgetItemId = budgetItemId;
     req.isRecurring = nowRecurring;
     if((req.approvalSteps||[]).length){
       await dbCheck(await db.from('request_approval_steps').update({status:'pending', acted_at:null}).eq('request_id', req.id), 'إعادة ضبط مسار الاعتماد');
       req.approvalSteps.forEach(s=>{ s.status='pending'; s.actedAt=null; });
-    }
-
-    const {data: oldRows} = await db.from('request_beneficiaries').select('id').eq('request_id', req.id);
-    const oldIds = (oldRows||[]).map(r=>r.id);
-
-    const insertResult = await db.from('request_beneficiaries').insert(beneRows.map(r=>({...r, request_id:req.id})));
-    if(insertResult.error){
-      console.error('إضافة المستفيدين الجدد', insertResult.error);
-      const e = insertResult.error;
-      let msg = 'فشل حفظ المستفيدين الجدد: ' + e.message;
-      if(e.details) msg += ' | ' + e.details;
-      if(e.hint) msg += ' | ' + e.hint;
-      msg += ' — تم إلغاء التعديل، المستفيدون القدامى ما زالوا محفوظين.';
-      showToast(msg, 'error');
-      return;
     }
     if(oldIds.length>0){
       await dbCheck(await db.from('request_beneficiaries').delete().in('id', oldIds), 'حذف المستفيدين القدامى بعد التحديث');
@@ -4890,8 +4916,9 @@ async function submitDraftInner(){
   });
   if(!(await dbCheck(reqInsert, 'إنشاء الطلب'))) return;
   const stepRows = chain.map((s,i)=>({id:'as_'+req.id+'_'+i, request_id:req.id, approver_id:s.approverId, sequence_order:i+1, role_label:s.roleLabel, status:'pending', kind:'primary', activated_at: i===0 ? new Date().toISOString() : null}));
-  const stepsInsert = await db.from('request_approval_steps').insert(stepRows);
-  if(!(await dbCheck(stepsInsert, 'بناء مسار الاعتماد'))) return;
+  const stepsInsert = stepRows.length ? await db.from('request_approval_steps').insert(stepRows) : {error:null};
+  // فشل بناء المسار لا يترك طلباً يتيماً بلا معتمدين في القاعدة: يُحذف الطلب ويبقى النموذج كما هو
+  if(!(await dbCheck(stepsInsert, 'بناء مسار الاعتماد'))){ await db.from('requests').delete().eq('id', req.id); return; }
   req.approvalSteps = stepRows.map(s=>({id:s.id, approverId:s.approver_id, sequenceOrder:s.sequence_order, roleLabel:s.role_label, status:'pending', actedAt:null, note:'', kind:'primary', escalatedFrom:null, activatedAt:s.activated_at}));
   const beneInsert = await db.from('request_beneficiaries').insert(beneRows.map(r=>({...r, request_id:req.id})));
   if(beneInsert.error){
@@ -5000,6 +5027,9 @@ function startReviewTicker(){
 
 async function rebuildChainIfUntouched(req){
   if(!req || req.isCancelled) return false;
+  // يُعاد البناء من متصفح صاحب الطلب أو مدير النظام فقط: غيرهما قد لا يرى كل المستخدمين فيحسب مساراً ناقصاً،
+  // والخادم يمنعه من الكتابة أصلاً فيبقى الطلب بلا خطوات
+  if(!state.user || !(state.user.role==='admin' || state.user.id===req.createdById)) return false;
   const isNewEngine = req.status==='pending_decision';
   const isOldEngine = OLD_DECISION_STATUSES.includes(req.status);
   if(!isNewEngine && !isOldEngine) return false;
@@ -5023,12 +5053,17 @@ async function rebuildChainIfUntouched(req){
   const currentChainSig = (req.approvalSteps||[]).map(s=>s.approverId).join(',');
   const freshChainSig = freshChain.map(s=>s.approverId).join(',');
   if((isOldEngine && freshChain.length===0) || currentChainSig===freshChainSig) return false;
+  const oldRows = (req.approvalSteps||[]).map(s=>({id:s.id, request_id:req.id, approver_id:s.approverId, sequence_order:s.sequenceOrder, role_label:s.roleLabel, status:'pending', kind:s.kind||'primary', activated_at:s.activatedAt||null}));
   const delResult = await db.from('request_approval_steps').delete().eq('request_id', req.id);
   if(delResult.error) return false;
   const stepRows = freshChain.map((s,i)=>({id:'as_'+req.id+'_a'+Date.now()+'_'+i, request_id:req.id, approver_id:s.approverId, sequence_order:i+1, role_label:s.roleLabel, status:'pending'}));
   if(stepRows.length){
     const insResult = await db.from('request_approval_steps').insert(stepRows);
-    if(insResult.error) return false;
+    if(insResult.error){
+      // فشل الإدراج بعد الحذف: يُعاد المسار القديم كما كان حتى لا يبقى الطلب بلا معتمدين
+      if(oldRows.length) await db.from('request_approval_steps').insert(oldRows);
+      return false;
+    }
   }
   req.approvalSteps = stepRows.map(s=>({id:s.id, approverId:s.approver_id, sequenceOrder:s.sequence_order, roleLabel:s.role_label, status:'pending', actedAt:null, note:''}));
   const newStatus = freshStatus;
@@ -5036,8 +5071,8 @@ async function rebuildChainIfUntouched(req){
   const prevSig = currentChainSig ? currentChainSig.split(',').map(nmOf).join(' ← ') : 'لا أحد';
   const nextSig = freshChain.length ? freshChain.map(x=>nmOf(x.approverId)).join(' ← ') : 'لا أحد';
   if(newStatus && newStatus !== req.status){
-    await db.from('requests').update({status:newStatus}).eq('id', req.id);
-    req.status = newStatus;
+    const stR = await db.from('requests').update({status:newStatus}).eq('id', req.id).select('id');
+    if(!stR.error && stR.data && stR.data.length) req.status = newStatus;
   }
   // سجل واضح بكل تغيير تلقائي: من أي مسار إلى أي مسار ولماذا (بعد تعديل الهيكل قبل أي اعتماد)
   try{ await pushHistory(req, {step:req.status, actor:'النظام', userId:(state.user||{}).id||null, action:'تحديث تلقائي لمسار الاعتماد',
@@ -5148,25 +5183,31 @@ async function finalizeApprove(req, signatureOverride){
   const label = 'اعتماد';
   let delegationNote = (req.status==='pending_transfer_approval' && state.user.role!=='cfo') ? 'بالتفويض عن المدير المالي' : '';
   if(req.status==='pending_decision'){ const _st = myDecisionStep(req, state.user.id); if(_st && _st.approverId!==state.user.id) delegationNote = 'بالإنابة عن '+hoUserName(_st.approverId); }
-  await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action: label, note:delegationNote, time: fmtDate(), signatureOverride: signatureOverride||''});
+  const histEntry = {step:req.status, actor: state.user.name, userId: state.user.id, action: label, note:delegationNote, time: fmtDate(), signatureOverride: signatureOverride||''};
+  // في مرحلة القرار يُسجَّل الاعتماد بعد نجاح اعتماد الخطوة نفسها، لا قبله
+  if(req.status!=='pending_decision'){ if(!(await pushHistory(req, histEntry))) return; }
   let newStatus;
   if(req.status==='pending_decision'){
     const group = currentDecisionGroup(req);
-    const step = group.find(s=>s.approverId===state.user.id) || currentDecisionStep(req);
+    const step = group.find(s=>s.approverId===state.user.id) || myDecisionStep(req, state.user.id);
     const nowIso = new Date().toISOString();
+    if(!step){ showToast('لا توجد خطوة اعتماد بانتظارك في هذا الطلب. حدّث الصفحة.','error'); return; }
     if(step){
-      await db.from('request_approval_steps').update({status:'approved', acted_at:nowIso}).eq('id', step.id);
+      const stR = await db.from('request_approval_steps').update({status:'approved', acted_at:nowIso}).eq('id', step.id).eq('status','pending').select('id');
+      if(!(await dbCheck(stR, 'اعتماد خطوتك'))) return;
+      if(!stR.data || !stR.data.length){ showToast('تعذّر اعتماد خطوتك: لم تعد بانتظارك (ربما حسمها غيرك). حدّث الصفحة.','error'); return; }
+      if(!(await pushHistory(req, histEntry))) return;
       step.status='approved'; step.actedAt=nowIso;
       // بقية معتمدي نفس الخطوة (الأصلي أو المحال إليه): تُغلق لأن الأسبق حسم
       for(const o of group){
         if(o===step || o.status!=='pending') continue;
-        await db.from('request_approval_steps').update({status:'skipped', acted_at:nowIso, note:'أُغلقت لاعتماد '+state.user.name}).eq('id', o.id);
+        await dbCheck(await db.from('request_approval_steps').update({status:'skipped', acted_at:nowIso, note:'أُغلقت لاعتماد '+state.user.name}).eq('id', o.id), 'إغلاق خطوة موازية');
         o.status='skipped'; o.actedAt=nowIso;
       }
       // لو هذا المعتمِد نفسه وارد بخطوة لاحقة بنفس الطلب فلا نسأله مرة ثانية
       for(const o of (req.approvalSteps||[])){
         if(o.status==='pending' && o.approverId===state.user.id && o.sequenceOrder>step.sequenceOrder){
-          await db.from('request_approval_steps').update({status:'skipped', acted_at:nowIso, note:'اعتُمدت ضمن خطوة سابقة'}).eq('id', o.id);
+          await dbCheck(await db.from('request_approval_steps').update({status:'skipped', acted_at:nowIso, note:'اعتُمدت ضمن خطوة سابقة'}).eq('id', o.id), 'تخطي خطوة مكررة');
           o.status='skipped'; o.actedAt=nowIso;
         }
       }
@@ -5174,7 +5215,7 @@ async function finalizeApprove(req, signatureOverride){
       const esc = state.pendingEscalate; state.pendingEscalate = null;
       if(esc && esc.reqId===req.id && esc.targetId){
         for(const o of (req.approvalSteps||[]).filter(x=>x.sequenceOrder>step.sequenceOrder).sort((a,b)=>b.sequenceOrder-a.sequenceOrder)){
-          await db.from('request_approval_steps').update({sequence_order:o.sequenceOrder+1}).eq('id', o.id);
+          await dbCheck(await db.from('request_approval_steps').update({sequence_order:o.sequenceOrder+1}).eq('id', o.id), 'ترتيب خطوات الإحالة');
           o.sequenceOrder += 1;
         }
         const row = {id:'as_'+req.id+'_m'+Date.now(), request_id:req.id, approver_id:esc.targetId, sequence_order:step.sequenceOrder+1, role_label:'pending_decision', status:'pending', kind:'primary', escalated_from:state.user.id};
@@ -5192,7 +5233,7 @@ async function finalizeApprove(req, signatureOverride){
     if(nextGroup.length){
       const nowIso2 = new Date().toISOString();
       for(const o of nextGroup){
-        await db.from('request_approval_steps').update({activated_at:nowIso2}).eq('id', o.id);
+        await dbCheck(await db.from('request_approval_steps').update({activated_at:nowIso2}).eq('id', o.id), 'بدء مهلة الخطوة التالية');
         o.activatedAt = nowIso2;
       }
     }
@@ -5218,7 +5259,7 @@ async function finalizeApprove(req, signatureOverride){
     const i = tailOrder.indexOf(req.status);
     newStatus = i>=0 ? tailOrder[i+1] : 'pending_transfer_request';
   }
-  await setRequestStatus(req, newStatus);
+  if(!(await setRequestStatus(req, newStatus))){ render(); return; }
   showToast('تم اعتماد الطلب', 'success');
   render();
 }
@@ -5259,14 +5300,14 @@ async function markDisbursed(req){
       amount: req.totalAmount,
       budgetItemId: req.budgetItemId,
       beneficiary: who,
-      description: `صرف الطلب ${req.number || ''} — ${escH(req.reason)}`.trim(),
+      description: `صرف الطلب ${req.number || ''} — ${req.reason||''}`.trim(),
       sourceType: 'request',
       sourceId: req.id
     });
     if(!posted) return;   // الرسالة ظهرت من postTransaction
   }
-  await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action:'تم الصرف', note:'', time: fmtDate()});
-  await setRequestStatus(req, 'completed');
+  if(!(await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action:'تم الصرف', note:'', time: fmtDate()}))){ render(); return; }
+  if(!(await setRequestStatus(req, 'completed'))){ render(); return; }
   showToast('تم تأكيد الصرف وتسجيله في دفتر الحركات', 'success');
   render();
 }
@@ -5976,15 +6017,18 @@ async function confirmRejectModal(){
   state.rejectModalReqId = null;
   let _rejNote = note;
   if(req.status==='pending_decision'){ const _st2 = myDecisionStep(req, state.user.id); if(_st2 && _st2.approverId!==state.user.id) _rejNote = '(بالإنابة عن '+hoUserName(_st2.approverId)+') '+note; }
-  await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action:'رفض الطلب', note:_rejNote, time: fmtDate()});
   const rgroup = req.status==='pending_decision' ? currentDecisionGroup(req) : [];
-  const step = req.status==='pending_decision' ? (rgroup.find(s=>s.approverId===state.user.id) || currentDecisionStep(req)) : (req.approvalSteps||[]).find(s=>s.roleLabel===req.status);
+  const step = req.status==='pending_decision' ? (rgroup.find(s=>s.approverId===state.user.id) || myDecisionStep(req, state.user.id)) : (req.approvalSteps||[]).find(s=>s.roleLabel===req.status);
+  if(req.status==='pending_decision' && !step){ showToast('لا توجد خطوة اعتماد بانتظارك في هذا الطلب. حدّث الصفحة.','error'); render(); return; }
   if(step){
-    await db.from('request_approval_steps').update({status:'rejected', acted_at:new Date().toISOString(), note}).eq('id', step.id);
+    const rjR = await db.from('request_approval_steps').update({status:'rejected', acted_at:new Date().toISOString(), note}).eq('id', step.id).eq('status','pending').select('id');
+    if(!(await dbCheck(rjR, 'رفض خطوتك'))){ render(); return; }
+    if(!rjR.data || !rjR.data.length){ showToast('تعذّر الرفض: الخطوة لم تعد بانتظارك. حدّث الصفحة.','error'); render(); return; }
     step.status='rejected'; step.actedAt=new Date().toISOString();
     for(const o of rgroup){ if(o!==step && o.status==='pending'){ await db.from('request_approval_steps').update({status:'skipped', acted_at:new Date().toISOString()}).eq('id', o.id); o.status='skipped'; } }
   }
-  await setRequestStatus(req, 'rejected');
+  if(!(await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action:'رفض الطلب', note:_rejNote, time: fmtDate()}))){ render(); return; }
+  if(!(await setRequestStatus(req, 'rejected'))){ render(); return; }
   showToast('تم رفض الطلب', 'success');
   render();
 }
@@ -6261,10 +6305,10 @@ function renderSignatureArea(req){
       out += `<div style="position:absolute;left:${cfg.date.x*PX_TO_MM}mm;top:${cfg.date.y*PX_TO_MM}mm;width:${cfg.date.w*PX_TO_MM}mm;height:${cfg.date.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:${cfg.date.fontSize||10}px;color:var(--muted);">${toWesternDigits(approveEntry.time)||''}</div>`;
     }
     if(cfg.signature && cfg.signature.visible && sigImg){
-      out += `<div style="position:absolute;left:${cfg.signature.x*PX_TO_MM}mm;top:${cfg.signature.y*PX_TO_MM}mm;width:${cfg.signature.w*PX_TO_MM}mm;height:${cfg.signature.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="${sigImg}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>`;
+      out += `<div style="position:absolute;left:${cfg.signature.x*PX_TO_MM}mm;top:${cfg.signature.y*PX_TO_MM}mm;width:${cfg.signature.w*PX_TO_MM}mm;height:${cfg.signature.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="${escH(sigImg)}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>`;
     }
     if(cfg.stamp && cfg.stamp.visible && stampImg){
-      out += `<div style="position:absolute;left:${cfg.stamp.x*PX_TO_MM}mm;top:${cfg.stamp.y*PX_TO_MM}mm;width:${cfg.stamp.w*PX_TO_MM}mm;height:${cfg.stamp.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="${stampImg}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>`;
+      out += `<div style="position:absolute;left:${cfg.stamp.x*PX_TO_MM}mm;top:${cfg.stamp.y*PX_TO_MM}mm;width:${cfg.stamp.w*PX_TO_MM}mm;height:${cfg.stamp.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="${escH(stampImg)}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>`;
     }
     return out;
   }).join('');
@@ -6295,10 +6339,10 @@ function renderMiniSignatureRow(req){
       out += `<div style="position:absolute;left:${cfg.title.x*PX_TO_MM}mm;top:${cfg.title.y*PX_TO_MM}mm;width:${cfg.title.w*PX_TO_MM}mm;height:${cfg.title.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:${cfg.title.fontSize||7}px;" class="sign-role-title">${escH(roleTitle)}</div>`;
     }
     if(cfg.signature && cfg.signature.visible && sigImg){
-      out += `<div style="position:absolute;left:${cfg.signature.x*PX_TO_MM}mm;top:${cfg.signature.y*PX_TO_MM}mm;width:${cfg.signature.w*PX_TO_MM}mm;height:${cfg.signature.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="${sigImg}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>`;
+      out += `<div style="position:absolute;left:${cfg.signature.x*PX_TO_MM}mm;top:${cfg.signature.y*PX_TO_MM}mm;width:${cfg.signature.w*PX_TO_MM}mm;height:${cfg.signature.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="${escH(sigImg)}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>`;
     }
     if(cfg.stamp && cfg.stamp.visible && stampImg){
-      out += `<div style="position:absolute;left:${cfg.stamp.x*PX_TO_MM}mm;top:${cfg.stamp.y*PX_TO_MM}mm;width:${cfg.stamp.w*PX_TO_MM}mm;height:${cfg.stamp.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="${stampImg}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>`;
+      out += `<div style="position:absolute;left:${cfg.stamp.x*PX_TO_MM}mm;top:${cfg.stamp.y*PX_TO_MM}mm;width:${cfg.stamp.w*PX_TO_MM}mm;height:${cfg.stamp.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="${escH(stampImg)}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>`;
     }
     if(cfg.date && cfg.date.visible){
       out += `<div style="position:absolute;left:${cfg.date.x*PX_TO_MM}mm;top:${cfg.date.y*PX_TO_MM}mm;width:${cfg.date.w*PX_TO_MM}mm;height:${cfg.date.h*PX_TO_MM}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:${cfg.date.fontSize||6}px;color:var(--muted);">${toWesternDigits(approveEntry.time)||''}</div>`;
@@ -6334,14 +6378,14 @@ function buildBeneficiaryTable(b, i){
     extraRows.push(`
     <tr class="sub-row${isLast?' sub-row-last':''}${altClass}">
       <td style="color:var(--doc-red);"><div class="amt-signed"><span class="amt-number" dir="ltr">-${fmtKWDHtml(b.deduction)}</span></div></td>
-      <td class="cell-right" style="color:var(--doc-red);">خصم${b.deductionNote ? ' ' + b.deductionNote : ''}</td>
+      <td class="cell-right" style="color:var(--doc-red);">خصم${b.deductionNote ? ' ' + escH(b.deductionNote) : ''}</td>
     </tr>`);
   }
   if(b.extra>0){
     extraRows.push(`
     <tr class="sub-row sub-row-last${altClass}">
       <td style="color:var(--green);"><div class="amt-signed"><span class="amt-number" dir="ltr">+${fmtKWDHtml(b.extra)}</span></div></td>
-      <td class="cell-right" style="color:var(--green);">إضافي${b.extraNote ? ' ' + b.extraNote : ''}</td>
+      <td class="cell-right" style="color:var(--green);">إضافي${b.extraNote ? ' ' + escH(b.extraNote) : ''}</td>
     </tr>`);
   }
   const mainBorder = rowCount>1 ? 'border-bottom:none;padding-bottom:0;' : '';
@@ -6353,12 +6397,12 @@ function buildBeneficiaryTable(b, i){
         ${b.nameEn ? `<div class="cell-left">${escH(b.nameEn)}</div>` : ''}
       </td>
       <td rowspan="${rowCount}">
-        <div class="cell-right">${b.statement || '—'}</div>
-        <div class="cell-left" style="font-size:10.5px;">${b.civilId || '—'}</div>
-        <div class="cell-left" style="font-size:10.5px;word-break:break-all;">${ibanClean || '—'}</div>
+        <div class="cell-right">${escH(b.statement || '—')}</div>
+        <div class="cell-left" style="font-size:10.5px;">${escH(b.civilId || '—')}</div>
+        <div class="cell-left" style="font-size:10.5px;word-break:break-all;">${escH(ibanClean || '—')}</div>
       </td>
       <td style="${mainBorder}"><div class="amt-signed"><span class="amt-number" dir="ltr">${fmtKWDHtml(b.amount)}</span></div></td>
-      <td class="cell-right" style="${mainBorder}">${b.notes || ''}</td>
+      <td class="cell-right" style="${mainBorder}">${escH(b.notes || '')}</td>
       <td rowspan="${rowCount}" style="font-weight:700;"><div class="amt-signed"><span class="amt-number" dir="ltr" style="width:70px;">${fmtKWDHtml(net)}</span></div></td>
     </tr>${extraRows.join('')}`;
   return `
@@ -6561,7 +6605,7 @@ function renderPrintPreview(app){
   const totalPages = letterPages.length + attachmentChunks.length;
   const footerSpec = printFooterSpec(req);
   const mainContentHtml = letterPages.map((pageHtml, idx)=>`
-    <div class="doc-page with-letterhead" style="background-image:url('${letterhead}')">
+    <div class="doc-page with-letterhead" style="background-image:url('${escH(String(letterhead||'').replace(/['\\]/g,''))}')">
       ${cancelledWatermark}
       ${pageHtml}
       ${renderRequestQRCode(req)}
@@ -7016,7 +7060,7 @@ function exportAnalyticsCSV(){
   const meta = state._analyticsMeta || {};
   let csv = '\uFEFF';
   csv += 'الجهة,عدد الطلبات المصروفة,إجمالي المصروف (د.ك)\n';
-  rows.forEach(r=>{ csv += `"${escH(r.name)}",${r.count},${r.total}\n`; });
+  rows.forEach(r=>{ csv += `${csvCell(r.name)},${r.count},${r.total}\n`; });
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -7485,9 +7529,9 @@ function renderAccount(app){
       <h2 style="margin:0 0 4px;font-size:15px;">بياناتي</h2>
       <div class="row">
         <div style="--fw:280px;"><label>الجهة التابع لها</label>
-          <input type="text" value="${getUserUnit(me)}" disabled style="background:#F0EEE7;"></div>
+          <input type="text" value="${escH(getUserUnit(me))}" disabled style="background:#F0EEE7;"></div>
         <div style="--fw:280px;"><label>المدير المباشر</label>
-          <input type="text" value="${(() => { const mgr = state.users.find(u=>u.id===me.managerId); return mgr ? (mgr.name + ' — ' + findRole(mgr.role).name) : 'غير محدد'; })()}" disabled style="background:#F0EEE7;"></div>
+          <input type="text" value="${escH((() => { const mgr = state.users.find(u=>u.id===me.managerId); return mgr ? (mgr.name + ' — ' + findRole(mgr.role).name) : 'غير محدد'; })())}" disabled style="background:#F0EEE7;"></div>
       </div>
       <div class="row">
         <div><label>الاسم (يظهر على المستندات والتوقيعات)</label>
@@ -7537,7 +7581,7 @@ function renderAccount(app){
       ` : ''}
 
       <label style="margin-top:18px;">صورة التوقيع (إن وُجدت)</label>
-      ${me.signatureData ? `<div class="sign-box"><img src="${me.signatureData}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:12px;color:var(--muted);">التوقيع الحالي</span></div>` : `<p class="file-hint">لا يوجد توقيع محفوظ.</p>`}
+      ${me.signatureData ? `<div class="sign-box"><img src="${escH(me.signatureData)}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:12px;color:var(--muted);">التوقيع الحالي</span></div>` : `<p class="file-hint">لا يوجد توقيع محفوظ.</p>`}
       <input id="accSignFile" type="file" accept="image/*">
       <div class="add-beneficiary" onclick="toggleSignatureCanvas()">أو ارسم توقيعك بالماوس/اللمس</div>
       <div id="signCanvasWrap" style="display:none;margin-top:8px;">
@@ -7559,11 +7603,11 @@ function renderAccount(app){
         <p class="file-hint" id="canvasSignStatus"></p>
       </div>
       <label style="margin-top:14px;">صورة الختم (إن وُجد)</label>
-      ${me.stampData ? `<div class="sign-box"><img src="${me.stampData}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:12px;color:var(--muted);">الختم الحالي</span></div>` : `<p class="file-hint">لا يوجد ختم محفوظ.</p>`}
+      ${me.stampData ? `<div class="sign-box"><img src="${escH(me.stampData)}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:12px;color:var(--muted);">الختم الحالي</span></div>` : `<p class="file-hint">لا يوجد ختم محفوظ.</p>`}
       <input id="accStampFile" type="file" accept="image/*">
 
       <label style="margin-top:14px;">صورة الختم الثاني (اختياري — يُستخدم مثلاً لخطوة تأكيد الصرف بختم مختلف عن خطوة تم التحويل)</label>
-      ${me.stampData2 ? `<div class="sign-box"><img src="${me.stampData2}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:12px;color:var(--muted);">الختم الثاني الحالي</span></div>` : `<p class="file-hint">لا يوجد ختم ثاني محفوظ.</p>`}
+      ${me.stampData2 ? `<div class="sign-box"><img src="${escH(me.stampData2)}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:12px;color:var(--muted);">الختم الثاني الحالي</span></div>` : `<p class="file-hint">لا يوجد ختم ثاني محفوظ.</p>`}
       <input id="accStampFile2" type="file" accept="image/*">
 
     </div>
@@ -7858,7 +7902,7 @@ function renderSeqSignatures(req, context){
       const fam = b.fontFamily ? `font-family:${b.fontFamily};` : '';
       return `<div class="${cls}" style="${box(b)}font-size:${b.fontSize||9}px;font-weight:${b.fontWeight||dfltW};${fam}line-height:1.2;margin:0;">${escH(text)}</div>`;
     };
-    const img = (t, src)=>{ const b = cfg[t]; return (b && b.visible && src) ? `<div style="${box(b)}"><img src="${src}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>` : ''; };
+    const img = (t, src)=>{ const b = cfg[t]; return (b && b.visible && src) ? `<div style="${box(b)}"><img src="${escH(src)}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>` : ''; };
     html += txt('title', title, 'sign-role-title', '700') + txt('name', sl.actor, 'sign-name', '400') + txt('step', sl.step, 'sign-step', '400')
           + img('signature', sigImg) + img('stamp', stampImg) + txt('date', toWesternDigits(sl.time)||'', 'sign-date', '400');
   });
@@ -8633,7 +8677,7 @@ function renderCancelledArchive(app){
         <div class="li-main">
           <b>${escH(r.number)}</b>
           <span class="sub" style="display:block;">${escH(r.reason)} — ${fmtKWDHtml(r.totalAmount)} د.ك</span>
-          <span class="sub" style="display:block;font-size:11.5px;">أُبطل بواسطة ${canceller ? canceller.name : '—'} بتاريخ ${dateStr}</span>
+          <span class="sub" style="display:block;font-size:11.5px;">أُبطل بواسطة ${escH(canceller ? canceller.name : '—')} بتاريخ ${dateStr}</span>
         </div>
         <div class="actions-row" style="margin:0;">
           <button class="btn btn-ghost btn-xs" onclick="openRequest('${r.id}')">عرض</button>
@@ -8877,7 +8921,7 @@ function renderAdmin(app){
       <div class="list-item">
         <div class="li-main">
           <b>${escH(c.nameAr)}</b>
-          <span>رمز: ${c.code} · رمز الإدارة: ${c.hqCode}${c.taxNumber ? ' · '+c.taxNumber : ''}</span>
+          <span>رمز: ${escH(c.code)} · رمز الإدارة: ${escH(c.hqCode)}${c.taxNumber ? ' · '+escH(c.taxNumber) : ''}</span>
         </div>
         <div style="display:flex;gap:10px;">
           ${c.id===state.currentCompanyId ? `<button type="button" class="btn btn-sm btn-current" disabled title="هذه هي الشركة المعروضة حاليًا">✓ الشركة الحالية</button>` : `<button class="btn btn-ghost btn-sm" onclick="switchCompany('${c.id}')">التبديل إليها</button>`}
@@ -8974,7 +9018,7 @@ function renderAdmin(app){
       <div class="list-item">
         <div class="li-main">
           <b>${escH(u.name)}</b>
-          <span>${escH(findRole(u.role).name)} · ${getUserUnit(u)} · هاتف: ${escH(u.phone)} · الشركة: ${(state.companies.find(c=>c.id===u.companyId)||{}).nameAr || '⚠️ غير محددة'}${u.isGeneral ? ' · 🌐 مستخدم عام' : (u.companyId!==state.currentCompanyId ? ' · 🔗 مربوط من شركة أخرى' : '')}${u.noNextApprover||u.noRequestApprover ? ' · ⏹ مسار ينتهي عنده' : ''}</span>
+          <span>${escH(findRole(u.role).name)} · ${escH(getUserUnit(u))} · هاتف: ${escH(u.phone)} · الشركة: ${escH((state.companies.find(c=>c.id===u.companyId)||{}).nameAr || '⚠️ غير محددة')}${u.isGeneral ? ' · 🌐 مستخدم عام' : (u.companyId!==state.currentCompanyId ? ' · 🔗 مربوط من شركة أخرى' : '')}${u.noNextApprover||u.noRequestApprover ? ' · ⏹ مسار ينتهي عنده' : ''}</span>
         </div>
         <div style="display:flex;gap:10px;">
           <button class="btn btn-ghost btn-xs" onclick="editUser('${u.id}')">تعديل</button>
@@ -8994,7 +9038,7 @@ function renderAdmin(app){
       <div class="row">
         <div><label>اختر المستخدم</label>
           <select id="impersonateSelect">
-            ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${escH(u.name)} — ${escH(findRole(u.role).name)}${u.centerId ? ' ('+ (state.centers.find(c=>c.id===u.centerId)?.name||'') +')' : ''}</option>`).join('')}
+            ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${escH(u.name)} — ${escH(findRole(u.role).name)}${u.centerId ? ' ('+ escH(state.centers.find(c=>c.id===u.centerId)?.name||'') +')' : ''}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -9242,8 +9286,8 @@ function exportBudgetReportCSV(){
       const tot = hc ? computeBudgetItemStats(b.id,true) : own;
       const prefix = '  '.repeat(depth);
       const row = [
-        `"${prefix}${escH(b.name)}"`,
-        `"${BUDGET_TYPE_LABELS[b.type]||b.type}"`,
+        csvCell(prefix + (b.name||'')),
+        csvCell(BUDGET_TYPE_LABELS[b.type]||b.type),
         own.rev.toFixed(3),
         own.profit.toFixed(3),
         own.spent.toFixed(3),
@@ -10558,11 +10602,11 @@ function renderCompanyEditForm(){
       <div class="row">
         <div><label>الاسم بالعربي</label><input id="editCoNameAr" type="text" value="${escH(c.nameAr)}"></div>
         <div><label>الاسم بالإنجليزي</label><input id="editCoNameEn" type="text" value="${escH(c.nameEn||'')}"></div>
-        <div><label>الرقم الضريبي / السجل التجاري</label><input id="editCoTax" type="text" value="${c.taxNumber||''}"></div>
+        <div><label>الرقم الضريبي / السجل التجاري</label><input id="editCoTax" type="text" value="${escH(c.taxNumber||'')}"></div>
       </div>
       <div class="row">
-        <div><label>رمز الشركة</label><input id="editCoCode" type="text" value="${c.code}"></div>
-        <div><label>رمز الإدارة</label><input id="editCoHqCode" type="text" value="${c.hqCode}"></div>
+        <div><label>رمز الشركة</label><input id="editCoCode" type="text" value="${escH(c.code)}"></div>
+        <div><label>رمز الإدارة</label><input id="editCoHqCode" type="text" value="${escH(c.hqCode)}"></div>
         <div style="--fw:180px;"><label>اللون الرئيسي</label><input id="editCoColor" type="color" value="${c.primaryColor||'#C0392B'}" dir="ltr" style="height:40px;padding:2px;direction:ltr;max-width:180px;"></div>
       </div>
       <div class="row">
@@ -10718,7 +10762,7 @@ function renderCenterEditForm(){
         <div><label>تتبع الوحدة</label><select id="editCenterParent">${unitOptionsHtml(c.companyId, c.parentId||'', {noneLabel:'— تحت الشركة مباشرة —', excludeId:c.id})}</select></div>
       </div>
       <div class="row">
-        <div><label>رمز الوحدة</label><input id="editCenterCode" type="text" value="${c.code||''}"></div>
+        <div><label>رمز الوحدة</label><input id="editCenterCode" type="text" value="${escH(c.code||'')}"></div>
       </div>
       ${c.letterheadData ? `<div class="file-hint">✓ يوجد ترويسة خاصة محفوظة</div>` : ''}
       <label>تحديث صورة الترويسة (اختياري)</label>
@@ -11403,7 +11447,7 @@ function brandHintHtml(kind){ const sp = BRAND_SPECS[kind]; return `<div class="
 function brandImgBlock(kind, id, current){
   return `
     <div class="brand-img-block">
-      <div class="brand-preview">${current ? `<img src="${current}" alt="">` : '<span class="sub" style="font-size:12px;">لا توجد صورة</span>'}</div>
+      <div class="brand-preview">${current ? `<img src="${escH(current)}" alt="">` : '<span class="sub" style="font-size:12px;">لا توجد صورة</span>'}</div>
       <div>
         <input type="file" accept="image/*" onchange="brandUpload('${kind}','${id||''}', this)">
         ${current ? `<button type="button" class="btn btn-ghost btn-xs" style="margin-top:6px;" onclick="brandRemove('${kind}','${id||''}')">حذف الصورة</button>` : ''}
@@ -13040,7 +13084,7 @@ function renderNewRequest(app){
       </div>
 
       <label style="margin-top:14px;">سبب الطلب التفصيلي (اختياري — يُستخدم بالخطاب الرسمي بدل العنوان)</label>
-      <textarea id="detailedReasonInput" rows="2" placeholder="اتركه فارغاً لاستخدام عنوان الطلب نفسه">${d.detailedReason||''}</textarea>
+      <textarea id="detailedReasonInput" rows="2" placeholder="اتركه فارغاً لاستخدام عنوان الطلب نفسه">${escH(d.detailedReason||'')}</textarea>
 
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;">
         <input id="recurringCheck" type="checkbox" style="width:auto;" ${d.isRecurring ? 'checked' : ''}>
@@ -13113,7 +13157,7 @@ function renderNewRequest(app){
               </div>
               <div>
                 <label>بيان الخصم (اختياري)</label>
-                <input class="b-deductionNote" type="text" value="${b.deductionNote||''}" placeholder="سبب الخصم إن وُجد">
+                <input class="b-deductionNote" type="text" value="${escH(b.deductionNote||'')}" placeholder="سبب الخصم إن وُجد">
               </div>
             </div>
             <div id="calcBox-deduction-${i}" class="calc-box" style="display:none;">
@@ -13130,7 +13174,7 @@ function renderNewRequest(app){
               </div>
               <div>
                 <label>بيان الإضافي (اختياري)</label>
-                <input class="b-extraNote" type="text" value="${b.extraNote||''}" placeholder="سبب الإضافي إن وُجد">
+                <input class="b-extraNote" type="text" value="${escH(b.extraNote||'')}" placeholder="سبب الإضافي إن وُجد">
               </div>
             </div>
             <div id="calcBox-extra-${i}" class="calc-box" style="display:none;">
@@ -13215,14 +13259,14 @@ function renderAppRequestView(req){
       extraRows.push(`
     <tr class="sub-row${isLast?' sub-row-last':''}${altClass}">
       <td style="color:var(--red);"><div class="amt-signed"><span class="amt-number" dir="ltr">-${fmtKWDHtml(b.deduction)}</span></div></td>
-      <td class="cell-right" style="color:var(--red);">خصم${b.deductionNote ? ' ' + b.deductionNote : ''}</td>
+      <td class="cell-right" style="color:var(--red);">خصم${b.deductionNote ? ' ' + escH(b.deductionNote) : ''}</td>
     </tr>`);
     }
     if(b.extra>0){
       extraRows.push(`
     <tr class="sub-row sub-row-last${altClass}">
       <td style="color:var(--green);"><div class="amt-signed"><span class="amt-number" dir="ltr">+${fmtKWDHtml(b.extra)}</span></div></td>
-      <td class="cell-right" style="color:var(--green);">إضافي${b.extraNote ? ' ' + b.extraNote : ''}</td>
+      <td class="cell-right" style="color:var(--green);">إضافي${b.extraNote ? ' ' + escH(b.extraNote) : ''}</td>
     </tr>`);
     }
     const mainBorder = rowCount>1 ? 'border-bottom:none;padding-bottom:0;' : '';
@@ -13234,12 +13278,12 @@ function renderAppRequestView(req){
         ${b.nameEn ? `<div class="cell-left">${escH(b.nameEn)}</div>` : ''}
       </td>
       <td rowspan="${rowCount}">
-        <div class="cell-right">${b.statement || '—'}</div>
-        <div class="cell-left" style="font-size:11px;">${b.civilId || '—'}</div>
-        <div class="cell-left" style="font-size:10.5px;word-break:break-all;">${ibanClean || '—'}</div>
+        <div class="cell-right">${escH(b.statement || '—')}</div>
+        <div class="cell-left" style="font-size:11px;">${escH(b.civilId || '—')}</div>
+        <div class="cell-left" style="font-size:10.5px;word-break:break-all;">${escH(ibanClean || '—')}</div>
       </td>
       <td style="${mainBorder}"><div class="amt-signed"><span class="amt-number" dir="ltr">${fmtKWDHtml(b.amount)}</span></div></td>
-      <td class="cell-right" style="${mainBorder}">${b.notes || ''}</td>
+      <td class="cell-right" style="${mainBorder}">${escH(b.notes || '')}</td>
       <td rowspan="${rowCount}" style="font-weight:700;color:var(--ink);"><div class="amt-signed"><span class="amt-number" dir="ltr" style="width:70px;">${fmtKWDHtml(net)}</span></div></td>
     </tr>${extraRows.join('')}`;
   }).join('');
@@ -13498,7 +13542,7 @@ function renderDetail(app){
   let actionsHtml = '';
   if(req.status==='rejected' && req.createdById===state.user.id){
     actionsHtml = `
-      <div class="note-box no-print"><b>سبب الرفض:</b> ${lastRejection ? lastRejection.note : ''}</div>
+      <div class="note-box no-print"><b>سبب الرفض:</b> ${escH(lastRejection ? lastRejection.note : '')}</div>
       <div class="actions-row no-print" data-bar-actions><button class="btn btn-primary btn-lg" onclick="resubmitFix()">تعديل وإعادة الإرسال</button></div>`;
   } else if(canAct && req.status==='pending_transfer_request'){
     actionsHtml = `
@@ -13547,16 +13591,16 @@ function renderDetail(app){
     const freshChain = freshBuild.steps;
     const stepsRows = (req.approvalSteps||[]).map(s=>{
       const u = state.users.find(x=>x.id===s.approverId);
-      return `<tr><td>${s.sequenceOrder}</td><td>${u ? u.name+' — '+findRole(u.role).name : s.approverId}</td><td>${s.status}</td></tr>`;
+      return `<tr><td>${s.sequenceOrder}</td><td>${escH(u ? u.name+' — '+findRole(u.role).name : s.approverId)}</td><td>${escH(s.status)}</td></tr>`;
     }).join('') || '<tr><td colspan="3">لا يوجد أي صف بمسار الاعتماد لهذا الطلب (ذهب مباشرة للذيل التنفيذي)</td></tr>';
     const freshRows = freshChain.map((s,i)=>{
       const u = state.users.find(x=>x.id===s.approverId);
-      return `<tr><td>${i+1}</td><td>${u ? u.name+' — '+findRole(u.role).name : s.approverId}</td></tr>`;
+      return `<tr><td>${i+1}</td><td>${escH(u ? u.name+' — '+findRole(u.role).name : s.approverId)}</td></tr>`;
     }).join('') || (freshBuild.error ? `<tr><td colspan="2">⛔ ${escH(freshBuild.error)}</td></tr>` : '<tr><td colspan="2">لا يوجد مسار محسوب من "من يعتمد طلبه" الحالي — يذهب مباشرة للذيل التنفيذي</td></tr>');
     debugPanelHtml = `
       <div class="note-box no-print" style="font-size:12px;">
         <b>لوحة تشخيص (أدمن فقط)</b><br>
-        حالة الطلب الحالية: <b>${req.status}</b> — منشئ الطلب: ${req.createdBy} (${req.createdById})<br><br>
+        حالة الطلب الحالية: <b>${escH(req.status)}</b> — منشئ الطلب: ${escH(req.createdBy)} (${escH(req.createdById)})<br><br>
         <b>المسار المخزّن فعلياً بقاعدة البيانات (request_approval_steps):</b>
         <table style="width:100%;font-size:11px;border-collapse:collapse;margin-top:4px;">
           <tr style="font-weight:700;"><td>role_label</td><td>المعتمد</td><td>status</td></tr>
