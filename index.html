@@ -1971,6 +1971,17 @@ function computeAdminStructureItems(){
         sub: co.nameAr+' — '+iss.text, structLevel: iss.level});
     });
   });
+  // مسارات الطلبات: معطّل / مختلف / تخطّى القرار — تظهر لمدير النظام مع الخلل الهيكلي
+  try{
+    state.companies.forEach(co=>{
+      pathCheckRows(co.id).filter(x=>x.st!=='ok').forEach(x=>{
+        const key = 'path:'+x.r.id+':'+x.st;
+        items.push({key, kind:'structure', reqId:null, number:x.r.number, ts: Date.now(), isNew: !seen.has(key), overdue:false,
+          title: x.st==='skip' ? '⛔ طلب تخطّى القرار' : x.st==='bad' ? '⛔ مسار طلب معطّل' : '⚠️ مسار طلب مختلف عن مسار الشركة',
+          sub: co.nameAr+' — '+(x.r.number||'قيد المراجعة')+' — '+x.why+' (افتح «فحص المسارات» في المستخدمين)', structLevel: x.st==='diff'?'warn':'error'});
+      });
+    });
+  }catch(e){}
   return items;
 }
 function computeNotifications(){
@@ -2583,14 +2594,29 @@ async function saveVerifyLevel(){
   showToast('تم الحفظ','success'); render();
 }
 
+// رسالة قاعدة البيانات بالعربية (الأصل الإنجليزي يبقى في «التفاصيل» داخل سجل أخطاء الواجهة)
+function arDbMessage(e){
+  const m = String((e && e.message) || ''), c = String((e && e.code) || '');
+  if(/[\u0600-\u06FF]/.test(m)) return m;                       // رسالة عربية أصلاً (قواعد الخادم)
+  if(c==='42P10') return 'تعذّر الحفظ: لا يوجد قيد فريد مطابق لعملية الحفظ (غالباً نسخة قديمة من الصفحة — حدّثها بـ Ctrl+F5)';
+  if(c==='42501' || /row-level security|permission denied/i.test(m)) return 'غير مصرّح: صلاحياتك لا تسمح بهذه العملية';
+  if(c==='23505' || /duplicate key/i.test(m)) return 'قيمة مكررة: يوجد سجل بالقيمة نفسها';
+  if(c==='23503' || /foreign key/i.test(m)) return 'مرتبط ببيانات أخرى: لا يمكن إتمام العملية لوجود ارتباط';
+  if(c==='23502' || /null value in column/i.test(m)) return 'حقل مطلوب فارغ';
+  if(c==='22P02' || c==='22001' || c==='22003' || /invalid input|too long|out of range/i.test(m)) return 'قيمة غير صالحة أو أطول من المسموح';
+  if(['42703','42P01','42883','PGRST202','PGRST204','PGRST205'].includes(c) || /does not exist|could not find/i.test(m)) return 'عنصر غير موجود في قاعدة البيانات — قد يلزم تحديثها';
+  if(c==='PGRST301' || /jwt|token.*expired/i.test(m)) return 'انتهت جلسة الدخول — سجّل الدخول من جديد';
+  if(/failed to fetch|networkerror|network request failed/i.test(m)) return 'تعذّر الاتصال بالخادم — تحقق من الإنترنت';
+  if(c==='57014' || /timeout|canceling statement/i.test(m)) return 'استغرقت العملية وقتاً أطول من المسموح';
+  return 'خطأ غير متوقع في قاعدة البيانات';
+}
 async function dbCheck(result, label){
   if(result && result.error){
     console.error(label, result.error);
     const e = result.error;
-    qyLog('db_error', label+': '+(e.message||''), [e.details,e.hint,e.code].filter(Boolean).join(' | '));
-    let msg = 'خطأ في قاعدة البيانات (' + label + '): ' + e.message;
-    if(e.details) msg += ' | التفاصيل: ' + e.details;
-    if(e.hint) msg += ' | تلميح: ' + e.hint;
+    const ar = arDbMessage(e);
+    qyLog('db_error', label+': '+ar, [e.message,e.details,e.hint,e.code].filter(Boolean).join(' | '));
+    let msg = 'خطأ في قاعدة البيانات (' + label + '): ' + ar;
     if(e.code) msg += ' | كود: ' + e.code;
     showToast(msg, 'error');
     return false;
@@ -4971,6 +4997,8 @@ async function rebuildChainIfUntouched(req){
   if(isNewEngine){
     const {steps, error} = buildDecisionChain(creator, req.companyId);
     if(error) return false; // حلقة دائرية بالهيكل — لا نلمس الطلب، يبقى كما هو حتى يُصلَح الهيكل
+    // حماية: مسار جديد فارغ لطلب له خطوات اعتماد = اختلال مؤقت (مدير أُزيل أثناء تعديل مستخدم مثلاً)، لا إلغاء لمعتمديه وقفز إلى المحاسب
+    if(steps.length===0 && (req.approvalSteps||[]).length>0) return false;
     freshChain = steps.map(s=>({roleLabel:'pending_decision', approverId:s.approverId}));
     freshStatus = freshChain.length ? 'pending_decision' : 'pending_transfer_request';
   } else {
@@ -4990,10 +5018,16 @@ async function rebuildChainIfUntouched(req){
   }
   req.approvalSteps = stepRows.map(s=>({id:s.id, approverId:s.approver_id, sequenceOrder:s.sequence_order, roleLabel:s.role_label, status:'pending', actedAt:null, note:''}));
   const newStatus = freshStatus;
+  const nmOf = id => (state.users.find(u=>u.id===id)||{}).name || id;
+  const prevSig = currentChainSig ? currentChainSig.split(',').map(nmOf).join(' ← ') : 'لا أحد';
+  const nextSig = freshChain.length ? freshChain.map(x=>nmOf(x.approverId)).join(' ← ') : 'لا أحد';
   if(newStatus && newStatus !== req.status){
     await db.from('requests').update({status:newStatus}).eq('id', req.id);
     req.status = newStatus;
   }
+  // سجل واضح بكل تغيير تلقائي: من أي مسار إلى أي مسار ولماذا (بعد تعديل الهيكل قبل أي اعتماد)
+  try{ await pushHistory(req, {step:req.status, actor:'النظام', userId:(state.user||{}).id||null, action:'تحديث تلقائي لمسار الاعتماد',
+    note:'تغيّر الهيكل التنظيمي قبل أي اعتماد. السابق: '+prevSig+' — الجديد: '+nextSig, time: fmtDate()}); }catch(e){}
   return true;
 }
 async function syncAllUntouchedRequestPaths(){
@@ -7352,14 +7386,21 @@ function showMoveCheck(u, removedIds, f){
 // ===================== فحص المسارات: المحفوظ في كل طلب مقابل مسار الشركة الآن =====================
 function pathCheckRows(companyId){
   const nm = id => (state.users.find(u=>u.id===id)||{}).name || 'غير معروف';
-  return state.requests.filter(r=>r.companyId===companyId && !r.isCancelled && r.status==='pending_decision').map(r=>{
+  const TAILS = ['pending_transfer_request','pending_transfer_approval','pending_disbursement'];
+  const skipped = r => TAILS.includes(r.status) && !(r.approvalSteps||[]).length && !(r.history||[]).some(h=>String(h.action||'').startsWith('اعتماد'));
+  return state.requests.filter(r=>r.companyId===companyId && !r.isCancelled && (r.status==='pending_decision' || skipped(r))).map(r=>{
     const creator = state.users.find(u=>u.id===r.createdById);
     const saved = (r.approvalSteps||[]).slice().sort((a,b)=>a.sequenceOrder-b.sequenceOrder);
     const now = creator ? computeApprovalChainPreview(creator.id, companyId) : {chain:[], error:'صاحب الطلب غير موجود'};
     const nowIds = now.chain.map(u=>u.id);
     const pend = saved.filter(s=>s.status==='pending').map(s=>s.approverId);
     let st = 'ok', why = 'سليم';
-    if(now.error){ st='bad'; why = now.error; }
+    if(r.status!=='pending_decision'){
+      if(now.error){ st='bad'; why = now.error; }
+      else if(now.chain.length){ st='skip'; why='انتقل إلى المحاسب دون أن يمر بمعتمديه ('+now.chain.map(u=>u.name).join(' ← ')+') ولا اعتماد مسجّل'; }
+      else { st='ok'; why='لا معتمدين لصاحب الطلب (مسار فارغ)'; }
+    }
+    else if(now.error){ st='bad'; why = now.error; }
     else {
       const badId = pend.find(id=>{ const a = state.users.find(u=>u.id===id); return !a || a.isSuspended || !userHasCompany(a, companyId); });
       if(badId){ const a = state.users.find(u=>u.id===badId); st='bad'; why = 'معتمِد الخطوة «'+nm(badId)+'» '+(!a?'غير موجود':a.isSuspended?'موقوف الحساب':'لم يعد مرتبطاً بشركة الطلب'); }
@@ -7372,7 +7413,7 @@ function openPathCheck(){ state._pcCo = state._pcCo || state.currentCompanyId; r
 function renderPathCheck(){
   const co = state._pcCo || state.currentCompanyId;
   const rows = pathCheckRows(co);
-  const badge = st => st==='ok' ? '<span style="color:#15803d;font-weight:700;">✓ سليم</span>' : st==='diff' ? '<span style="color:#b45309;font-weight:700;">≠ مختلف</span>' : '<span style="color:#b42318;font-weight:700;">✕ معطّل</span>';
+  const badge = st => st==='skip' ? '<span style="color:#b42318;font-weight:700;">⤼ تخطّى القرار</span>' : st==='ok' ? '<span style="color:#15803d;font-weight:700;">✓ سليم</span>' : st==='diff' ? '<span style="color:#b45309;font-weight:700;">≠ مختلف</span>' : '<span style="color:#b42318;font-weight:700;">✕ معطّل</span>';
   const cell = 'padding:8px 10px;border-bottom:1px solid var(--line,#ddd);text-align:center;vertical-align:top;';
   const body = rows.length ? rows.map(x=>{
     const savedTxt = x.saved.map(s=>`${escH(x.nm(s.approverId))}${s.status==='approved'?' ✓':s.status==='pending'?' ⏳':''}`).join(' ← ') || '—';
@@ -7382,7 +7423,7 @@ function renderPathCheck(){
       <td style="${cell}">${savedTxt}</td>
       <td style="${cell}">${x.nowNames.length ? x.nowNames.map(escH).join(' ← ') : '—'}</td>
       <td style="${cell}">${badge(x.st)}<br><span style="font-size:12px;">${escH(x.why)}</span></td>
-      <td style="${cell}">${x.st==='ok' ? '' : `<button class="btn btn-ghost btn-xs" onclick="pathCheckRebuild('${x.r.id}')">إعادة بناء المسار</button>`}</td>
+      <td style="${cell}">${x.st==='ok' ? '' : `<button class="btn btn-ghost btn-xs" onclick="pathCheckRebuild('${x.r.id}')">${x.st==='skip'?'إعادة إلى القرار':'إعادة بناء المسار'}</button>`}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="6" style="${cell}">لا توجد طلبات قيد القرار في هذه الشركة.</td></tr>`;
   qyBodyModal(`<div class="modal-box" style="max-width:min(96vw,1100px);max-height:90vh;overflow:auto;text-align:right;">
