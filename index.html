@@ -3481,7 +3481,7 @@ function setAccountSec(i){
 // مجموعات الشريط الجانبي القابلة للفتح والإغلاق: المعاملات المالية | لوحة التحكم | المساعدة
 function inFinArea(){
   const v = state.view;
-  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers'].includes(v)) return true;
+  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests'].includes(v)) return true;
   return !inAdminArea() && ['ledger','analytics'].includes(v);
 }
 function inHelpArea(){ return ['guide','sitemap'].includes(state.view); }
@@ -3499,6 +3499,8 @@ function navFinSubs(){
   const pend = (typeof getMyPendingRequests==='function') ? getMyPendingRequests().length : 0;
   subs.push({label:'الصرف', count:pend, active:['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview'].includes(state.view),
              js:`state.view='dashboard'; render(); window.scrollTo(0,0);`});
+  { const nOld = (typeof oldCoReqList==='function') ? oldCoReqList().length : 0;
+    if(nOld) subs.push({label:'طلباتي في شركات أخرى', count:nOld, active:state.view==='oldRequests', js:`openOldRequests();`}); }
   subs.push({label:'الإسناد', count:(typeof hoMyPendingToMeCount==='function'?hoMyPendingToMeCount():0), active:state.view==='handovers', js:`openHandovers();`});
   if(canSeeRevenues()) subs.push({label:'الإيراد', active:state.view==='revenues', js:`openRevenues(0);`});
   if(canSeeRecurring()) subs.push({label:'القيود الدورية', count:recDueCount(), active:state.view==='recurring', js:`openRecurring(0);`});
@@ -6601,6 +6603,7 @@ function render(){
   else if(state.view==='securityLog') renderSecurityLog(app);
   else if(state.view==='verifySettings') renderVerifySettings(app);
   else if(state.view==='handovers') renderHandovers(app);
+  else if(state.view==='oldRequests') renderOldRequests(app);
 
   // حقول الدور والشركة وسلسلة الاعتماد يغيّرها مدير النظام وحده (الخادم يمنع غيره) — تُقفل لغيره بدل أن يظهر له خطأ
   if(state.user && state.user.role!=='admin'){
@@ -12851,7 +12854,6 @@ function renderDashboard(app){
     ${statCards}
     ${periodBar}
     ${listHtml}
-    ${renderOldCoPanel()}
   `;
 }
 
@@ -12866,15 +12868,22 @@ function canRestoreReq(r){
 }
 function oldCoReqList(){
   const me = state.user && state.user.id;
-  return state.requests.filter(r=>r.createdById===me && r.companyId!==state.currentCompanyId);
+  const meU = state.users.find(u=>u.id===me);
+  // طلباتي في شركات لم أعد مرتبطاً بها (المرتبط بشركة أخرى يبدّل إليها من محوّل الشركات)
+  return state.requests.filter(r=>r.createdById===me && (!meU || !userHasCompany(meU, r.companyId)));
+}
+function openOldRequests(){ state.view='oldRequests'; render(); window.scrollTo(0,0); }
+function renderOldRequests(app){
+  app.innerHTML = `<h1>طلباتي في شركات أخرى</h1>
+    <p class="sub">طلباتك في شركات لم تعد مرتبطاً بها بعد انتقالك منها. تُتابَع من هنا لتكتمل، ويبقى الاسترجاع لمدير النظام.</p>
+    ${renderOldCoPanel()}`;
 }
 function renderOldCoPanel(){
-  const all = oldCoReqList(); if(!all.length) return '';
-  const f = state.oldReq = state.oldReq || {open:false, status:'pending', co:'all', from:'', to:''};
+  const all = oldCoReqList();
+  const f = state.oldReq = state.oldReq || {status:'pending', co:'all', from:'', to:''};
+  if(!all.length) return '<div class="empty">لا توجد طلبات في شركات أخرى</div>';
   const coName = id => (state.companies.find(c=>c.id===id)||{}).nameAr || id;
   const cos = [...new Set(all.map(r=>r.companyId))];
-  const head = `<button type="button" class="btn btn-ghost btn-md" style="margin-top:20px;" onclick="state.oldReq.open=!state.oldReq.open; render();">${f.open?'▾':'◂'} طلباتي في شركاتي الأخرى (${all.length})</button>`;
-  if(!f.open) return `<div class="no-print">${head}</div>`;
   let list = all.filter(r=> f.co==='all' || r.companyId===f.co);
   if(f.status==='pending') list = list.filter(r=>!r.isCancelled && !['completed','rejected'].includes(r.status));
   else if(f.status==='done') list = list.filter(r=>!r.isCancelled && r.status==='completed');
@@ -12891,9 +12900,8 @@ function renderOldCoPanel(){
       <td style="${cell}font-weight:700;">${fmtKWDHtml(r.totalAmount)} د.ك</td>
       <td style="${cell}">${statusBadge(r.status, r.isCancelled, false, true)}</td></tr>`).join('')
     : `<tr><td colspan="6" style="${cell}">لا توجد طلبات ضمن هذا الاختيار</td></tr>`;
-  return `<div class="card no-print" style="margin-top:20px;">
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">${head}</div>
-    <p class="file-hint">طلباتك في الشركات التي كنت فيها سابقاً. تُفتح وتُعدَّل من هنا وتبقى خطواتها في شركتها الأصلية.</p>
+  return `<div class="card no-print">
+    <p class="file-hint">تُفتح الطلبات من هنا وتبقى خطواتها في شركتها الأصلية.</p>
     <div class="dash-filt" style="margin-bottom:10px;">
       <div class="dash-filt-right">
         <div><label>الحالة</label><select onchange="state.oldReq.status=this.value; render();">
