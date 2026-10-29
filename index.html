@@ -1518,7 +1518,7 @@ function dbUserToState(u){
     jobTitle:u.job_title||'', levelId:u.level_id||null,
     requestApproverId:u.request_approver_id||null, nextApproverId:u.next_approver_id||null, execSubstituteId:u.exec_substitute_id||null,
     isSuspended:!!u.is_suspended, suspendedAt:u.suspended_at||null, suspendedNote:u.suspended_note||'',
-    isGeneral:!!u.is_general, noRequestApprover:!!u.no_request_approver, noNextApprover:!!u.no_next_approver,
+    isGeneral:!!u.is_general, noRequestApprover:!!u.no_request_approver, noNextApprover:!!u.no_next_approver, directToTransfer:!!u.direct_to_transfer,
     approvalDeadlineDays:(u.approval_deadline_days===undefined||u.approval_deadline_days===null ? null : Number(u.approval_deadline_days)), escalateMode:u.escalate_mode||'', escalateUserId:u.escalate_user_id||null
   };
 }
@@ -1582,7 +1582,7 @@ function mapRequestRow(r){
 const USER_COLS = 'id,phone,name,role,center_id,signature_data,stamp_data,email,name_en,iban,'
   + 'id_file_data,bank_file_data,signature_mode,signature_color,signature_width,company_id,'
   + 'national_id,stamp_data_2,manager_id,notif_seen_at,job_title,level_id,request_approver_id,'
-  + 'next_approver_id,exec_substitute_id,is_general,no_request_approver,no_next_approver,'
+  + 'next_approver_id,exec_substitute_id,is_general,no_request_approver,no_next_approver,direct_to_transfer,'
   + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id,is_suspended,suspended_at,suspended_note';
 
 async function reloadUsers(){
@@ -4818,6 +4818,11 @@ async function submitDraftInner(){
   const roleLabelFor = ()=>'pending_decision';
   chain = chain.map(s=>({roleLabel: roleLabelFor(), approverId: s.approverId}));
   const initialStatus = chain.length>0 ? 'pending_decision' : 'pending_transfer_request';
+  // طلب بلا معتمدين لا يُرسل إلا لمن فُعّل له الانتقال المباشر، أو إن كان التخطي بسبب حد المبلغ الصغير للمركز
+  if(chain.length===0 && !isFastTracked && !(creatorUser && creatorUser.directToTransfer)){
+    showToast('لا يوجد معتمِد لطلبك، فلا يمكن إرساله بلا اعتماد. حدّد مديراً في حسابك أو اطلب من مدير النظام تفعيل «الانتقال المباشر إلى التحويل».', 'error');
+    return;
+  }
   // تحذير تجاوز الرصيد عند الإرسال
   if(budgetItemId){
     const submitBal = computeBudgetItemBalance(budgetItemId);
@@ -7406,7 +7411,7 @@ function pathCheckRows(companyId){
     let st = 'ok', why = 'سليم';
     if(r.status!=='pending_decision'){
       if(now.error){ st='bad'; why = now.error; }
-      else if(now.chain.length){ st='skip'; why='انتقل إلى المحاسب دون أن يمر بمعتمديه ('+now.chain.map(u=>u.name).join(' ← ')+') ولا اعتماد مسجّل'; }
+      else if(now.chain.length && !(creator && creator.directToTransfer)){ st='skip'; why='انتقل إلى المحاسب دون أن يمر بمعتمديه ('+now.chain.map(u=>u.name).join(' ← ')+') ولا اعتماد مسجّل'; }
       else { st='ok'; why='لا معتمدين لصاحب الطلب (مسار فارغ)'; }
     }
     else if(now.error){ st='bad'; why = now.error; }
@@ -12309,6 +12314,13 @@ function renderUserEditForm(){
             </select>
           </div>
         </div>
+        <div class="card" style="background:var(--paper);margin:10px 0 0;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;">
+            <input type="checkbox" id="editUserDirect" ${u.directToTransfer?'checked':''} style="width:auto;">
+            تنتقل طلباته مباشرة إلى مرحلة التحويل (بلا معتمدين)
+          </label>
+          <p class="sub" style="margin:6px 0 0;font-size:12px;">مطفأة افتراضياً. بدونها لا يُرسل طلب مساره فارغ، ولا ينتقل طلبه إلى المحاسب قبل اعتماد واحد على الأقل. تُفعَّل لقمة الهرم أو لمن يُعفى من الاعتماد.</p>
+        </div>
       </div>
       ${(() => {
         const coU = state.companies.find(c=>c.id===u.companyId) || {};
@@ -12412,6 +12424,8 @@ async function saveUserEdit(){
   const nextApproverId = noNextApprover ? '' : nextVal;
   const generalEl = document.getElementById('editUserGeneral');
   const isGeneral = generalEl ? generalEl.checked : !!u.isGeneral;
+  const directEl = document.getElementById('editUserDirect');
+  const directToTransfer = directEl ? directEl.checked : !!u.directToTransfer;
   const dlEl = document.getElementById('editUserDeadline');
   const approvalDeadlineDays = dlEl ? (dlEl.value==='' ? null : Number(dlEl.value)) : u.approvalDeadlineDays;
   const escModeEl = document.getElementById('editUserEscMode');
@@ -12461,13 +12475,13 @@ async function saveUserEdit(){
   const result = await db.from('users').update(isAdminNow ? {
     name, phone, role, center_id: centerId||null, manager_id: managerId||null, company_id: companyId||null,
     job_title: jobTitle||null, level_id: levelId||null, request_approver_id: requestApproverId||null, next_approver_id: nextApproverId||null,
-    is_general: isGeneral, no_request_approver: noRequestApprover, no_next_approver: noNextApprover,
+    is_general: isGeneral, no_request_approver: noRequestApprover, no_next_approver: noNextApprover, direct_to_transfer: directToTransfer,
     approval_deadline_days: approvalDeadlineDays, escalate_mode: escalateMode||null, escalate_user_id: escalateUserId||null
   } : { name, phone, job_title: jobTitle||null }).eq('id', u.id);
   if(!(await dbCheck(result, 'تعديل المستخدم'))) return;
   u.name = name; u.phone = phone; u.role = role; u.centerId = centerId || null; u.managerId = managerId || null; u.companyId = companyId || null;
   u.jobTitle = jobTitle || ''; u.levelId = levelId || null; u.requestApproverId = requestApproverId || null; u.nextApproverId = nextApproverId || null;
-  u.isGeneral = isGeneral; u.noRequestApprover = noRequestApprover; u.noNextApprover = noNextApprover;
+  u.isGeneral = isGeneral; u.noRequestApprover = noRequestApprover; u.noNextApprover = noNextApprover; u.directToTransfer = directToTransfer;
   u.approvalDeadlineDays = approvalDeadlineDays; u.escalateMode = escalateMode; u.escalateUserId = escalateUserId||null;
   // ربط المستخدم بشركات إضافية (المستخدم العام لا يحتاج روابط: الخانة تشمل الشركات الحالية والمستقبلية)
   if(isAdminNow && (coChecks.length || generalEl)){
