@@ -1971,16 +1971,17 @@ function computeAdminStructureItems(){
         sub: co.nameAr+' — '+iss.text, structLevel: iss.level});
     });
   });
-  // مسارات الطلبات: معطّل / مختلف / تخطّى القرار — تظهر لمدير النظام مع الخلل الهيكلي
+  // مسارات الطلبات: إشعار واحد مجمَّع (المعطّل / المختلف / المتخطّي) يفتح صفحة «فحص المسارات»
   try{
-    state.companies.forEach(co=>{
-      pathCheckRows(co.id).filter(x=>x.st!=='ok').forEach(x=>{
-        const key = 'path:'+x.r.id+':'+x.st;
-        items.push({key, kind:'structure', reqId:null, number:x.r.number, ts: Date.now(), isNew: !seen.has(key), overdue:false,
-          title: x.st==='skip' ? '⛔ طلب تخطّى القرار' : x.st==='bad' ? '⛔ مسار طلب معطّل' : '⚠️ مسار طلب مختلف عن مسار الشركة',
-          sub: co.nameAr+' — '+(x.r.number||'قيد المراجعة')+' — '+x.why+' (افتح «فحص المسارات» في المستخدمين)', structLevel: x.st==='diff'?'warn':'error'});
-      });
-    });
+    const bad = [];
+    state.companies.forEach(co=>{ pathCheckRows(co.id).filter(x=>x.st!=='ok').forEach(x=>bad.push(x)); });
+    if(bad.length){
+      const nErr = bad.filter(x=>x.st!=='diff').length;
+      const key = 'paths:'+bad.map(x=>x.r.id+x.st).sort().join(',');
+      items.push({key, kind:'structure', reqId:'paths', number:'', ts: Date.now(), isNew: !seen.has(key), overdue:false,
+        title: (nErr ? '⛔' : '⚠️')+' مسارات طلبات تحتاج مراجعة ('+bad.length+')',
+        sub: 'اضغط لفتح «فحص المسارات» ومراجعة كل طلب', structLevel: nErr?'error':'warn'});
+    }
   }catch(e){}
   return items;
 }
@@ -2198,6 +2199,7 @@ function openNotifItem(id, kind){
     markStructureIssuesSeen(computeAdminStructureItems().map(i=>i.key));
     persistNotifSeen(latestServerTs());
     renderBellPanel();
+    if(id==='paths'){ state.bellOpen=false; openPathCheck(); return; }
     state.view = 'orgTree'; render();
     return;
   }
@@ -3245,7 +3247,7 @@ function isCustomRole(role){
   return !['employee','dept_manager','senior_manager','executive_manager','accountant','cfo','admin'].includes(role);
 }
 
-const ADMIN_AREA_VIEWS = ['admin','orgTree','jobLevels','analytics','cancelledArchive','ledger','sigDesigner','barSettings','securityLog','verifySettings'];
+const ADMIN_AREA_VIEWS = ['admin','orgTree','jobLevels','analytics','cancelledArchive','ledger','sigDesigner','barSettings','securityLog','verifySettings','pathCheck'];
 function inAdminArea(){ return !!state.user && state.user.role==='admin' && ADMIN_AREA_VIEWS.includes(state.view); }
 
 // ===================== صلاحيات الصفحات: من يرى أي صفحة وماذا يفعل فيها =====================
@@ -3450,7 +3452,9 @@ function groupNavSets(){
   // المعاملات المالية: الصرف | الإيراد | القيود الدورية
   const expSubs = [{label:'الطلبات', active:['dashboard','detail','duplicateList'].includes(v), js:go(`state.view='dashboard'; render(); window.scrollTo(0,0);`)}];
   if(pageLevel('newreq')!=='none') expSubs.push({label:'طلب جديد', active:['newRequest','newRequestChoice'].includes(v), js:go(`openNewRequestChoice(); window.scrollTo(0,0);`)});
-  const fin = [{key:'expense', label:'الصرف', views:['dashboard','detail','duplicateList','newRequest','newRequestChoice'], js:go(`state.view='dashboard'; render(); window.scrollTo(0,0);`), subs:expSubs}];
+  { const nOld = (typeof oldCoReqList==='function') ? oldCoReqList().length : 0;
+    if(nOld) expSubs.push({label:'طلباتي في شركات أخرى ('+nOld+')', active:v==='oldRequests', js:go(`openOldRequests();`)}); }
+  const fin = [{key:'expense', label:'الصرف', views:['dashboard','detail','duplicateList','newRequest','newRequestChoice','oldRequests'], js:go(`state.view='dashboard'; render(); window.scrollTo(0,0);`), subs:expSubs}];
   if(canSeeRevenues()) fin.push({key:'revenue', label:'الإيراد', views:['revenues'], js:go(`openRevenues(0);`)});
   if(canSeeRecurring()) fin.push({key:'recurring', label:'القيود الدورية', views:['recurring'], js:go(`openRecurring(0);`)});
   sets.push(fin);
@@ -3525,8 +3529,6 @@ function navFinSubs(){
   const pend = (typeof getMyPendingRequests==='function') ? getMyPendingRequests().length : 0;
   subs.push({label:'الصرف', count:pend, active:['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview'].includes(state.view),
              js:`state.view='dashboard'; render(); window.scrollTo(0,0);`});
-  { const nOld = (typeof oldCoReqList==='function') ? oldCoReqList().length : 0;
-    if(nOld) subs.push({label:'طلباتي في شركات أخرى', count:nOld, active:state.view==='oldRequests', js:`openOldRequests();`}); }
   subs.push({label:'الإسناد', count:(typeof hoMyPendingToMeCount==='function'?hoMyPendingToMeCount():0), active:state.view==='handovers', js:`openHandovers();`});
   if(canSeeRevenues()) subs.push({label:'الإيراد', active:state.view==='revenues', js:`openRevenues(0);`});
   if(canSeeRecurring()) subs.push({label:'القيود الدورية', count:recDueCount(), active:state.view==='recurring', js:`openRecurring(0);`});
@@ -3979,6 +3981,10 @@ async function attemptLogin(){
     });
     if(error || !data?.user){
       qyLog('login_failed', (error && error.message) || 'بيانات غير صحيحة', '', idInput);
+      if(error && (error.code==='user_banned' || /banned/i.test(error.message||''))){
+        qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,460px);text-align:center;"><h2 style="margin-top:0;">🤍 شكراً لك</h2><p style="line-height:1.9;">شكراً لك على ما قدّمته للشركة خلال فترة عملك معنا.<br>حسابك متوقف حالياً، وسنسعد بعودتك في أي وقت.<br>للعودة تواصل مع الإدارة لإعادة تفعيل حسابك.</p><div class="actions-row" style="justify-content:center;"><button class="btn btn-primary btn-md" onclick="qyBodyModalClose('banned')">حسناً</button></div></div>`, 'banned');
+        return;
+      }
       showToast('رقم الهاتف أو كلمة المرور غير صحيحة','error');
       return;
     }
@@ -6638,6 +6644,7 @@ function render(){
   else if(state.view==='verifySettings') renderVerifySettings(app);
   else if(state.view==='handovers') renderHandovers(app);
   else if(state.view==='oldRequests') renderOldRequests(app);
+  else if(state.view==='pathCheck') renderPathCheckPage(app);
 
   // حقول الدور والشركة وسلسلة الاعتماد يغيّرها مدير النظام وحده (الخادم يمنع غيره) — تُقفل لغيره بدل أن يظهر له خطأ
   if(state.user && state.user.role!=='admin'){
@@ -7328,10 +7335,11 @@ function renderSuspendModal(){
     <div class="note-box" style="margin-top:8px;${f.subs.length?'border-color:var(--amber);':''}"><b>مرؤوسون يتبعونه في المسار (${f.subs.length}):</b> ${f.subs.length ? list(f.subs, x=>`<li>${escH(x.name)}</li>`) : 'لا يوجد.'}</div>
     <div class="note-box" style="margin-top:8px;"><b>طلبات أنشأها ولم تكتمل (${f.own.length}):</b> تبقى وتكمل مسارها.</div>
     <div class="note-box" style="margin-top:8px;"><b>إسناد قائم:</b> ${f.hoOut.length ? 'أسند معاملاته إلى '+f.hoOut.map(h=>escH(hoUserName(h.to_user_id))).join('، ') : 'لا يوجد إسناد نشط منه.'}${f.hoIn.length ? '<br>وهو مستلِم لإسنادات من غيره (ستتعطل).' : ''}</div>
+    ${(f.reqs.length && !f.hoOut.length) ? `<p class="warn-box" style="margin-top:10px;border-color:var(--red);">⛔ لا يمكن الإيقاف قبل إسناد طلباته المعلقة (${f.reqs.length}). اضغط «إسناد معاملاته نيابةً عنه» أولاً.</p>` : ''}
     ${warn ? `<p class="warn-box" style="margin-top:10px;">⚠ قبل الإيقاف أسند معاملاته إلى زميل (زر «إسناد نيابةً عنه») وأعد تعيين مدير لمرؤوسيه، وإلا توقفت طلباتهم.</p>` : ''}
     <label style="margin-top:8px;">ملاحظة الإيقاف (اختياري)</label><input id="suspNote" type="text" maxlength="150" placeholder="مثال: ترك العمل 2026-10-31">
     <div class="actions-row">
-      <button class="btn btn-reject btn-md" onclick="suspendApply('${u.id}', true)">إيقاف الحساب الآن</button>
+      <button class="btn btn-reject btn-md" ${(f.reqs.length && !f.hoOut.length)?'disabled title="أسند طلباته المعلقة أولاً"':''} onclick="suspendApply('${u.id}', true)">إيقاف الحساب الآن</button>
       <button class="btn btn-ghost btn-md" onclick="state.suspendCheck=null; state.hoForm={scope:'all',reason:'leave',needsApproval:true,fromId:'${u.id}'}; state.editingUserId=null; state.view='handovers'; render();">إسناد معاملاته نيابةً عنه</button>
       <button class="btn btn-ghost btn-md" onclick="closeSuspendCheck()">إغلاق</button>
     </div></div></div>`;
@@ -7340,6 +7348,7 @@ async function suspendApply(uid, suspend){
   if(state.user.role!=='admin'){ showToast('الإيقاف من صلاحية مدير النظام','error'); return; }
   if(uid===state.user.id){ showToast('لا يمكنك إيقاف حسابك','error'); return; }
   const note = suspend ? ((document.getElementById('suspNote')||{}).value||'').trim() : '';
+  if(suspend){ const f0 = suspendFindings(uid); if(f0.reqs.length && !f0.hoOut.length){ showToast('لا يمكن إيقافه قبل إسناد طلباته المعلقة ('+f0.reqs.length+') — أسندها أولاً','error'); return; } }
   const r = await db.rpc('admin_set_suspended', {p_user_id: uid, p_suspended: suspend, p_note: note||null});
   if(!(await dbCheck(r, suspend ? 'إيقاف الحساب' : 'إعادة التفعيل'))) return;
   const u = state.users.find(x=>x.id===uid);
@@ -7409,38 +7418,48 @@ function pathCheckRows(companyId){
     return {r, creator, saved, nowNames: now.chain.map(u=>u.name), st, why, nm};
   });
 }
-function openPathCheck(){ state._pcCo = state._pcCo || state.currentCompanyId; renderPathCheck(); }
-function renderPathCheck(){
+function openPathCheck(){
+  if(!state._pcCo){
+    const w = state.companies.find(c=>pathCheckRows(c.id).some(x=>x.st!=='ok'));
+    state._pcCo = (w||{}).id || state.currentCompanyId;
+  }
+  state.view='pathCheck'; render(); window.scrollTo(0,0);
+}
+function pathBadgeHtml(st){
+  return st==='skip' ? '<span style="color:#b42318;font-weight:700;">⤼ تخطّى القرار</span>' : st==='ok' ? '<span style="color:#15803d;font-weight:700;">✓ سليم</span>' : st==='diff' ? '<span style="color:#b45309;font-weight:700;">≠ مختلف</span>' : '<span style="color:#b42318;font-weight:700;">⛔ معطّل</span>';
+}
+function renderPathCheckPage(app){
   const co = state._pcCo || state.currentCompanyId;
   const rows = pathCheckRows(co);
-  const badge = st => st==='skip' ? '<span style="color:#b42318;font-weight:700;">⤼ تخطّى القرار</span>' : st==='ok' ? '<span style="color:#15803d;font-weight:700;">✓ سليم</span>' : st==='diff' ? '<span style="color:#b45309;font-weight:700;">≠ مختلف</span>' : '<span style="color:#b42318;font-weight:700;">✕ معطّل</span>';
-  const cell = 'padding:8px 10px;border-bottom:1px solid var(--line,#ddd);text-align:center;vertical-align:top;';
-  const body = rows.length ? rows.map(x=>{
+  const bad = rows.filter(x=>x.st!=='ok');
+  const cards = rows.length ? rows.map(x=>{
     const savedTxt = x.saved.map(s=>`${escH(x.nm(s.approverId))}${s.status==='approved'?' ✓':s.status==='pending'?' ⏳':''}`).join(' ← ') || '—';
-    return `<tr>
-      <td style="${cell}">${escH(x.r.number||'قيد المراجعة')}<br><span style="font-size:12px;opacity:.75;">${escH(x.r.reason||'')}</span></td>
-      <td style="${cell}">${escH(x.creator?x.creator.name:'—')}</td>
-      <td style="${cell}">${savedTxt}</td>
-      <td style="${cell}">${x.nowNames.length ? x.nowNames.map(escH).join(' ← ') : '—'}</td>
-      <td style="${cell}">${badge(x.st)}<br><span style="font-size:12px;">${escH(x.why)}</span></td>
-      <td style="${cell}">${x.st==='ok' ? '' : `<button class="btn btn-ghost btn-xs" onclick="pathCheckRebuild('${x.r.id}')">${x.st==='skip'?'إعادة إلى القرار':'إعادة بناء المسار'}</button>`}</td>
-    </tr>`;
-  }).join('') : `<tr><td colspan="6" style="${cell}">لا توجد طلبات قيد القرار في هذه الشركة.</td></tr>`;
-  qyBodyModal(`<div class="modal-box" style="max-width:min(96vw,1100px);max-height:90vh;overflow:auto;text-align:right;">
-    <h2 style="margin-top:0;">فحص المسارات</h2>
-    <p class="sub">يقارن المسار المحفوظ في كل طلب قيد القرار بالمسار الذي كان سيُبنى لو أُنشئ الطلب اليوم. للقراءة فقط؛ لا يتغير شيء إلا بضغطك «إعادة بناء المسار».</p>
+    const bc = x.st==='ok' ? '#15803d' : x.st==='diff' ? '#b45309' : '#b42318';
+    return `<div class="card" style="cursor:pointer;border-right:5px solid ${bc};margin-bottom:10px;" onclick="openRequest('${x.r.id}')">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div><b>${escH(x.r.number||'قيد المراجعة')}</b> — ${escH(x.r.reason||'')}</div>
+        <div>${pathBadgeHtml(x.st)}</div>
+      </div>
+      <div class="sub" style="margin:4px 0;">صاحب الطلب: ${escH(x.creator?x.creator.name:'—')} · المبلغ: ${fmtKWDHtml(x.r.totalAmount)} د.ك</div>
+      <div style="font-size:13px;margin-bottom:6px;">${escH(x.why)}</div>
+      <div style="font-size:12.5px;"><b>المحفوظ في الطلب:</b> ${savedTxt}</div>
+      <div style="font-size:12.5px;"><b>مسار الشركة الآن:</b> ${x.nowNames.length ? x.nowNames.map(escH).join(' ← ') : '—'}</div>
+      <div class="actions-row" style="margin-top:8px;" onclick="event.stopPropagation()">
+        <button class="btn btn-ghost btn-xs" onclick="openRequest('${x.r.id}')">فتح الطلب</button>
+        ${x.st==='ok' ? '' : `<button class="btn btn-ghost btn-xs" onclick="pathCheckRebuild('${x.r.id}')">${x.st==='skip'?'إعادة إلى القرار':'إعادة بناء المسار'}</button>`}
+      </div></div>`;
+  }).join('') : '<div class="empty">لا توجد طلبات قيد القرار في هذه الشركة.</div>';
+  app.innerHTML = `<h1>فحص المسارات</h1>
+    <p class="sub">يقارن المسار المحفوظ في كل طلب قيد القرار بالمسار الذي كان سيُبنى لو أُنشئ الطلب اليوم. للقراءة فقط؛ لا يتغير شيء إلا بضغطك «إعادة بناء المسار». اضغط على أي بطاقة لفتح الطلب.</p>
     <label>الشركة</label>
-    <select onchange="state._pcCo=this.value; renderPathCheck();" style="max-width:360px;">${state.companies.map(c=>`<option value="${c.id}" ${c.id===co?'selected':''}>${escH(c.nameAr)}</option>`).join('')}</select>
-    <table dir="rtl" style="width:100%;border-collapse:collapse;margin-top:12px;">
-      <thead><tr>${['الطلب','صاحب الطلب','المسار المحفوظ في الطلب','مسار الشركة الآن','الحالة',''].map(h=>`<th style="${cell}background:var(--paper,#f4f4f4);">${h}</th>`).join('')}</tr></thead>
-      <tbody>${body}</tbody></table>
-    <div class="actions-row" style="margin-top:12px;"><button class="btn btn-ghost btn-md" onclick="qyBodyModalClose('pc')">إغلاق</button></div>
-  </div>`, 'pc');
+    <select onchange="state._pcCo=this.value; render();" style="max-width:360px;">${state.companies.map(c=>`<option value="${c.id}" ${c.id===co?'selected':''}>${escH(c.nameAr)}${pathCheckRows(c.id).some(x=>x.st!=='ok')?' ⚠':''}</option>`).join('')}</select>
+    <p class="file-hint">${bad.length ? 'يحتاج مراجعة: '+bad.length+' من '+rows.length : 'كل المسارات سليمة'}</p>
+    <div style="margin-top:8px;">${cards}</div>`;
 }
 async function pathCheckRebuild(reqId){
   const req = state.requests.find(r=>r.id===reqId); if(!req) return;
   await rebuildRequestPathAndReset(req);
-  renderPathCheck();
+  render();
 }
 
 function renderAccount(app){
@@ -8954,7 +8973,13 @@ function renderAdmin(app){
           <button class="btn btn-reject btn-xs" onclick="deleteUser('${u.id}')">حذف</button>
         </div>
       </div>
-    `).join('')}`,
+    `).join('')}
+    ${(()=>{ const sus = state.users.filter(u=>u.role!=='admin' && u.isSuspended && userHasCompany(u, state.currentCompanyId));
+      return sus.length ? `<details style="margin-top:18px;" ${state.editingUserId && sus.some(x=>x.id===state.editingUserId)?'open':''}><summary style="cursor:pointer;font-weight:700;font-size:15px;">🚪 الموقوفون / تركوا العمل (${sus.length})</summary>
+        ${sus.map(u=>`<div class="list-item" style="opacity:.85;"><div class="li-main"><b>${escH(u.name)}</b>
+          <span>${escH(findRole(u.role).name)} · هاتف: ${escH(u.phone)} · أُوقف ${u.suspendedAt ? fmtDateDMY(u.suspendedAt) : ''}${u.suspendedNote ? ' — '+escH(u.suspendedNote) : ''}</span></div>
+          <div style="display:flex;gap:10px;"><button class="btn btn-ghost btn-xs" onclick="editUser('${u.id}')">عرض</button>
+          <button class="btn btn-approve btn-xs" onclick="openSuspendCheck('${u.id}')">إعادة تفعيل</button></div></div>`).join('')}</details>` : ''; })()}`,
     impersonate: `    <div class="card" style="margin-top:28px;">
       <h2>تصفّح كمستخدم آخر (للمراجعة)</h2>
       <p class="file-hint">يسمح لك بمعاينة النظام تماماً كما يراه أي مستخدم، دون الحاجة لكلمة مروره. تقدر ترجع لحسابك في أي وقت.</p>
@@ -11346,7 +11371,7 @@ function showPathPreview(){
   if(!host) return;
   const names = chain.map(u=>escH(u.name)+' ('+escH(findRole(u.role).name)+')');
   host.innerHTML = `
-    ${names.length ? `<div style="font-size:13.5px;">${names.join(' <span style="color:var(--muted);">←</span> ')}</div>` : '<div class="sub">لا يوجد معتمِد بعد — سيبدأ مباشرة بخطوات التنفيذ.</div>'}
+    ${names.length ? `<div style="font-size:13.5px;">${names.join(' <span style="color:var(--muted);">←</span> ')}</div>` : (((state.users.find(u=>u.id===sel.value)||{}).directToTransfer) ? '<div class="sub">لا يوجد معتمِد — هذا المستخدم له «انتقال مباشر»، فيبدأ طلبه مباشرة بخطوات التحويل.</div>' : '<div class="sub" style="color:var(--red);">⛔ لا يوجد معتمِد لهذا المستخدم — لا يمكنه رفع طلب حتى يُحدَّد له معتمِد.</div>')}
     ${error ? `<div style="color:var(--red);font-size:12.5px;margin-top:6px;">⛔ ${escH(error)}</div>` : ''}
   `;
 }
@@ -12479,9 +12504,10 @@ async function saveUserEdit(){
 async function deleteUser(id){
   const u = state.users.find(x=>x.id===id);
   // الحذف النهائي لمن بلا أي أثر في أي شركة؛ وإلا فالإيقاف
-  const checks = [['requests','created_by','طلبات'],['request_history','user_id','قرارات وسجل'],['request_approval_steps','approver_id','خطوات اعتماد'],['transactions','created_by','حركات مالية'],['qy_attachments','created_by','مرفقات'],['recurring_templates','created_by','قيود دورية']];
+  const checks = [['requests','created_by_id','طلبات'],['request_history','user_id','قرارات وسجل'],['request_approval_steps','approver_id','خطوات اعتماد'],['transactions','created_by_id','حركات مالية'],['qy_attachments','created_by','مرفقات'],['recurring_templates','created_by_id','قيود دورية']];
   const used = [];
   for(const [t,c,l] of checks){
+    if(t==='qy_attachments' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id))) continue; // عمود uuid ومعرّفات المستخدمين نصّية
     const r = await db.from(t).select('*',{count:'exact',head:true}).eq(c,id);
     if(r.error){ showToast('تعذّر فحص أثر المستخدم قبل الحذف: '+(r.error.message||''),'error'); return; }
     if(r.count>0) used.push(l+' ('+r.count+')');
@@ -12490,8 +12516,7 @@ async function deleteUser(id){
   if(h.error){ showToast('تعذّر فحص الإسناد قبل الحذف: '+(h.error.message||''),'error'); return; }
   if(h.count>0) used.push('إسناد ('+h.count+')');
   if(used.length){
-    showToast('لا يُحذف «'+(u?u.name:'')+'» لأن له أثراً: '+used.join('، ')+' — أوقف الحساب بدلاً من حذفه','error');
-    openSuspendCheck(id);
+    showToast('لا يمكن حذف «'+(u?u.name:'')+'» لارتباطه بطلبات وسجلات ('+used.join('، ')+'). يمكنك إيقافه من صفحة التعديل.','error');
     return;
   }
   requestDeleteConfirm(`حذف المستخدم "${u?u.name:''}" نهائياً؟`, 'user', id);
@@ -12932,15 +12957,21 @@ function renderOldCoPanel(){
   if(f.from) list = list.filter(r=>r.createdAtRaw && String(r.createdAtRaw).slice(0,10) >= f.from);
   if(f.to) list = list.filter(r=>r.createdAtRaw && String(r.createdAtRaw).slice(0,10) <= f.to);
   list.sort((a,b)=>tsOf(b.createdAtRaw)-tsOf(a.createdAtRaw));
-  const cell = 'padding:8px 10px;border-bottom:1px solid var(--line,#ddd);text-align:center;';
-  const rows = list.length ? list.map(r=>`<tr style="cursor:pointer;" onclick="openRequest('${r.id}')">
-      <td style="${cell}font-weight:700;">${escH(r.number||'قيد المراجعة')}</td>
-      <td style="${cell}">${escH(coName(r.companyId))}</td>
-      <td style="${cell}${r.isCancelled?'text-decoration:line-through;color:var(--muted);':''}">${escH(r.reason||'')}</td>
-      <td style="${cell}">${r.dateGreg ? dmyStr(r.dateGreg) : '—'}</td>
-      <td style="${cell}font-weight:700;">${fmtKWDHtml(r.totalAmount)} د.ك</td>
-      <td style="${cell}">${statusBadge(r.status, r.isCancelled, false, true)}</td></tr>`).join('')
-    : `<tr><td colspan="6" style="${cell}">لا توجد طلبات ضمن هذا الاختيار</td></tr>`;
+  const cards = list.length ? `<div class="req-list-scroll-wrap"><div class="req-list-inner">
+    <div class="req-table-head"><span>رقم الطلب</span><span>موضوع الطلب</span><span>تاريخ الطلب</span><span>تاريخ الصرف</span><span>المستفيدون</span><span>المبلغ</span><span>الحالة</span></div>
+    ${list.map(r=>{
+      const pe = (r.history||[]).find(h=>h.action==='تم الصرف');
+      const pd = pe ? toWesternDigits(pe.time).split(' ')[0].replace(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,(m,d,mo,y)=>dmyJoin(d.padStart(2,'0'),mo.padStart(2,'0'),y)) : '';
+      return `<div class="req-card" onclick="openRequest('${r.id}')">
+        <span data-label="رقم الطلب" class="req-field-value req-field-wrap" style="font-weight:700;">${escH(r.number||'قيد المراجعة')}</span>
+        <span data-label="الموضوع" class="req-field-value req-field-wrap"${r.isCancelled?' style="text-decoration:line-through;text-decoration-color:var(--red);color:var(--muted);"':''}>${escH(r.reason||'')}<div style="font-size:11px;color:var(--muted);">${escH(coName(r.companyId))}</div></span>
+        <span data-label="تاريخ الطلب" class="req-field-value">${r.dateGreg ? dmyStr(r.dateGreg) : '—'}</span>
+        <span data-label="تاريخ الصرف" class="req-field-value">${pd||'—'}</span>
+        <span data-label="المستفيدون" class="req-field-value" style="padding-right:22px;">${(r.beneficiaries||[]).length}</span>
+        <span data-label="المبلغ" class="req-field-value" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(r.totalAmount)} د.ك</span>
+        <span data-label="الحالة">${statusBadge(r.status, r.isCancelled, false, true)}</span>
+      </div>`; }).join('')}
+  </div></div>` : '<div class="empty">لا توجد طلبات ضمن هذا الاختيار</div>';
   return `<div class="card no-print">
     <p class="file-hint">تُفتح الطلبات من هنا وتبقى خطواتها في شركتها الأصلية.</p>
     <div class="dash-filt" style="margin-bottom:10px;">
@@ -12956,7 +12987,7 @@ function renderOldCoPanel(){
         <div><label>إلى تاريخ</label><input type="date" value="${escH(f.to)}" onchange="state.oldReq.to=this.value; render();"></div>
       </div>
     </div>
-    <table dir="rtl" style="width:100%;border-collapse:collapse;"><thead><tr>${['رقم الطلب','الشركة','الموضوع','التاريخ','المبلغ','الحالة'].map(h=>`<th style="${cell}background:var(--paper,#f4f4f4);">${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+    ${cards}
   </div>`;
 }
 
