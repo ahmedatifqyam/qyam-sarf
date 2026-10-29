@@ -428,3 +428,15 @@ end $$;
 
 -- ============ (18) ملفات المرفقات في التخزين: يحذفها رافعها أو المالية ============
 alter policy qy_att_obj_del on storage.objects using ((bucket_id = 'attachments') and public.can_see_company((storage.foldername(name))[1]) and (owner_id = auth.uid()::text or public.is_finance()));
+
+-- ============ (19) عنوان الزائر في صفحة التحقق والسجل: من cf-connecting-ip أولاً (X-Forwarded-For قابل للتزوير) ============
+do $$
+declare d text; n text;
+begin
+  d := pg_get_functiondef('public.verify_request(text)'::regprocedure);
+  n := replace(d, 'coalesce(v_hdr->>''x-forwarded-for'', v_hdr->>''cf-connecting-ip'', '''')', 'coalesce(v_hdr->>''cf-connecting-ip'', v_hdr->>''x-real-ip'', v_hdr->>''x-forwarded-for'', '''')');
+  if n <> d then execute n; end if;
+  d := pg_get_functiondef('public.qy_log_event(text,text,text,text,text,jsonb)'::regprocedure);
+  n := replace(d, 'coalesce(v_hdr->>''x-forwarded-for'', v_hdr->>''cf-connecting-ip'', '''')', 'coalesce(v_hdr->>''cf-connecting-ip'', v_hdr->>''x-real-ip'', v_hdr->>''x-forwarded-for'', '''')');
+  if n <> d then execute n; end if;
+end $$;
