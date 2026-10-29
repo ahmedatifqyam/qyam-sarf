@@ -5002,7 +5002,7 @@ async function syncAllUntouchedRequestPaths(){
 }
 async function openRequest(id){
   const req = state.requests.find(r=>r.id===id);
-  if(req){ await rebuildChainIfUntouched(req); }
+  if(req && req.companyId===state.currentCompanyId){ await rebuildChainIfUntouched(req); }   // طلب شركة سابقة لا يُعاد بناء مساره من هنا
   state.activeReqId = id;
   state.view='detail';
   render();
@@ -7337,7 +7337,7 @@ function showMoveCheck(u, removedIds, f){
     <h2 style="margin-top:0;">تنبيه قبل نقل ${escH(u.name)} من: ${escH(coNames)}</h2>
     <p class="sub">هذا المستخدم له ارتباطات قائمة في الشركة التي سيخرج منها. نقله دون ترتيب يُعطّل المسار فلا تظهر الطلبات لأحد.</p>
     ${f.reqs.length ? `<div class="note-box" style="border-color:var(--amber);"><b>طلبات بانتظار اعتماده (${f.reqs.length}):</b>${list(f.reqs, r=>`<li>${escH(r.number||'قيد المراجعة')} — ${escH(r.reason)}</li>`)}</div>` : ''}
-    ${f.own.length ? `<div class="note-box" style="margin-top:8px;"><b>طلبات أنشأها ولم تكتمل (${f.own.length}):</b> تكمل مسارها، وقد تعود إليه للتعديل فيبقى حقه فيها محفوظاً.${list(f.own, r=>`<li>${escH(r.number||'قيد المراجعة')} — ${escH(r.reason)}</li>`)}</div>` : ''}
+    ${f.own.length ? `<div class="note-box" style="margin-top:8px;"><b>طلبات أنشأها ولم تكتمل (${f.own.length}):</b> تكمل مسارها، وقد تعود إليه للتعديل. يبقى يراها ويعدّلها من لوحة طلباته (قسم «طلباتي في شركاتي الأخرى») بعد نقله.${list(f.own, r=>`<li>${escH(r.number||'قيد المراجعة')} — ${escH(r.reason)}</li>`)}</div>` : ''}
     ${f.subs.length ? `<div class="note-box" style="margin-top:8px;border-color:var(--amber);"><b>مرؤوسون يتبعونه (${f.subs.length}):</b>${list(f.subs, x=>`<li>${escH(x.name)}</li>`)}</div>` : ''}
     <div class="actions-row" style="margin-top:12px;">
       <button class="btn btn-primary btn-md" onclick="qyBodyModalClose('move'); state.hoForm={scope:'all',reason:'leave',needsApproval:true,fromId:'${u.id}'}; state.editingUserId=null; state.view='handovers'; render();">أسند معاملاته أولاً</button>
@@ -12851,7 +12851,54 @@ function renderDashboard(app){
     ${statCards}
     ${periodBar}
     ${listHtml}
+    ${renderOldCoPanel()}
   `;
+}
+
+// ===== طلباتي في شركاتي السابقة: مغلق افتراضياً ويُفلتر بالحالة والشركة والفترة حتى لا تكثر الطلبات القديمة =====
+function oldCoReqList(){
+  const me = state.user && state.user.id;
+  return state.requests.filter(r=>r.createdById===me && r.companyId!==state.currentCompanyId && !r.isCancelled);
+}
+function renderOldCoPanel(){
+  const all = oldCoReqList(); if(!all.length) return '';
+  const f = state.oldReq = state.oldReq || {open:false, status:'pending', co:'all', from:'', to:''};
+  const coName = id => (state.companies.find(c=>c.id===id)||{}).nameAr || id;
+  const cos = [...new Set(all.map(r=>r.companyId))];
+  const head = `<button type="button" class="btn btn-ghost btn-md" style="margin-top:20px;" onclick="state.oldReq.open=!state.oldReq.open; render();">${f.open?'▾':'◂'} طلباتي في شركاتي الأخرى (${all.length})</button>`;
+  if(!f.open) return `<div class="no-print">${head}</div>`;
+  let list = all.filter(r=> f.co==='all' || r.companyId===f.co);
+  if(f.status==='pending') list = list.filter(r=>!['completed','rejected'].includes(r.status));
+  else if(f.status==='done') list = list.filter(r=>r.status==='completed');
+  if(f.from) list = list.filter(r=>r.createdAtRaw && String(r.createdAtRaw).slice(0,10) >= f.from);
+  if(f.to) list = list.filter(r=>r.createdAtRaw && String(r.createdAtRaw).slice(0,10) <= f.to);
+  list.sort((a,b)=>tsOf(b.createdAtRaw)-tsOf(a.createdAtRaw));
+  const cell = 'padding:8px 10px;border-bottom:1px solid var(--line,#ddd);text-align:center;';
+  const rows = list.length ? list.map(r=>`<tr style="cursor:pointer;" onclick="openRequest('${r.id}')">
+      <td style="${cell}font-weight:700;">${escH(r.number||'قيد المراجعة')}</td>
+      <td style="${cell}">${escH(coName(r.companyId))}</td>
+      <td style="${cell}">${escH(r.reason||'')}</td>
+      <td style="${cell}">${r.dateGreg ? dmyStr(r.dateGreg) : '—'}</td>
+      <td style="${cell}font-weight:700;">${fmtKWDHtml(r.totalAmount)} د.ك</td>
+      <td style="${cell}">${statusBadge(r.status, r.isCancelled, false, true)}</td></tr>`).join('')
+    : `<tr><td colspan="6" style="${cell}">لا توجد طلبات ضمن هذا الاختيار</td></tr>`;
+  return `<div class="card no-print" style="margin-top:20px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">${head}</div>
+    <p class="file-hint">طلباتك في الشركات التي كنت فيها سابقاً. تُفتح وتُعدَّل من هنا وتبقى خطواتها في شركتها الأصلية.</p>
+    <div class="dash-filt" style="margin-bottom:10px;">
+      <div class="dash-filt-right">
+        <div><label>الحالة</label><select onchange="state.oldReq.status=this.value; render();">
+          <option value="pending" ${f.status==='pending'?'selected':''}>غير معتمدة</option>
+          <option value="done" ${f.status==='done'?'selected':''}>معتمدة (تم الصرف)</option>
+          <option value="all" ${f.status==='all'?'selected':''}>الكل</option></select></div>
+        <div><label>الشركة</label><select onchange="state.oldReq.co=this.value; render();">
+          <option value="all">كل الشركات</option>${cos.map(c=>`<option value="${c}" ${f.co===c?'selected':''}>${escH(coName(c))}</option>`).join('')}</select></div>
+        <div><label>من تاريخ</label><input type="date" value="${escH(f.from)}" onchange="state.oldReq.from=this.value; render();"></div>
+        <div><label>إلى تاريخ</label><input type="date" value="${escH(f.to)}" onchange="state.oldReq.to=this.value; render();"></div>
+      </div>
+    </div>
+    <table dir="rtl" style="width:100%;border-collapse:collapse;"><thead><tr>${['رقم الطلب','الشركة','الموضوع','التاريخ','المبلغ','الحالة'].map(h=>`<th style="${cell}background:var(--paper,#f4f4f4);">${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+  </div>`;
 }
 
 function renderNewRequest(app){
