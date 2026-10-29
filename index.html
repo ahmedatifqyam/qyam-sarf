@@ -3985,7 +3985,7 @@ async function attemptLogin(){
       let suspendedAcc = !!(error && (error.code==='user_banned' || /banned/i.test(error.message||'')));
       if(!suspendedAcc && error){ try{ const sr = await db.rpc('qy_login_suspended', {p_email: loginEmail}); suspendedAcc = sr && sr.data===true; }catch(e){} }
       if(suspendedAcc){
-        qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,460px);text-align:center;"><h2 style="margin-top:0;">حسابك متوقف</h2><p style="line-height:1.9;"><b style="font-size:18px;">🤍 شكراً لك 🤍</b><br>على ما قدّمته للشركة خلال فترة عملك معنا.<br>سنسعد بعودتك في أي وقت، وللعودة تواصل مع الإدارة لإعادة تفعيل حسابك.</p><div class="actions-row" style="justify-content:center;"><button class="btn btn-primary btn-md" onclick="qyBodyModalClose('banned')">حسناً</button></div></div>`, 'banned');
+        qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,460px);text-align:center;"><h2 style="margin-top:0;color:#b42318;"><span style="font-size:.7em;">⛔</span> حسابك موقوف <span style="font-size:.7em;">⛔</span></h2><p style="line-height:1.9;"><b style="font-size:18px;">🤍 شكراً لك 🤍</b><br>على ما قدّمته للشركة خلال فترة عملك معنا.<br>سنسعد بعودتك في أي وقت، وللعودة تواصل مع الإدارة لإعادة تفعيل حسابك.</p><div class="actions-row" style="justify-content:center;"><button class="btn btn-primary btn-md" onclick="qyBodyModalClose('banned')">حسناً</button></div></div>`, 'banned');
         return;
       }
       showToast('رقم الهاتف أو كلمة المرور غير صحيحة','error');
