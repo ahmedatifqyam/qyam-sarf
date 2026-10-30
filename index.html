@@ -1526,7 +1526,7 @@ function dbUserToState(u){
     notifSeenAt:u.notif_seen_at||null,
     jobTitle:u.job_title||'', levelId:u.level_id||null,
     requestApproverId:u.request_approver_id||null, nextApproverId:u.next_approver_id||null, execSubstituteId:u.exec_substitute_id||null,
-    isSuspended:!!u.is_suspended, suspendedAt:u.suspended_at||null, suspendedNote:u.suspended_note||'',
+    isSuspended:!!u.is_suspended, suspendedAt:u.suspended_at||null, suspendedNote:u.suspended_note||'', skipReview:!!u.skip_review,
     isGeneral:!!u.is_general, noRequestApprover:!!u.no_request_approver, noNextApprover:!!u.no_next_approver, directToTransfer:!!u.direct_to_transfer,
     approvalDeadlineDays:(u.approval_deadline_days===undefined||u.approval_deadline_days===null ? null : Number(u.approval_deadline_days)), escalateMode:u.escalate_mode||'', escalateUserId:u.escalate_user_id||null
   };
@@ -1557,6 +1557,7 @@ function dbCompanyToState(c){
     cfoDelegateUserId:c.cfo_delegate_user_id||null, cfoDelegateUntil:c.cfo_delegate_until||'',
     signatureMode:c.signature_mode||'seq', signatureDir:c.signature_dir||'ltr',
     reviewWindowMinutes:(c.review_window_minutes==null ? 10 : Number(c.review_window_minutes)),
+    reviewMode: c.review_mode || 'optional',
     currency_symbol: c.currency_symbol || 'د.ك'
   };
 }
@@ -1593,7 +1594,7 @@ const USER_COLS = 'id,phone,name,role,center_id,signature_data,stamp_data,email,
   + 'signature_mode,signature_color,signature_width,company_id,'
   + 'stamp_data_2,manager_id,notif_seen_at,job_title,level_id,request_approver_id,'
   + 'next_approver_id,exec_substitute_id,is_general,no_request_approver,no_next_approver,direct_to_transfer,'
-  + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id,is_suspended,suspended_at,suspended_note';
+  + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id,is_suspended,suspended_at,suspended_note,skip_review';
 
 async function reloadUsers(){
   const {data} = await db.from('users').select(USER_COLS);
@@ -2138,9 +2139,9 @@ function renderBellPanel(){
   if(!state.bellOpen || !state.user){ p.classList.remove('open'); p.innerHTML=''; return; }
   const n = computeNotifications();
   const icon = {pending:'📝', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳', reset:'🔑', recurring:'🔁', iban:'🏦', handover:'🤝', handover_res:'🤝'};
-  // «إخفاء المقروء»: اختيار محفوظ لكل مستخدم؛ ما ينتظر إجراءك يبقى ظاهراً لأنه مهمة لا خبر
+  // «إخفاء المقروء»: اختيار محفوظ لكل مستخدم. يُخفي كل مقروء؛ وما ينتظر إجراءك يبقى في «ما ينتظرني» وعدّاد الجرس
   const hideRead = bellHideRead();
-  const shown = hideRead ? n.items.filter(i=>i.isNew || i.kind==='pending') : n.items;
+  const shown = hideRead ? n.items.filter(i=>i.isNew) : n.items;
   const rows = shown.map(i=>`
     <div class="bell-item${i.isNew?' new':''}" onclick="openNotifItem('${i.reqId}','${i.kind}')">
       <span class="bell-ico">${icon[i.kind]}</span>
@@ -7544,9 +7545,21 @@ function qyBodyModal(html, id){
 }
 
 // ===================== مراجعة قبل الإرسال: ملخص + ملاحظات داخلية + خيار عدم الإظهار =====================
-function reviewSkipKey(){ return 'qayam_skip_review_' + (state.user ? state.user.id : ''); }
-function reviewSkipped(){ try{ return localStorage.getItem(reviewSkipKey())==='1'; }catch(e){ return false; } }
-function setReviewSkipped(on){ try{ localStorage.setItem(reviewSkipKey(), on ? '1' : '0'); }catch(e){} }
+// الإعداد لكل شركة يضبطه مدير النظام؛ في «اختيارية» يحفظ كل مستخدم اختياره في حسابه على الخادم
+function reviewMode(){ const c = state.companies.find(x=>x.id===state.currentCompanyId); return (c && c.reviewMode) || 'optional'; }
+function reviewSkipped(){
+  const m = reviewMode();
+  if(m==='required') return false;
+  if(m==='off') return true;
+  const me = state.user && state.users.find(u=>u.id===state.user.id);
+  return !!(me && me.skipReview);
+}
+async function setReviewSkipped(on){
+  const me = state.user && state.users.find(u=>u.id===state.user.id); if(!me) return false;
+  const r = await db.from('users').update({skip_review: !!on}).eq('id', me.id);
+  if(!(await dbCheck(r, 'حفظ إعداد نافذة المراجعة'))) return false;
+  me.skipReview = !!on; return true;
+}
 function reviewBeforeSend(o){
   return new Promise(resolve=>{
     const el = qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,560px);max-height:90vh;overflow:auto;text-align:right;">
@@ -7559,7 +7572,7 @@ function reviewBeforeSend(o){
       ${o.diffs ? `<div class="warn-box" style="margin-top:8px;border-right:4px solid var(--amber);padding:8px 12px;border-radius:8px;">⚠ ${o.diffs} مستفيد بآيبان أو رقم مدني يختلف عن المسجّل: يُحفظ لهذا الطلب فقط، وكُتبت ملحوظة بذلك، ويصل تنبيه للمالية.</div>` : ''}
       <label style="margin-top:10px;">هل لديك ملاحظات على هذا الطلب؟ (اختياري — داخلية لا تُطبع)</label>
       <textarea id="rvNotes" rows="4">${escH(o.notes||'')}</textarea>
-      <label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-weight:400;"><input id="rvSkip" type="checkbox" style="width:auto;"> لا تُظهر هذه النافذة مرة أخرى (إرسال مباشر) — تعيدها من «حسابي»</label>
+      ${reviewMode()==='optional' ? `<label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-weight:400;"><input id="rvSkip" type="checkbox" style="width:auto;"> لا تُظهر هذه النافذة مرة أخرى (إرسال مباشر) — تعيدها من «حسابي»</label>` : ''}
       <div class="actions-row" style="margin-top:12px;">
         <button type="button" class="btn btn-primary btn-md" id="rvSend">إرسال</button>
         <button type="button" class="btn btn-ghost btn-md" id="rvCancel">رجوع للتعديل</button>
@@ -7568,7 +7581,8 @@ function reviewBeforeSend(o){
     el.addEventListener('click', e=>{ if(e.target===el) resolve(null); });
     el.querySelector('#rvCancel').onclick = ()=>done(null);
     el.querySelector('#rvSend').onclick = ()=>{
-      if(el.querySelector('#rvSkip').checked) setReviewSkipped(true);
+      const sk = el.querySelector('#rvSkip');
+      if(sk && sk.checked) setReviewSkipped(true);
       done({notes: el.querySelector('#rvNotes').value.trim()});
     };
   });
@@ -7777,7 +7791,7 @@ function renderAccount(app){
           <input id="accIdle" type="number" min="${IDLE_MIN_MIN}" max="${idleCapFor(me.role)}" step="1" inputmode="numeric" dir="ltr" value="${state.myIdleMin||''}" placeholder="${IDLE_DEFAULT_MIN}">
           <div class="file-hint">أقصى مدة مسموحة لدورك: <b>${idleCapFor(me.role)}</b> دقيقة (حددها مدير النظام)، والأدنى ${IDLE_MIN_MIN}. إن تركته فارغاً فالمدة ${IDLE_DEFAULT_MIN} دقيقة.</div></div>
       </div>
-      <label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-weight:400;"><input type="checkbox" style="width:auto;" ${reviewSkipped()?'':'checked'} onchange="setReviewSkipped(!this.checked); showToast(this.checked ? 'ستظهر نافذة المراجعة قبل الإرسال' : 'سيُرسل الطلب مباشرة دون نافذة المراجعة','success');"> إظهار نافذة «مراجعة قبل الإرسال» عند إرسال طلب (يُحفظ في هذا المتصفح)</label>
+      ${reviewMode()==='optional' ? `<label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-weight:400;"><input type="checkbox" style="width:auto;" ${reviewSkipped()?'':'checked'} onchange="const on=this.checked; setReviewSkipped(!on).then(ok=>{ if(ok) showToast(on ? 'ستظهر نافذة المراجعة قبل الإرسال' : 'سيُرسل الطلب مباشرة دون نافذة المراجعة','success'); });"> إظهار نافذة «مراجعة قبل الإرسال» عند إرسال طلب</label>` : ''}
       <div class="row" style="margin-top:16px;">
         <div style="--fw:280px;"><label>جلستك الحالية</label><div id="accSessInfo" class="file-hint">…</div></div>
         <div style="--fw:280px;"><label>الأجهزة</label>
@@ -10782,6 +10796,15 @@ function renderCompanyEditForm(){
             بعد الإرسال يبقى الطلب بلا رقم هذه المدة، لا يراه المعتمدون، ويستطيع صاحبه تعديله أو حذفه. القيمة 0 تُعطّلها فيُرقَّم فوراً.
           </div>
         </div>
+        <div>
+          <label>📝 نافذة «مراجعة قبل الإرسال»</label>
+          <select id="editCoReviewMode">
+            <option value="optional" ${(c.reviewMode||'optional')==='optional'?'selected':''}>اختيارية لكل مستخدم (يستطيع إيقافها لنفسه)</option>
+            <option value="required" ${c.reviewMode==='required'?'selected':''}>إلزامية للجميع</option>
+            <option value="off" ${c.reviewMode==='off'?'selected':''}>معطّلة (إرسال مباشر للجميع)</option>
+          </select>
+          <div class="file-hint" style="margin-top:3px;">ملخص المبلغ بالحروف وعدد المستفيدين والبند وصندوق الملاحظات قبل إرسال الطلب.</div>
+        </div>
       </div>
       ${c.logoData ? `<div class="file-hint">✓ يوجد شعار/ترويسة محفوظة</div>` : ''}
       <label>تحديث الشعار/الترويسة (اختياري)</label>
@@ -10894,6 +10917,7 @@ async function saveCompanyEdit(){
     cfo_delegate_user_id: cfoUserId||null, cfo_delegate_until: cfoUntil||null,
     default_deadline_days: defaultDeadlineDays, default_escalate_mode: defaultEscalateMode, deadline_day_mode: deadlineDayMode,
     review_window_minutes: reviewWindow,
+    review_mode: (document.getElementById('editCoReviewMode')||{}).value || c.reviewMode || 'optional',
     currency_symbol: currencySymbolVal};
   if(file){ updates.logo_data = await readFileAsDataURL(file); }
   const result = await db.from('companies').update(updates).eq('id', c.id);
@@ -10903,6 +10927,7 @@ async function saveCompanyEdit(){
   c.cfoDelegateUserId = cfoUserId||null; c.cfoDelegateUntil = cfoUntil||'';
   c.defaultDeadlineDays = defaultDeadlineDays; c.defaultEscalateMode = defaultEscalateMode; c.deadlineDayMode = deadlineDayMode;
   c.reviewWindowMinutes = reviewWindow;
+  c.reviewMode = updates.review_mode;
   if(updates.logo_data) c.logoData = updates.logo_data;
   state.editingCompanyId = null;
   showToast('تم حفظ تعديلات الشركة', 'success');

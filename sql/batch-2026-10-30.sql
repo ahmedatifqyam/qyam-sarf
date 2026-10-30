@@ -104,3 +104,24 @@ begin
   end if;
   if n <> d then execute n; end if;
 end $$;
+
+-- (7) نافذة «مراجعة قبل الإرسال» لكل شركة: required إلزامية · optional اختيارية لكل مستخدم · off معطّلة
+alter table public.companies add column if not exists review_mode text not null default 'optional';
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname='companies_review_mode_chk') then
+    alter table public.companies add constraint companies_review_mode_chk check (review_mode in ('required','optional','off'));
+  end if;
+end $$;
+-- اختيار المستخدم «لا تُظهر مرة أخرى» يُحفظ في حسابه (يحفظه بنفسه)
+alter table public.users add column if not exists skip_review boolean not null default false;
+grant select (skip_review) on public.users to authenticated;
+do $$
+declare d text; n text;
+begin
+  d := pg_get_functiondef('public.users_self_update_guard()'::regprocedure);
+  if position('skip_review' in d) = 0 then
+    n := replace(d, '''notif_seen_at'',''idle_minutes''];', '''notif_seen_at'',''idle_minutes'',''skip_review''];');
+    if n = d then raise exception 'users_self_update_guard: anchor not found'; end if;
+    execute n;
+  end if;
+end $$;
