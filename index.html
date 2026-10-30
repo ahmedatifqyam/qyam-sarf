@@ -520,7 +520,7 @@
   .bell-badge.on{display:inline-flex;}
   .bell-panel{position:fixed;top:70px;left:16px;width:390px;max-width:calc(100vw - 32px);max-height:72vh;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.25);z-index:60;display:none;text-align:right;}
   .bell-panel.open{display:block;}
-  .bell-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;}
+  .bell-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;position:sticky;top:0;background:#fff;z-index:2;}
   .bell-item{display:flex;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;align-items:flex-start;}
   .bell-item:hover{background:var(--paper);}
   .bell-item.new{background:var(--blue-bg);}
@@ -529,7 +529,7 @@
   .bell-sub{font-size:12px;color:var(--muted);overflow-wrap:anywhere;}
   .bell-time{font-size:11px;color:var(--muted);white-space:nowrap;}
   .bell-late{color:var(--red);font-weight:700;font-size:11px;}
-  .bell-foot{padding:10px 14px;display:flex;gap:10px;justify-content:space-between;align-items:center;}
+  .bell-foot{padding:10px 14px;display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:2;}
   .bell-empty{padding:24px;text-align:center;color:var(--muted);}
   .badge-overdue{background:var(--red-bg) !important;color:var(--red) !important;}
   .pipe-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px;}
@@ -1264,10 +1264,19 @@ function netEnd(){
   const wait = Math.max(0, 600 - (Date.now() - _netShownAt));
   _netHideTimer = setTimeout(()=>{ if(_netInFlight===0) b.classList.remove('on'); }, wait);
 }
+// عدّاد الكتابات: التحديث التلقائي يُهمَل إن تزامن مع حفظ، لأن بياناته قد تكون أقدم من الحفظ نفسه
+// (كان يعيد الطلب على الشاشة لحالته السابقة فيضغط المستخدم مرة ثانية ويتكرر السجل)
+window._wSeq = 0; window._wInFlight = 0;
+const READ_RPCS = ['/rpc/qy_log_event','/rpc/qy_users_private','/rpc/qy_people_names','/rpc/qy_budget_figures','/rpc/resolve_login_email','/rpc/qy_login_suspended','/rpc/verify_request'];
 function trackedFetch(...args){
   const silent = window._netSilent;
   if(!silent) netStart();
-  return fetch(...args).then(r=>{ window._dbLastOk = !!r && (r.ok || r.status<500); return r; }, e=>{ window._dbLastOk = false; throw e; }).finally(()=>{ if(!silent) netEnd(); });
+  let url = '', method = 'GET';
+  try{ const a0 = args[0]; url = String((a0 && a0.url) || a0 || ''); method = String((args[1] && args[1].method) || (a0 && a0.method) || 'GET').toUpperCase(); }catch(e){}
+  const isWrite = url.includes('/rest/v1/') && method!=='GET' && method!=='HEAD' && !READ_RPCS.some(p=>url.includes(p));
+  if(isWrite){ window._wSeq++; window._wInFlight++; }
+  return fetch(...args).then(r=>{ window._dbLastOk = !!r && (r.ok || r.status<500); return r; }, e=>{ window._dbLastOk = false; throw e; })
+    .finally(()=>{ if(isWrite){ window._wInFlight = Math.max(0, window._wInFlight-1); window._wSeq++; } if(!silent) netEnd(); });
 }
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {global:{fetch: trackedFetch}});
 // الجلسة مشتركة بين تبويبات المتصفح: لو دخل أحد بحساب آخر في تبويب، صارت كل التبويبات تكتب بذاك الحساب
@@ -1554,7 +1563,7 @@ function dbCompanyToState(c){
 
 function mapRequestRow(r){
   return {
-    id:r.id, number:r.number, reason:r.reason, detailedReason:r.detailed_reason||'', totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
+    id:r.id, number:r.number, reason:r.reason, detailedReason:r.detailed_reason||'', requestNotes:r.request_notes||'', totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
     centerId:r.center_id, companyId:r.company_id, createdBy:r.created_by, createdById:r.created_by_id, dateGreg:r.date_greg, dateHijri:r.date_hijri,
     createdAtRaw:r.created_at, isRecurring: !!r.is_recurring,
     numberPrefix:r.number_prefix||null, numberSuffix:r.number_suffix||null, reviewUntil:r.review_until||null,
@@ -1590,6 +1599,16 @@ async function reloadUsers(){
   const {data} = await db.from('users').select(USER_COLS);
   if(data){ state.users = data.map(dbUserToState); await mergeUserPrivate(); }
 }
+// معتمدو طلباتي في شركات لم أعد أراها: أسماؤهم من الخادم (لا تُضاف لقوائم الاختيار)
+async function loadPeopleNames(){
+  try{
+    const r = await db.rpc('qy_people_names');
+    if(r.error || !r.data) return;
+    state.extraUsers = r.data.filter(x=>!(state.users||[]).some(u=>u.id===x.id))
+      .map(x=>({id:x.id, name:x.name, role:x.role, jobTitle:x.job_title||'', companyId:x.company_id, _ghost:true}));
+  }catch(e){}
+}
+function userById(id){ return (state.users||[]).find(u=>u.id===id) || (state.extraUsers||[]).find(u=>u.id===id) || null; }
 // يدمج البيانات الشخصية: من الدالة الآمنة إن وُجدت، وإلا (قاعدة لم تُحدَّث بعد) من الأعمدة مباشرة كما كان
 async function mergeUserPrivate(){
   try{
@@ -1673,7 +1692,8 @@ async function loadAll(){
   state.resetRequests  = d(16).map(r=>({id:r.id, phone:r.phone, userId:r.user_id, companyId:r.company_id,
     status:r.status, requestedAt:r.requested_at, handledBy:r.handled_by, handledAt:r.handled_at}));
   state.pagePerms = d(17);
-  await Promise.all([loadRecurring(), mergeUserPrivate()]);
+  await Promise.all([loadRecurring(), mergeUserPrivate(), loadPeopleNames()]);
+  loadBudgetSums();
 }
 
 
@@ -1685,8 +1705,12 @@ function reqFingerprint(list){
     (r.approvalSteps||[]).map(x=>(x.status||'')[0]).join('')].join('|')).join(';');
 }
 async function refreshRequests(){
+  if(window._wInFlight) return false;                 // حفظ جارٍ الآن: ننتظر الدورة التالية
+  const seq0 = window._wSeq;
   const {data, error} = await db.from('requests').select('*, request_beneficiaries(*), request_history(*), request_approval_steps(*)').order('created_at', {ascending:true});
   if(error || !data) return null;
+  if(window._wSeq !== seq0 || window._wInFlight) return false;   // حدث حفظ أثناء القراءة: البيانات قد تكون أقدم منه فلا تُستعمل
+  loadBudgetSums();
   const fresh = data.map(mapRequestRow);
   const changed = reqFingerprint(fresh) !== reqFingerprint(state.requests);
   if(changed) state.requests = fresh;
@@ -2027,6 +2051,18 @@ function computeNotifications(){
     items.push({key:'e:'+r.id+':'+ts, kind, reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey('e:'+r.id+':'+ts)), overdue:false,
       title, sub:r.number+' — '+r.reason+' — بواسطة '+h.actor+extra});
   });
+  // تنبيه آيبان: مستفيد بآيبان أو رقم مدني يختلف عن سجله — للمحاسب والمدير المالي ومدير النظام
+  if(isFinanceUser()){
+    const hz = Date.now() - 30*86400000;
+    state.requests.filter(r=>r.companyId===state.currentCompanyId && !r.isCancelled && r.status!=='completed').forEach(r=>{
+      const h = [...(r.history||[])].reverse().find(x=>x.action==='تنبيه آيبان');
+      if(!h) return;
+      const ts = tsOf(h.createdAt); if(ts<hz) return;
+      const key = 'ib:'+r.id+':'+ts;
+      items.push({key, kind:'iban', reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey(key)), overdue:false,
+        title:'آيبان مختلف عن سجل المستفيد', sub:(r.number||'قيد المراجعة')+' — '+(h.note||'')+' — '+(r.createdBy||'')});
+    });
+  }
   // إشعار path_reset — يظهر للمعتمِدين السابقين عندما يُعيد الأدمن المسار والاعتماد
   if(state.user){
     const horizon = Date.now() - 30*86400000;
@@ -2093,13 +2129,19 @@ function refreshNotifIndicators(){
   updateBellBadge(n); updateTabTitle(n);
   if(typeof renderAppNav==='function') renderAppNav(); // يحدّث عدّاد "طلبات الصرف" بالشريط الجانبي
 }
+function bellHideKey(){ return 'qayam_bell_hide_read_' + (state.user ? state.user.id : ''); }
+function bellHideRead(){ try{ return localStorage.getItem(bellHideKey())==='1'; }catch(e){ return false; } }
+function toggleBellHideRead(){ try{ localStorage.setItem(bellHideKey(), bellHideRead() ? '0' : '1'); }catch(e){} setTimeout(renderBellPanel, 0); }   // بعد انتهاء النقرة، وإلا عُدّت نقرة خارج اللوحة فأُغلقت
 function renderBellPanel(){
   const p = document.getElementById('bellPanel');
   if(!p) return;
   if(!state.bellOpen || !state.user){ p.classList.remove('open'); p.innerHTML=''; return; }
   const n = computeNotifications();
-  const icon = {pending:'📝', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳', reset:'🔑', recurring:'🔁'};
-  const rows = n.items.map(i=>`
+  const icon = {pending:'📝', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳', reset:'🔑', recurring:'🔁', iban:'🏦', handover:'🤝', handover_res:'🤝'};
+  // «إخفاء المقروء»: اختيار محفوظ لكل مستخدم؛ ما ينتظر إجراءك يبقى ظاهراً لأنه مهمة لا خبر
+  const hideRead = bellHideRead();
+  const shown = hideRead ? n.items.filter(i=>i.isNew || i.kind==='pending') : n.items;
+  const rows = shown.map(i=>`
     <div class="bell-item${i.isNew?' new':''}" onclick="openNotifItem('${i.reqId}','${i.kind}')">
       <span class="bell-ico">${icon[i.kind]}</span>
       <div style="flex:1;min-width:0;">
@@ -2110,9 +2152,10 @@ function renderBellPanel(){
     </div>`).join('');
   p.innerHTML = `
     <div class="bell-head"><span>🔔 الإشعارات</span><span style="display:flex;align-items:center;gap:10px;"><span onclick="toggleNotifSound()" style="cursor:pointer;font-size:15px;white-space:nowrap;" title="صوت التنبيه: ${NOTIF_LEVELS[notifLevel()].name} — اضغط لتغيير المستوى (عالٍ، متوسط، منخفض، صامت)">${NOTIF_LEVELS[notifLevel()].ico} <small style="font-size:11.5px;color:var(--muted);">${NOTIF_LEVELS[notifLevel()].name}</small></span><span style="cursor:pointer;color:var(--muted);padding:0 6px;" onclick="toggleBell(event)">✕</span></span></div>
-    ${rows || '<div class="bell-empty">لا توجد إشعارات</div>'}
+    ${rows || `<div class="bell-empty">${hideRead && n.items.length ? 'لا توجد إشعارات غير مقروءة' : 'لا توجد إشعارات'}</div>`}
     <div class="bell-foot">
       <button type="button" class="btn btn-ghost btn-md" onclick="markAllSeen()">تعليم الكل كمقروء</button>
+      <button type="button" class="btn btn-ghost btn-md" onclick="toggleBellHideRead()">${hideRead ? 'إظهار المقروء' : 'إخفاء المقروء'}</button>
       ${n.pendingCount ? '<button type="button" class="btn btn-primary btn-md" onclick="notifShowPending()">ما ينتظرني</button>' : ''}
     </div>`;
   const tb = document.querySelector('.topbar');
@@ -2232,6 +2275,7 @@ function notifShowPending(){
 document.addEventListener('click', function(e){
   if(!state.bellOpen) return;
   if(Date.now() < (state._bellOpenGuardUntil||0)) return;
+  if(!e.target.isConnected) return;   // عنصر أُعيد رسمه أثناء النقرة: ليست نقرة خارج اللوحة
   if(e.target.closest && (e.target.closest('#bellPanel') || e.target.closest('.bell-btn'))) return;
   state.bellOpen = false; markAllSeen();
 });
@@ -4087,6 +4131,7 @@ function switchCompany(companyId){
   state.currentCompanyId = companyId;
   if(state.user) saveLastCompany(state.user.id, companyId);
   showToast('تم التبديل إلى: ' + (state.companies.find(c=>c.id===companyId)?.nameAr||''), 'success');
+  state.budgetSums = null; loadBudgetSums().then(()=>{ if(state.budgetSums) render(); });
   render();
 }
 
@@ -4194,7 +4239,7 @@ function editRequest(id){
   state.editingReqId = id;
   // البند و«هل يتكرر» كانا يسقطان من المسودّة، فيفتح النموذج بلا البند المحفوظ
   state.draft = {
-    reason: req.reason, detailedReason: req.detailedReason||'', number: req.number,
+    reason: req.reason, detailedReason: req.detailedReason||'', number: req.number, requestNotes: req.requestNotes||'',
     budgetItemId: req.budgetItemId || UNSPECIFIED_BUDGET,
     isRecurring: !!req.isRecurring,
     beneficiaries: req.beneficiaries.map(b=>({...b, idFileName:'', idFileData:'', bankFileName:'', bankFileData:''}))
@@ -4210,10 +4255,15 @@ async function pushHistory(req, entry){
   return true;
 }
 async function setRequestStatus(req, newStatus){
-  const result = await db.from('requests').update({status:newStatus}).eq('id', req.id).select('id');
+  // التغيير مشروط بأن تكون الحالة على الخادم كما يراها المستخدم: ضغطة من شاشة قديمة تُرفض بلا تكرار
+  const result = await db.from('requests').update({status:newStatus}).eq('id', req.id).eq('status', req.status).select('id');
   if(!(await dbCheck(result, 'تحديث حالة الطلب'))) return false;
-  // تحديث لم يطابق أي صف (صلاحية أو طلب تغيّر) يُعد فشلاً، لا نجاحاً صامتاً
-  if(!result.data || !result.data.length){ showToast('تعذّر تحديث حالة الطلب: لم يعد متاحاً لك. حدّث الصفحة.','error'); return false; }
+  // تحديث لم يطابق أي صف (حالة تغيّرت أو صلاحية) يُعد فشلاً، لا نجاحاً صامتاً
+  if(!result.data || !result.data.length){
+    showToast('حالة الطلب تغيّرت قبل حفظ إجرائك (من جهاز أو مستخدم آخر). عُرضت الحالة الحالية.','error');
+    try{ await refreshRequests(); }catch(e){}
+    return false;
+  }
   req.status = newStatus;
   return true;
 }
@@ -4285,6 +4335,8 @@ function syncDraftFromDOM(){
   if(reasonEl) state.draft.reason = reasonEl.value;
   const detailedEl = document.getElementById('detailedReasonInput');
   if(detailedEl) state.draft.detailedReason = detailedEl.value;
+  const notesEl = document.getElementById('requestNotesInput');
+  if(notesEl) state.draft.requestNotes = notesEl.value;
   const recEl = document.getElementById('recurringCheck');
   if(recEl) state.draft.isRecurring = recEl.checked;
   const biEl = document.getElementById('budgetItemSelect');
@@ -4392,6 +4444,16 @@ function hasTransactionFor(sourceType, sourceId){
 //   قيد الطلب     — ما زال في سلسلة القرار. احتمال قد يُرفض فيعود.
 // والمتاح = الإيراد − ربح الشركة − الثلاثة. ولأن شيئاً من هذا لا يُخزَّن،
 // فرفض طلبٍ أو إلغاؤه يُعيد مبلغه إلى المتاح تلقائياً بلا «فكّ حجز» يدوي.
+function isFinanceUser(){ return !!state.user && ['accountant','cfo','admin'].includes(state.user.role); }
+async function loadBudgetSums(){
+  if(!state.user || isFinanceUser() || !state.currentCompanyId) return;
+  try{
+    const r = await db.rpc('qy_budget_figures', {p_company: state.currentCompanyId});
+    if(r.error || !r.data) return;
+    const m = {}; r.data.forEach(x=>{ m[x.budget_item_id] = {committed:Number(x.committed)||0, pending:Number(x.pending)||0}; });
+    state.budgetSums = m;
+  }catch(e){}
+}
 const COMMITTED_STATUSES = ['pending_transfer_request','pending_transfer_approval',
                             'pending_disbursement','pending_accountant','pending_cfo'];
 function isPendingDecisionStatus(s){ return s==='pending_decision' || OLD_DECISION_STATUSES.includes(s); }
@@ -4417,10 +4479,13 @@ function computeBudgetItemFigures(itemId){
   const spent    = out - reversed;
 
   const live = (state.requests||[]).filter(r=>r.budgetItemId===itemId && !r.isCancelled && r.status!=='rejected');
-  const committed = live.filter(r=>COMMITTED_STATUSES.includes(r.status))
+  let committed = live.filter(r=>COMMITTED_STATUSES.includes(r.status))
                         .reduce((s,r)=>s+(Number(r.totalAmount)||0),0);
-  const pending   = live.filter(r=>isPendingDecisionStatus(r.status))
+  let pending   = live.filter(r=>isPendingDecisionStatus(r.status))
                         .reduce((s,r)=>s+(Number(r.totalAmount)||0),0);
+  // غير المالية لا يرى كل طلبات الشركة؛ المجاميع تأتيه من الخادم (أرقام فقط) فلا يظهر له متاح أكبر من الحقيقي
+  const srv = !isFinanceUser() && state.budgetSums ? state.budgetSums[itemId] : null;
+  if(!isFinanceUser() && state.budgetSums){ committed = Math.max(committed, srv ? srv.committed : 0); pending = Math.max(pending, srv ? srv.pending : 0); }
 
   return { revenue: totalRev, profit, spent, committed, pending,
            available: totalRev - profit - spent - committed - pending };
@@ -4743,8 +4808,48 @@ async function submitDraftInner(){
   if(badDeduction){ showToast('قيمة الخصم أو الإضافي غير صحيحة (لا سالب، والخصم لا يتجاوز المبلغ)','error'); return; }
   if(missingStatement){ showToast('حقل البيان إلزامي لكل مستفيد','error'); return; }
 
+  // المستفيد المسجّل: غير المالية لا يغيّر آيبانه أو رقمه المدني؛ المختلف يُحفظ لهذا الطلب فقط مع ملحوظة وتنبيه للمالية
+  const normIban = v => String(v||'').replace(/\s+/g,'').toUpperCase();
+  const tail4 = v => { const t = normIban(v); return t ? t.slice(-4) : '—'; };
+  const finUser = isFinanceUser();
+  const identityDiffs = [];
+  beneficiaries.forEach(b=>{
+    const m = state.beneficiaries.find(x=>x.name===b.name && x.companyId===state.currentCompanyId);
+    if(!m || !m.id || finUser) return;
+    const ibanDiff = !!(b.iban && m.iban && normIban(b.iban)!==normIban(m.iban));
+    const civDiff = !!(b.civilId && m.civilId && b.civilId.trim()!==String(m.civilId).trim());
+    if(ibanDiff || civDiff) identityDiffs.push({name:b.name, ibanDiff, civDiff, reg:tail4(m.iban), used:tail4(b.iban)});
+  });
+  const autoLines = identityDiffs.map(x=>'• المستفيد «'+x.name+'»: '
+    + [x.ibanDiff ? 'آيبان يختلف عن المسجّل (المسجّل ينتهي بـ '+x.reg+'، والمستخدم هنا ينتهي بـ '+x.used+')' : '', x.civDiff ? 'رقم مدني يختلف عن المسجّل' : ''].filter(Boolean).join(' و')
+    + ' — محفوظ لهذا الطلب فقط');
+  let requestNotes = (d.requestNotes||'').trim();
+  autoLines.forEach(l=>{ if(!requestNotes.includes(l)) requestNotes = (requestNotes ? requestNotes+'\n' : '') + l; });
+  if(!reviewSkipped()){
+    const tPrev = Math.round(beneficiaries.reduce((s,b)=>s + Math.max(b.amount - b.deduction + (b.extra||0), 0), 0)*1000)/1000;
+    const biObj = budgetItemId ? (state.budgetItems||[]).find(x=>x.id===budgetItemId) : null;
+    const ans = await reviewBeforeSend({total:tPrev, count:beneficiaries.length, item: biObj ? biObj.name : 'غير محدد', notes:requestNotes, diffs:identityDiffs.length});
+    if(!ans) return;
+    requestNotes = ans.notes;
+  }
+  d.requestNotes = requestNotes;
+
   for(const b of beneficiaries){
     let master = state.beneficiaries.find(x=>x.name===b.name && x.companyId===state.currentCompanyId);
+    if(master && master.id && !finUser){
+      // مسجّل من قبل: يُكمَّل الناقص فقط (لا يُستبدل آيبان أو رقم مدني موجود)
+      const upd = {};
+      if(b.nameEn && !master.nameEn){ upd.name_en = b.nameEn; master.nameEn = b.nameEn; }
+      if(b.iban && !master.iban){ upd.iban = b.iban; master.iban = b.iban; }
+      if(b.civilId && !master.civilId){ upd.national_id = b.civilId; master.civilId = b.civilId; }
+      if(b._idFileData){ upd.id_file_data = b._idFileData; master.idFileName = b._idFileName; master.idFileData = b._idFileData; }
+      if(b._bankFileData){ upd.bank_file_data = b._bankFileData; master.bankFileName = b._bankFileName; master.bankFileData = b._bankFileData; }
+      delete b._idFileName; delete b._idFileData; delete b._bankFileName; delete b._bankFileData;
+      if(Object.keys(upd).length) await dbCheck(await db.from('beneficiaries_master').update(upd).eq('id', master.id), 'حفظ بيانات المستفيد');
+      const draftB0 = (d.beneficiaries||[]).find(x=>(x.name||'').trim()===b.name);
+      if(draftB0 && (draftB0._pend||[]).length) await attFlushPending(draftB0, master);
+      continue;
+    }
     if(!master){
       master = {name:b.name, nameEn:b.nameEn, iban:b.iban, civilId:b.civilId, idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', companyId: state.currentCompanyId};
       state.beneficiaries.push(master);
@@ -4779,7 +4884,7 @@ async function submitDraftInner(){
       chg.push('البند: ' + (bn ? bn : 'غير محدد'));
     }
     if(req.reason !== reasonInput) chg.push('العنوان');
-    if(Math.abs((Number(req.totalAmount)||0) - total) > 0.0005) chg.push('المبلغ: ' + fmtKWDPlain(total));
+    if(Math.abs((Number(req.totalAmount)||0) - total) > 0.0005) chg.push('المبلغ: من ' + fmtKWDPlain(Number(req.totalAmount)||0) + ' إلى ' + fmtKWDPlain(total));
     if(wasRecurring !== nowRecurring) chg.push(nowRecurring ? 'صار متكرراً' : 'لم يعد متكرراً');
     const histEntry = {step: req.status, actor: state.user.name, userId: state.user.id, action:'تعديل الطلب', note: chg.join(' · '), time: fmtDate()};
     // الترتيب يحمي من نصف تعديل: المستفيدون الجدد أولاً، ثم بيانات الطلب، ثم حذف القدامى.
@@ -4794,7 +4899,7 @@ async function submitDraftInner(){
     }
     const newIds = (insertResult.data||[]).map(r=>r.id);
     // budget_item_id وis_recurring كانا ناقصَين من هذه الجملة، فكان الاختيار يضيع بلا أثر
-    const upd = await db.from('requests').update({reason:reasonInput, detailed_reason:detailedReasonInput||null, total_amount:total, status:newStatus, limit_exceeded:newLimitExceeded, budget_item_id:budgetItemId, is_recurring:nowRecurring}).eq('id', req.id).select('id');
+    const upd = await db.from('requests').update({reason:reasonInput, detailed_reason:detailedReasonInput||null, total_amount:total, status:newStatus, limit_exceeded:newLimitExceeded, budget_item_id:budgetItemId, is_recurring:nowRecurring, request_notes:requestNotes||null}).eq('id', req.id).select('id');
     if(!(await dbCheck(upd, 'تحديث بيانات الطلب')) || !upd.data || !upd.data.length){
       if(newIds.length) await db.from('request_beneficiaries').delete().in('id', newIds);
       if(!upd.error) showToast('تعذّر حفظ التعديل: الطلب لم يعد قابلاً للتعديل. حدّث الصفحة.','error');
@@ -4813,6 +4918,8 @@ async function submitDraftInner(){
     await dbCheck(await db.from('request_history').insert({request_id:req.id, step:histEntry.step, actor:histEntry.actor, user_id:histEntry.userId, action:histEntry.action, note:histEntry.note, time:histEntry.time}), 'حفظ سجل التعديل');
     req.reason = reasonInput;
     req.detailedReason = detailedReasonInput;
+    req.requestNotes = requestNotes;
+    if(identityDiffs.length) await pushHistory(req, {step:req.status, actor:state.user.name, userId:state.user.id, action:'تنبيه آيبان', note:identityDiffs.map(x=>x.name).join('، ')+' — يختلف عن المسجّل، محفوظ لهذا الطلب فقط', time:fmtDate()});
     req.beneficiaries = beneficiaries;
     req.totalAmount = total;
     req.status = newStatus;
@@ -4912,7 +5019,8 @@ async function submitDraftInner(){
     origin:req.origin, center_id:req.centerId, company_id:req.companyId, created_by:req.createdBy, created_by_id:req.createdById,
     date_greg:req.dateGreg, date_hijri:req.dateHijri, is_recurring:req.isRecurring, fast_tracked:req.fastTracked, limit_exceeded:req.limitExceeded,
     budget_item_id: budgetItemId,
-    number_prefix: req.numberPrefix, number_suffix: req.numberSuffix, review_until: req.reviewUntil
+    number_prefix: req.numberPrefix, number_suffix: req.numberSuffix, review_until: req.reviewUntil,
+    request_notes: requestNotes || null
   });
   if(!(await dbCheck(reqInsert, 'إنشاء الطلب'))) return;
   const stepRows = chain.map((s,i)=>({id:'as_'+req.id+'_'+i, request_id:req.id, approver_id:s.approverId, sequence_order:i+1, role_label:s.roleLabel, status:'pending', kind:'primary', activated_at: i===0 ? new Date().toISOString() : null}));
@@ -4933,6 +5041,9 @@ async function submitDraftInner(){
   }
   const h0 = req.history[0];
   await dbCheck(await db.from('request_history').insert({request_id:req.id, step:h0.step, actor:h0.actor, user_id:h0.userId, action:h0.action, note:h0.note, time:h0.time}), 'حفظ سجل الإنشاء');
+  req.requestNotes = requestNotes;
+  if(identityDiffs.length) await pushHistory(req, {step:req.status, actor:state.user.name, userId:state.user.id, action:'تنبيه آيبان', note:identityDiffs.map(x=>x.name).join('، ')+' — يختلف عن المسجّل، محفوظ لهذا الطلب فقط', time:fmtDate()});
+  loadBudgetSums();
   // رقم التحقق يولّده الخادم عند الإنشاء؛ نقرؤه الآن حتى يظهر على السند دون الحاجة لتحديث الصفحة
   try{ const vc = await db.from('requests').select('verify_code').eq('id', req.id).maybeSingle(); req.verifyCode = (vc && vc.data && vc.data.verify_code) || ''; }catch(e){ req.verifyCode = ''; }
   state.requests.push(req);
@@ -5185,7 +5296,9 @@ async function finalizeApprove(req, signatureOverride){
   if(req.status==='pending_decision'){ const _st = myDecisionStep(req, state.user.id); if(_st && _st.approverId!==state.user.id) delegationNote = 'بالإنابة عن '+hoUserName(_st.approverId); }
   const histEntry = {step:req.status, actor: state.user.name, userId: state.user.id, action: label, note:delegationNote, time: fmtDate(), signatureOverride: signatureOverride||''};
   // في مرحلة القرار يُسجَّل الاعتماد بعد نجاح اعتماد الخطوة نفسها، لا قبله
-  if(req.status!=='pending_decision'){ if(!(await pushHistory(req, histEntry))) return; }
+  // خارج مرحلة القرار يُكتب السجل بعد نجاح تغيير الحالة، فلا يتكرر إن كانت الشاشة قديمة
+  const postHist = [];
+  if(req.status!=='pending_decision') postHist.push(histEntry);
   let newStatus;
   if(req.status==='pending_decision'){
     const group = currentDecisionGroup(req);
@@ -5241,7 +5354,7 @@ async function finalizeApprove(req, signatureOverride){
   } else if(req.status==='pending_transfer_request'){
     const company = state.companies.find(c=>c.id===req.companyId);
     if(company && company.cfoDelegationMode==='skip'){
-      await pushHistory(req, {step:'pending_transfer_approval', actor:'النظام', userId:null, action:'تخطٍّ تلقائي', note:'المدير المالي لا يستخدم النظام (حسب إعدادات الشركة)', time: fmtDate()});
+      postHist.push({step:'pending_transfer_approval', actor:'النظام', userId:null, action:'تخطٍّ تلقائي', note:'المدير المالي لا يستخدم النظام (حسب إعدادات الشركة)', time: fmtDate()});
       newStatus = 'pending_disbursement';
     } else {
       newStatus = 'pending_transfer_approval';
@@ -5260,6 +5373,7 @@ async function finalizeApprove(req, signatureOverride){
     newStatus = i>=0 ? tailOrder[i+1] : 'pending_transfer_request';
   }
   if(!(await setRequestStatus(req, newStatus))){ render(); return; }
+  for(const he of postHist){ await pushHistory(req, he); }
   showToast('تم اعتماد الطلب', 'success');
   render();
 }
@@ -5306,8 +5420,9 @@ async function markDisbursed(req){
     });
     if(!posted) return;   // الرسالة ظهرت من postTransaction
   }
-  if(!(await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action:'تم الصرف', note:'', time: fmtDate()}))){ render(); return; }
+  const doneEntry = {step:req.status, actor: state.user.name, userId: state.user.id, action:'تم الصرف', note:'', time: fmtDate()};
   if(!(await setRequestStatus(req, 'completed'))){ render(); return; }
+  await pushHistory(req, doneEntry);
   showToast('تم تأكيد الصرف وتسجيله في دفتر الحركات', 'success');
   render();
 }
@@ -5973,7 +6088,12 @@ async function saveAccount(){
   if(updates.stamp_data) me.stampData = updates.stamp_data;
   if(updates.stamp_data_2) me.stampData2 = updates.stamp_data_2;
 
-  if(me.nameEn && me.iban){
+  // سجل المستفيدين: إن كان اسمك مسجّلاً بآيبان آخر فلا يُستبدل إلا من المالية (بياناتك في حسابك حُفظت)
+  const _nI = v => String(v||'').replace(/\s+/g,'').toUpperCase();
+  const _m0 = state.beneficiaries.find(x=>x.name===me.name && x.companyId===state.currentCompanyId);
+  const _blockMaster = !isFinanceUser() && _m0 && _m0.id && ((_m0.iban && _nI(_m0.iban)!==_nI(me.iban)) || (_m0.civilId && me.civilId && String(_m0.civilId).trim()!==me.civilId.trim()));
+  if(_blockMaster) showToast('حُفظت بياناتك. اسمك مسجّل في سجل المستفيدين بآيبان آخر، وتعديله هناك للمالية.','success');
+  if(me.nameEn && me.iban && !_blockMaster){
     let master = state.beneficiaries.find(x=>x.name===me.name);
     const payload = {name: me.name, name_en: me.nameEn, iban: me.iban, national_id: me.civilId||'', company_id: state.currentCompanyId};
     const mUp = await db.from('beneficiaries_master').upsert(payload, {onConflict:'company_id,name'}).select('id,company_id').maybeSingle();
@@ -6027,8 +6147,9 @@ async function confirmRejectModal(){
     step.status='rejected'; step.actedAt=new Date().toISOString();
     for(const o of rgroup){ if(o!==step && o.status==='pending'){ await db.from('request_approval_steps').update({status:'skipped', acted_at:new Date().toISOString()}).eq('id', o.id); o.status='skipped'; } }
   }
-  if(!(await pushHistory(req, {step:req.status, actor: state.user.name, userId: state.user.id, action:'رفض الطلب', note:_rejNote, time: fmtDate()}))){ render(); return; }
+  const rejEntry = {step:req.status, actor: state.user.name, userId: state.user.id, action:'رفض الطلب', note:_rejNote, time: fmtDate()};
   if(!(await setRequestStatus(req, 'rejected'))){ render(); return; }
+  await pushHistory(req, rejEntry);
   showToast('تم رفض الطلب', 'success');
   render();
 }
@@ -6120,7 +6241,10 @@ function renderRejectModal(){
 
 async function resubmit(req){
   const newStatus = (req.approvalSteps||[]).length ? 'pending_decision' : 'pending_transfer_request';
-  await pushHistory(req, {step: req.status, actor: state.user.name, userId: state.user.id, action:'إعادة إرسال الطلب بعد التعديل', note:'', time: fmtDate()});
+  const resEntry = {step: req.status, actor: state.user.name, userId: state.user.id, action:'إعادة إرسال الطلب بعد التعديل', note:'', time: fmtDate()};
+  // الحالة أولاً (والخادم يُسقط الاعتمادات السابقة)، ثم السجل، ثم تنظيف الإحالات وبدء المهلة
+  if(!(await setRequestStatus(req, newStatus))){ render(); return; }
+  await pushHistory(req, resEntry);
   if((req.approvalSteps||[]).length){
     await dbCheck(await db.from('request_approval_steps').delete().eq('request_id', req.id).eq('kind', 'escalation'), 'إزالة الإحالات السابقة');
     req.approvalSteps = req.approvalSteps.filter(s=>s.kind!=='escalation');
@@ -6129,7 +6253,6 @@ async function resubmit(req){
     const first = currentDecisionGroup(req); const nowIso = new Date().toISOString();
     for(const o of first){ await db.from('request_approval_steps').update({activated_at:nowIso}).eq('id', o.id); o.activatedAt = nowIso; }
   }
-  await setRequestStatus(req, newStatus);
   render();
 }
 
@@ -7420,6 +7543,37 @@ function qyBodyModal(html, id){
   document.body.appendChild(d); return d;
 }
 
+// ===================== مراجعة قبل الإرسال: ملخص + ملاحظات داخلية + خيار عدم الإظهار =====================
+function reviewSkipKey(){ return 'qayam_skip_review_' + (state.user ? state.user.id : ''); }
+function reviewSkipped(){ try{ return localStorage.getItem(reviewSkipKey())==='1'; }catch(e){ return false; } }
+function setReviewSkipped(on){ try{ localStorage.setItem(reviewSkipKey(), on ? '1' : '0'); }catch(e){} }
+function reviewBeforeSend(o){
+  return new Promise(resolve=>{
+    const el = qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,560px);max-height:90vh;overflow:auto;text-align:right;">
+      <h2 style="margin-top:0;">مراجعة قبل الإرسال</h2>
+      <div class="note-box">
+        <div><b>المبلغ الإجمالي:</b> ${fmtKWDHtml(o.total)} د.ك</div>
+        <div class="sub" style="margin-top:4px;">${escH(amountToArabicWords(o.total))}</div>
+        <div style="margin-top:6px;"><b>عدد المستفيدين:</b> ${o.count} · <b>البند:</b> ${escH(o.item||'غير محدد')}</div>
+      </div>
+      ${o.diffs ? `<div class="warn-box" style="margin-top:8px;border-right:4px solid var(--amber);padding:8px 12px;border-radius:8px;">⚠ ${o.diffs} مستفيد بآيبان أو رقم مدني يختلف عن المسجّل: يُحفظ لهذا الطلب فقط، وكُتبت ملحوظة بذلك، ويصل تنبيه للمالية.</div>` : ''}
+      <label style="margin-top:10px;">هل لديك ملاحظات على هذا الطلب؟ (اختياري — داخلية لا تُطبع)</label>
+      <textarea id="rvNotes" rows="4">${escH(o.notes||'')}</textarea>
+      <label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-weight:400;"><input id="rvSkip" type="checkbox" style="width:auto;"> لا تُظهر هذه النافذة مرة أخرى (إرسال مباشر) — تعيدها من «حسابي»</label>
+      <div class="actions-row" style="margin-top:12px;">
+        <button type="button" class="btn btn-primary btn-md" id="rvSend">إرسال</button>
+        <button type="button" class="btn btn-ghost btn-md" id="rvCancel">رجوع للتعديل</button>
+      </div></div>`, 'review');
+    const done = v => { qyBodyModalClose('review'); resolve(v); };
+    el.addEventListener('click', e=>{ if(e.target===el) resolve(null); });
+    el.querySelector('#rvCancel').onclick = ()=>done(null);
+    el.querySelector('#rvSend').onclick = ()=>{
+      if(el.querySelector('#rvSkip').checked) setReviewSkipped(true);
+      done({notes: el.querySelector('#rvNotes').value.trim()});
+    };
+  });
+}
+
 // ===================== فحص قبل نقل مستخدم من شركة =====================
 function moveFindings(uid, removedIds){
   const inCo = r => removedIds.includes(r.companyId) && !r.isCancelled;
@@ -7623,6 +7777,7 @@ function renderAccount(app){
           <input id="accIdle" type="number" min="${IDLE_MIN_MIN}" max="${idleCapFor(me.role)}" step="1" inputmode="numeric" dir="ltr" value="${state.myIdleMin||''}" placeholder="${IDLE_DEFAULT_MIN}">
           <div class="file-hint">أقصى مدة مسموحة لدورك: <b>${idleCapFor(me.role)}</b> دقيقة (حددها مدير النظام)، والأدنى ${IDLE_MIN_MIN}. إن تركته فارغاً فالمدة ${IDLE_DEFAULT_MIN} دقيقة.</div></div>
       </div>
+      <label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-weight:400;"><input type="checkbox" style="width:auto;" ${reviewSkipped()?'':'checked'} onchange="setReviewSkipped(!this.checked); showToast(this.checked ? 'ستظهر نافذة المراجعة قبل الإرسال' : 'سيُرسل الطلب مباشرة دون نافذة المراجعة','success');"> إظهار نافذة «مراجعة قبل الإرسال» عند إرسال طلب (يُحفظ في هذا المتصفح)</label>
       <div class="row" style="margin-top:16px;">
         <div style="--fw:280px;"><label>جلستك الحالية</label><div id="accSessInfo" class="file-hint">…</div></div>
         <div style="--fw:280px;"><label>الأجهزة</label>
@@ -7856,9 +8011,13 @@ function useSeqSigs(req){
 }
 // صناديق الطلب بترتيبها: المنشئ، معتمِدو القرار، ثم الخطوات التنفيذية (كل خطوة صندوق ولو وقّعها الشخص نفسه)
 function sigSlotsForRequest(req){
-  const slots = [], userOf = id=>state.users.find(u=>u.id===id);
+  const slots = [], userOf = id=>userById(id);
   const co = state.companies.find(c=>c.id===req.companyId) || {};
-  const last = pred => [...(req.history||[])].reverse().find(pred) || null;
+  // بعد الرفض أو إعادة الإرسال تُحسب التواقيع من جديد: لا يبقى توقيع من دورة سابقة (مثل المحاسب قبل الرفض)
+  const H = req.history||[];
+  let cut = -1, rev = -1;
+  H.forEach((h,i)=>{ if(['رفض الطلب','إعادة إرسال الطلب بعد التعديل','إعادة المسار والاعتماد'].includes(h.action)) cut = i; if(h.action==='عكس قيد الصرف') rev = i; });
+  const last = pred => H.slice(cut+1).reverse().find(pred) || null;
   const cu = userOf(req.createdById), first = (req.history||[])[0];
   slots.push({kind:'creator', user:cu, actor:(first&&first.actor)||req.createdBy||(cu&&cu.name)||'', time:(first&&first.time)||'', step:'', signed:true, sigOverride:''});
   const orders = [...new Set((req.approvalSteps||[]).map(x=>x.sequenceOrder))].sort((a,b)=>a-b);
@@ -7880,7 +8039,7 @@ function sigSlotsForRequest(req){
   };
   exec('pending_transfer_request', 'نفّذ التحويل');
   if((co.cfoDelegationMode||'normal')!=='skip') exec('pending_transfer_approval', 'اعتمد التحويل', true);
-  const d = last(h=>h.action==='تم الصرف');
+  const d = H.slice(Math.max(cut, rev)+1).reverse().find(h=>h.action==='تم الصرف') || null;   // بعد عكس القيد يُنتظر صرف جديد
   slots.push({kind:'exec', user:d?userOf(d.userId):null, actor:d?d.actor:'', time:d?d.time:'', step:'أكّد الصرف', signed:!!d, sigOverride:''});
   return slots;
 }
@@ -13086,6 +13245,9 @@ function renderNewRequest(app){
       <label style="margin-top:14px;">سبب الطلب التفصيلي (اختياري — يُستخدم بالخطاب الرسمي بدل العنوان)</label>
       <textarea id="detailedReasonInput" rows="2" placeholder="اتركه فارغاً لاستخدام عنوان الطلب نفسه">${escH(d.detailedReason||'')}</textarea>
 
+      <label style="margin-top:14px;">ملاحظات الطلب (اختياري — داخلية لا تُطبع، يراها المعتمدون والمالية)</label>
+      <textarea id="requestNotesInput" rows="2" placeholder="مثال: الفاتورة الأصلية مع المحاسب">${escH(d.requestNotes||'')}</textarea>
+
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;">
         <input id="recurringCheck" type="checkbox" style="width:auto;" ${d.isRecurring ? 'checked' : ''}>
         هل يتكرر هذا الطلب مستقبلاً؟ (مثل رواتب شهرية أو عهدة متكررة)
@@ -13131,7 +13293,12 @@ function renderNewRequest(app){
               </div>
               <div>
                 <label>رقم الآيبان (IBAN)</label>
-                <input class="b-iban" type="text" value="${escH(b.iban||'')}" placeholder="KW00 XXXX XXXX XXXX">
+                <input class="b-iban" type="text" value="${escH(b.iban||'')}" placeholder="KW00 XXXX XXXX XXXX" onchange="syncDraftFromDOM(); render();">
+                ${(()=>{ const m = (b.name||'').trim() ? state.beneficiaries.find(x=>x.name===(b.name||'').trim() && x.companyId===state.currentCompanyId && x.id) : null;
+                  if(!m || !m.iban) return '';
+                  const t = String(m.iban).replace(/\s+/g,'').toUpperCase(), cur = String(b.iban||'').replace(/\s+/g,'').toUpperCase();
+                  const diff = cur && cur!==t && !isFinanceUser();
+                  return `<div class="file-hint" style="${diff?'color:var(--amber);font-weight:600;':''}">${diff ? '⚠ يختلف عن الآيبان المسجّل لهذا المستفيد (ينتهي بـ '+escH(t.slice(-4))+'): سيُحفظ لهذا الطلب فقط، وتُكتب ملحوظة، ويصل تنبيه للمالية.' : 'مستفيد مسجّل — الآيبان المسجّل ينتهي بـ '+escH(t.slice(-4))+'.'}</div>`; })()}
               </div>
             </div>
             <div class="row">
@@ -13472,13 +13639,13 @@ function renderDetail(app){
     const rows = (req.approvalSteps||[]).filter(x=>x.sequenceOrder===ord);
     const primary = rows.find(x=>x.kind!=='escalation') || rows[0];
     const escRows = rows.filter(x=>x.kind==='escalation');
-    const pu = state.users.find(x=>x.id===primary.approverId);
+    const pu = userById(primary.approverId);
     let label = userLabel(pu);
-    if(escRows.length) label += ' · أو المحال إليه: ' + escRows.map(r=>(state.users.find(x=>x.id===r.approverId)||{}).name||'').join('، ');
+    if(escRows.length) label += ' · أو المحال إليه: ' + escRows.map(r=>(userById(r.approverId)||{}).name||'').join('، ');
     let info = null;
     const okRow = rows.find(x=>x.status==='approved'), noRow = rows.find(x=>x.status==='rejected');
     if(okRow){
-      const au = state.users.find(x=>x.id===okRow.approverId);
+      const au = userById(okRow.approverId);
       const h = req.history.find(h=>h.action==='اعتماد' && h.userId===okRow.approverId);
       info = {name: (au?au.name:'') + (okRow.kind==='escalation' ? ' (محال إليه)' : ''), time: h?h.time:''};
     } else if(noRow){
@@ -13647,6 +13814,7 @@ function renderDetail(app){
 
       ${renderAppRequestView(req)}
 
+      ${req.requestNotes ? `<div class="note-box no-print" style="white-space:pre-wrap;margin-top:10px;"><b>ملاحظات الطلب (داخلية):</b>\n${escH(req.requestNotes)}</div>` : ''}
       ${actionsHtml}
       ${debugPanelHtml}
 
