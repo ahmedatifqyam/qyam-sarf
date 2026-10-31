@@ -7572,7 +7572,9 @@ function reviewBeforeSend(o){
       ${o.diffs ? `<div class="warn-box" style="margin-top:8px;border-right:4px solid var(--amber);padding:8px 12px;border-radius:8px;">⚠ ${o.diffs} مستفيد بآيبان أو رقم مدني يختلف عن المسجّل: يُحفظ لهذا الطلب فقط، وكُتبت ملحوظة بذلك، ويصل تنبيه للمالية.</div>` : ''}
       <label style="margin-top:10px;">هل لديك ملاحظات على هذا الطلب؟ (اختياري — داخلية لا تُطبع)</label>
       <textarea id="rvNotes" rows="4">${escH(o.notes||'')}</textarea>
-      ${reviewMode()==='optional' ? `<label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-weight:400;"><input id="rvSkip" type="checkbox" style="width:auto;"> لا تُظهر هذه النافذة مرة أخرى (إرسال مباشر) — تعيدها من «حسابي»</label>` : ''}
+      ${reviewMode()==='optional'
+        ? `<label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-weight:400;"><input id="rvSkip" type="checkbox" style="width:auto;"> لا تُظهر هذه النافذة مرة أخرى (إرسال مباشر) — تعيدها من «حسابي»</label>`
+        : `<div class="sub" style="margin-top:8px;color:var(--muted);">النافذة إلزامية في هذه الشركة</div>`}
       <div class="actions-row" style="margin-top:12px;">
         <button type="button" class="btn btn-primary btn-md" id="rvSend">إرسال</button>
         <button type="button" class="btn btn-ghost btn-md" id="rvCancel">رجوع للتعديل</button>
@@ -7791,7 +7793,9 @@ function renderAccount(app){
           <input id="accIdle" type="number" min="${IDLE_MIN_MIN}" max="${idleCapFor(me.role)}" step="1" inputmode="numeric" dir="ltr" value="${state.myIdleMin||''}" placeholder="${IDLE_DEFAULT_MIN}">
           <div class="file-hint">أقصى مدة مسموحة لدورك: <b>${idleCapFor(me.role)}</b> دقيقة (حددها مدير النظام)، والأدنى ${IDLE_MIN_MIN}. إن تركته فارغاً فالمدة ${IDLE_DEFAULT_MIN} دقيقة.</div></div>
       </div>
-      ${reviewMode()==='optional' ? `<label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-weight:400;"><input type="checkbox" style="width:auto;" ${reviewSkipped()?'':'checked'} onchange="const on=this.checked; setReviewSkipped(!on).then(ok=>{ if(ok) showToast(on ? 'ستظهر نافذة المراجعة قبل الإرسال' : 'سيُرسل الطلب مباشرة دون نافذة المراجعة','success'); });"> إظهار نافذة «مراجعة قبل الإرسال» عند إرسال طلب</label>` : ''}
+      ${reviewMode()==='optional'
+        ? `<label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-weight:400;"><input type="checkbox" style="width:auto;" ${reviewSkipped()?'':'checked'} onchange="const on=this.checked; setReviewSkipped(!on).then(ok=>{ if(ok) showToast(on ? 'ستظهر نافذة المراجعة قبل الإرسال' : 'سيُرسل الطلب مباشرة دون نافذة المراجعة','success'); });"> إظهار نافذة «مراجعة قبل الإرسال» عند إرسال طلب</label>`
+        : `<label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-weight:400;color:var(--muted);"><input type="checkbox" style="width:auto;" disabled ${reviewMode()==='required'?'checked':''}> نافذة المراجعة قبل الإرسال: ${reviewMode()==='required'?'إلزامية':'معطّلة'} في هذه الشركة</label>`}
       <div class="row" style="margin-top:16px;">
         <div style="--fw:280px;"><label>جلستك الحالية</label><div id="accSessInfo" class="file-hint">…</div></div>
         <div style="--fw:280px;"><label>الأجهزة</label>
