@@ -4139,6 +4139,7 @@ function switchCompany(companyId){
 }
 
 function newDraft(){
+  if(newReqBlocked()) return;
   const saved = loadDraftFromStorage();
   if(saved && saved.draft){
     state.editingReqId = saved.editingReqId || null;
@@ -4166,6 +4167,12 @@ function discardDraftAndStartFresh(){
   render();
 }
 
+// من مُنع «طلب جديد»: رسالة واضحة بدل إخفاء الزر أو تحويل صامت
+function newReqBlocked(){
+  if(pageLevel('newreq')!=='none') return false;
+  openNewRequestChoice();
+  return true;
+}
 function openNewRequestChoice(){
   // الزر يبقى ظاهراً للجميع (إخفاؤه يُربك)؛ من مُنع تظهر له رسالة واضحة بدل أن يبحث عنه
   if(pageLevel('newreq')==='none'){
@@ -4186,6 +4193,7 @@ function openDuplicateList(mode){
 }
 
 function duplicateFromRequest(id){
+  if(newReqBlocked()) return;
   const req = state.requests.find(r=>r.id===id);
   if(!req) return;
   state.editingReqId = null;
