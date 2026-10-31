@@ -3323,7 +3323,8 @@ const PAGE_CATALOG = [
   {key:'revenues',  label:'الإيرادات',         hint:'قراءة: يرى · تعديل: يرد الإيراد · تحكم كامل: يسجّل ويحذف'},
   {key:'recurring', label:'القيود الدورية',    hint:'قراءة: يرى · تعديل: يرحّل ويتخطّى ويعدّل · تحكم كامل: ينشئ القوالب ويحذفها'},
   {key:'ledger',    label:'دفتر الحركات',      hint:'قراءة: يرى · تعديل: يعكس ويسترد · تحكم كامل: قيد يدوي'},
-  {key:'analytics', label:'التحليلات المالية', hint:'عرض فقط'}
+  {key:'analytics', label:'التحليلات المالية', hint:'عرض فقط'},
+  {key:'handovers', label:'الإسناد',            hint:'إسناد المعاملات لزميل عند الغياب أو الانتقال. يظهر دائماً لمن وصله إسناد'}
 ];
 const PAGE_FINANCE_ROLES = ['admin','accountant','cfo'];
 function pageDefaultLevel(role, key){
@@ -3331,6 +3332,7 @@ function pageDefaultLevel(role, key){
   const fin = PAGE_FINANCE_ROLES.includes(role);
   if(key==='newreq' || key==='analytics') return 'full';          // الوضع الحالي: الجميع
   if(key==='revenues' || key==='ledger' || key==='recurring') return fin ? 'full' : 'none';
+  if(key==='handovers') return role==='employee' ? 'none' : 'full';   // الإسناد للمعتمِدين والمالية؛ الموظف بلا معاملات يعتمدها
   return 'full';
 }
 function pageExplicitRow(key, role, companyId){
@@ -3350,7 +3352,7 @@ function pageLevel(key){
   // مستخدم غير مالي مُنح صلاحية إنشاء القوالب أو وصله تنبيه قالب
   if(key==='recurring' && !PAGE_FINANCE_ROLES.includes(u.role)){
     if(recMeFlag()) return 'full';
-    if((state.recurringTemplates||[]).length>0) return 'read';
+    if(recVisibleTemplates().length>0) return 'read';
   }
   return pageDefaultLevel(u.role, key);
 }
@@ -3515,7 +3517,7 @@ function groupNavSets(){
   const sets = [];
   // المعاملات المالية: الصرف | الإيراد | القيود الدورية
   const expSubs = [{label:'الطلبات', active:['dashboard','detail','duplicateList'].includes(v), js:go(`state.view='dashboard'; render(); window.scrollTo(0,0);`)}];
-  if(pageLevel('newreq')!=='none') expSubs.push({label:'طلب جديد', active:['newRequest','newRequestChoice'].includes(v), js:go(`openNewRequestChoice(); window.scrollTo(0,0);`)});
+  expSubs.push({label:'طلب جديد', active:['newRequest','newRequestChoice'].includes(v), js:go(`openNewRequestChoice(); window.scrollTo(0,0);`)});
   { const nOld = (typeof oldCoReqList==='function') ? oldCoReqList().length : 0;
     if(nOld) expSubs.push({label:'طلباتي في شركات أخرى ('+nOld+')', active:v==='oldRequests', js:go(`openOldRequests();`)}); }
   const fin = [{key:'expense', label:'الصرف', views:['dashboard','detail','duplicateList','newRequest','newRequestChoice','oldRequests'], js:go(`state.view='dashboard'; render(); window.scrollTo(0,0);`), subs:expSubs}];
@@ -3593,7 +3595,7 @@ function navFinSubs(){
   const pend = (typeof getMyPendingRequests==='function') ? getMyPendingRequests().length : 0;
   subs.push({label:'الصرف', count:pend, active:['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview'].includes(state.view),
              js:`state.view='dashboard'; render(); window.scrollTo(0,0);`});
-  subs.push({label:'الإسناد', count:(typeof hoMyPendingToMeCount==='function'?hoMyPendingToMeCount():0), active:state.view==='handovers', js:`openHandovers();`});
+  if(canSeeHandovers()) subs.push({label:'الإسناد', count:(typeof hoMyPendingToMeCount==='function'?hoMyPendingToMeCount():0), active:state.view==='handovers', js:`openHandovers();`});
   if(canSeeRevenues()) subs.push({label:'الإيراد', active:state.view==='revenues', js:`openRevenues(0);`});
   if(canSeeRecurring()) subs.push({label:'القيود الدورية', count:recDueCount(), active:state.view==='recurring', js:`openRecurring(0);`});
   if(role!=='admin' && (pageLevel('ledger')!=='none' || pageLevel('analytics')!=='none')){
@@ -3727,7 +3729,7 @@ function searchSectionIndex(){
   });
   // أسماء البنود التي دُمجت في الشريط الجانبي تبقى قابلة للبحث
   out.push({label:'طلبات الصرف', sub:'الصرف', js:`state.view='dashboard'; render();`});
-  if(pageLevel('newreq')!=='none') out.push({label:'طلب صرف جديد', sub:'الصرف', js:`openNewRequestChoice();`});
+  out.push({label:'طلب صرف جديد', sub:'الصرف', js:`openNewRequestChoice();`});
   if(canSeeRevenues()){ out.push({label:'الإيرادات', sub:'الإيراد', js:`openRevenues(0);`}); if(pageAtLeast('revenues','full')) out.push({label:'إيراد جديد', sub:'الإيراد', js:`openRevenues(1);`}); }
   if(state.user && state.user.role!=='admin'){
     if(pageLevel('ledger')!=='none') out.push({label:'دفتر الحركات', sub:'التقارير', js:`openLedger();`});
@@ -4165,6 +4167,14 @@ function discardDraftAndStartFresh(){
 }
 
 function openNewRequestChoice(){
+  // الزر يبقى ظاهراً للجميع (إخفاؤه يُربك)؛ من مُنع تظهر له رسالة واضحة بدل أن يبحث عنه
+  if(pageLevel('newreq')==='none'){
+    qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,440px);text-align:center;">
+      <h2 style="margin-top:0;">طلب صرف جديد</h2>
+      <p style="line-height:1.9;">ليست لديك صلاحية إنشاء طلب صرف في هذه الشركة.<br>إن كنت تحتاجها فراجع مدير النظام.</p>
+      <div class="actions-row" style="justify-content:center;"><button class="btn btn-primary btn-md" onclick="qyBodyModalClose('nonew')">حسناً</button></div></div>`, 'nonew');
+    return;
+  }
   state.view='newRequestChoice';
   render();
 }
@@ -7092,7 +7102,7 @@ function siteMapPages(){
   const P = [];
   P.push({g:'الطلبات', ico:'📋', label:'طلباتي / الرئيسية', desc:'كل طلباتك وما ينتظر قرارك مع حالة كل طلب.', js:`state.view='dashboard'; render();`, guide:'track',
     btns:[['+ طلب صرف جديد','يبدأ طلب صرف جديداً'],['فلاتر الحالة والبحث','تضييق القائمة بحالة الطلب أو كلمة'],['فتح الطلب','يعرض مساره وسجله وأزرار قراره']]});
-  if(pageLevel('newreq')!=='none') P.push({g:'الطلبات', ico:'➕', label:'طلب صرف جديد', desc:'نموذج إنشاء طلب: العنوان والبند والمستفيدون والمرفقات.', js:`openNewRequestChoice();`, guide:'new',
+  P.push({g:'الطلبات', ico:'➕', label:'طلب صرف جديد', desc:'نموذج إنشاء طلب: العنوان والبند والمستفيدون والمرفقات.', js:`openNewRequestChoice();`, guide:'new',
     btns:[['إرسال','يرسل الطلب بعد نافذة المراجعة'],['إلغاء','يتجاهل المسودة'],['تعديل نصوص الطباعة','يغيّر نص الخطاب المطبوع']]});
   if(canSeeRevenues()){
     P.push({g:'المالية', ico:'💰', label:'الإيرادات', desc:'ما دخل الصندوق على كل بند.', js:`openRevenues(0);`, guide:'rev',
@@ -7349,6 +7359,13 @@ function hoScopeText(h){
   return 'طلبات محددة: ' + nums.join('، ');
 }
 function openHandovers(){ state.hoReject=null; state.hoForm=null; state.view='handovers'; render(); window.scrollTo(0,0); }
+// الإسناد يظهر حسب صلاحية الصفحة، ودائماً لمن له إسناد قائم (وصله أو أرسله) حتى لا يضيع عليه قبوله
+function canSeeHandovers(){
+  if(!state.user) return false;
+  if(pageLevel('handovers')!=='none') return true;
+  const me = state.user.id;
+  return (state.handovers||[]).some(h=>h.company_id===state.currentCompanyId && (h.to_user_id===me || h.from_user_id===me) && ['pending','accepted'].includes(h.status));
+}
 function hoMyPendingToMeCount(){
   if(!state.user) return 0;
   return (state.handovers||[]).filter(h=>h.company_id===state.currentCompanyId && h.to_user_id===state.user.id && h.status==='pending').length;
@@ -7689,11 +7706,11 @@ function renderAccount(app){
   app.innerHTML = `
     <h1>حسابي — ${escH(findRole(me.role).name)}</h1>
     <p class="sub">${state.returnTo ? 'الرجاء رفع صورة التوقيع والختم أولاً لإكمال اعتماد الطلب.' : 'تحديث بياناتك الشخصية.'}</p>
-    <div class="card flow">
+    ${canSeeHandovers() ? `    <div class="card flow">
       <h2 style="margin:0 0 4px;font-size:15px;">إسناد المعاملات</h2>
       <p class="file-hint" style="margin:0 0 6px;">ستغيب أو تنتقل أو تترك العمل؟ أسند معاملاتك لزميل يعتمدها بدلاً منك.</p>
       <div class="actions-row"><button class="btn btn-ghost btn-sm" onclick="openHandovers()">فتح صفحة الإسناد${(typeof hoMyPendingToMeCount==='function' && hoMyPendingToMeCount()) ? ' ('+hoMyPendingToMeCount()+' بانتظارك)' : ''}</button></div>
-    </div>
+    </div>` : ''}
 
     <div class="card flow">
       <h2 style="margin:0 0 4px;font-size:15px;">بياناتي</h2>
@@ -9951,7 +9968,14 @@ function recDiffDays(fromStr, toStr){ return Math.round((Date.parse(toStr+'T00:0
 function recIsFinance(){ return ['admin','accountant','cfo'].includes(state.user && state.user.role); }
 function recMeFlag(){ const u = state.user && (state.users||[]).find(x=>x.id===state.user.id); return !!(u && u.canManageRecurring); }
 function recCanManage(){ return recIsFinance() || recMeFlag(); }
-function canSeeRecurring(){ return !!state.recurringReady && (recCanManage() || (state.recurringTemplates||[]).length>0); }
+// في «عرض كمستخدم» القوالب المحمّلة هي قوالب مدير النظام كلها: نعرض فقط ما يراه ذلك المستخدم فعلاً
+function recVisibleTemplates(){
+  const all = state.recurringTemplates||[];
+  if(!state.impersonatingFromAdmin || !state.user || recIsFinance()) return all;
+  const me = state.user.id;
+  return all.filter(t=>t.created_by_id===me || (t.notify_user_ids||[]).includes(me) || (t.approval_notify_user_ids||[]).includes(me));
+}
+function canSeeRecurring(){ return !!state.recurringReady && (recCanManage() || recVisibleTemplates().length>0); }
 function recTemplate(id){ return (state.recurringTemplates||[]).find(t=>t.id===id); }
 function recCanApprove(t){
   const me = state.user; if(!me || t.status!=='pending_approval') return false;
@@ -12250,10 +12274,16 @@ function permAllRoles(){
   const custom = (state.customRoles||[]).map(r=>({id:r.id, name:r.name+' (وظيفي)'}));
   return fixed.concat(custom);
 }
+// الشركة التي تُضبط صلاحياتها (تُختار داخل الصفحة؛ الافتراضي الشركة الحالية)
+function permCo(){ const c = state.permCo; return (c && state.companies.some(x=>x.id===c)) ? c : state.currentCompanyId; }
+function permPickCo(id){
+  if(Object.keys(state.permDraft||{}).length && !confirm('لديك تغييرات غير محفوظة لهذه الشركة. تجاهلها والانتقال؟')){ render(); return; }
+  state.permCo = id; state.permDraft = {}; render();
+}
 function permDraftLevel(role, key){
   const d = state.permDraft || {};
   const k = role+'|'+key;
-  return d[k] !== undefined ? d[k] : pageLevelFor(role, key, state.currentCompanyId);
+  return d[k] !== undefined ? d[k] : pageLevelFor(role, key, permCo());
 }
 function permSet(role, key, val){
   state.permDraft = state.permDraft || {};
@@ -12262,7 +12292,8 @@ function permSet(role, key, val){
 }
 function permReset(){ state.permDraft = {}; render(); }
 function renderPermissionsPanel(){
-  const roles = permAllRoles(), co = state.currentCompanyId;
+  const roles = permAllRoles(), co = permCo();
+  const coName = (state.companies.find(c=>c.id===co)||{}).nameAr || '';
   const dirty = Object.keys(state.permDraft||{}).length > 0;
   const head = `<tr><th style="text-align:right;">الدور</th>${PAGE_CATALOG.map(p=>`<th style="text-align:right;" title="${escH(p.hint)}">${escH(p.label)}</th>`).join('')}</tr>`;
   const body = roles.map(r=>`<tr><td style="text-align:right;"><b>${escH(r.name)}</b></td>${PAGE_CATALOG.map(p=>{
@@ -12270,7 +12301,12 @@ function renderPermissionsPanel(){
       return `<td data-label="${escH(p.label)}" style="text-align:right;"><select style="--fw:175px;max-width:190px;${cur!==def?'border-color:#b45309;':''}" onchange="permSet('${r.id}','${p.key}',this.value)" title="${escH(p.hint)}">${PAGE_LEVELS.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}${v===def?' (افتراضي)':''}</option>`).join('')}</select></td>`;
     }).join('')}</tr>`).join('');
   return `
-    <div class="card" style="margin-top:28px;"><h2>صلاحيات الصفحات</h2>
+    <div class="card" style="margin-top:28px;"><h2>صلاحيات الصفحات — ${escH(coName)}</h2>
+      <div class="row" style="align-items:flex-end;margin-bottom:6px;">
+        <div style="--fw:320px;"><label>الشركة التي تضبط صلاحياتها</label>
+          <select onchange="permPickCo(this.value)">${state.companies.map(c=>`<option value="${escH(c.id)}" ${c.id===co?'selected':''}>${escH(c.nameAr)}</option>`).join('')}</select></div>
+        ${state.companies.length>1 ? `<div><button type="button" class="btn btn-ghost btn-md" onclick="copyPagePermsToAll()" title="يجعل صلاحيات كل الشركات مثل صلاحيات هذه الشركة">نسخ هذه الصلاحيات لكل الشركات</button></div>` : ''}
+      </div>
       <p class="sub">لكل دور في الشركة الحالية: هل يرى الصفحة، وماذا يفعل فيها. الخيار «افتراضي» هو الوضع المعمول به الآن. مدير النظام يرى كل شيء دائماً. لوحة التحكم لا تظهر لغير مدير النظام مهما كانت الصلاحية.</p>
       <p class="sub" style="font-size:12.5px;">ملاحظة: هذه الصلاحيات تتحكم في ظهور الصفحات والأزرار. أما البيانات المالية نفسها فتحميها قاعدة البيانات للأدوار المالية فقط، فمنح صفحة مالية لدور غير مالي لا يكشف له بيانات لا يملك حق قراءتها.</p>
       <div style="overflow-x:auto;"><table class="exec-table perm-tbl" style="direction:rtl;width:100%;"><thead>${head}</thead><tbody>${body}</tbody></table></div>
@@ -12283,8 +12319,9 @@ function renderPermissionsPanel(){
 async function savePagePerms(){
   const d = state.permDraft || {}, keys = Object.keys(d);
   if(!keys.length){ showToast('لا تغييرات للحفظ'); return; }
-  if(!(await reauthModal('تأكيد حفظ الصلاحيات','ستتغير الصفحات التي يراها كل دور في هذه الشركة فور الحفظ.','حفظ'))) return;
-  const co = state.currentCompanyId;
+  const co = permCo();
+  const coName = (state.companies.find(c=>c.id===co)||{}).nameAr || '';
+  if(!(await reauthModal('تأكيد حفظ الصلاحيات','ستتغير الصفحات التي يراها كل دور في «'+escH(coName)+'» فور الحفظ.','حفظ'))) return;
   const ups = [], dels = [];
   keys.forEach(k=>{
     const [role, page] = k.split('|'), lv = d[k];
@@ -12301,7 +12338,28 @@ async function savePagePerms(){
   const p = await db.from('page_permissions').select('*');
   if(!p.error) state.pagePerms = p.data || [];
   state.permDraft = {};
-  showToast('حُفظت صلاحيات الصفحات','success'); render();
+  showToast('حُفظت صلاحيات الصفحات لـ «'+coName+'»','success'); render();
+}
+// ينسخ الصلاحيات الفعلية لهذه الشركة (بعد الحفظ) إلى كل الشركات الأخرى
+async function copyPagePermsToAll(){
+  if(Object.keys(state.permDraft||{}).length){ showToast('احفظ التغييرات أولاً ثم انسخها','error'); return; }
+  const src = permCo(), srcName = (state.companies.find(c=>c.id===src)||{}).nameAr || '';
+  const others = state.companies.filter(c=>c.id!==src);
+  if(!others.length) return;
+  if(!(await reauthModal('نسخ الصلاحيات لكل الشركات','ستصبح صلاحيات الصفحات في '+others.length+' شركة أخرى مثل «'+escH(srcName)+'» تماماً.','نسخ'))) return;
+  for(const c of others){
+    const ups = [], dels = [];
+    permAllRoles().forEach(r=>PAGE_CATALOG.forEach(p=>{
+      const lv = pageLevelFor(r.id, p.key, src);
+      if(lv === pageDefaultLevel(r.id, p.key)) dels.push({role:r.id, page:p.key});
+      else ups.push({company_id:c.id, role:r.id, page_key:p.key, level:lv, updated_by:state.user.name, updated_at:new Date().toISOString()});
+    }));
+    if(ups.length){ const r = await db.from('page_permissions').upsert(ups, {onConflict:'company_id,role,page_key'}); if(!(await dbCheck(r,'نسخ الصلاحيات'))) return; }
+    for(const x of dels){ const r = await db.from('page_permissions').delete().eq('company_id',c.id).eq('role',x.role).eq('page_key',x.page); if(!(await dbCheck(r,'نسخ الصلاحيات'))) return; }
+  }
+  const p = await db.from('page_permissions').select('*');
+  if(!p.error) state.pagePerms = p.data || [];
+  showToast('نُسخت الصلاحيات إلى '+others.length+' شركة','success'); render();
 }
 
 function renderRolesPanel(){

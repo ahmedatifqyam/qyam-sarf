@@ -125,3 +125,21 @@ begin
     execute n;
   end if;
 end $$;
+
+-- (8) صلاحية «طلب صرف جديد» تُفرض في الخادم: من مُنع (لا يرى / قراءة فقط) لا يُنشئ طلباً ولو تجاوز الواجهة
+do $$
+declare d text; n text;
+begin
+  d := pg_get_functiondef('public.qy_requests_ins_guard()'::regprocedure);
+  if position('req_ins_page' in d) = 0 then
+    n := replace(d, '  if coalesce(new.is_cancelled,false) or coalesce(new.status,'''') not in',
+'  -- صلاحية صفحة «طلب صرف جديد» لدور المستخدم في هذه الشركة (لا يرى / قراءة فقط = لا إنشاء)
+  if exists (select 1 from public.page_permissions p join public.users u on u.id = new.created_by_id
+             where p.company_id = new.company_id and p.role = u.role and p.page_key = ''newreq'' and p.level in (''none'',''read'')) then
+    perform public.qy_deny(''req_ins_page'', new.id, ''ليست لديك صلاحية إنشاء طلب صرف في هذه الشركة'');
+  end if;
+  if coalesce(new.is_cancelled,false) or coalesce(new.status,'''') not in');
+    if n = d then raise exception 'qy_requests_ins_guard: anchor not found'; end if;
+    execute n;
+  end if;
+end $$;
