@@ -18,6 +18,8 @@ language sql stable security definer set search_path to 'public','pg_temp' as $f
           or (c.cfo_delegation_mode = 'delegate_manager' and exists (select 1 from public.users u where u.manager_id = public.qy_me() and u.role = 'accountant'))))
     ));
 $f$;
+revoke all on function public.can_see_request(text) from public, anon;
+grant execute on function public.can_see_request(text) to authenticated;
 alter policy qyam_sel_requests on public.requests using (public.can_see_request(id));
 alter policy qyam_wrt_requests on public.requests using (public.can_see_request(id)) with check (public.can_see_company(company_id));
 
