@@ -1682,7 +1682,7 @@ function renderSecurityLog(app){
   } else if(tab==='errors'){
     head = '<th>الوقت</th><th>النوع</th><th>الصفحة</th><th>الرسالة</th><th>المستخدم</th><th>الجهاز</th><th>IP</th><th></th>';
     body = rows.map(r=>`<tr><td>${secWhen(r.at)}</td><td><b>${escH(SEC_KIND_AR[r.kind]||r.kind)}</b></td><td>${escH(r.page||'—')}</td>
-      <td style="max-width:360px;word-break:break-word;">${escH(r.message||'')}${r.details?`<details><summary class="file-hint">التفاصيل</summary><pre style="white-space:pre-wrap;font-size:11px;direction:ltr;text-align:left;">${escH(r.details)}</pre></details>`:''}</td>
+      <td class="sec-msg" style="max-width:360px;word-break:break-word;">${escH(r.message||'')}${r.details?`<details><summary class="file-hint">التفاصيل</summary><pre style="white-space:pre-wrap;font-size:11px;direction:ltr;text-align:left;">${escH(r.details)}</pre></details>`:''}</td>
       <td>${escH(secUserName(r.user_id))}</td><td title="${escH((r.device&&r.device.ua)||'')}">${escH(qyUaShort(r.device))}</td><td dir="ltr">${escH(r.ip||'—')}</td><td>${done('qy_client_events',r.id,r)}</td></tr>`).join('');
   } else {
     head = '<th>الوقت</th><th>الحدث</th><th>الرقم المُدخَل / المستخدم</th><th>IP</th><th>الجهاز</th><th>فاشلة من نفس الجهة (٢٤ س)</th><th></th>';
@@ -1692,7 +1692,7 @@ function renderSecurityLog(app){
       <td dir="ltr">${escH(r.ip||'—')}</td><td title="${escH((r.device&&r.device.ua)||'')}">${escH(qyUaShort(r.device))}<div class="file-hint">${escH((r.device&&r.device.tz)||'')}</div></td>
       <td>${n ? (n>=5?`<b style="color:#b91c1c">${n} ⚠</b>`:n) : ''}</td><td>${r.kind==='login_failed' ? done('qy_client_events',r.id,r) : ''}</td></tr>`; }).join('');
   }
-  const tbl = rows.length ? `<div style="overflow-x:auto;"><table class="exec-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` :
+  const tbl = rows.length ? `<div style="overflow-x:auto;"><table class="exec-table sec-tbl"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` :
     `<p class="file-hint" style="padding:18px 4px;">${!L||L.loading?'جارٍ التحميل…':'لا توجد سجلات في هذا العرض.'}</p>`;
   app.innerHTML = wrapWithAdminSidebar(`
     <h1>سجل الأمان والأخطاء</h1>
@@ -1734,7 +1734,7 @@ function renderVerifySettings(app){
     <p class="sub" style="margin:0 0 14px;">الصفحة التي يفتحها من يمسح رمز QR من السند المطبوع. الاختيار يسري على كل الشركات، ويُطبَّق في الخادم فلا يمكن تجاوزه من المتصفح. أرقام التحقق المتاحة لمن يملك السند فقط، فاختر ما تقبل أن يراه أي حامل لنسخة منه.</p>
     <div class="card">
       ${VERIFY_LEVELS.map(o=>`
-        <label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);font-weight:400;cursor:pointer;">
+        <label class="opt-row" style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);font-weight:400;cursor:pointer;">
           <input type="radio" name="vlevel" value="${o.v}" ${cur===o.v?'checked':''} data-on-change="#32" style="margin-top:4px;">
           <span><b>${escH(o.label)}</b><div class="sub" style="font-size:12px;">${escH(o.desc)}</div></span>
         </label>`).join('')}
@@ -2187,22 +2187,18 @@ function renderUnitTypesPanel(){
     <div class="card" style="margin-top:20px;">
       <h2>أنواع الوحدات</h2>
       <p class="file-hint">النوع تسمية فقط (مركز، إدارة، قسم، فرع...). أضف ما يناسب هيكلكم، وكل وحدة تتبع أي وحدة أخرى بأي عمق، ويجوز أن تكون الوحدة داخل وحدة من نوعها نفسه (مركز داخل مركز).</p>
-      ${unitTypes().map(t=>`<div class="row" style="align-items:flex-end;margin-bottom:6px;">
-        <div style="--fw:380px;"><div class="field-with-icon">
-          <div style="flex:0 0 80px;"><label>الأيقونة</label><input id="ut_icon_${t.id}" type="text" value="${escH(t.icon)}" maxlength="4"></div>
-          <div style="flex:0 0 280px;"><label>الاسم</label><input id="ut_name_${t.id}" type="text" value="${escH(t.name)}" maxlength="30"></div>
-        </div></div>
-        <div style="flex:0 0 auto;display:flex;gap:8px;margin-bottom:6px;">
-          <span class="sub" style="margin:0 0 6px;">${used(t.id)} وحدة</span>
-          <button type="button" class="btn btn-ghost btn-xs" data-on-click="saveUnitType" data-on-click-args="${qa([(''+(t.id))])}">حفظ</button>
-          <button type="button" class="btn btn-reject btn-xs" data-on-click="deleteUnitType" data-on-click-args="${qa([(''+(t.id))])}" ${(used(t.id)||t.id==='center')?'disabled title="لا يُحذف نوع مستخدم أو النوع الأساسي"':''}>حذف</button>
-        </div></div>`).join('')}
-      <div class="row" style="align-items:flex-end;margin-top:10px;">
-        <div style="--fw:380px;"><div class="field-with-icon">
-          <div style="flex:0 0 80px;"><label>أيقونة</label><input id="newUtIcon" type="text" value="📁" maxlength="4"></div>
-          <div style="flex:0 0 280px;"><label>نوع جديد</label><input id="newUtName" type="text" maxlength="30" placeholder="مثال: وحدة"></div>
-        </div></div>
-        <div style="flex:0 0 auto;margin-bottom:6px;"><button type="button" class="btn btn-primary btn-md" data-on-click="addUnitType">إضافة نوع</button></div>
+      <div class="ut-row ut-head"><span>الأيقونة</span><span>الاسم</span><span></span></div>
+      ${unitTypes().map(t=>`<div class="ut-row">
+        <input id="ut_icon_${t.id}" type="text" value="${escH(t.icon)}" maxlength="4" aria-label="الأيقونة">
+        <input id="ut_name_${t.id}" type="text" value="${escH(t.name)}" maxlength="30" aria-label="الاسم">
+        <span class="ut-cnt">${used(t.id)} وحدة</span>
+        <button type="button" class="btn btn-ghost btn-sm" data-on-click="saveUnitType" data-on-click-args="${qa([(''+(t.id))])}">حفظ</button>
+        <button type="button" class="btn btn-reject btn-sm" data-on-click="deleteUnitType" data-on-click-args="${qa([(''+(t.id))])}" ${(used(t.id)||t.id==='center')?'disabled title="لا يُحذف نوع مستخدم أو النوع الأساسي"':''}>حذف</button>
+      </div>`).join('')}
+      <div class="ut-row ut-new">
+        <input id="newUtIcon" type="text" value="📁" maxlength="4" aria-label="أيقونة النوع الجديد">
+        <input id="newUtName" type="text" maxlength="30" placeholder="نوع جديد، مثال: وحدة" aria-label="اسم النوع الجديد">
+        <button type="button" class="btn btn-primary btn-sm" data-on-click="addUnitType">إضافة نوع</button>
       </div>
     </div>`;
 }
@@ -6320,6 +6316,7 @@ window.addEventListener('popstate',ev=>{
   try{ while((state._navStack||[]).length > d && (state._navStack||[]).length>0){ const before=(state._navStack||[]).length; navBack('dashboard'); if((state._navStack||[]).length>=before) break; } } finally { qyHist.fromPop = false; }
 });
 function render(){
+  { const pv = state.view+'|'+state.activeReqId+'|'+state.activeCustodyId; if(state._pv!==pv){ state._pv = pv; state.cusPathOpen = false; } }
   if(state.pendingEscalate && state.pendingEscalate.reqId!==state.activeReqId) state.pendingEscalate = null;
   if(state.user && !viewAllowed(state.view)) state.view = 'dashboard';
   if(state.view!=='ledger') state._inLedger = false;
@@ -6391,6 +6388,7 @@ function render(){
   ensureBottomBar();
   renderMobileTabs();
   markDupTitle();
+  pageTidy();
   decorateButtons();
   scrollActiveTabIntoView();
   fitFilterButtons();
@@ -6512,8 +6510,9 @@ function applyPageWidth(){
   // لا تتبع العرض الذي يختاره المستخدم: هما صورة الورقة المطبوعة، فتظهر بالحجم نفسه عند الجميع
   document.documentElement.style.setProperty('--page-shift', '0px');
   if(state.view==='detail' || state.view==='printPreview' || state.view==='custody'){
-    app.style.maxWidth = DOC_BOX_W + 'px';
-    setBox(DOC_BOX_W + 'px');
+    const side = (state.view!=='printPreview' && !isPhone() && app.querySelector(':scope > .req-wrap')) ? (reqPathOpen() ? 262 : 58) : 0;
+    app.style.maxWidth = (DOC_BOX_W + side) + 'px';
+    setBox((DOC_BOX_W + side) + 'px');
     fitPreviewZoom();
     return;
   }
@@ -6572,6 +6571,14 @@ function pageWidthFieldHtml(){
 // الشاشات المركّزة: إنشاء طلب ومعاينة الطباعة. فيهما أزرار خاصة تحتاج أسفل الشاشة كلّه،
 // فيُخفى شريط التبويب ويعود شريط الإرسال وحده.
 const M_FOCUS_VIEWS = ['newRequest','printPreview','login'];
+// اسم زر الشريط السفلي على الهاتف: بلا أقواس، ويُقطع عند آخر كلمة كاملة (لا «…»)
+function mShortLbl(t){
+  t = String(t||'').replace(/\([^)]*\)/g,'').replace(/["«»]/g,'').replace(/\s+/g,' ').trim();
+  if(t.length<=14) return t;
+  const w = t.split(' '); let o = '';
+  for(const x of w){ if((o ? o+' '+x : x).length>14) break; o = o ? o+' '+x : x; }
+  return o || t.slice(0,14);
+}
 function renderMobileTabs(){
   const el = document.getElementById('mTab'); if(!el) return;
   document.body.classList.toggle('m-focus', M_FOCUS_VIEWS.includes(state.view));
@@ -6598,7 +6605,7 @@ function renderMobileTabs(){
      act: open ? [["closeNavDrawer",[]]] : [["openNavDrawer",[]]]},
     {key:'dashboard', ico:'clip', label:'الطلبات',  on:['dashboard','detail'].includes(state.view) && !open,
      act:[["#13",[]]]},
-    main ? (()=>{ const m = mainLbl.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u); const ic = m ? m[1].replace(/[✓✔]/g,'').trim() : ''; const lb = (m ? m[2] : mainLbl); return {key:'pmain', ico: ic || (/^✓|^✔/.test(mainLbl) ? 'done' : 'plus'), label: lb.length>16 ? lb.slice(0,15)+'…' : lb, main:true, act:[["mTabMain",[]]]}; })() : newItem,
+    main ? (()=>{ const m = mainLbl.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u); const ic = m ? m[1].replace(/[✓✔]/g,'').trim() : ''; const lb = (m ? m[2] : mainLbl); return {key:'pmain', ico: ic || (/^✓|^✔/.test(mainLbl) ? 'done' : 'plus'), label: mShortLbl(lb), main:true, act:[["mTabMain",[]]]}; })() : newItem,
     (main && rest.length) ? {key:'more', ico:'⋯', label:'المزيد', act:[["mTabMore",[]]], dot:0}
       : ((main && !/جديد/.test(mainLbl)) ? newItem : {key:'account', ico:'account', label:'حسابي', on:state.view==='account' && !open, act:[["#10",[]]]}),
     {key:'bell',      ico:'bell', label:'الإشعارات', on:false, dot:badge,
@@ -6611,6 +6618,103 @@ function renderMobileTabs(){
     </button>`).join('')}</div>`;
 }
 // على الهاتف: عنوان الصفحة الكبير يُخفى إن كان يكرّر التبويب المختار
+// ===== تهذيب عام للصفحات (١٠ نوفمبر): ⓘ للشروح، اسم الحقل بجانبه على الهاتف، الجداول، مؤشر التمرير =====
+// الشرح الطويل يُطوى خلف ⓘ بجانب عنوانه؛ يُحفظ ما فتحه المستخدم حتى يعيد الضغط
+const _tipOpen = new Set();
+function infoTips(){
+  const app = document.getElementById('app'); if(!app) return;
+  app.querySelectorAll('p.sub, .file-hint, p.page-intro').forEach(el=>{
+    if(el.dataset.tip || el.closest('.modal-overlay,.sec-note,.mtab-sheet,.doc-page,.print-only,.req-side,.mpath,.mcus-line,.snd-lab,.tcards,table')) return;
+    if(el.querySelector('input,select,button,textarea,img')) return;
+    const txt = (el.textContent||'').replace(/\s+/g,' ').trim();
+    if(txt.length < 55) return;
+    if(/color:\s*var\(--red\)|color:\s*#?b91c1c/i.test(el.getAttribute('style')||'')) return;   // تحذير أحمر يبقى ظاهراً
+    let a = el.previousElementSibling;
+    while(a && (a.hidden || a.classList.contains('tip-body'))) a = a.previousElementSibling;
+    if(!a || !a.matches('h1,h2,h3,h4,label,summary,b,.lbl,.sec-title,.av-btns')){
+      const p = el.parentElement;
+      if(p && p.firstElementChild && p.firstElementChild!==el && p.firstElementChild.matches('h2,h3,h4,label,b')) a = p.firstElementChild;
+      else return;
+    }
+    if(a.querySelector(':scope > .tip-btn')) return;
+    const key = txt.slice(0, 60);
+    el.dataset.tip = '1'; el.classList.add('tip-body'); el.hidden = !_tipOpen.has(key);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'tip-btn no-print'; b.textContent = 'ⓘ';
+    b.title = 'شرح'; b.setAttribute('aria-label','شرح');
+    b.addEventListener('click', ev=>{ ev.preventDefault(); ev.stopPropagation();
+      el.hidden = !el.hidden; if(el.hidden) _tipOpen.delete(key); else _tipOpen.add(key); b.classList.toggle('on', !el.hidden); });
+    b.classList.toggle('on', !el.hidden);
+    a.appendChild(b);
+  });
+}
+// الهاتف: اسم الحقل بخط عريض على اليمين والحقل على يساره في سطر واحد
+function pairFields(){
+  if(!isPhone()) return;
+  const app = document.getElementById('app'); if(!app) return;
+  const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=color]), select, .sel-add, .field-with-btn';
+  app.querySelectorAll('label').forEach(l=>{
+    if(l.closest('.lf,.modal-overlay,.mtab-sheet,table,.tcards,.cus-docs,.dash-filt,.snd-row,.sig-ed,.recipe')) return;
+    if(l.querySelector('input,select,textarea')) return;          // مربع اختيار داخل اسمه
+    let f = l.nextElementSibling;
+    if(!f || !f.matches(FIELD)) return;
+    const p = l.parentElement;
+    if(p && p.children.length===2 && p.parentElement && p.parentElement.classList.contains('row')){ p.classList.add('lf'); return; }
+    const w = document.createElement('div'); w.className = 'lf';
+    l.before(w); w.appendChild(l); w.appendChild(f);
+  });
+}
+// الجداول: لغير مدير النظام على الهاتف بطاقات (اسم العمود أمام كل قيمة)؛ لمدير النظام جدول بعمود أول ثابت ومؤشر تمرير
+function adaptTables(){
+  const app = document.getElementById('app'); if(!app) return;
+  const cards = isPhone() && state.user && state.user.role!=='admin';
+  app.querySelectorAll('table').forEach(t=>{
+    if(t.closest('.doc,.doc-page,.note-box,.print-only,.modal-overlay,.sig-ed') || t.classList.contains('amount-table')) return;
+    const hr = t.tHead && t.tHead.rows[0]; if(!hr) return;
+    const heads = [...hr.cells].map(c=>(c.textContent||'').replace(/[▲▼↑↓]/g,'').replace(/\s+/g,' ').trim());
+    if(heads.length < 3) return;
+    if(cards){
+      t.classList.add('tcards');
+      [...t.tBodies].forEach(tb=>[...tb.rows].forEach(r=>{ let i=0; [...r.cells].forEach(c=>{ if(!c.dataset.l && heads[i]) c.dataset.l = heads[i]; i += c.colSpan||1; }); }));
+    }
+  });
+}
+function scrollHints(){
+  const els = [...document.querySelectorAll('#app .adm-tabs2, #app table')].map(e=>e.tagName==='TABLE' ? e.parentElement : e).filter(Boolean);
+  [...new Set(els)].forEach(sc=>{
+    if(sc.closest('.doc,.doc-page,.modal-overlay') || sc.querySelector('table.tcards')) return;
+    const cs = getComputedStyle(sc);
+    if(!/(auto|scroll)/.test(cs.overflowX)) return;
+    const upd = ()=>{
+      const more = sc.scrollWidth > sc.clientWidth + 2;
+      const end = Math.abs(sc.scrollLeft) + sc.clientWidth >= sc.scrollWidth - 2;
+      sc.classList.toggle('xs-more', more && !end);
+      sc.classList.toggle('xs-start', more && Math.abs(sc.scrollLeft) > 2);
+    };
+    if(!sc.dataset.xs){ sc.dataset.xs = '1'; sc.addEventListener('scroll', upd, {passive:true}); }
+    sc.classList.add('xs');
+    // العمود الأول ثابت عند التمرير: خلفيته من صفّه حتى لا يظهر ما تحته
+    const t = sc.querySelector(':scope > table');
+    if(t && sc.scrollWidth > sc.clientWidth + 2){
+      t.classList.add('xs-sticky');
+      [...t.rows].forEach(r=>{ const c = r.cells[0]; if(!c) return;
+        let e = c, bg = 'rgba(0, 0, 0, 0)';
+        while(e && (bg==='rgba(0, 0, 0, 0)' || bg==='transparent')){ bg = getComputedStyle(e).backgroundColor; e = e.parentElement; }
+        c.style.background = (bg==='rgba(0, 0, 0, 0)' || bg==='transparent') ? '#fff' : bg; });
+    }
+    upd();
+  });
+}
+// عنوان أول بطاقة يكرر اسم التبويب المفتوح: يُخفى
+function hideDupH2(){
+  const a = document.querySelector('#app .adm-t2.active'); if(!a) return;
+  const t = s => (s||'').replace(/\(\d+\)/g,'').replace(/\s+/g,' ').trim();
+  const at = t(a.textContent);
+  document.querySelectorAll('#app .card h2, #app > h2').forEach(h=>{
+    const own = t([...h.childNodes].filter(n=>n.nodeType===3 || (n.nodeType===1 && !n.classList.contains('tip-btn') && !n.classList.contains('sub'))).map(n=>n.textContent).join(''));
+    if(own===at) h.classList.add('dup-h2');
+  });
+}
+function pageTidy(){ try{ hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
   const a = document.querySelector('#app .adm-t2.active');
@@ -7893,7 +7997,7 @@ function renderSigDesigner(app){
   const checkboxesHtml = boxTypes.map(t=>{
     const isText = TEXT_TYPES.includes(t);
     return `
-    <div style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 8px 16px;font-size:13px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;">
+    <div class="sig-el" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 8px 16px;font-size:13px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;">
       <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
         <input type="checkbox" ${cfg[t].visible?'checked':''} data-on-change="toggleSigDesignerBoxVisible" data-on-change-args="${qa([(''+(t))])}">
         ${sigDesignerBoxLabel(t)}
@@ -8112,17 +8216,17 @@ function renderMonitor(app){
   if(!d){ app.innerHTML = head + `<div class="card"><div class="spinner"></div></div>`; return; }
   const st = d.status || {}, n = k => (st[k]||{}).n||0, sm = k => Number((st[k]||{}).sum||0);
   const finKeys = ['pending_transfer_request','pending_transfer_approval','pending_disbursement'];
-  const tile = (label, num, amount, color, sub) => `<div class="card" style="flex:1 1 160px;margin:0;border-top:4px solid ${color};">
+  const tile = (label, num, amount, color, sub) => `<div class="card tile" style="flex:1 1 160px;margin:0;border-top:4px solid ${color};">
       <div class="sub" style="margin-bottom:4px;">${label}</div><div style="font-size:24px;font-weight:700;">${num}</div>
       ${amount!=null ? `<div class="sub" dir="rtl">${fmtKWD(amount)}</div>` : ''}${sub ? `<div class="sub" style="font-size:12px;">${sub}</div>` : ''}</div>`;
   const t = d.today || {};
-  const today = `<div class="card"><h3 style="margin-top:0;">اليوم</h3><div style="display:flex;flex-wrap:wrap;gap:10px;">
+  const today = `<div class="card"><h3 style="margin-top:0;">اليوم</h3><div class="tile-row" style="display:flex;flex-wrap:wrap;gap:10px;">
       ${tile('طلبات أُنشئت', t.created||0, null, 'var(--blue)')}${tile('اعتمادات', t.approved||0, null, 'var(--green)')}
       ${tile('رفض', t.rejected||0, null, 'var(--red)')}${tile('صُرف', t.paid||0, Number(t.paid_sum||0), 'var(--ink)')}</div></div>`;
   const decN = n('pending_decision') + n('pending_manager') + n('pending_senior') + n('pending_executive');
   const decS = sm('pending_decision') + sm('pending_manager') + sm('pending_senior') + sm('pending_executive');
   const finN = finKeys.reduce((a,k)=>a+n(k),0), finS = finKeys.reduce((a,k)=>a+sm(k),0);
-  const totals = `<div class="card"><h3 style="margin-top:0;">الطلبات الآن</h3><div style="display:flex;flex-wrap:wrap;gap:10px;">
+  const totals = `<div class="card"><h3 style="margin-top:0;">الطلبات الآن</h3><div class="tile-row" style="display:flex;flex-wrap:wrap;gap:10px;">
       ${tile('قيد القرار', decN, decS, 'var(--amber)')}${tile('في يد المالية', finN, finS, 'var(--blue)')}
       ${tile('تم الصرف', n('completed'), sm('completed'), 'var(--green)')}${tile('مرفوضة', n('rejected'), sm('rejected'), 'var(--red)')}
       ${tile('ملغاة', d.cancelled||0, null, '#9a9890')}</div></div>`;
@@ -8151,17 +8255,16 @@ function renderMonitor(app){
       }</tbody></table></div>` : '<p class="sub">لا شيء في يد المالية الآن.</p>'}</div>`;
   const feed = d.feed || [];
   const feedT = `<div class="card"><h3 style="margin-top:0;">آخر الحركات <span class="sub">(${feed.length} خلال ${Number(d.days)===1?'يوم':d.days+' أيام'})</span></h3>
-      ${feed.length ? `<div style="display:flex;flex-direction:column;gap:2px;">${feed.map(e=>`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer;" data-on-click="openRequest" data-on-click-args="${qa([e.req])}">
-          <span class="sub" style="min-width:92px;" title="${escH(monitorWhen(e.at))}">${escH(monitorAgo(e.at))}</span>
-          <b>${escH(e.actor||'')}</b><span>${escH(e.action||'')}</span>
-          <span class="sub">— ${escH(e.number || 'قيد المراجعة')} · ${escH(e.reason||'')}</span>
-          <span style="margin-right:auto;" dir="rtl">${fmtKWD(Number(e.amount||0))}</span>
-          ${e.note ? `<div class="sub" style="flex-basis:100%;font-size:12px;">${escH(e.note)}</div>` : ''}</div>`).join('')}</div>`
+      ${feed.length ? `<div style="display:flex;flex-direction:column;gap:2px;">${feed.map(e=>`<div class="mon-feed" data-on-click="openRequest" data-on-click-args="${qa([e.req])}">
+          <div class="mf1"><span><b>${escH(e.actor||'')}</b> ${escH(e.action||'')}</span><span class="mf-amt" dir="rtl">${fmtKWD(Number(e.amount||0))}</span></div>
+          <div class="mf2"><span>${escH(e.number || 'قيد المراجعة')} · ${escH(e.reason||'')}</span><span title="${escH(monitorWhen(e.at))}">${escH(monitorAgo(e.at))}</span></div>
+          ${e.note ? `<div class="sub" style="font-size:12px;">${escH(e.note)}</div>` : ''}</div>`).join('')}</div>`
         : '<p class="sub">لا حركات في هذه المدة.</p>'}</div>`;
   app.innerHTML = head + sec + today + totals + waitT + finT + feedT;
 }
 function openSecurityLogFromMonitor(){ state.view = 'securityLog'; render(); window.scrollTo(0,0); }
 function ledgerClearFilters(){ state.ledgerFilter = {}; render(); }
+function lgFiltToggle(){ state.lgFiltOpen = !state.lgFiltOpen; render(); }
 function ledgerSortBy(key){
   const s = state.ledgerSort || {key:'date', dir:'asc'};
   state.ledgerSort = (s.key===key) ? {key, dir: s.dir==='asc' ? 'desc' : 'asc'} : {key, dir:'asc'};
@@ -8318,7 +8421,8 @@ function renderLedger(app){
     <h1>دفتر الحركات</h1>
     <p class="sub">كل حركة مالية سطرٌ لا يُعدَّل ولا يُحذف. التصحيح بقيد عاكس (مرة واحدة)، وعودة المال بحركة استرداد (يمكن تكرارها حتى المبلغ الأصلي). اضغط عنوان أي عمود لترتيبه، وتحته خانة ترشيحه.</p>
 
-    <div class="card rep-bar no-print" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="card rep-bar lg-bar no-print${state.lgFiltOpen || active.length ? ' open' : ''}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+      <button type="button" class="btn btn-ghost btn-sm lg-filt-toggle" data-on-click="lgFiltToggle">تصفية${active.length ? ` (${active.length})` : ''} ${state.lgFiltOpen || active.length ? '▴' : '▾'}</button>
       <div><label>من تاريخ</label>
         <input type="date" dir="ltr" autocomplete="off" value="${f.from||''}" data-on-change="setLedgerFilter" data-on-change-args="${qa(["from", QA.v])}"></div>
       <div><label>إلى تاريخ</label>
@@ -8339,7 +8443,7 @@ function renderLedger(app){
     </div>
     ${banner}
 
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;">
+    <div class="lg-tot" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;">
       <div class="card" style="padding:14px;text-align:center;border-top:3px solid var(--green);">
         <div style="font-size:13px;font-weight:700;color:#6b7280;margin-bottom:6px;">إجمالي الدخول</div>
         <div style="font-size:19px;font-weight:900;color:var(--green);">${fmtKWDHtml(totalIn)}</div></div>
@@ -8586,8 +8690,8 @@ function renderCancelledArchive(app){
           <span class="sub" style="display:block;">${escH(r.reason)} — ${fmtKWDHtml(r.totalAmount)} د.ك</span>
           <span class="sub" style="display:block;font-size:11.5px;">أُبطل بواسطة ${escH(canceller ? canceller.name : '—')} بتاريخ ${dateStr}</span>
         </div>
-        <div class="actions-row" style="margin:0;">
-          <button class="btn btn-ghost btn-xs" data-on-click="openRequest" data-on-click-args="${qa([(''+(r.id))])}">عرض</button>
+        <div class="actions-row eq-btns" style="margin:0;">
+          <button class="btn btn-ghost btn-sm" data-on-click="openRequest" data-on-click-args="${qa([(''+(r.id))])}">عرض</button>
           ${canRestoreReq(r) ? `<button class="btn btn-approve btn-sm" data-on-click="restoreRequest" data-on-click-args="${qa([(''+(r.id))])}">استرجاع</button>` : `<button class="btn btn-approve btn-sm" disabled title="الاسترجاع ليس من صلاحيتك على هذا الطلب">استرجاع</button>`}
           ${state.user.role==='admin' ? `<button class="btn btn-reject btn-sm" data-on-click="deleteRequestPermanently" data-on-click-args="${qa([(''+(r.id))])}" title="يُمحى من قاعدة البيانات ولا يُسترجع">حذف نهائي</button>` : `<button class="btn btn-reject btn-sm" disabled title="الحذف النهائي لمدير النظام وحده">حذف نهائي</button>`}
         </div>
@@ -8832,10 +8936,10 @@ function renderAdmin(app){
           <b>${escH(c.nameAr)}</b>
           <span>رمز: ${escH(c.code)} · رمز الإدارة: ${escH(c.hqCode)}${c.taxNumber ? ' · '+escH(c.taxNumber) : ''}</span>
         </div>
-        <div style="display:flex;gap:10px;">
+        <div class="eq-btns" style="display:flex;gap:10px;">
           ${c.id===state.currentCompanyId ? `<button type="button" class="btn btn-sm btn-current" disabled title="هذه هي الشركة المعروضة حاليًا">✓ الشركة الحالية</button>` : `<button class="btn btn-ghost btn-sm" data-on-click="switchCompany" data-on-click-args="${qa([(''+(c.id))])}">التبديل إليها</button>`}
-          <button class="btn btn-ghost btn-xs" data-on-click="#78" data-on-click-args="${qa([(''+(c.id))])}">تعديل</button>
-          <button class="btn btn-reject btn-xs" data-on-click="deleteCompany" data-on-click-args="${qa([(''+(c.id))])}">حذف</button>
+          <button class="btn btn-ghost btn-sm" data-on-click="#78" data-on-click-args="${qa([(''+(c.id))])}">تعديل</button>
+          <button class="btn btn-reject btn-sm" data-on-click="deleteCompany" data-on-click-args="${qa([(''+(c.id))])}">حذف</button>
         </div>
       </div>
     `).join('')}
@@ -9070,20 +9174,20 @@ function renderBudgetItemsTab(){
         const c = v==null?'var(--muted)':v>50?'var(--green)':v>0?'var(--amber)':'var(--red)';
         const bg= v==null?'rgba(0,0,0,.04)':v>50?'rgba(34,197,94,.1)':v>0?'rgba(245,158,11,.1)':'rgba(239,68,68,.1)';
         const s = v!=null?fmtKWD(v):'—';
-        return `<span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;background:${bg};color:${c};border:1px solid ${c};white-space:nowrap;">${label}: ${s}</span>`;
+        return `<span class="bi-bal" style="color:${c};">${label}: <b>${s}</b></span>`;
       }
       return `<div class="list-item">
         <div class="li-main">
           <b>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</b>
           <span>${BUDGET_TYPE_LABELS[b.type]||b.type}${parentName ? ' · يتبع: '+escH(parentName) : ''}${b.is_recurring?' · متجدد':''}${!b.is_active?' · <span style="color:var(--muted)">غير نشط</span>':''}</span>
           <span>آلية الأرباح: ${PROFIT_MODE_LABELS[b.profit_mode]||'—'}${b.profit_mode==='percent'||b.profit_mode==='both' ? ' ('+b.profit_percent+'%)' : ''}${b.profit_mode==='fixed'||b.profit_mode==='both' ? ' + '+b.profit_fixed+' د.ك' : ''}</span>
+          <span class="bi-bals">${hasChildren ? balBadge(bal,'رصيده') + balBadge(balTotal,'الإجمالي مع الفروع') : balBadge(bal,'الرصيد')}</span>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          ${hasChildren ? balBadge(bal,'رصيده') + balBadge(balTotal,'الإجمالي مع الفروع') : balBadge(bal,'الرصيد')}
-          <button class="btn btn-ghost btn-xs" data-on-click="#82" data-on-click-args="${qa([(''+(b.id))])}">تعديل</button>
+        <div class="eq-btns" style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-ghost btn-sm" data-on-click="#82" data-on-click-args="${qa([(''+(b.id))])}">تعديل</button>
           ${b.is_protected
             ? `<span title="بند ثابت في النظام — يُعطَّل من التعديل ولا يُحذف" style="font-size:11px;color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:3px 9px;white-space:nowrap;">🔒 بند ثابت</span>`
-            : `<button class="btn btn-reject btn-xs" data-on-click="deleteBudgetItem" data-on-click-args="${qa([(''+(b.id))])}">حذف</button>`}
+            : `<button class="btn btn-reject btn-sm" data-on-click="deleteBudgetItem" data-on-click-args="${qa([(''+(b.id))])}">حذف</button>`}
         </div>
       </div>`;
     }).join('')}
@@ -9858,12 +9962,10 @@ function recReviewRow(o, preChecked){
     ? `<input type="number" min="0.001" step="0.001" class="recAmt" data-id="${o.id}" value="${o.amount}" autocomplete="off" style="--fw:140px;max-width:140px;">`
     : fmtKWDHtml(o.amount);
   return `<div class="list-item">
-    <div class="li-main" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      ${canPost ? `<input type="checkbox" class="recChk" data-id="${o.id}" ${preChecked?'checked':''} data-on-change="recUpdateSelCount">` : ''}
-      <b>${escH(t.name||'—')}</b>
-      <span>${t.direction==='in'?'إيراد':'صرف'} · البند: ${escH(item.name||'—')}</span>
-      <span>${fmtDateDMY(o.due_date)} · ${when}</span>
-      <span>${amountCell}${t.amount_mode==='variable'?' <small>(مبلغ متغيّر)</small>':''}</span>
+    <div class="li-main rec-li">
+      <div class="rec-r1">${canPost ? `<input type="checkbox" class="recChk" data-id="${o.id}" ${preChecked?'checked':''} data-on-change="recUpdateSelCount">` : ''}
+        <b>${escH(t.name||'—')}</b><span class="rec-amt">${amountCell}${t.amount_mode==='variable'?' <small>(متغيّر)</small>':''}</span></div>
+      <span>${t.direction==='in'?'إيراد':'صرف'} · البند: ${escH(item.name||'—')} · ${fmtDateDMY(o.due_date)} · ${when}</span>
       ${o.note ? `<span class="sub" style="font-size:12px;">${escH(o.note)}</span>` : ''}
     </div>
     ${canPost ? `<div style="display:flex;gap:10px;"><button class="btn btn-ghost btn-xs" data-on-click="skipRecurringOcc" data-on-click-args="${qa([(''+(o.id))])}" title="يلغي هذا الاستحقاق وحده: لا يدخل الدفتر، ويبقى القالب يعمل في الاستحقاقات التالية. تجده في تبويب «المتخطّى» ويمكنك استعادته.">تخطي</button></div>` : ''}
@@ -11508,7 +11610,7 @@ function brandImgBlock(kind, id, current){
       <div class="brand-preview">${current ? `<img src="${escH(current)}" alt="">` : '<span class="sub" style="font-size:12px;">لا توجد صورة</span>'}</div>
       <div>
         <input type="file" accept="image/*" data-on-change="brandUpload" data-on-change-args="${qa([(''+(kind)), (''+(id||'')), QA.t])}">
-        ${current ? `<button type="button" class="btn btn-ghost btn-xs" style="margin-top:6px;" data-on-click="brandRemove" data-on-click-args="${qa([(''+(kind)), (''+(id||''))])}">حذف الصورة</button>` : ''}
+        ${current ? `<button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px;" data-on-click="brandRemove" data-on-click-args="${qa([(''+(kind)), (''+(id||''))])}">حذف الصورة</button>` : ''}
       </div>
     </div>`;
 }
@@ -11919,16 +12021,10 @@ function renderBarSettings(app){
   const rows = BAR_TOGGLE_ITEMS.map(item=>{
     const visible = !state.barToggles || state.barToggles[item.key]!==false;
     return `
-      <div class="row" style="align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);">
-        <div>
-          <div style="font-weight:600;">${escH(item.label)}</div>
-          <div class="sub" style="font-size:12px;">${escH(item.desc)}</div>
-        </div>
-        <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
-          <input type="checkbox" ${visible?'checked':''} data-on-change="toggleBarButton" data-on-change-args="${qa([(''+(item.key)), QA.c])}">
-          <span style="font-size:13px;">${visible?'يظهر بالشريط السفلي':'مخفي من الشريط السفلي'}</span>
-        </label>
-      </div>`;
+      <label class="bar-set-row">
+        <span class="bsr-t"><b>${escH(item.label)}</b><span>${escH(item.desc)}</span></span>
+        <span class="bsr-c"><input type="checkbox" ${visible?'checked':''} data-on-change="toggleBarButton" data-on-change-args="${qa([(''+(item.key)), QA.c])}"> ${visible?'ظاهر':'مخفي'}</span>
+      </label>`;
   }).join('');
   app.innerHTML = wrapWithAdminSidebar(`
     <h1 style="margin:0 0 4px;">إعدادات الشريط السفلي العام</h1>
@@ -13565,7 +13661,7 @@ function budgetBarHtml(label, budget, consumed){
     <div style="margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;gap:8px;">
         <span><b>${label}</b> — المستهلك: ${fmtKWD(consumed,{noUnit:true})} د.ك من ${fmtKWD(budget,{noUnit:true})} د.ك (${Math.round(pct)}%)</span>
-        <span style="color:${over?'var(--red)':'var(--muted)'};font-weight:600;white-space:nowrap;">${over?'تجاوز بمقدار '+fmtKWD(Math.abs(remaining)):'المتبقي: '+fmtKWD(remaining)} د.ك</span>
+        <span style="color:${over?'var(--red)':'var(--muted)'};font-weight:600;white-space:nowrap;">${over?'تجاوز بمقدار '+fmtKWD(Math.abs(remaining)):'المتبقي: '+fmtKWD(remaining)}</span>
       </div>
       <div style="background:var(--line);border-radius:6px;height:8px;overflow:hidden;">
         <div style="width:${Math.min(100,pct)}%;height:100%;background:${color};"></div>
@@ -14749,7 +14845,7 @@ function cusOverLimitCardHtml(k){
       <div class="cus-lim-why"><label>سبب التعديل *</label><input id="cusLimWhy" type="text" style="--fw:100%;" placeholder="مثال: عهدة ضيافة تحتاج هامشاً أكبر"></div>
     </div>
     <div class="actions-row no-bar" style="margin-top:8px;"><button type="button" class="btn btn-primary btn-md" data-on-click="cusLimSave" data-on-click-args="${qa([k.id])}">حفظ حد الصرف</button></div></div>` : '<div class="file-hint">تعديل الحد لمدير النظام فقط.</div>';
-  return `<div class="card cus-limit-card"><h2 style="margin:0 0 6px;font-size:16px;">حد الصرف فوق العهدة</h2><div>الحد الحالي: <b>${escH(e.txt)}</b> <span class="file-hint">(${e.own?'مخصّص لهذه العهدة':'من إعداد الشركة'})</span></div>${form}</div>`;
+  return `<div class="card cus-limit-card"><h2 class="cus-lim-h" style="margin:0 0 6px;font-size:16px;">حد الصرف فوق العهدة</h2><div>الحد الحالي: <b>${escH(e.txt)}</b> <span class="file-hint">(${e.own?'مخصّص لهذه العهدة':'من إعداد الشركة'})</span></div>${form}</div>`;
 }
 function cusLimToggle(){ const m=(document.getElementById('cusLimMode')||{}).value, b=document.getElementById('cusLimValBox'); if(b) b.hidden = !['percent','amount'].includes(m); }
 async function cusLimSave(id){
@@ -14828,9 +14924,20 @@ function custodyMobileHtml(kc, req, act){
       ${lim ? sec('limit', 'حد الصرف فوق العهدة', lim, false) : ''}
       ${sec('hist', 'سجل الطلب والعهدة', H.map(h=>`<div class="history-item"><div class="t">${h.time}</div><div><b>${escH(h.actor)}</b> — ${escH(h.action)}${h.note ? `<div style="color:var(--red);margin-top:2px;">${escH(h.note)}</div>` : ''}</div></div>`).join(''), false)}
     </div>
-    ${state.cusPathOpen ? `<div class="mpath-ov no-print" data-on-click="cusPathToggle"></div><aside class="mpath no-print"><div class="mpath-h"><b>مسار العهدة</b><button class="btn btn-ghost btn-sm" data-on-click="cusPathToggle">✕</button></div><div class="stepper cus-stepper open">${custodyLifeStepperHtml(req, kc)}</div></aside>` : ''}`;
+    ${state.cusPathOpen ? `<div class="mpath-ov no-print" data-on-click="cusPathToggle"></div><aside class="mpath no-print"><div class="mpath-h"><b>مسار العهدة</b><button class="btn btn-ghost btn-sm" data-on-click="cusPathToggle">✕</button></div><div class="stepper path-v">${custodyLifeStepperHtml(req, kc)}</div></aside>` : ''}`;
 }
 function cusPathToggle(){ state.cusPathOpen = !state.cusPathOpen; render(); }
+// مسار الطلب/العهدة: على الحاسوب شريط عمودي على يسار الصفحة خارج صندوقها، مفتوح افتراضياً ويتذكر آخر وضع؛
+// وعلى الهاتف شريط عائم يُفتح بزر «المسار». المراحل في عشر خانات متساوية (أطول مسار عشر مراحل)
+function reqPathOpen(){ try{ return localStorage.getItem('qy_reqpath')!=='0'; }catch(e){ return true; } }
+function reqPathToggle(){ try{ localStorage.setItem('qy_reqpath', reqPathOpen() ? '0' : '1'); }catch(e){} render(); }
+function pathSideWrap(mainHtml, title, stepsHtml){
+  if(isPhone()) return mainHtml + (state.cusPathOpen ? `<div class="mpath-ov no-print" data-on-click="cusPathToggle"></div><aside class="mpath no-print"><div class="mpath-h"><b>${escH(title)}</b><button class="btn btn-ghost btn-sm" data-on-click="cusPathToggle">✕</button></div><div class="stepper path-v">${stepsHtml}</div></aside>` : '');
+  const open = reqPathOpen();
+  return `<div class="req-wrap${open ? '' : ' closed'}"><div class="req-main">${mainHtml}</div>
+    <aside class="req-side no-print"><div class="req-side-h">${open ? `<b>${escH(title)}</b>` : ''}<button type="button" class="req-side-x" data-on-click="reqPathToggle" title="${open ? 'طيّ المسار' : 'إظهار المسار'}">${open ? '›' : '‹'}</button></div>
+    ${open ? `<div class="stepper path-v">${stepsHtml}</div>` : `<div class="req-side-v" data-on-click="reqPathToggle">${escH(title)}</div>`}</aside></div>`;
+}
 function renderCustodyPage(app){
   const kc = (state.custodies||[]).find(x=>x.id===state.activeCustodyId);
   const req = kc ? state.requests.find(r=>r.id===kc.requestId) : null;
@@ -14877,9 +14984,7 @@ function renderCustodyPage(app){
             <button class="btn btn-ghost btn-sm" data-on-click="openRequest" data-on-click-args="${qa([req.id])}" title="طلب صرف العهدة: مسار اعتماده بأسماء المعتمدين، وورقته المطبوعة">عرض الطلب</button>
             ${kc.status==='closed' ? '<button type="button" class="btn btn-ghost btn-sm" data-on-click="printCustodySettlement" title="كشف تسوية العهدة بكل مستنداتها">كشف التسوية</button>' : ''}
             ${state.user.role==='admin' && ['pending_sign','acct_review','close_requested'].includes(kc.status) ? '<button type="button" class="btn btn-ghost btn-sm" data-on-click="cusAdminUndo" data-on-click-args="'+qa([kc.id])+'" title="تراجع مدير النظام عن الخطوة الأخيرة بسبب مكتوب">تراجع</button>' : ''}
-            <button type="button" class="btn btn-ghost btn-sm cus-stp-btn" data-on-click="cusStepToggle" title="إظهار أو إخفاء مسار العهدة">المسار: ${escH((CUSTODY_STATUS[kc.status]||{}).l||'')} ${state.cusStepOpen ? '▴' : '▾'}</button>
           </div>
-          <div class="stepper cus-stepper${state.cusStepOpen ? ' open' : ''}" style="margin:0;">${custodyLifeStepperHtml(req, kc)}</div>
         </div>
       </div>`}
       ${docsOpen ? cusDocsHtml(kc) : ''}
@@ -14916,6 +15021,7 @@ function renderCustodyPage(app){
           </div>`).join('')}
       </details>
     </div>`;
+  if(!docsOpen) app.innerHTML = pathSideWrap(app.innerHTML, 'مسار العهدة', custodyLifeStepperHtml(req, kc));
 }
 
 // للمالية: كل عهد الشركة غير المقفلة ومرحلتها ومنذ متى، والأرصدة المعلّقة مع «تسوية نقداً»
@@ -15188,8 +15294,8 @@ function renderDetail(app){
               <div class="doc-actions-row" data-bar-actions>
                 <button class="btn btn-reject btn-sm" data-on-click="deleteRequestCfo" data-on-click-args="${qa([(''+(req.id))])}">إبطال الطلب</button>
               </div>` : '')}
+            ${isPhone() ? '<button type="button" class="btn btn-ghost btn-sm" data-on-click="cusPathToggle">المسار ▸</button>' : ''}
           </div>
-          <div class="stepper" style="margin:0;">${stepperHtml}</div>
         </div>
       </div>
 
@@ -15213,6 +15319,7 @@ function renderDetail(app){
     </div>
   `;
 
+  app.innerHTML = pathSideWrap(app.innerHTML, 'مسار الطلب', stepperHtml);
   window.approveFix = ()=>{ state.pendingEscalate = null; approve(req); };   // اعتماد عادي يلغي أي إحالة معلّقة من محاولة سابقة
   window.markDisbursedFix = ()=>markDisbursed(req);
   window.approveEscalateFix = (targetId)=>{ state.pendingEscalate = {reqId:req.id, targetId}; approve(req); };
