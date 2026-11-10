@@ -1,13 +1,12 @@
--- ترقية الإنتاج إلى حالة قاعدة الاختبار (١٠ نوفمبر ٢٠٢٦)
--- مُستخرجة آلياً من قاعدة الاختبار بعد فقد ملفات الترقية المحلية، وتحلّ محل ملفات العهد الثلاثة عشر.
--- تشمل: جداول العهد، أعمدة الشركات والطلبات والمستخدمين، القيود، الدوال الجديدة والمحدّثة، الصلاحيات، السياسات، المشغّلات.
--- تُطبَّق على الإنتاج فقط عند «طبّق على الإنتاج» وبحضور المستخدم، وفي معاملة واحدة.
+-- ترقية الإنتاج إلى حالة قاعدة الاختبار (١٠ نوفمبر ٢٠٢٦) — ملف واحد يحل محل ملفات العهد السابقة
+-- مُستخرج آلياً من قاعدة الاختبار: جداول العهد، الأعمدة الجديدة، القيود، الدوال الجديدة والمحدّثة، الصلاحيات، السياسات، المشغّلات.
+-- يشمل الصرف بلا سند وتوقيع الإدارة الاختياري.
 begin;
 set local check_function_bodies = off;
 -- (١) الجداول الجديدة
 create table if not exists public.custodies (id bigint generated always as identity not null, request_id text not null, company_id text not null, holder_id text not null, budget_item_id text, amount numeric(14,3) not null, purpose text, carried_in numeric(14,3) default 0 not null, carried_from_id bigint, status text default 'requested'::text not null, due_close_at date, received_at timestamp with time zone, remaining_action text, remaining_amount numeric(14,3), settlement_no text, reviewed_by_id text, signed_by_id text, closed_at timestamp with time zone, created_by_id text default qy_me() not null, created_at timestamp with time zone default now() not null, reviewer_id text, close_requested_at timestamp with time zone, over_mode text, over_value numeric(14,3));
 create table if not exists public.custody_balances (id bigint generated always as identity not null, holder_id text not null, company_id text not null, amount numeric(14,3) not null, source_custody_id bigint, status text default 'open'::text not null, applied_custody_id bigint, settled_by_id text, settled_at timestamp with time zone, note text, created_at timestamp with time zone default now() not null);
-create table if not exists public.custody_lines (id bigint generated always as identity not null, custody_id bigint not null, kind text not null, amount numeric(14,3) not null, description text not null, invoice_no text, line_date date default CURRENT_DATE not null, image_data text, has_image boolean default (image_data IS NOT NULL), status text default 'draft'::text not null, review_note text, created_by_id text, created_at timestamp with time zone default now() not null, updated_at timestamp with time zone default now() not null, reviewed_by_id text, reviewed_at timestamp with time zone, reopened boolean default false not null);
+create table if not exists public.custody_lines (id bigint generated always as identity not null, custody_id bigint not null, kind text not null, amount numeric(14,3) not null, description text not null, invoice_no text, line_date date default CURRENT_DATE not null, image_data text, has_image boolean generated always as ((image_data IS NOT NULL)) stored, status text default 'draft'::text not null, review_note text, created_by_id text, created_at timestamp with time zone default now() not null, updated_at timestamp with time zone default now() not null, reviewed_by_id text, reviewed_at timestamp with time zone, reopened boolean default false not null, no_doc boolean default false not null, no_doc_reason text);
 -- (٢) أعمدة جديدة على جداول قائمة
 alter table public.centers add column if not exists min_single_approver text default 'exec'::text not null;
 alter table public.companies add column if not exists custody_alert_user_id text;
@@ -23,6 +22,11 @@ alter table public.companies add column if not exists custody_receipt_days integ
 alter table public.companies add column if not exists custody_review_mode text default 'line'::text not null;
 alter table public.requests add column if not exists request_type text default 'normal'::text not null;
 alter table public.users add column if not exists avatar_data text;
+alter table public.companies add column if not exists custody_nodoc_on boolean default false not null;
+alter table public.companies add column if not exists custody_nodoc_mode text;
+alter table public.companies add column if not exists custody_nodoc_value numeric(14,3);
+alter table public.companies add column if not exists custody_sign_on boolean default true not null;
+alter table public.companies add column if not exists custody_signers text default 'any'::text not null;
 -- (٣) القيود (الجداول الجديدة والأعمدة الجديدة)
 alter table custodies drop constraint if exists custodies_pkey; alter table custodies add constraint custodies_pkey PRIMARY KEY (id);
 alter table custody_lines drop constraint if exists custody_lines_pkey; alter table custody_lines add constraint custody_lines_pkey PRIMARY KEY (id);
@@ -50,6 +54,8 @@ alter table custody_balances drop constraint if exists custody_balances_status_c
 alter table companies drop constraint if exists companies_custody_over_mode_chk; alter table companies add constraint companies_custody_over_mode_chk CHECK ((custody_over_mode = ANY (ARRAY['none'::text, 'percent'::text, 'amount'::text])));
 alter table companies drop constraint if exists companies_custody_over_value_chk; alter table companies add constraint companies_custody_over_value_chk CHECK ((custody_over_value >= (0)::numeric));
 alter table custodies drop constraint if exists custodies_over_mode_chk; alter table custodies add constraint custodies_over_mode_chk CHECK (((over_mode IS NULL) OR (over_mode = ANY (ARRAY['none'::text, 'percent'::text, 'amount'::text]))));
+alter table companies drop constraint if exists companies_custody_nodoc_chk; alter table companies add constraint companies_custody_nodoc_chk CHECK ((((custody_nodoc_mode IS NULL) OR (custody_nodoc_mode = ANY (ARRAY['amount'::text, 'percent'::text]))) AND ((custody_nodoc_value IS NULL) OR (custody_nodoc_value >= (0)::numeric)) AND ((custody_nodoc_mode <> 'percent'::text) OR (custody_nodoc_value <= (100)::numeric))));
+alter table companies drop constraint if exists companies_custody_signers_chk; alter table companies add constraint companies_custody_signers_chk CHECK ((custody_signers = ANY (ARRAY['any'::text, 'cfo'::text, 'acct'::text])));
 alter table custodies drop constraint if exists custodies_request_id_fkey; alter table custodies add constraint custodies_request_id_fkey FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE;
 alter table custodies drop constraint if exists custodies_company_id_fkey; alter table custodies add constraint custodies_company_id_fkey FOREIGN KEY (company_id) REFERENCES companies(id);
 alter table custodies drop constraint if exists custodies_holder_id_fkey; alter table custodies add constraint custodies_holder_id_fkey FOREIGN KEY (holder_id) REFERENCES users(id);
@@ -165,7 +171,7 @@ CREATE OR REPLACE FUNCTION public.qy_custody_acct_decide(p_id bigint, p_accept b
  SECURITY DEFINER
  SET search_path TO 'public', 'pg_temp'
 AS $function$
-declare k public.custodies%rowtype; m text; nd int; nr int; r numeric; e numeric; b numeric; me text := public.qy_me();
+declare k public.custodies%rowtype; sgn boolean; m text; nd int; nr int; r numeric; e numeric; b numeric; me text := public.qy_me();
 begin
   select * into k from public.custodies where id = p_id for update;
   if not found then raise exception 'العهدة غير موجودة'; end if;
@@ -191,6 +197,8 @@ begin
     remaining_action = case when b = 0 then 'none' else p_action end where id = p_id returning * into k;
   perform public.qy_custody_hist(k, 'اعتمد المحاسب إقفال العهدة',
     'الباقي ' || to_char(b, 'FM999,999,990.000') || ' — ' || case k.remaining_action when 'return_cash' then 'يُرجَع نقداً' when 'carry' then 'يُرحَّل رصيداً معلّقاً' when 'pay_diff' then 'يُصرف الفرق لصاحبها' when 'carry_debt' then 'يُرحَّل ديناً' else 'لا باقي' end);
+  select coalesce(c.custody_sign_on, true) into sgn from public.companies c where c.id = k.company_id;
+  if not sgn then k := public.qy_custody_finalize(p_id, me, 'أُقفلت العهدة مباشرة بعد اعتماد المحاسب (توقيع الإدارة غير مفعّل)'); end if;
   return k;
 end $function$
 ;
@@ -314,6 +322,34 @@ begin
   return k;
 end $function$
 ;
+CREATE OR REPLACE FUNCTION public.qy_custody_finalize(p_id bigint, p_signer text, p_hist text)
+ RETURNS custodies
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare k public.custodies%rowtype; r numeric; e numeric; d numeric; co text; hn text;
+begin
+  select * into k from public.custodies where id = p_id for update;
+  select coalesce(sum(amount) filter (where kind = 'receipt'),0), coalesce(sum(amount) filter (where kind = 'expense'),0) into r, e from public.custody_lines where custody_id = p_id;
+  d := round(k.amount + r - e, 3);
+  select c.code into co from public.companies c where c.id = k.company_id;
+  select u.name into hn from public.users u where u.id = k.holder_id;
+  if d <> 0 then
+    insert into public.transactions(company_id, tx_date, direction, amount, budget_item_id, beneficiary, description, source_type, source_id, note, created_by_id, created_by)
+    values (k.company_id, current_date, case when d > 0 then 'in' else 'out' end, abs(d), k.budget_item_id, hn,
+      case when d > 0 then 'إقفال عهدة: ما لم يُصرف يعود للبند' else 'إقفال عهدة: مصروف زائد على مبلغها' end,
+      'custody', k.id::text, 'العهدة ' || k.id, p_signer, (select u.name from public.users u where u.id = p_signer));
+  end if;
+  if k.remaining_action in ('carry','carry_debt') and coalesce(k.remaining_amount,0) <> 0 then
+    insert into public.custody_balances(holder_id, company_id, amount, source_custody_id) values (k.holder_id, k.company_id, k.remaining_amount, k.id);
+  end if;
+  update public.custodies set status = 'closed', signed_by_id = p_signer, closed_at = now(),
+    settlement_no = coalesce(settlement_no, 'ST-' || coalesce(co,'') || '-' || lpad(k.id::text, 5, '0')) where id = p_id returning * into k;
+  perform public.qy_custody_hist(k, p_hist, 'كشف التسوية ' || k.settlement_no);
+  return k;
+end $function$
+;
 CREATE OR REPLACE FUNCTION public.qy_custody_hist(p_k custodies, p_action text, p_note text)
  RETURNS void
  LANGUAGE sql
@@ -429,13 +465,14 @@ begin
   return l;
 end $function$
 ;
-CREATE OR REPLACE FUNCTION public.qy_custody_line_save(p_custody bigint, p_id bigint, p_kind text, p_amount numeric, p_desc text, p_invoice text, p_date date, p_image text, p_keep_image boolean DEFAULT true)
+CREATE OR REPLACE FUNCTION public.qy_custody_line_save(p_custody bigint, p_id bigint, p_kind text, p_amount numeric, p_desc text, p_invoice text, p_date date, p_image text, p_keep_image boolean DEFAULT true, p_no_doc boolean DEFAULT false, p_no_doc_reason text DEFAULT NULL::text)
  RETURNS custody_lines
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'pg_temp'
 AS $function$
 declare k public.custodies%rowtype; l public.custody_lines%rowtype; mn numeric; img text; d date := coalesce(p_date, current_date);
+  nd_on boolean; cap numeric; used numeric; nodoc boolean := coalesce(p_no_doc,false);
 begin
   select * into k from public.custodies where id = p_custody for update;
   if not found then raise exception 'العهدة غير موجودة'; end if;
@@ -453,24 +490,45 @@ begin
   if d > current_date then raise exception 'تاريخ السطر لا يكون بعد اليوم'; end if;
   if k.received_at is not null and d < (k.received_at at time zone 'Asia/Kuwait')::date then raise exception 'تاريخ السطر لا يكون قبل استلام العهدة'; end if;
   if p_id is not null and l.status = 'accepted' then raise exception 'سطر قبله المراجِع لا يُعدَّل'; end if;
+  select c.custody_img_min, c.custody_nodoc_on into mn, nd_on from public.companies c where c.id = k.company_id;
+  if nodoc then
+    if not coalesce(nd_on,false) then raise exception 'الصرف بلا سند غير مسموح في هذه الشركة'; end if;
+    if p_kind <> 'expense' then raise exception 'المقبوض لا يُسجَّل بلا سند'; end if;
+    if length(btrim(coalesce(p_no_doc_reason,''))) = 0 then raise exception 'اكتب سبب عدم وجود سند'; end if;
+    cap := public.qy_custody_nodoc_cap(p_custody);
+    if cap is not null then
+      select coalesce(sum(amount),0) into used from public.custody_lines where custody_id = p_custody and no_doc and id is distinct from p_id;
+      if used + p_amount > cap then raise exception 'تجاوز سقف المبالغ بلا سند لهذه العهدة (%). المتاح: %', cap, greatest(cap - used, 0); end if;
+    end if;
+  end if;
   img := case when nullif(p_image,'') is not null then p_image when p_id is not null and coalesce(p_keep_image,true) then l.image_data else null end;
-  select c.custody_img_min into mn from public.companies c where c.id = k.company_id;
-  if img is null and (p_kind = 'receipt' or p_amount >= coalesce(mn,0)) then
+  if img is null and not nodoc and (p_kind = 'receipt' or p_amount >= coalesce(mn,0)) then
     raise exception 'صورة السند إلزامية لهذا السطر';
   end if;
   if p_id is null then
-    insert into public.custody_lines(custody_id, kind, amount, description, invoice_no, line_date, image_data, created_by_id)
-      values (p_custody, p_kind, round(p_amount,3), left(btrim(p_desc),300), nullif(left(btrim(coalesce(p_invoice,'')),60),''), d, img, public.qy_me())
+    insert into public.custody_lines(custody_id, kind, amount, description, invoice_no, line_date, image_data, created_by_id, no_doc, no_doc_reason)
+      values (p_custody, p_kind, round(p_amount,3), left(btrim(p_desc),300), nullif(left(btrim(coalesce(p_invoice,'')),60),''), d, img, public.qy_me(), nodoc, case when nodoc then left(btrim(p_no_doc_reason),300) end)
       returning * into l;
   else
     update public.custody_lines set kind = p_kind, amount = round(p_amount,3), description = left(btrim(p_desc),300),
       invoice_no = nullif(left(btrim(coalesce(p_invoice,'')),60),''), line_date = d, image_data = img,
+      no_doc = nodoc, no_doc_reason = case when nodoc then left(btrim(p_no_doc_reason),300) end,
       status = 'draft', review_note = null, reopened = false, updated_at = now()
      where id = p_id returning * into l;
   end if;
   perform public.qy_custody_over_check(p_custody);
   return l;
 end $function$
+;
+CREATE OR REPLACE FUNCTION public.qy_custody_nodoc_cap(p_id bigint)
+ RETURNS numeric
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+  select case c.custody_nodoc_mode when 'amount' then c.custody_nodoc_value when 'percent' then round(k.amount * c.custody_nodoc_value / 100, 3) else null end
+  from public.custodies k join public.companies c on c.id = k.company_id where k.id = p_id;
+$function$
 ;
 CREATE OR REPLACE FUNCTION public.qy_custody_over_amount(p_id bigint)
  RETURNS numeric
@@ -627,32 +685,21 @@ CREATE OR REPLACE FUNCTION public.qy_custody_sign(p_id bigint)
  SECURITY DEFINER
  SET search_path TO 'public', 'pg_temp'
 AS $function$
-declare k public.custodies%rowtype; me text := public.qy_me(); r numeric; e numeric; d numeric; co text; hn text;
+declare k public.custodies%rowtype; me text := public.qy_me(); sg text; ok boolean;
 begin
   select * into k from public.custodies where id = p_id for update;
   if not found then raise exception 'العهدة غير موجودة'; end if;
   if k.status <> 'pending_sign' then raise exception 'العهدة ليست بانتظار التوقيع'; end if;
-  if not ((public.is_finance() and public.can_see_company(k.company_id)) or public.is_admin()) then raise exception 'التوقيع للمدير المالي أو محاسب'; end if;
+  select coalesce(c.custody_signers,'any') into sg from public.companies c where c.id = k.company_id;
+  ok := public.is_admin() or (public.can_see_company(k.company_id) and case sg
+          when 'cfo'  then public.qy_is_cfo()
+          when 'acct' then exists (select 1 from public.users u where u.id = me and u.role = 'accountant')
+          else public.is_finance() end);
+  if not ok then raise exception '%', case sg when 'cfo' then 'التوقيع للمدير المالي' when 'acct' then 'التوقيع لمحاسب آخر' else 'التوقيع للمدير المالي أو محاسب' end; end if;
   if me in (k.holder_id, k.reviewer_id, k.reviewed_by_id) and not public.is_admin() then
     raise exception 'لا يوقّع صاحب العهدة ولا من راجعها أو اعتمدها';
   end if;
-  select coalesce(sum(amount) filter (where kind = 'receipt'),0), coalesce(sum(amount) filter (where kind = 'expense'),0) into r, e from public.custody_lines where custody_id = p_id;
-  d := round(k.amount + r - e, 3);
-  select c.code into co from public.companies c where c.id = k.company_id;
-  select u.name into hn from public.users u where u.id = k.holder_id;
-  if d <> 0 then
-    insert into public.transactions(company_id, tx_date, direction, amount, budget_item_id, beneficiary, description, source_type, source_id, note, created_by_id, created_by)
-    values (k.company_id, current_date, case when d > 0 then 'in' else 'out' end, abs(d), k.budget_item_id, hn,
-      case when d > 0 then 'إقفال عهدة: ما لم يُصرف يعود للبند' else 'إقفال عهدة: مصروف زائد على مبلغها' end,
-      'custody', k.id::text, 'العهدة ' || k.id, me, (select u.name from public.users u where u.id = me));
-  end if;
-  if k.remaining_action in ('carry','carry_debt') and coalesce(k.remaining_amount,0) <> 0 then
-    insert into public.custody_balances(holder_id, company_id, amount, source_custody_id) values (k.holder_id, k.company_id, k.remaining_amount, k.id);
-  end if;
-  update public.custodies set status = 'closed', signed_by_id = me, closed_at = now(),
-    settlement_no = coalesce(settlement_no, 'ST-' || coalesce(co,'') || '-' || lpad(k.id::text, 5, '0')) where id = p_id returning * into k;
-  perform public.qy_custody_hist(k, 'وقّع إقفال العهدة', 'كشف التسوية ' || k.settlement_no);
-  return k;
+  return public.qy_custody_finalize(p_id, me, 'وقّع إقفال العهدة');
 end $function$
 ;
 CREATE OR REPLACE FUNCTION public.qy_custody_sign_reject(p_id bigint, p_note text)
@@ -1240,6 +1287,8 @@ revoke all on function public.me() from public, anon, authenticated; grant execu
 revoke all on function public.my_company_ids() from public, anon, authenticated; grant execute on function public.my_company_ids() to authenticated; grant execute on function public.my_company_ids() to service_role;
 revoke all on function public.can_see_company(p_company_id text) from public, anon, authenticated; grant execute on function public.can_see_company(p_company_id text) to authenticated; grant execute on function public.can_see_company(p_company_id text) to service_role;
 revoke all on function public.can_see_request(p_request_id text) from public, anon, authenticated; grant execute on function public.can_see_request(p_request_id text) to authenticated; grant execute on function public.can_see_request(p_request_id text) to service_role;
+revoke all on function public.qy_custody_nodoc_cap(p_id bigint) from public, anon, authenticated; grant execute on function public.qy_custody_nodoc_cap(p_id bigint) to authenticated; grant execute on function public.qy_custody_nodoc_cap(p_id bigint) to service_role;
+revoke all on function public.qy_custody_line_save(p_custody bigint, p_id bigint, p_kind text, p_amount numeric, p_desc text, p_invoice text, p_date date, p_image text, p_keep_image boolean, p_no_doc boolean, p_no_doc_reason text) from public, anon, authenticated; grant execute on function public.qy_custody_line_save(p_custody bigint, p_id bigint, p_kind text, p_amount numeric, p_desc text, p_invoice text, p_date date, p_image text, p_keep_image boolean, p_no_doc boolean, p_no_doc_reason text) to authenticated; grant execute on function public.qy_custody_line_save(p_custody bigint, p_id bigint, p_kind text, p_amount numeric, p_desc text, p_invoice text, p_date date, p_image text, p_keep_image boolean, p_no_doc boolean, p_no_doc_reason text) to service_role;
 revoke all on function public.finalize_request(p_id text) from public, anon, authenticated; grant execute on function public.finalize_request(p_id text) to authenticated; grant execute on function public.finalize_request(p_id text) to service_role;
 revoke all on function public.request_password_reset(p_phone text) from public, anon, authenticated; grant execute on function public.request_password_reset(p_phone text) to authenticated; grant execute on function public.request_password_reset(p_phone text) to anon; grant execute on function public.request_password_reset(p_phone text) to service_role;
 revoke all on function public.users_self_update_guard() from public, anon, authenticated; grant execute on function public.users_self_update_guard() to service_role;
@@ -1275,16 +1324,16 @@ revoke all on function public.qy_now_txt() from public, anon, authenticated; gra
 revoke all on function public.qy_custody_hist(p_k custodies, p_action text, p_note text) from public, anon, authenticated; grant execute on function public.qy_custody_hist(p_k custodies, p_action text, p_note text) to service_role;
 revoke all on function public.qy_custody_review_line(p_line bigint, p_ok boolean, p_note text) from public, anon, authenticated; grant execute on function public.qy_custody_review_line(p_line bigint, p_ok boolean, p_note text) to authenticated; grant execute on function public.qy_custody_review_line(p_line bigint, p_ok boolean, p_note text) to service_role;
 revoke all on function public.qy_custody_over_check(p_id bigint) from public, anon, authenticated; grant execute on function public.qy_custody_over_check(p_id bigint) to authenticated; grant execute on function public.qy_custody_over_check(p_id bigint) to service_role;
-revoke all on function public.qy_custody_line_save(p_custody bigint, p_id bigint, p_kind text, p_amount numeric, p_desc text, p_invoice text, p_date date, p_image text, p_keep_image boolean) from public, anon, authenticated; grant execute on function public.qy_custody_line_save(p_custody bigint, p_id bigint, p_kind text, p_amount numeric, p_desc text, p_invoice text, p_date date, p_image text, p_keep_image boolean) to authenticated; grant execute on function public.qy_custody_line_save(p_custody bigint, p_id bigint, p_kind text, p_amount numeric, p_desc text, p_invoice text, p_date date, p_image text, p_keep_image boolean) to service_role;
-revoke all on function public.qy_custody_acct_decide(p_id bigint, p_accept boolean, p_action text, p_note text) from public, anon, authenticated; grant execute on function public.qy_custody_acct_decide(p_id bigint, p_accept boolean, p_action text, p_note text) to authenticated; grant execute on function public.qy_custody_acct_decide(p_id bigint, p_accept boolean, p_action text, p_note text) to service_role;
-revoke all on function public.qy_custody_sign(p_id bigint) from public, anon, authenticated; grant execute on function public.qy_custody_sign(p_id bigint) to authenticated; grant execute on function public.qy_custody_sign(p_id bigint) to service_role;
 revoke all on function public.qy_custody_line_reopen(p_line bigint) from public, anon, authenticated; grant execute on function public.qy_custody_line_reopen(p_line bigint) to authenticated; grant execute on function public.qy_custody_line_reopen(p_line bigint) to service_role;
+revoke all on function public.qy_custody_finalize(p_id bigint, p_signer text, p_hist text) from public, anon, authenticated; grant execute on function public.qy_custody_finalize(p_id bigint, p_signer text, p_hist text) to service_role;
 revoke all on function public.qy_budget_figures(p_company text) from public, anon, authenticated; grant execute on function public.qy_budget_figures(p_company text) to authenticated; grant execute on function public.qy_budget_figures(p_company text) to service_role;
 revoke all on function public.qy_custody_over_list(p_company text) from public, anon, authenticated; grant execute on function public.qy_custody_over_list(p_company text) to authenticated; grant execute on function public.qy_custody_over_list(p_company text) to service_role;
+revoke all on function public.qy_custody_sign(p_id bigint) from public, anon, authenticated; grant execute on function public.qy_custody_sign(p_id bigint) to authenticated; grant execute on function public.qy_custody_sign(p_id bigint) to service_role;
 revoke all on function public.qy_custody_sign_reject(p_id bigint, p_note text) from public, anon, authenticated; grant execute on function public.qy_custody_sign_reject(p_id bigint, p_note text) to authenticated; grant execute on function public.qy_custody_sign_reject(p_id bigint, p_note text) to service_role;
 revoke all on function public.qy_custody_set_over(p_id bigint, p_mode text, p_value numeric, p_note text) from public, anon, authenticated; grant execute on function public.qy_custody_set_over(p_id bigint, p_mode text, p_value numeric, p_note text) to authenticated; grant execute on function public.qy_custody_set_over(p_id bigint, p_mode text, p_value numeric, p_note text) to service_role;
 revoke all on function public.qy_custody_reviewer_done(p_id bigint) from public, anon, authenticated; grant execute on function public.qy_custody_reviewer_done(p_id bigint) to authenticated; grant execute on function public.qy_custody_reviewer_done(p_id bigint) to service_role;
 revoke all on function public.qy_custody_admin_undo(p_id bigint, p_reason text) from public, anon, authenticated; grant execute on function public.qy_custody_admin_undo(p_id bigint, p_reason text) to authenticated; grant execute on function public.qy_custody_admin_undo(p_id bigint, p_reason text) to service_role;
+revoke all on function public.qy_custody_acct_decide(p_id bigint, p_accept boolean, p_action text, p_note text) from public, anon, authenticated; grant execute on function public.qy_custody_acct_decide(p_id bigint, p_accept boolean, p_action text, p_note text) to authenticated; grant execute on function public.qy_custody_acct_decide(p_id bigint, p_accept boolean, p_action text, p_note text) to service_role;
 -- (٧) أمان الصفوف والسياسات
 alter table public.custodies enable row level security;
 alter table public.custody_balances enable row level security;
