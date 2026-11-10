@@ -2578,6 +2578,7 @@ function viewAllowed(v){
 // ===================== الرموز: مجموعة واحدة بخط رفيع، تأخذ لون النص أو لون الحالة =====================
 // المصافحة من مجموعة Lucide (رخصة ISC)، والبقية مرسومة بالأسلوب نفسه
 const QI = {
+  route:'<circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h7.5a3.5 3.5 0 0 0 0-7h-7a3.5 3.5 0 0 1 0-7H16"/>',
   all:'<path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/>',
   me:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>',
   alarm:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M22 6l-3-3M6.4 19.6 4 22M17.6 19.6 20 22"/>',
@@ -2957,7 +2958,7 @@ function navSections(){
     ];
     if(finU){
       cpages.push({label:'عهد الشركة المفتوحة', count:nOpenK, views:[], on: v==='custodyList' && ft==='open', js:[["cusFinTab",["open"]]]});
-      cpages.push({label:'عهد الشركة المغلقة', count:nClosedK, views:[], on: v==='custodyList' && ft==='closed', js:[["cusFinTab",["closed"]]]});
+      cpages.push({label:'عهد الشركة المقفلة', count:nClosedK, views:[], on: v==='custodyList' && ft==='closed', js:[["cusFinTab",["closed"]]]});
       const nBalK = (state.custodyBalances||[]).filter(b=>b.companyId===cidn && b.status==='open').length;
       cpages.push({label:'المبالغ المعلّقة', count:nBalK, views:[], on: v==='custodyList' && ft==='bal', js:[["cusFinTab",["bal"]]]});
     }
@@ -6510,7 +6511,7 @@ function applyPageWidth(){
   // لا تتبع العرض الذي يختاره المستخدم: هما صورة الورقة المطبوعة، فتظهر بالحجم نفسه عند الجميع
   document.documentElement.style.setProperty('--page-shift', '0px');
   if(state.view==='detail' || state.view==='printPreview' || state.view==='custody'){
-    const side = (state.view!=='printPreview' && !isPhone() && app.querySelector(':scope > .req-wrap')) ? (reqPathOpen() ? 262 : 58) : 0;
+    const side = 0;
     app.style.maxWidth = (DOC_BOX_W + side) + 'px';
     setBox((DOC_BOX_W + side) + 'px');
     fitPreviewZoom();
@@ -6599,6 +6600,18 @@ function renderMobileTabs(){
       ? {key:'viewas', ico:'eye', label:'عرض كمستخدم', on:state.view==='admin' && state.adminSubTab==='impersonate' && !open, act:[["#14",[]]]}
       : {key:'new', ico:'plus', label:'جديد', on:['newRequest','newRequestChoice'].includes(state.view) && !open, act:[["#15",[]]]};
   const mainLbl = main ? ((main.getAttribute('title') && main.textContent.trim().length>14) ? main.textContent.trim() : main.textContent.trim()) : '';
+  // الخانة الرابعة: «عرض العهدة» في طلب العهدة، وإلا «المزيد» أو «جديد/عرض كمستخدم» أو «حسابي»؛
+  // والخامسة: «المسار» في صفحتي الطلب والعهدة، وإلا «حسابي» (الإشعارات انتقلت إلى الشريط العلوي)
+  const cusBtn = rest.find(b=>b.getAttribute('data-on-click')==='openCustodyOfRequest');
+  const rest2 = rest.filter(b=>b!==cusBtn);
+  const accItem = {key:'account', ico:'account', label:'حسابي', on:state.view==='account' && !open, act:[["#10",[]]]};
+  let slot4;
+  if(cusBtn && !rest2.length) slot4 = {key:'cus', ico:'case', label:'عرض العهدة', act:[["mTabCus",[]]]};
+  else if(main && rest.length) slot4 = {key:'more', ico:'⋯', label:'المزيد', act:[["mTabMore",[]]], dot:0};
+  else slot4 = (main && !/جديد/.test(mainLbl)) ? newItem : accItem;
+  const hasPath = ['detail','custody'].includes(state.view) && !!document.querySelector('#app .req-wrap, #app .mcus, #app .doc');
+  const slot5 = hasPath ? {key:'path', ico:'route', label:'المسار', on:!!state.cusPathOpen, act:[["cusPathToggle",[]]]}
+    : (slot4.key!=='account' ? accItem : newItem);
   // RTL: أول زرّ في الكود يظهر أقصى اليمين
   const items = [
     {key:'menu',      ico:'menu',  label:'القائمة',  on:open,
@@ -6606,10 +6619,8 @@ function renderMobileTabs(){
     {key:'dashboard', ico:'clip', label:'الطلبات',  on:['dashboard','detail'].includes(state.view) && !open,
      act:[["#13",[]]]},
     main ? (()=>{ const m = mainLbl.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u); const ic = m ? m[1].replace(/[✓✔]/g,'').trim() : ''; const lb = (m ? m[2] : mainLbl); return {key:'pmain', ico: ic || (/^✓|^✔/.test(mainLbl) ? 'done' : 'plus'), label: mShortLbl(lb), main:true, act:[["mTabMain",[]]]}; })() : newItem,
-    (main && rest.length) ? {key:'more', ico:'⋯', label:'المزيد', act:[["mTabMore",[]]], dot:0}
-      : ((main && !/جديد/.test(mainLbl)) ? newItem : {key:'account', ico:'account', label:'حسابي', on:state.view==='account' && !open, act:[["#10",[]]]}),
-    {key:'bell',      ico:'bell', label:'الإشعارات', on:false, dot:badge,
-     act:[["#16",[]]]},
+    slot4,
+    slot5,
   ];
   el.innerHTML = `<div class="mtab-in">${items.map(it=>`
     <button type="button" class="mtab-btn${it.on?' active':''}${it.main?' mtab-main':''}" ${qon('click', it.act)} aria-label="${escH(it.label)}">
@@ -6649,7 +6660,7 @@ function infoTips(){
 }
 // الهاتف: اسم الحقل بخط عريض على اليمين والحقل على يساره في سطر واحد
 function pairFields(){
-  if(!isPhone()) return;
+  if(!isPhone() || state.view==='login') return;
   const app = document.getElementById('app'); if(!app) return;
   const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=color]), select, .sel-add, .field-with-btn';
   app.querySelectorAll('label').forEach(l=>{
@@ -6714,13 +6725,20 @@ function hideDupH2(){
     if(own===at) h.classList.add('dup-h2');
   });
 }
-function pageTidy(){ try{ hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
+function hideEmptyTopBars(){
+  document.querySelectorAll('#app .top-action-bar').forEach(t=>{
+    const vis = [...t.querySelectorAll('button, a.btn')].some(b=>!b.closest('.bar-moved') && b.offsetParent!==null);
+    t.classList.toggle('tab-empty', !vis);
+  });
+}
+function pageTidy(){ try{ hideEmptyTopBars(); hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
   const a = document.querySelector('#app .adm-t2.active');
   const t = s => (s||'').replace(/\s+/g,' ').trim();
   h.classList.toggle('m-dup-title', !!(a && (t(h.textContent)===t(a.textContent) || h.hasAttribute('data-m-hide'))) || h.hasAttribute('data-m-hide'));
 }
+function mTabCus(){ const b = (state._mActs||[]).find(x=>x.getAttribute('data-on-click')==='openCustodyOfRequest'); if(b) b.click(); }
 function mTabMain(){ const b = (state._mActs||[])[state._mMain]; if(b) b.click(); }
 function mTabMore(){
   const acts = (state._mActs||[]).filter((b,i)=>i!==state._mMain);
@@ -14197,7 +14215,7 @@ function custodyDocsEntryHtml(kc){
   const L = custodyLinesOf(kc), reviewing = cusCanReviewLines(kc), holder = cusLineEditable(kc, null);
   if(!L.length && !holder) return '';
   const label = reviewing ? 'بدء المراجعة — عرض المستندات' : (holder ? 'تسجيل وتعديل المستندات' : 'عرض المستندات');
-  return `<div class="no-print" style="margin:10px 0 0;"><button type="button" class="btn btn-primary btn-lg" data-on-click="cusDocsOpen" data-on-click-args="${qa([kc.id, reviewing ? -1 : 0])}">${label}</button></div>`;
+  return `<div class="no-print cus-docs-entry" style="margin:10px 0 0;display:flex;gap:10px;flex-wrap:wrap;"><button type="button" class="btn btn-primary btn-lg" data-on-click="cusDocsOpen" data-on-click-args="${qa([kc.id, reviewing ? -1 : 0])}">${label}</button>${kc.status==='closed' ? '<button type="button" class="btn btn-ghost btn-lg" data-on-click="printCustodySettlement" title="كشف تسوية العهدة بكل مستنداتها">كشف التسوية</button>' : ''}</div>`;
 }
 function custodyLinesTableHtml(kc){
   if(!state.custodyLinesReady) return '';
@@ -14908,9 +14926,8 @@ function custodyMobileHtml(kc, req, act){
       <div class="mcus-head">
         <div class="mcus-t"><b>💼 ${escH(kc.purpose || req.reason || 'عهدة')}</b>${custodyBadge(kc, req)}</div>
         <div class="mcus-meta">${isHolder ? '' : escH(hn) + ' · '}${escH(bi ? bi.name : '—')} · <bdi>${escH(req.number || 'قيد المراجعة')}</bdi>${kc.dueCloseAt ? ' · الإقفال ' + fmtDateDMY(kc.dueCloseAt) : ''}</div>
-        <div class="mcus-btns no-print">
+        <div class="mcus-btns no-print" data-bar-actions>
           <button class="btn btn-ghost btn-sm" data-on-click="openRequest" data-on-click-args="${qa([req.id])}">عرض الطلب</button>
-          <button class="btn btn-ghost btn-sm" data-on-click="cusPathToggle">المسار ▸</button>
           ${kc.status==='closed' ? '<button class="btn btn-ghost btn-sm" data-on-click="printCustodySettlement">كشف التسوية</button>' : ''}
           ${state.user.role==='admin' && ['pending_sign','acct_review','close_requested'].includes(kc.status) ? `<button class="btn btn-ghost btn-sm" data-on-click="cusAdminUndo" data-on-click-args="${qa([kc.id])}">تراجع</button>` : ''}
         </div>
@@ -14981,9 +14998,8 @@ function renderCustodyPage(app){
       ${docsOpen ? '' : `<div class="top-action-bar no-print">
         <div class="header-actions-flex">
           <div class="doc-actions-col doc-actions-stack">
-            <button class="btn btn-ghost btn-sm" data-on-click="openRequest" data-on-click-args="${qa([req.id])}" title="طلب صرف العهدة: مسار اعتماده بأسماء المعتمدين، وورقته المطبوعة">عرض الطلب</button>
-            ${kc.status==='closed' ? '<button type="button" class="btn btn-ghost btn-sm" data-on-click="printCustodySettlement" title="كشف تسوية العهدة بكل مستنداتها">كشف التسوية</button>' : ''}
-            ${state.user.role==='admin' && ['pending_sign','acct_review','close_requested'].includes(kc.status) ? '<button type="button" class="btn btn-ghost btn-sm" data-on-click="cusAdminUndo" data-on-click-args="'+qa([kc.id])+'" title="تراجع مدير النظام عن الخطوة الأخيرة بسبب مكتوب">تراجع</button>' : ''}
+            <div class="doc-actions-row" data-bar-actions><button class="btn btn-ghost btn-sm" data-on-click="openRequest" data-on-click-args="${qa([req.id])}" title="طلب صرف العهدة: مسار اعتماده بأسماء المعتمدين، وورقته المطبوعة">عرض الطلب</button>
+            ${state.user.role==='admin' && ['pending_sign','acct_review','close_requested'].includes(kc.status) ? '<button type="button" class="btn btn-ghost btn-sm" data-on-click="cusAdminUndo" data-on-click-args="'+qa([kc.id])+'" title="تراجع مدير النظام عن الخطوة الأخيرة بسبب مكتوب">تراجع</button>' : ''}</div>
           </div>
         </div>
       </div>`}
@@ -15056,7 +15072,7 @@ function custodyFinanceOverviewHtml(cid){
         <span>البند: ${escH(((state.budgetItems||[]).find(x=>x.id===k.budgetItemId)||{}).name||'—')}${k.status==='closed' ? '' : ` · المحجوز من البند ${cusAmtHtml(k.amount + (k.carriedIn||0) + Math.max(0,-B))}`}${B<0 && k.status!=='closed' ? ` · <b style="color:var(--red);">⚠ صرف زائد ${cusAmtHtml(-B)}</b>` : ''}</span></div>
       <div class="cus-li-badges"><span class="badge cus-badge" style="--cb:${st.c||'#6b7280'};">${escH(st.l)}${who}</span></div></div>`;
   };
-  return `${tab==='open' ? (live.length ? live.map(card).join('') : '<div class="empty">لا عهد مفتوحة</div>') : (closed.length ? closed.map(card).join('') : '<div class="empty">لا عهد مغلقة</div>')}`;
+  return `${tab==='open' ? (live.length ? live.map(card).join('') : '<div class="empty">لا عهد مفتوحة</div>') : (closed.length ? closed.map(card).join('') : '<div class="empty">لا عهد مقفلة</div>')}`;
 }
 // صفحة «عهدي»: العهد التي في عهدتي، ثم التي طلبتها لغيري
 function renderCustodyList(app){
@@ -15085,7 +15101,7 @@ function renderCustodyList(app){
     return;
   }
   if(state.cusFinTab && ['accountant','cfo','admin'].includes(state.user.role)){
-    app.innerHTML = `<h1>عهد الشركة — ${state.cusFinTab==='closed' ? 'المغلقة' : state.cusFinTab==='bal' ? 'المبالغ المعلّقة' : 'المفتوحة'}</h1>${custodyFinanceOverviewHtml(cid) || '<div class="empty">لا عهد</div>'}`;
+    app.innerHTML = `<h1>عهد الشركة — ${state.cusFinTab==='closed' ? 'المقفلة' : state.cusFinTab==='bal' ? 'المبالغ المعلّقة' : 'المفتوحة'}</h1>${custodyFinanceOverviewHtml(cid) || '<div class="empty">لا عهد</div>'}`;
     return;
   }
   app.innerHTML = `
@@ -15284,8 +15300,7 @@ function renderDetail(app){
       <div class="top-action-bar no-print">
         <div class="header-actions-flex">
           <div class="doc-actions-col doc-actions-stack">
-            ${isDocView ? `<button class="btn btn-ghost btn-sm" data-on-click="openPrintPreview" data-on-click-args="${qa([(''+(req.id))])}" title="تعرض الطلب كما سيُطبع، ومنها الطباعة والحفظ PDF">معاينة الطلب</button>` : ''}
-            ${isCus ? `<button class="btn ${kc && kc.status==='awaiting_receipt' && kc.holderId===state.user.id && !req.isCancelled ? 'btn-approve' : 'btn-ghost'} btn-sm" data-on-click="openCustodyOfRequest" data-on-click-args="${qa([req.id])}" ${kc ? '' : 'disabled title="سجل العهدة غير ظاهر — حدّث الصفحة"'} title="صفحة العهدة: مسار حياتها من الصرف إلى الإقفال، وأرصدتها، وتأكيد الاستلام">عرض العهدة</button>` : ''}
+            ${isCus ? `<div class="doc-actions-row" data-bar-actions><button class="btn ${kc && kc.status==='awaiting_receipt' && kc.holderId===state.user.id && !req.isCancelled ? 'btn-approve' : 'btn-ghost'} btn-sm" data-on-click="openCustodyOfRequest" data-on-click-args="${qa([req.id])}" ${kc ? '' : 'disabled title="سجل العهدة غير ظاهر — حدّث الصفحة"'} title="صفحة العهدة: مسار حياتها من الصرف إلى الإقفال، وأرصدتها، وتأكيد الاستلام">عرض العهدة</button></div>` : ''}
             ${(req.createdById===state.user.id && isEditable(req) && !req.isCancelled && !isUnderReview(req)) ? `
               <div class="doc-actions-row" data-bar-actions>
                 <button class="btn btn-ghost btn-sm" data-on-click="editRequest" data-on-click-args="${qa([(''+(req.id))])}">تعديل الطلب</button>
@@ -15294,7 +15309,6 @@ function renderDetail(app){
               <div class="doc-actions-row" data-bar-actions>
                 <button class="btn btn-reject btn-sm" data-on-click="deleteRequestCfo" data-on-click-args="${qa([(''+(req.id))])}">إبطال الطلب</button>
               </div>` : '')}
-            ${isPhone() ? '<button type="button" class="btn btn-ghost btn-sm" data-on-click="cusPathToggle">المسار ▸</button>' : ''}
           </div>
         </div>
       </div>

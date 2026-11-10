@@ -1419,7 +1419,7 @@
     .topbar:has(.tb-company) .brand-co-group{display:none;}   /* من عنده قائمة شركات يراها فيها */
     .tb-tools{flex:0 0 auto;gap:4px;min-width:0;}
     .tb-impersonate{display:none;}            /* أداة مراجعة، مكانها الحاسوب */
-    .bell-btn{display:none;}                  /* الجرس انتقل إلى شريط التبويب السفلي */
+    .bell-btn{width:34px;min-width:34px;padding:0;}   /* الجرس في الشريط العلوي كالحاسوب */
     .tb-company{max-width:112px;font-size:12px !important;padding:6px 6px !important;}
     .tb-icon{width:34px;min-width:34px;padding:0;font-size:15px;}
     /* شريط أدوات التقرير كان سطراً صارماً فيخرج زرّا التصدير والطباعة عن الحافة */
@@ -1726,15 +1726,23 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
   .mon-feed .mf2{font-size:12px;color:var(--muted);margin-top:2px;}
   .mon-feed .mf-amt{white-space:nowrap;font-weight:700;}
   /* مسار الطلب/العهدة: شريط عمودي يسار الصفحة (الحاسوب) أو عائم (الهاتف)، عشر خانات متساوية */
-  .req-wrap{display:flex;gap:16px;align-items:flex-start;}
-  .req-main{flex:1 1 auto;min-width:0;}
-  .req-side{flex:0 0 246px;box-sizing:border-box;position:sticky;top:calc(var(--topbar-h,56px) + 12px);background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
-    max-height:calc(100vh - var(--topbar-h,56px) - 100px);overflow:auto;}
-  .req-wrap.closed .req-side{flex-basis:42px;padding:8px 4px;overflow:visible;}
-  .req-side-h{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:0 0 6px;font-size:14px;}
-  .req-wrap.closed .req-side-h{justify-content:center;}
-  .req-side-x{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:18px;line-height:1;cursor:pointer;color:var(--ink);font-family:inherit;flex:0 0 30px;}
-  .req-side-v{writing-mode:vertical-rl;margin:8px auto 0;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;}
+  /* الحاسوب: شريط المسار عائم ثابت على يسار الشاشة، لا يأخذ مكاناً من الصفحة */
+  .req-wrap{display:block;}
+  .req-main{min-width:0;}
+  .req-side{position:fixed;left:14px;top:calc(var(--topbar-h,56px) + 58px);bottom:calc(var(--bar-h,60px) + 14px);width:300px;z-index:30;box-sizing:border-box;
+    background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:0 6px 22px rgba(15,23,32,.16);display:flex;flex-direction:column;}
+  .req-side .stepper.path-v{overflow:auto;flex:1 1 auto;min-height:0;}
+  .req-wrap.closed .req-side{width:44px;bottom:auto;padding:8px 6px;}
+  .req-side-h{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:0 0 8px;font-size:16px;flex:0 0 auto;}
+  .req-wrap.closed .req-side-h{justify-content:center;margin:0;}
+  .req-side-x{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:19px;line-height:1;cursor:pointer;color:var(--ink);font-family:inherit;flex:0 0 32px;}
+  .req-side-v{writing-mode:vertical-rl;margin:10px auto 4px;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;}
+  .req-side .path-v .step{height:max(52px, calc(min(60vh, 600px) / 10)) !important;padding-right:40px !important;}
+  .req-side .path-v .step .dot{width:28px;height:28px;font-size:12.5px;}
+  .req-side .path-v .step .dot.dot-av{width:30px;height:30px;}
+  .req-side .path-v .step p{font-size:14px;}
+  .req-side .path-v .step .step-approver{font-size:12.5px;}
+  .req-side .path-v .step .step-approve-time{font-size:11.5px;}
   .stepper.path-v{display:flex;flex-direction:column;flex-wrap:nowrap;margin:0;gap:0;}
   .path-v .step{display:grid !important;grid-template-columns:auto minmax(0,1fr);align-content:center;column-gap:8px;position:relative;box-sizing:border-box;
     height:max(44px, calc(min(50vh, 480px) / 10));padding:2px 34px 2px 0 !important;text-align:right;min-width:0 !important;flex:0 0 auto;border-bottom:1px dashed var(--line);overflow:hidden;}
@@ -1861,6 +1869,8 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
     #app .row > div:has(> input[type=color]) > label{font-size:12px;margin:0 0 4px;}
     #app .row > div > input[type=color]{width:100% !important;height:40px;}
   }
+  .top-action-bar.tab-empty{display:none !important;}
+  .lf-skip-login{}
 </style>
 </head>
 <body>
@@ -1881,6 +1891,6 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=f689c2edf7"></script>
+<script src="app.js?v=11b10dffb0"></script>
 </body>
 </html>
