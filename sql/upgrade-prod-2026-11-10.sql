@@ -141,6 +141,7 @@ begin
   return false;
 end $function$
 ;
+drop function if exists public.qy_budget_figures(text);  -- تغيّر نوع الإرجاع (عمود reserved_extra)
 CREATE OR REPLACE FUNCTION public.qy_budget_figures(p_company text)
  RETURNS TABLE(budget_item_id text, committed numeric, pending numeric, reserved_extra numeric)
  LANGUAGE sql
@@ -1348,15 +1349,13 @@ drop policy if exists qy_cline_sel on public.custody_lines; create policy qy_cli
   WHERE ((k.id = custody_lines.custody_id) AND ((k.holder_id = qy_me()) OR (k.created_by_id = qy_me()) OR (k.reviewer_id = qy_me()) OR is_admin() OR (is_finance() AND can_see_company(k.company_id)) OR can_see_request(k.request_id))))));
 -- (٨) صلاحيات الجداول (كما في الاختبار)
 revoke all on public.custodies from anon, authenticated; grant INSERT on public.custodies to authenticated; grant SELECT on public.custodies to authenticated;
-revoke all on public.custody_balances from anon, authenticated; grant SELECT on public.custody_balances to anon; grant TRUNCATE on public.custody_balances to anon; grant REFERENCES on public.custody_balances to anon; grant TRIGGER on public.custody_balances to anon; grant MAINTAIN on public.custody_balances to anon; grant SELECT on public.custody_balances to authenticated; grant TRUNCATE on public.custody_balances to authenticated; grant REFERENCES on public.custody_balances to authenticated; grant TRIGGER on public.custody_balances to authenticated; grant MAINTAIN on public.custody_balances to authenticated;
-revoke all on public.custody_lines from anon, authenticated; grant SELECT on public.custody_lines to anon; grant TRUNCATE on public.custody_lines to anon; grant REFERENCES on public.custody_lines to anon; grant TRIGGER on public.custody_lines to anon; grant MAINTAIN on public.custody_lines to anon; grant SELECT on public.custody_lines to authenticated; grant TRUNCATE on public.custody_lines to authenticated; grant REFERENCES on public.custody_lines to authenticated; grant TRIGGER on public.custody_lines to authenticated; grant MAINTAIN on public.custody_lines to authenticated;
+revoke all on public.custody_balances from anon, authenticated; grant SELECT on public.custody_balances to authenticated;
+revoke all on public.custody_lines from anon, authenticated; grant SELECT on public.custody_lines to authenticated;
 revoke all on public.login_aliases from anon, authenticated; grant SELECT on public.login_aliases to authenticated;
-revoke all on public.password_reset_requests from anon, authenticated; grant INSERT on public.password_reset_requests to authenticated; grant SELECT on public.password_reset_requests to authenticated; grant UPDATE on public.password_reset_requests to authenticated; grant DELETE on public.password_reset_requests to authenticated; grant TRUNCATE on public.password_reset_requests to authenticated; grant REFERENCES on public.password_reset_requests to authenticated; grant TRIGGER on public.password_reset_requests to authenticated; grant MAINTAIN on public.password_reset_requests to authenticated;
 revoke all on public.request_number_counters from anon, authenticated;
-revoke all on public.transactions from anon, authenticated; grant INSERT on public.transactions to authenticated; grant SELECT on public.transactions to authenticated; grant UPDATE on public.transactions to authenticated; grant DELETE on public.transactions to authenticated; grant TRUNCATE on public.transactions to authenticated; grant REFERENCES on public.transactions to authenticated; grant TRIGGER on public.transactions to authenticated; grant MAINTAIN on public.transactions to authenticated;
-revoke all on public.custodies_id_seq from anon, authenticated; grant SELECT on public.custodies_id_seq to anon; grant UPDATE on public.custodies_id_seq to anon; grant USAGE on public.custodies_id_seq to anon; grant SELECT on public.custodies_id_seq to authenticated; grant UPDATE on public.custodies_id_seq to authenticated; grant USAGE on public.custodies_id_seq to authenticated;
-revoke all on public.custody_balances_id_seq from anon, authenticated; grant SELECT on public.custody_balances_id_seq to anon; grant UPDATE on public.custody_balances_id_seq to anon; grant USAGE on public.custody_balances_id_seq to anon; grant SELECT on public.custody_balances_id_seq to authenticated; grant UPDATE on public.custody_balances_id_seq to authenticated; grant USAGE on public.custody_balances_id_seq to authenticated;
-revoke all on public.custody_lines_id_seq from anon, authenticated; grant SELECT on public.custody_lines_id_seq to anon; grant UPDATE on public.custody_lines_id_seq to anon; grant USAGE on public.custody_lines_id_seq to anon; grant SELECT on public.custody_lines_id_seq to authenticated; grant UPDATE on public.custody_lines_id_seq to authenticated; grant USAGE on public.custody_lines_id_seq to authenticated;
+revoke all on public.custodies_id_seq from anon, authenticated; grant USAGE, SELECT on public.custodies_id_seq to authenticated;
+revoke all on public.custody_balances_id_seq from anon, authenticated; grant USAGE, SELECT on public.custody_balances_id_seq to authenticated;
+revoke all on public.custody_lines_id_seq from anon, authenticated; grant USAGE, SELECT on public.custody_lines_id_seq to authenticated;
 -- (٩) المشغّلات
 drop trigger if exists qy_users_custody_susp_trg on users; CREATE TRIGGER qy_users_custody_susp_trg BEFORE UPDATE OF is_suspended ON public.users FOR EACH ROW EXECUTE FUNCTION qy_users_custody_susp_guard();
 drop trigger if exists qy_custody_sync_trg on requests; CREATE TRIGGER qy_custody_sync_trg AFTER UPDATE OF status, is_cancelled, total_amount, budget_item_id ON public.requests FOR EACH ROW EXECUTE FUNCTION qy_custody_sync();
