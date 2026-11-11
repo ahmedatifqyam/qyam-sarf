@@ -2007,6 +2007,14 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* حقل التاريخ بعرض خانته كبقية الحقول */
   .cf-grid .dt-box,#app .lf > .dt-box{display:block !important;width:100% !important;max-width:100% !important;flex:1 1 auto !important;}
   .cf-grid .dt-box > input.dtx,#app .lf > .dt-box > input.dtx{width:100% !important;max-width:100% !important;}
+
+  @media (max-width:699px){
+    /* بطاقة فيها زر بكلام مع الحذف والتعديل: الزر بكلامه أعلى، والمربعان تحته متجاوران في الوسط */
+    #app .list-item > div:last-child:has(> .btn-ico):has(> .btn:not(.btn-ico)),#app .list-item > div:last-child:has(> .btn-ico):has(> .cur-co,> span.badge){display:grid !important;grid-template-columns:1fr 1fr;width:136px !important;min-width:136px !important;gap:8px;align-items:center;}
+    #app .list-item > div:last-child:has(> .btn-ico) > :not(.btn-ico){grid-column:1 / -1;order:-1;width:100% !important;min-width:0 !important;justify-content:center;padding:0 6px !important;white-space:nowrap;}
+    #app .list-item > div:last-child:has(> .btn-ico) > .btn-ico-edit{justify-self:end;}
+    #app .list-item > div:last-child:has(> .btn-ico) > .btn-ico-del{justify-self:start;}
+  }
 </style>
 </head>
 <body>
