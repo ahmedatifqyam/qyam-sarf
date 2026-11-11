@@ -2207,6 +2207,13 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* «طلب متكرر» ومثاله متلاصقان */
   #app .nr-form .check-line.nr-rec{min-height:0 !important;line-height:1.35;}
   #app .nr-rec-hint{margin:0 30px 0 0 !important;line-height:1.35;}
+  /* الخصم أحمر والإضافي أخضر: في الزر بعد الحفظ وفي حقل المبلغ عند الكتابة */
+  #app .nr-adj .nr-chip{font-size:13px !important;text-overflow:clip !important;padding:0 4px !important;letter-spacing:-.2px;}
+  #app .nr-adj .nr-chip-deduction{background:#fdecec !important;border-color:#c0392b !important;color:#a12a1e !important;}
+  #app .nr-adj .nr-chip-extra{background:#e9f7ee !important;border-color:#1e8e4e !important;color:#17703d !important;}
+  #app .nr-adj .nr-chip b{font-size:14px;}
+  input.nr-adj-ded:not(:placeholder-shown){color:#a12a1e;border-color:#c0392b !important;background:#fdecec;}
+  input.nr-adj-ext:not(:placeholder-shown){color:#17703d;border-color:#1e8e4e !important;background:#e9f7ee;}
 </style>
 </head>
 <body>
@@ -2227,6 +2234,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=c98347ed6a"></script>
+<script src="app.js?v=d75f573ca7"></script>
 </body>
 </html>

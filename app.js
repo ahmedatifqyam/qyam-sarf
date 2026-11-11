@@ -4147,7 +4147,7 @@ function nrAdjOpen(i, type){
       <h2 style="margin:0 0 4px;">${isDed ? 'خصم' : 'إضافي'}${(b.name||'').trim() ? ' — '+escH(b.name.trim()) : ''}</h2>
       <p class="sub" style="margin:0 0 12px;">المبلغ الأساسي: <b>${fmtKWDHtml(base)}</b> د.ك</p>
       <label>${isDed ? 'مبلغ الخصم' : 'مبلغ الإضافي'} (د.ك)</label>
-      <div class="field-with-calc"><input id="nrAdjAmt" type="number" inputmode="decimal" value="${escH(String(val||''))}" placeholder="0.000"><button type="button" class="calc-in" data-on-click="nrAdjCalcToggle">احسب</button></div>
+      <div class="field-with-calc"><input id="nrAdjAmt" class="nr-adj-${isDed ? 'ded' : 'ext'}" type="number" inputmode="decimal" value="${escH(String(val||''))}" placeholder="0.000"><button type="button" class="calc-in" data-on-click="nrAdjCalcToggle">احسب</button></div>
       <div id="nrAdjCalc" class="calc-box" style="display:none;">
         ${isDed ? `<label>عدد أيام الغياب</label><input id="nrAdjQty" type="number" inputmode="decimal" placeholder="مثال: 3">
           <p class="file-hint">الحساب: (المبلغ ÷ 26) × عدد الأيام</p>`
@@ -13675,7 +13675,7 @@ function renderNewRequest(app){
           const ded = Number(b.deduction)||0, ext = Number(b.extra)||0;
           const showNotes = !!((b.notes||'').trim() || b._showNotes);
           const tail = s => s ? String(s).replace(/\s+/g,'').slice(-4) : '';
-          const chip = (type, word, val, note) => `<button type="button" class="btn btn-sm nr-abtn nr-chip" title="${escH((note ? note+' — ' : '')+'اضغط للتعديل')}" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">${word} <b>${fmtKWDHtml(val)}</b> <span class="nr-pen">✎</span></button>`;
+          const chip = (type, word, val, note) => `<button type="button" class="btn btn-sm nr-abtn nr-chip nr-chip-${type}" title="${escH((note ? note+' — ' : '')+'اضغط للتعديل')}" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">${type==='deduction' ? '−' : '+'} ${word} <b>${fmtKWDHtml(val)}</b></button>`;
           const link = (type, txt) => `<button type="button" class="btn btn-ghost btn-sm nr-abtn" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">+ ${txt}</button>`;
           return `
           <div class="beneficiary-block nr-ben">
