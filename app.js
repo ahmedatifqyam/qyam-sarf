@@ -6633,7 +6633,7 @@ function renderPrintPreview(app){
     <div class="doc-page attachment-page attachment-flow-page">
       ${chunk.map(a=>`
         <div class="attachment-flow-block">
-          <div class="attachment-title">مرفقات المستفيد: ${escH(a.name)}${a.label?' — '+escH(a.label):''}</div>
+          <div class="attachment-title">${/^ورقة (الاعتماد|الرفض) الورقي/.test(a.label||'') ? 'مرفقات '+((a.label||'').indexOf('الرفض')>-1?'الرفض':'الاعتماد')+' الورقي لـ '+escH(a.name)+' — '+escH((a.label||'').replace(/^[^—]*— /,'')) : 'مرفقات المستفيد: '+escH(a.name)+(a.label?' — '+escH(a.label):'')}</div>
           <img src="${escH(safeDataUrl(a.img))}" style="width:${a.wMM.toFixed(1)}mm;height:${a.hMM.toFixed(1)}mm;cursor:zoom-in;" data-on-click="openFilePreviewModal" data-on-click-args="${qa([qs(a.img), qs('مرفق '+a.name)])}">
         </div>
       `).join('')}
@@ -8432,7 +8432,7 @@ function renderSeqSignatures(req, context){
     const img = (t, src)=>{ const b = cfg[t]; return (b && b.visible && src) ? `<div style="${box(b)}"><img src="${escH(src)}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>` : ''; };
     html += txt('title', title, 'sign-role-title', '700') + txt('name', sl.actor, 'sign-name', '400') + txt('step', sl.step, 'sign-step', '400')
           + img('signature', sigImg) + img('stamp', stampImg) + txt('date', toWesternDigits(sl.time)||'', 'sign-date', '400')
-          + (sl.paper ? (()=>{ const b = cfg.signature || cfg.stamp; if(!b) return ''; const fs = context==='mini' ? 6.5 : 8;
+          + (sl.paper ? (()=>{ const b = cfg.signature || cfg.stamp; if(!b) return ''; const fs = context==='mini' ? 7.8 : 9.6;
               return `<div style="${box(b)}"><div class="paper-stamp${sl.paperRej ? ' rej' : ''}" style="font-size:${fs}px;"><b>${sl.paperRej ? 'مرفوض ورقياً' : 'معتمد ورقياً'}</b><span>المستند الموقّع بالمرفقات</span><span>التاريخ: ${escH(toWesternDigits(sl.time)||'')}</span></div></div>`; })() : '');
   });
   if(!html) return '';
