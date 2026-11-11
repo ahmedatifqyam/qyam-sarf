@@ -9180,7 +9180,6 @@ function renderAdmin(app){
         <button class="btn btn-primary btn-md" data-on-click="addUser">إضافة المستخدم</button>
       </div>
     </div>
-    <div class="actions-row" style="margin-top:24px;"><button class="btn btn-ghost btn-sm" data-on-click="openPathCheck">فحص المسارات</button></div>
     <h2 style="margin-top:8px;">مستخدمو الشركة الحالية</h2>
     ${state.editingUserId ? renderUserEditForm() : ''}
     ${companyScopedUsers.map(u=>`
@@ -11705,6 +11704,11 @@ async function renderOrgTree(app){
     <div class="card no-print" style="margin-bottom:16px;">
       <h2 style="margin:0 0 10px;font-size:15px;">فحص الهيكل</h2>
       ${issuesHtml}
+    </div>
+    <div class="card no-print" style="margin-bottom:16px;">
+      <h2 style="margin:0 0 6px;font-size:15px;">فحص مسارات الطلبات</h2>
+      <p class="sub" style="margin:0 0 10px;">بعد تغيير مدير مباشر أو وحدة أو هيكل: يقارن مسار كل طلب مفتوح بمسار الشركة الآن، ويبيّن الطلبات التي صار مسارها قديماً أو معطّلاً.</p>
+      <div class="actions-row"><button type="button" class="btn btn-ghost btn-md" data-on-click="openPathCheck">فحص المسارات</button></div>
     </div>`;
   const pathPanel = `
     <div class="card no-print" style="margin-bottom:16px;">
@@ -12363,9 +12367,17 @@ async function saveRecNotify(){
 // ── مديرو النظام ──
 function renderAdminsPanel(){
   const admins = (state.users||[]).filter(u=>u.role==='admin');
-  const rows = admins.map(u=>`<div class="list-item" style="cursor:default;"><div class="li-main">
+  const nActive = admins.filter(u=>!u.isSuspended).length;
+  const rows = admins.map(u=>{
+    const me = u.id===state.user.id;
+    const why = me ? 'لا يمكنك حذف حسابك أنت' : (!u.isSuspended && nActive<=1) ? 'لا يمكن حذف آخر مدير نظام نشط' : '';
+    const act = u.isSuspended
+      ? `<button type="button" class="btn btn-ghost btn-sm" data-on-click="openSuspendCheck" data-on-click-args="${qa([(''+u.id)])}" title="الحساب موقوف — اضغط لإعادة تفعيله">إعادة التفعيل</button>`
+      : `<button type="button" class="btn btn-reject btn-sm" ${why ? `disabled title="${escH(why)}"` : `title="حذف «${escH(u.name)}» — تُطلب كلمة مرورك، ومن له أثر في النظام يُوقف بدل حذفه"`} data-on-click="deleteAdminUser" data-on-click-args="${qa([(''+u.id)])}">حذف</button>`;
+    return `<div class="list-item" style="cursor:default;"><div class="li-main">
       <b>${escH(u.name)}</b><span dir="ltr" style="text-align:right;">${escH(u.phone||'')}</span>
-      ${u.id===state.user.id ? '<span class="sub">أنت</span>' : ''}</div></div>`).join('');
+      ${me ? '<span class="sub">أنت</span>' : ''}${u.isSuspended ? '<span class="sub" style="color:#b45309;">موقوف</span>' : ''}</div><div>${act}</div></div>`;
+  }).join('');
   return `
     <div class="card" style="margin-top:28px;"><h2>مديرو النظام (${admins.length})</h2>
       <p class="sub">مدير النظام يرى كل الشركات ولوحة التحكم كاملة. لا يمكن حذف آخر مدير نظام أو تخفيض صفته.</p>
@@ -12948,6 +12960,30 @@ async function saveUserEdit(){
   render();
 }
 
+const USER_USAGE_CHECKS = [['requests','created_by_id','طلبات'],['request_history','user_id','قرارات وسجل'],['request_approval_steps','approver_id','خطوات اعتماد'],['transactions','created_by_id','حركات مالية'],['qy_attachments','created_by','مرفقات'],['recurring_templates','created_by_id','قيود دورية']];
+async function userUsage(id){
+  const checks = USER_USAGE_CHECKS, used = [];
+  for(const [t,c,l] of checks){
+    if(t==='qy_attachments' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id))) continue;
+    const r = await db.from(t).select('*',{count:'exact',head:true}).eq(c,id);
+    if(r.error){ showToast('تعذّر فحص أثر المستخدم قبل الحذف: '+(r.error.message||''),'error'); return null; }
+    if(r.count>0) used.push(l+' ('+r.count+')');
+  }
+  const h = await db.from('qy_handovers').select('*',{count:'exact',head:true}).or('from_user_id.eq.'+id+',to_user_id.eq.'+id+',created_by.eq.'+id);
+  if(h.error){ showToast('تعذّر فحص الإسناد قبل الحذف: '+(h.error.message||''),'error'); return null; }
+  if(h.count>0) used.push('إسناد ('+h.count+')');
+  return used;
+}
+// حذف مدير نظام: ليس نفسك ولا آخر مدير نشط؛ بكلمة مرورك؛ ومن له أثر يُوقف بدل الحذف
+async function deleteAdminUser(id){
+  const u = state.users.find(x=>x.id===id); if(!u) return;
+  if(id===state.user.id){ showToast('لا يمكنك حذف حسابك أنت','error'); return; }
+  const active = state.users.filter(x=>x.role==='admin' && !x.isSuspended && x.id!==id);
+  if(!active.length){ showToast('لا يمكن حذف آخر مدير نظام نشط','error'); return; }
+  const used = await userUsage(id); if(used===null) return;
+  if(used.length){ showToast('«'+u.name+'» له أثر في النظام ('+used.join('، ')+')، فيُوقف حسابه بدل حذفه.','info'); openSuspendCheck(id); return; }
+  requestDeleteConfirm(`حذف مدير النظام "${u.name}" نهائياً؟`, 'user', id);
+}
 async function deleteUser(id){
   const u = state.users.find(x=>x.id===id);
   // الحذف النهائي لمن بلا أي أثر في أي شركة؛ وإلا فالإيقاف
