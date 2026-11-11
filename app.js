@@ -6998,6 +6998,8 @@ function impAboveBar(){
   f.style.bottom = Math.max(12, Math.round(innerHeight - top + 8)) + 'px';
 }
 window.addEventListener('resize', ()=>requestAnimationFrame(impAboveBar));
+// صفحة الطلب الجديد تختلف بين الهاتف وسطح المكتب: عند عبور الحد يُعاد رسمها بعد حفظ ما كُتب
+window.addEventListener('resize', ()=>{ if(state.view==='newRequest' && state.draft && state._nrDesk!==undefined && state._nrDesk===isPhone()){ try{ syncDraftFromDOM(); }catch(e){} render(); } });
 function pageTidy(){ try{ requestAnimationFrame(impAboveBar); setTimeout(impAboveBar, 300); requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); infoTips(); fileButtons(); pairFields(); growInputs(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
@@ -13622,6 +13624,8 @@ function renderNewRequest(app){
   const numNote = d.number ? `رقم الطلب: <b>${escH(String(d.number))}</b>`
     : (winMin>0 ? `رقم الطلب: يُحدَّد بعد انتهاء نافذة المراجعة (${winMin} ${winMin<=10?'دقائق':'دقيقة'} من الإرسال)` : 'رقم الطلب: يُحدَّد عند الإرسال');
   // نصوص الخطاب: افتراضي الشركة، ولكل طلب نصّه إن غيّره صاحبه
+  const desk = !isPhone();   // سطح المكتب: حقول الخصم والإضافي والملاحظات ظاهرة؛ الهاتف: أزرار وصندوق عائم
+  state._nrDesk = desk;
   const coDT = state.companies.find(c=>c.id===state.currentCompanyId) || {};
   const dtOwn = !!((d.salutationText||'').trim() || (d.referenceText||'').trim());
   const canCoDT = state.user && (state.user.role==='admin' || isFinanceUser());
@@ -13696,7 +13700,7 @@ function renderNewRequest(app){
                 <div class="nr-known-h">بياناته محفوظة من طلب سابق. اضغط «تعديل» إن تغيّر الآيبان أو الهوية.</div>
               </div>` : ''}
               <div class="nr-idfs"${folded ? ' style="display:none;"' : ''}>
-                <div class="nr-f"><label>الاسم بالإنجليزية</label>
+                <div class="nr-f"><label>الاسم <span class="nr-l2">بالإنجليزية</span></label>
                   <input class="b-nameEn" type="text" value="${escH(b.nameEn||'')}" placeholder="Name in English"></div>
                 <div class="nr-f"><label>رقم الهوية</label>
                   <input class="b-civilId" type="text" inputmode="numeric" value="${escH(b.civilId||'')}" placeholder="الرقم المدني"></div>
@@ -13704,10 +13708,37 @@ function renderNewRequest(app){
                   <input class="b-iban" type="text" dir="ltr" value="${escH(b.iban||'')}" placeholder="KW00 XXXX…" data-on-change="#125">
                   ${mIban ? `<div class="file-hint nr-iban-h" style="${diff?'color:var(--amber);font-weight:600;':''}">${diff ? '⚠ يختلف عن الآيبان المسجّل لهذا المستفيد (ينتهي بـ '+escH(tail(mIban))+'): سيُحفظ لهذا الطلب، ويراجعه المحاسب قبل اعتماده كآيبان دائم.' : 'الآيبان المسجّل لهذا المستفيد ينتهي بـ '+escH(tail(mIban))}</div>` : ''}</div>
               </div>
+              <div class="nr-f"><label>المبلغ <span class="nr-l2">(د.ك)</span></label>
+                <input class="b-amount" type="number" inputmode="decimal" value="${b.amount||''}" placeholder="0.000" data-on-input="updateTotalPreview"></div>
+              ${desk ? `<div class="nr-f"><label>ملاحظات (اختياري)</label>
+                <input class="b-notes" type="text" value="${escH(b.notes||'')}" placeholder="أي ملاحظة إضافية"></div>` : ''}
               <div class="nr-f nr-wide"><label>البيان <span style="color:var(--red);">*</span></label>
                 <input class="b-statement" type="text" value="${escH(b.statement||'')}" placeholder="مثال: مستحقات شهر أغسطس"></div>
-              <div class="nr-f"><label>المبلغ (د.ك)</label>
-                <input class="b-amount" type="number" inputmode="decimal" value="${b.amount||''}" placeholder="0.000" data-on-input="updateTotalPreview"></div>
+              ${desk ? `
+              <div class="nr-f"><label>خصم (اختياري)</label>
+                <div class="field-with-calc"><input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" data-on-input="updateTotalPreview"><button type="button" class="calc-in" tabindex="-1" title="احسب الخصم" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "deduction"])}">احسب</button></div></div>
+              <div class="nr-f"><label>بيان الخصم (اختياري)</label>
+                <input class="b-deductionNote" type="text" value="${escH(b.deductionNote||'')}" placeholder="سبب الخصم إن وُجد"></div>
+              <div id="calcBox-deduction-${i}" class="calc-box nr-wide" style="display:none;">
+                <label>عدد أيام الغياب</label>
+                <input id="calcDeductionDays-${i}" type="number" placeholder="مثال: 3">
+                <p class="file-hint">الحساب: (المبلغ ÷ 26) × عدد الأيام</p>
+                <button type="button" class="btn btn-primary btn-xs" data-on-click="applyDeductionCalc" data-on-click-args="${qa([(i)])}">تطبيق</button>
+                <button type="button" class="btn btn-ghost btn-xs" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "deduction"])}">إلغاء</button>
+              </div>
+              <div class="nr-f"><label>إضافي (اختياري)</label>
+                <div class="field-with-calc"><input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" data-on-input="updateTotalPreview"><button type="button" class="calc-in" tabindex="-1" title="احسب الإضافي" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "extra"])}">احسب</button></div></div>
+              <div class="nr-f"><label>بيان الإضافي (اختياري)</label>
+                <input class="b-extraNote" type="text" value="${escH(b.extraNote||'')}" placeholder="سبب الإضافي إن وُجد"></div>
+              <div id="calcBox-extra-${i}" class="calc-box nr-wide" style="display:none;">
+                <label>عدد ساعات الإضافي</label>
+                <input id="calcExtraHours-${i}" type="number" placeholder="مثال: 5">
+                <label>نوع اليوم</label>
+                <select id="calcExtraType-${i}"><option value="1.25">يوم عمل (×1.25)</option><option value="1.5">يوم عطلة (×1.5)</option></select>
+                <p class="file-hint">الحساب: (المبلغ ÷ 26 ÷ 8) × عدد الساعات × المعامل</p>
+                <button type="button" class="btn btn-primary btn-xs" data-on-click="applyExtraCalc" data-on-click-args="${qa([(i)])}">تطبيق</button>
+                <button type="button" class="btn btn-ghost btn-xs" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "extra"])}">إلغاء</button>
+              </div>` : `
               <div class="nr-f nr-notes"${showNotes ? '' : ' style="display:none;"'}><label>ملاحظة</label>
                 <input class="b-notes" type="text" value="${escH(b.notes||'')}" placeholder="أي ملاحظة إضافية"></div>
               <input class="b-deduction" type="hidden" value="${escH(String(b.deduction||''))}">
@@ -13718,7 +13749,7 @@ function renderNewRequest(app){
                 ${ded>0 ? chip('deduction','خصم', ded, b.deductionNote) : link('deduction','خصم')}
                 ${ext>0 ? chip('extra','إضافي', ext, b.extraNote) : link('extra','إضافي')}
                 ${showNotes ? '' : `<button type="button" class="btn btn-ghost btn-sm nr-abtn" data-on-click="nrShowNotes" data-on-click-args="${qa([(i)])}">+ ملاحظة</button>`}
-              </div>
+              </div>`}
               <div class="nr-foot nr-wide">${attButtonHtml(i, b)}<span class="b-net"></span></div>
             </div>
           </div>

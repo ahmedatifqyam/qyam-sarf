@@ -2230,6 +2230,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .nr-adj .nr-chip{display:flex !important;flex-direction:column;align-items:center;justify-content:center;height:auto !important;min-height:40px;line-height:1.2 !important;padding:3px 4px !important;white-space:normal !important;}
   #app .nr-adj .nr-chip .nr-cw{font-size:12px;}
   #app .nr-adj .nr-chip b{font-size:14px;white-space:nowrap;}
+  /* اسم الحقل على سطرين متقاربين في الهاتف فيضيق عمود الأسماء وتكبر الحقول */
+  @media (max-width:699px){ #app .nr-form .nr-l2{display:block;line-height:1.1;} #app .nr-form .lf > label{line-height:1.15;} }
+  #app .nr-grid .field-with-calc{max-width:100%;}
+  #app input.b-deduction:not([type=hidden]):not(:placeholder-shown){color:#a12a1e;border-color:#c0392b !important;background:#fdecec;}
+  #app input.b-extra:not([type=hidden]):not(:placeholder-shown){color:#17703d;border-color:#1e8e4e !important;background:#e9f7ee;}
 </style>
 </head>
 <body>
@@ -2250,6 +2255,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=6deb1eab06"></script>
+<script src="app.js?v=44b3233284"></script>
 </body>
 </html>
