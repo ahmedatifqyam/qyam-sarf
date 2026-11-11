@@ -6394,6 +6394,7 @@ function render(){
   markDupTitle();
   pageTidy();
   decorateButtons();
+  iconActs();
   scrollActiveTabIntoView();
   fitFilterButtons();
   reapplyFieldErr();
@@ -6749,6 +6750,22 @@ function hideEmptyTopBars(){
   document.querySelectorAll('#app .top-action-bar').forEach(t=>{
     const vis = [...t.querySelectorAll('button, a.btn')].some(b=>!b.closest('.bar-moved') && b.offsetParent!==null);
     t.classList.toggle('tab-empty', !vis);
+  });
+}
+// الهاتف: أزرار الحذف والتعديل داخل البطاقات والجداول بشكل واحد في كل النظام — مربع برمز فقط، والاسم يظهر تلميحاً
+function iconActs(){
+  if(!isPhone()) return;
+  const app = document.getElementById('app'); if(!app) return;
+  app.querySelectorAll('.btn').forEach(b=>{
+    if(b.classList.contains('btn-ico') || b.closest('.modal-overlay,.mtab-sheet,.gfb-actions,[data-bar-actions]')) return;
+    if(!b.closest('.list-item,table,.tcards,.cus-li,.rec-li')) return;
+    const t = (b.textContent||'').replace(/\s+/g,' ').trim();
+    const kind = /^حذف( نهائي| الصورة)?$/.test(t) ? 'del' : (t==='تعديل' ? 'edit' : '');
+    if(!kind || !b.querySelector('svg')) return;
+    b.classList.add('btn-ico', 'btn-ico-'+kind);
+    b.setAttribute('aria-label', t);
+    if(!b.title) b.title = t;
+    const box = b.parentElement; if(box && [...box.children].filter(x=>x.matches('.btn')).every(x=>x.classList.contains('btn-ico'))) box.classList.add('ico-box');
   });
 }
 function pageTidy(){ try{ hideEmptyTopBars(); hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }

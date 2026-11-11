@@ -1992,6 +1992,15 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
   #app .sig-pos-row > .btn{white-space:nowrap;}
   .sig-canvas-scroll{max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
   @media (max-width:699px){ #app .sig-el input,#app .sig-el select{height:40px !important;} }
+
+  @media (max-width:699px){
+    /* أزرار الحذف والتعديل في البطاقات والجداول: مربع 40 برمز فقط، في كل النظام */
+    #app .btn.btn-ico{width:40px !important;min-width:40px !important;max-width:40px;height:40px !important;padding:0 !important;font-size:0 !important;gap:0 !important;flex:0 0 40px !important;justify-content:center;}
+    #app .btn.btn-ico svg{width:19px !important;height:19px !important;margin:0 !important;}
+    #app .list-item > div.ico-box,#app .list-item > div:last-child:has(> .btn-ico){flex-direction:row !important;flex-wrap:wrap;width:auto !important;min-width:0 !important;max-width:none !important;gap:8px;align-items:center;justify-content:flex-end;}
+    #app .list-item > div:last-child:has(> .btn-ico) > .btn:not(.btn-ico){flex:1 1 100% !important;}
+    #app td:has(> .btn-ico){white-space:nowrap;}
+  }
 </style>
 </head>
 <body>
@@ -2012,6 +2021,6 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=3fce053cd6"></script>
+<script src="app.js?v=fe542fe6bf"></script>
 </body>
 </html>
