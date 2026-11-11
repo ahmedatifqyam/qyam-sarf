@@ -622,7 +622,9 @@ const USER_COLS = 'id,phone,name,role,center_id,signature_data,stamp_data,email,
   + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id,is_suspended,suspended_at,suspended_note,skip_review,paper_approval,paper_proxy_ids';
 
 async function reloadUsers(){
-  const {data} = await db.from('users').select(USER_COLS);
+  const {data, error} = await db.from('users').select(USER_COLS);
+  state._usersErr = error ? (error.message||'خطأ') : '';
+  if(error) console.error('reloadUsers', error);
   if(data){ state.users = data.map(dbUserToState); await mergeUserPrivate(); }
 }
 // معتمدو طلباتي في شركات لم أعد أراها: أسماؤهم من الخادم (لا تُضاف لقوائم الاختيار)
@@ -3425,6 +3427,8 @@ async function finishLogin(authUid){
   }
   if(!user){
     await db.auth.signOut();
+    // فشل قراءة المستخدمين نفسها ليس «حساباً غير مرتبط»: تظهر الرسالة الصحيحة للتشخيص
+    if(state._usersErr){ qyLog('login_failed','تعذّر تحميل المستخدمين: '+state._usersErr,''); showToast('تعذّر تحميل بيانات المستخدمين من الخادم — أبلغ الدعم الفني ('+state._usersErr+')','error'); return; }
     showToast('الحساب غير مرتبط بمستخدم في النظام — راجع مدير النظام','error');
     return;
   }
