@@ -1547,7 +1547,7 @@ function renderExecTab(app){
     <div style="display:none;" class="print-header">
       <h2 style="margin:0 0 4px;">اللوحة التنفيذية — ${escH(coName)}</h2>
       <div style="font-size:12px;color:#666;">سنة ${escH(String(state.execYear || new Date().getFullYear()))} · طُبع في ${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
-      <hr style="margin:10px 0;">
+      <hr class="qy-hr">
     </div>
     <p class="sub no-print">${escH(coName)} — اللوحة التنفيذية (الطلبات المصروفة وغير الملغاة، حسب شهر الإنشاء).</p>
     ${execBodyHtml()}`);
@@ -9846,7 +9846,7 @@ function renderBudgetReportTab(){
     <div style="display:none;" class="print-header">
       <h2 style="margin:0 0 4px;">تقرير الميزانية — القيم الكويتية</h2>
       <div style="font-size:12px;color:#666;">${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
-      <hr style="margin:10px 0;">
+      <hr class="qy-hr">
     </div>
 
     <!-- بطاقات الإجمالي — أولاً -->
