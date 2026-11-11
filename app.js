@@ -4960,7 +4960,7 @@ function reqPaperInfo(r){
 }
 function reqPaperBadge(r){
   const p = reqPaperInfo(r); if(!p) return '';
-  return `<span class="badge paper-badge" title="${escH((p.waiting ? 'بانتظار اعتماد ورقي: ' : 'فيه اعتماد ورقي: ') + p.names.join('، '))}">📄 ${p.waiting ? 'بانتظار اعتماد ورقي' : 'اعتماد ورقي'}</span>`;
+  return `<span class="badge paper-badge" title="${escH((p.waiting ? 'بانتظار اعتماد ورقي: ' : 'فيه اعتماد ورقي: ') + p.names.join('، '))}">📄 ${p.waiting ? 'بانتظار اعتماد ورقي' : 'معتمد ورقياً'}</span>`;
 }
 function paperProxiesOf(uid){ const u = userById(uid); return u && u.paperApproval ? (u.paperProxyIds||[]).map(userById).filter(Boolean) : []; }
 // خطوة القرار الحالية التي أنا مسجِّلها الورقي
@@ -15886,7 +15886,7 @@ function renderDetail(app){
     }
     const info = d.info;
     // صورة المعتمِد (إن رفع صورته) داخل دائرة الخطوة مكان الرقم، فلا تزيد المساحة
-    return `<div class="${cls}${d.paper ? ' step-paper' : ''}">${stepDotHtml(d.uid, i+1)}<p>${d.paper ? '<span class="paper-pill">📄 ورقي</span> ' : ''}${escH(d.label)}</p>${info ? `<span class="step-approver" style="${info.rejected?'color:var(--red);':''}">${escH(info.name)}</span><span class="step-approve-time">${escH(info.time)}</span>` : ''}</div>`;
+    return `<div class="${cls}${d.paper ? ' step-paper' : ''}">${stepDotHtml(d.uid, i+1)}<p>${escH(d.label)}</p>${info ? `<span class="step-approver" style="${info.rejected?'color:var(--red);':''}">${escH(info.name)}</span><span class="step-approve-time">${escH(info.time)}</span>` : ''}</div>`;
   }).join('');
 
   const canAct = canActOn(req);

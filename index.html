@@ -2288,6 +2288,13 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .step.step-paper{position:relative;}
   .paper-pill{display:inline-block;background:#eef5fc;border:1.5px solid #3b82c4;color:#1f4e8c;border-radius:10px;padding:0 7px;font-size:11.5px;font-weight:800;line-height:18px;white-space:nowrap;vertical-align:middle;}
   .badge.paper-badge{background:#eef5fc;color:#1f4e8c;border:1.5px solid #3b82c4;margin-top:3px;font-size:11px;font-weight:800;white-space:nowrap;}
+  /* علامة الاعتماد الورقي في المسار: 📄 بجوار الدائرة بإطار أزرق، لا تأخذ مكاناً */
+  .step.step-paper .dot{overflow:visible;box-shadow:inset 0 0 0 2px #3b82c4;}
+  .path-v .step.step-paper .dot, .mpath .step.step-paper .dot{position:absolute;}
+  .mpath .step.step-paper .dot{position:relative;}
+  .stepper:not(.path-v) .step.step-paper .dot{position:relative;}
+  .step.step-paper .dot::after{content:'📄';position:absolute;bottom:-9px;left:-11px;width:19px;height:19px;border-radius:50%;background:#fff;border:1.5px solid #3b82c4;
+    box-shadow:0 1px 4px rgba(59,130,196,.45);font-size:11px;line-height:17px;text-align:center;}
 </style>
 </head>
 <body>
@@ -2308,6 +2315,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=f3a8cfd48e"></script>
+<script src="app.js?v=bd3596d8c0"></script>
 </body>
 </html>
