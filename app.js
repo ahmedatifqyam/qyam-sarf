@@ -2799,6 +2799,17 @@ async function mountAssistant(){
     if(rootEl){
       placeAssistantClose(); astDraftRestore();
       new MutationObserver(()=>{ placeAssistantClose(); astDraftRestore(); }).observe(rootEl, { childList:true, subtree:true });
+      // ملحوظة في الشات: حين يؤكد المساعد تسجيلها (بعد رسالة أرسلها المستخدم الآن) يُبلَّغ مدير النظام بإشعار جهاز
+      let noteArm = 0;
+      rootEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey) noteArm = Date.now(); }, true);
+      rootEl.addEventListener('click', e=>{ if(e.target.closest && e.target.closest('button')) noteArm = Date.now(); }, true);
+      new MutationObserver(muts=>{
+        if(!noteArm || Date.now()-noteArm > 90000) return;
+        for(const m of muts){ for(const n of m.addedNodes){
+          const t = (n.textContent||'');
+          if(t.indexOf('تم تسجيل ملاحظتك')>-1){ noteArm = 0; try{ db.rpc('qy_push_note'); }catch(e){} return; }
+        } }
+      }).observe(rootEl, { childList:true, subtree:true });
     }
   }catch(e){
     assistantMounted = false;                  // تعذّر التحميل: تُعاد المحاولة لاحقاً
@@ -5210,7 +5221,7 @@ async function pushEnable(){
   }catch(e){ showToast('تعذّر تفعيل الإشعارات: '+(e&&e.message||e),'error'); }
   pushPaint();
 }
-const PUSH_EVENTS = [['new','طلب جديد'],['approve','كل اعتماد مقبول'],['reject','كل رفض'],['paid','تم صرف طلب'],['cancel','إلغاء طلب'],['overrun','تجاوز ميزانية'],['login_fail','محاولة دخول فاشلة'],['pwreset','طلب إعادة تعيين كلمة مرور'],['security','تنبيهات الأمان'],['userchange','تغيير صلاحية أو إيقاف مستخدم'],['structure','مشكلة في مسار طلب (الهيكل)'],['error','أخطاء النظام']];
+const PUSH_EVENTS = [['new','طلب جديد'],['approve','كل اعتماد مقبول'],['reject','كل رفض'],['paid','تم صرف طلب'],['cancel','إلغاء طلب'],['overrun','تجاوز ميزانية'],['login_fail','محاولة دخول فاشلة'],['pwreset','طلب إعادة تعيين كلمة مرور'],['security','تنبيهات الأمان'],['userchange','تغيير صلاحية أو إيقاف مستخدم'],['structure','مشكلة في مسار طلب (الهيكل)'],['error','أخطاء النظام'],['note','ملحوظة جديدة في الشات']];
 async function pushEvSave(){
   try{
     const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if(!sub) return;
