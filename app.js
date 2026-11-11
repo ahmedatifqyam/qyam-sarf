@@ -7195,7 +7195,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Enter' && e.target && e.ta
 // زر رفع ملف بشكل أزرار النظام بدل الشكل الافتراضي للمتصفح («Choose File»)
 function fileButtons(){
   document.querySelectorAll('#app input[type=file]').forEach(inp=>{
-    if(inp.closest('label.file-btn') || inp.dataset.fb) return;
+    if(inp.closest('label') || inp.dataset.fb) return;   // ملف داخل زر جاهز (مثل «إضافة صورة»): لا يُلفّ بزر ثانٍ
     inp.dataset.fb = '1';
     const lb = document.createElement('label'); lb.className = 'btn btn-ghost btn-sm file-btn';
     const tx = document.createElement('span'); tx.textContent = inp.multiple ? 'اختيار ملفات' : 'اختيار ملف';
