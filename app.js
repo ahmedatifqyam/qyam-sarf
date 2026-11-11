@@ -7168,7 +7168,7 @@ function hoCard(h, mode){
       <label>سبب الرفض (مطلوب)</label>
       <textarea id="hoRejReason" rows="2" placeholder="مثال: أنا في إجازة في الفترة نفسها"></textarea>
       <label style="margin-top:8px;">الشخص الذي ترى أنه الأنسب للإسناد (اختياري)</label>
-      <select id="hoRejSuggest"><option value="">— بدون اقتراح —</option>
+      <select id="hoRejSuggest"><option value="">بدون اقتراح</option>
         ${hoCompanyUsers([state.user.id, h.from_user_id]).map(u=>`<option value="${escH(u.id)}">${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('')}</select>
       <div class="actions-row"><button class="btn btn-reject btn-sm" data-on-click="hoRejectConfirm" data-on-click-args="${qa([(''+(h.id))])}">تأكيد الرفض</button><button class="btn btn-ghost btn-sm" data-on-click="#56">تراجع</button></div>
     </div>` : '';
@@ -9043,7 +9043,7 @@ function renderAdmin(app){
       <div class="row">
         <div style="--fw:380px;"><label>اسم الوحدة</label><input id="newCenterName" type="text" placeholder="مثال: مركز حولي" style="--fw:380px;"></div>
         <div><label>النوع</label><select id="newCenterKind">${unitTypeOptionsHtml('center')}</select></div>
-        <div><label>تتبع الوحدة</label><select id="newCenterParent">${unitOptionsHtml(state.currentCompanyId, '', {noneLabel:'— تحت الشركة مباشرة —'})}</select></div>
+        <div><label>تتبع الوحدة</label><select id="newCenterParent">${unitOptionsHtml(state.currentCompanyId, '', {noneLabel:'تحت الشركة مباشرة'})}</select></div>
       </div>
       <div class="row">
         <div><label>الرمز (للترقيم)</label><input id="newCenterCode" type="text" placeholder="مثال: HWL"></div>
@@ -9093,7 +9093,7 @@ function renderAdmin(app){
       <div class="row" id="centerSelectRow" style="display:${companyScopedCenters.length>0 ? 'flex':'none'};">
         <div><label>المركز</label>
           <select id="newUserCenter">
-            <option value="">— بدون مركز —</option>
+            <option value="">بدون مركز</option>
             ${unitOptionsHtml(state.currentCompanyId, '')}
           </select>
         </div>
@@ -9109,7 +9109,7 @@ function renderAdmin(app){
         <div><label>المدير المباشر (لتسلسل الاعتماد الهرمي)</label>
           ${mgrFilterBtns('newUserManager', state.currentCompanyId, '', null, 'company')}
           <select id="newUserManager">
-            <option value="">— بدون مدير —</option>
+            <option value="">بدون مدير</option>
             ${mgrOptions(state.currentCompanyId, '', '', 'company')}
           </select>
         </div>
@@ -9198,7 +9198,7 @@ function renderBudgetItemsTab(){
       });
     }
     walk(roots, 0);
-    return `<option value=""${!selectedId?' selected':''}>— تحت الشركة مباشرة —</option>` + rows.join('');
+    return `<option value=""${!selectedId?' selected':''}>تحت الشركة مباشرة</option>` + rows.join('');
   }
 
   function editForm(b){
@@ -10311,7 +10311,7 @@ function recurringFormHtml(){
   const items = recCoItems();
   const centers = (state.centers||[]).filter(c=>c.companyId===state.currentCompanyId);
   const itemOpts = `<option value="">— اختر البند —</option>`+items.map(b=>`<option value="${b.id}" ${v('budget_item_id','')===b.id?'selected':''}>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('');
-  const centerOpts = `<option value="">— بلا وحدة —</option>`+centers.map(c=>`<option value="${c.id}" ${v('center_id','')===c.id?'selected':''}>${escH(c.name)}</option>`).join('');
+  const centerOpts = `<option value="">بلا وحدة</option>`+centers.map(c=>`<option value="${c.id}" ${v('center_id','')===c.id?'selected':''}>${escH(c.name)}</option>`).join('');
   const sel = (id, opts, cur)=>`<select id="${id}" data-on-change="recFormSync">${opts.map(([val,lab])=>`<option value="${val}" ${String(cur)===String(val)?'selected':''}>${lab}</option>`).join('')}</select>`;
   const roles = v('notify_roles',['creator','accountant']);
   const ids = v('notify_user_ids',[]);
@@ -10536,7 +10536,7 @@ function revenueCtx(){
 function revenueFormHtml(){
   const {items} = revenueCtx();
   const itemOpts = `<option value="">— اختر البند —</option>`+items.map(b=>`<option value="${b.id}">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('');
-  const sourceOpts = `<option value="">— اختياري —</option>`+Object.entries(REVENUE_SOURCE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  const sourceOpts = `<option value="">اختياري</option>`+Object.entries(REVENUE_SOURCE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
   return `
     <div class="card">
       <h2>تسجيل إيراد جديد</h2>
@@ -10813,7 +10813,7 @@ function renderCompanyEditForm(){
           </div>
           <div>
             <label>من يصله تنبيه الصرف الزائد (مع المحاسب)</label>
-            <select id="editCoCusAlert"><option value="">— لا أحد —</option>${companyUsers(c.id).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')).map(u=>`<option value="${escH(u.id)}" ${c.custodyAlertUserId===u.id?'selected':''}>${escH(u.name)}</option>`).join('')}</select>
+            <select id="editCoCusAlert"><option value="">لا أحد</option>${companyUsers(c.id).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')).map(u=>`<option value="${escH(u.id)}" ${c.custodyAlertUserId===u.id?'selected':''}>${escH(u.name)}</option>`).join('')}</select>
             <div class="file-hint" style="margin-top:3px;">مثلاً سكرتير الشركة؛ يرى العهد المتجاوزة في «عهد الشركة المفتوحة».</div>
           </div>` : ''}
           ${c.hasCustodyNodoc ? `<div>
@@ -11014,7 +11014,7 @@ function renderCenterEditForm(){
       <div class="row">
         <div style="--fw:380px;"><label>اسم الوحدة</label><input id="editCenterName" type="text" value="${escH(c.name)}" style="--fw:380px;"></div>
         <div><label>النوع</label><select id="editCenterKind">${unitTypeOptionsHtml(c.kind)}</select></div>
-        <div><label>تتبع الوحدة</label><select id="editCenterParent">${unitOptionsHtml(c.companyId, c.parentId||'', {noneLabel:'— تحت الشركة مباشرة —', excludeId:c.id})}</select></div>
+        <div><label>تتبع الوحدة</label><select id="editCenterParent">${unitOptionsHtml(c.companyId, c.parentId||'', {noneLabel:'تحت الشركة مباشرة', excludeId:c.id})}</select></div>
       </div>
       <div class="row">
         <div><label>رمز الوحدة</label><input id="editCenterCode" type="text" value="${escH(c.code||'')}"></div>
@@ -11357,10 +11357,10 @@ function startInlineSelectEdit(el, kind, id){
   if(!u) return;
   let optionsHtml = '';
   if(kind==='level'){
-    optionsHtml = `<option value="">— افتراضي حسب الدور (${escH(levelLabel(u))}) —</option>` +
+    optionsHtml = `<option value="">افتراضي حسب الدور (${escH(levelLabel(u))})</option>` +
       levelsForCompany(u.companyId).map(l=>`<option value="${l.id}" ${l.id===u.levelId?'selected':''}>${escH(l.name)}</option>`).join('');
   } else if(kind==='manager'){
-    optionsHtml = `<option value="">— بدون مدير مباشر —</option>` +
+    optionsHtml = `<option value="">بدون مدير مباشر</option>` +
       companyUsers(u.companyId).filter(x=>x.id!==u.id).sort((a,b)=>userRank(a)-userRank(b)).map(x=>`<option value="${x.id}" ${x.id===u.managerId?'selected':''}>${escH(x.name)} — ${escH(findRole(x.role).name)}</option>`).join('');
   }
   el.outerHTML = `
@@ -12572,7 +12572,7 @@ function changeMgrFilter(selectId, companyId, excludeId, allId, mode){
   const cur = sel.value;
   // اقرأ المدير المختار حالياً ثم أعد بناء القائمة
   const opts = mgrOptions(companyId, cur, excludeId, mode);
-  sel.innerHTML = '<option value="">— بدون مدير —</option>' + opts;
+  sel.innerHTML = '<option value="">بدون مدير</option>' + opts;
   // احفظ الفلتر المختار كـ data-attr للزرّ
   const wrap = sel.closest('.row,.card,div');
   if(wrap){ const btns = wrap.querySelectorAll('.seg-btn'); btns.forEach(b=>{ let a = []; try{ a = JSON.parse(b.getAttribute('data-on-click-args')||'[]'); }catch(e){} b.classList.toggle('on', a[a.length-1]===mode); }); }
@@ -12639,7 +12639,7 @@ function renderUserEditForm(){
         </div>
         <div><label>المركز (لأدوار السكرتير/مدير المركز)</label>
           <select id="editUserCenter">
-            <option value="">— بدون مركز —</option>
+            <option value="">بدون مركز</option>
             ${unitOptionsHtml(u.companyId, u.centerId||'')}
           </select>
         </div>
@@ -12648,7 +12648,7 @@ function renderUserEditForm(){
         <div><label>المدير المباشر</label>
           ${mgrFilterBtns('editUserManager', u.companyId, u.id, null, (()=>{ const mgr=u.managerId?state.users.find(x=>x.id===u.managerId):null; return (mgr&&mgr.isGeneral)?'general':(mgr&&mgr.companyId!==u.companyId?'general':'company'); })())}
           <select id="editUserManager">
-            <option value="">— بدون مدير —</option>
+            <option value="">بدون مدير</option>
             ${mgrOptions(u.companyId, u.managerId||'', u.id, (()=>{ const mgr=u.managerId?state.users.find(x=>x.id===u.managerId):null; return (mgr&&mgr.isGeneral)?'general':(mgr&&mgr.companyId!==u.companyId?'general':'company'); })())}
           </select>
         </div>
@@ -12667,15 +12667,15 @@ function renderUserEditForm(){
         <div class="row">
           <div><label>من يعتمد طلبه (لو أنشأ هو طلباً)</label>
             <select id="editUserRequestApprover">
-              <option value="">— افتراضي: المدير المباشر —</option>
-              <option value="none" ${u.noRequestApprover?'selected':''}>— لا أحد (طلبه يذهب مباشرة للتنفيذ) —</option>
+              <option value="">افتراضي: المدير المباشر</option>
+              <option value="none" ${u.noRequestApprover?'selected':''}>لا أحد (طلبه يذهب مباشرة للتنفيذ)</option>
               ${companyUsers(u.companyId).filter(x=>x.id!==u.id).sort((a,b)=>userRank(a)-userRank(b)).map(x=>`<option value="${x.id}" ${x.id===u.requestApproverId?'selected':''}>${escH(x.name)} — ${escH(findRole(x.role).name)}</option>`).join('')}
             </select>
           </div>
           <div><label>من يعتمد ما اعتمده (لو اعتمد هو طلب غيره)</label>
             <select id="editUserNextApprover">
-              <option value="">— افتراضي: المدير المباشر —</option>
-              <option value="none" ${u.noNextApprover?'selected':''}>— لا أحد (ينتهي المسار عنده) —</option>
+              <option value="">افتراضي: المدير المباشر</option>
+              <option value="none" ${u.noNextApprover?'selected':''}>لا أحد (ينتهي المسار عنده)</option>
               ${companyUsers(u.companyId).filter(x=>x.id!==u.id).sort((a,b)=>userRank(a)-userRank(b)).map(x=>`<option value="${x.id}" ${x.id===u.nextApproverId?'selected':''}>${escH(x.name)} — ${escH(findRole(x.role).name)}</option>`).join('')}
             </select>
           </div>
@@ -12696,10 +12696,10 @@ function renderUserEditForm(){
         <div class="card" style="background:var(--paper);margin:10px 0 0;">
           <p class="sub" style="margin:0 0 8px;font-size:12px;">⏱ مهلة الاعتماد: إن تأخر هذا الشخص عن الاعتماد تُحال خطوته تلقائياً (يبقى هو قادراً على الاعتماد، والأسبق منهما يحسم). تُحسب بأيام ${coU.deadlineDayMode==='calendar'?'تقويمية':'عمل (بدون الجمعة والسبت)'} حسب إعداد الشركة.</p>
           <div class="row">
-            <div style="flex:0 0 100%;max-width:100%;"><label>مهلة الاعتماد</label>${deadlineSelectHtml('editUserDeadline', u.approvalDeadlineDays, '— افتراضي الشركة ('+dflt+') —')}</div>
+            <div style="flex:0 0 100%;max-width:100%;"><label>مهلة الاعتماد</label>${deadlineSelectHtml('editUserDeadline', u.approvalDeadlineDays, 'افتراضي الشركة ('+dflt+')')}</div>
             <div><label>عند انتهائها يُحال إلى</label>
               <select id="editUserEscMode" data-on-change="#106">
-                <option value="" ${!u.escalateMode?'selected':''}>— افتراضي الشركة (${modeName}) —</option>
+                <option value="" ${!u.escalateMode?'selected':''}>افتراضي الشركة (${modeName})</option>
                 <option value="manager" ${u.escalateMode==='manager'?'selected':''}>مديره المباشر</option>
                 <option value="next" ${u.escalateMode==='next'?'selected':''}>من يعتمد بعده بالمسار</option>
                 <option value="user" ${u.escalateMode==='user'?'selected':''}>شخص محدد</option>
@@ -12732,7 +12732,7 @@ function renderUserEditForm(){
               </label>
               <div style="flex:1;">
                 <select data-ucm-company="${co.id}">
-                  <option value="">— بدون مدير بهذي الشركة —</option>
+                  <option value="">بدون مدير بهذي الشركة</option>
                   ${companyUsers(co.id).filter(x=>x.id!==u.id).sort((x,y)=>userRank(x)-userRank(y)).map(x=>`<option value="${x.id}" ${ucm && ucm.managerId===x.id?'selected':''}>${escH(x.name)} — ${escH(findRole(x.role).name)}</option>`).join('')}
                 </select>
               </div>
