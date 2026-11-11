@@ -5085,7 +5085,7 @@ function paperSettingsCard(u, adminView){
       <div><label>المسجِّل الثاني</label>${sel(1)}</div>
       <div><label>المسجِّل الثالث</label>${sel(2)}</div>
     </div>
-    <div class="actions-row"><button type="button" class="btn btn-primary btn-md" data-on-click="savePaperSettings" data-on-click-args="${qa([(''+u.id)])}">حفظ الاعتماد الورقي</button></div>
+    <div class="actions-row no-bar"><button type="button" class="btn btn-primary btn-md" data-on-click="savePaperSettings" data-on-click-args="${qa([(''+u.id)])}">حفظ الاعتماد الورقي</button></div>
   </div>`;
 }
 function paperToggleUi(){ const on = !!(document.getElementById('paperOn')||{}).checked; [0,1,2].forEach(i=>{ const s = document.getElementById('paperProxy'+i); if(s) s.disabled = !on; }); }
