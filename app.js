@@ -1117,10 +1117,17 @@ function computeNotifications(){
   });
   // أُلغي الاعتماد الورقي لمعتمِد كنتُ مسجِّله: يصلني إشعار في كل طلب كان ينتظرني
   state.requests.filter(r=>(state.myCompanyIds||[state.currentCompanyId]).includes(r.companyId)).forEach(r=>{
-    (r.history||[]).forEach(h=>{
-      if(h.action!=='إلغاء الاعتماد الورقي' || !h.note || h.userId===me) return;
+    const offs = (r.history||[]).filter(h=>h.action==='إلغاء الاعتماد الورقي' && h.note);
+    offs.forEach(h=>{
+      if(h.userId===me) return;
       const ids = (h.note.split('|ids:')[1]||'').split(','); if(!ids.includes(me)) return;
       const ts = tsOf(h.createdAt); if(ts < Date.now()-14*86400000) return;
+      const apName = h.note.split('|ids:')[0].replace(/ — .*$/,'').replace(/^لـ ?/,'').trim();
+      // أُعيد تفعيل الاعتماد الورقي لهذا المعتمِد وأنا مسجِّله: الإشعار انتهى
+      const ap = state.users.find(x=>x.name===apName);
+      if(ap && ap.paperApproval && (ap.paperProxyIds||[]).includes(me)) return;
+      // إلغاء أحدث لنفس المعتمِد في هذا الطلب: يُكتفى بالأحدث
+      if(offs.some(o=>o!==h && tsOf(o.createdAt)>ts && o.note.split('|ids:')[0].replace(/ — .*$/,'').replace(/^لـ ?/,'').trim()===apName)) return;
       const key = 'po:'+r.id+':'+ts;
       items.push({key, kind:'paper_off', reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey(key)), overdue:false,
         title:'أُلغي الاعتماد الورقي '+h.note.split('|ids:')[0].replace(/ — .*$/,'').replace(/^لـ /,'لـ')+' — لم يعد عليك تسجيله', sub:r.number+' — '+r.reason});
