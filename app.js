@@ -14257,9 +14257,9 @@ function renderAppRequestView(req){
         const opts = (state.budgetItems||[])
           .filter(b=>b.company_id===req.companyId && b.is_active!==false)
           .map(b=>`<option value="${b.id}">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)} (الرصيد: ${fmtKWDPlain(computeBudgetItemBalance(b.id)||0)})</option>`).join('');
-        return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
-          <div style="font-weight:700;font-size:13px;color:#8a5a00;">⚠️ بند غير محدد — الطلب غير مكتمل</div>
-          <div style="font-size:12.5px;color:#8a5a00;line-height:1.75;margin-top:4px;">
+        return `<div class="unspec-box" style="padding:12px 14px;background:#f5f0fe;border:1.5px solid #7c3aed;border-radius:8px;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:13px;color:#5b21b6;">⚠️ بند غير محدد — الطلب غير مكتمل</div>
+          <div style="font-size:12.5px;color:#5b21b6;line-height:1.75;margin-top:4px;">
             يمضي الطلب في سلسلة الاعتماد، لكن <b>الصرف لن يتم</b> حتى يُسنَد إلى بند ميزانية.
             افتح بنداً مناسباً من لوحة التحكم إن لم يوجد، ثم اختره هنا.
           </div>
@@ -16000,7 +16000,7 @@ function renderDetail(app){
         ${canRestoreReq(req) ? `<button class="btn btn-approve btn-sm2" style="margin-right:10px;" data-on-click="restoreRequest" data-on-click-args="${qa([(''+(req.id))])}"><span class="bl1">استرجاع</span><span class="bl2">الطلب</span></button>` : ''}
       </div>` : ''}
     ${req.fastTracked ? `
-      <div class="note-box no-print" style="background:var(--amber-bg);border-color:var(--amber);color:var(--amber);">
+      <div class="note-box no-print" style="background:#e6f6f4;border-color:#0f766e;color:#0f766e;">
         <b>⚡ طلب بالحد الأدنى</b> — تخطّى بعض خطوات الاعتماد لأن مبلغه ضمن الحد الأدنى المحدد لمركزه.
       </div>` : ''}
     ${renderBudgetFloat(req)}
