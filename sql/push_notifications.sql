@@ -232,7 +232,7 @@ begin
 end $$;
 revoke all on function public.qy_push_flush() from public, anon, authenticated;
 
--- (لم يُطبَّق بعد على القاعدتين — بانتظار تأكيد المستخدم) خيارات إشعارات مدير النظام (لكل جهاز): admin_events
+-- (مطبَّق على القاعدتين بنسخة بلا أوامر حذف: العمود القديم all_requests متروك) خيارات إشعارات مدير النظام (لكل جهاز): admin_events
 alter table public.push_subscriptions add column if not exists admin_events text[] not null default '{}';
 do $$ begin
   if exists (select 1 from information_schema.columns where table_schema='public' and table_name='push_subscriptions' and column_name='all_requests') then

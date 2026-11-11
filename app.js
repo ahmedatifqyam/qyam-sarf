@@ -5181,10 +5181,15 @@ async function pushPaint(){
   if(Notification.permission==='denied'){ box.innerHTML = 'الإشعارات محظورة لهذا الموقع. افتح إعدادات المتصفح للموقع وغيّرها إلى «سماح»، ثم ارجع هنا.'; return; }
   let sub = null;
   try{ const reg = await navigator.serviceWorker.ready; sub = await reg.pushManager.getSubscription(); }catch(e){}
-  let allOn = false;
-  if(sub && state.user && state.user.role==='admin'){ try{ const q = await db.from('push_subscriptions').select('all_requests').eq('endpoint', sub.endpoint).maybeSingle(); allOn = !!(q.data && q.data.all_requests); }catch(e){} }
-  const adminOpt = (sub && state.user && state.user.role==='admin')
-    ? `<label class="check-line" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-weight:700;color:var(--text);"><input id="pushAllOn" type="checkbox" style="width:auto;" ${allOn?'checked':''} data-on-change="pushToggleAll"> إشعار بكل طلب جديد في النظام (لمدير النظام)</label>` : '';
+  let evOn = [];
+  const isAdm = !!(sub && state.user && state.user.role==='admin');
+  if(isAdm){ try{ const q = await db.from('push_subscriptions').select('admin_events').eq('endpoint', sub.endpoint).maybeSingle(); evOn = (q.data && q.data.admin_events) || []; }catch(e){} }
+  const adminOpt = isAdm
+    ? `<div style="margin:0 0 10px;padding:10px;border:1px solid var(--border,#d9dde3);border-radius:10px;">
+        <div style="font-weight:800;margin-bottom:6px;color:var(--text);">إشعارات مدير النظام (على هذا الجهاز)</div>
+        <label class="check-line" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;font-weight:800;color:var(--text);"><input id="pushEvAll" type="checkbox" style="width:auto;" ${PUSH_EVENTS.every(e=>evOn.includes(e[0]))?'checked':''} data-on-change="pushEvAll"> كل شيء</label>
+        ${PUSH_EVENTS.map(e=>`<label class="check-line" style="display:flex;align-items:center;gap:8px;margin:0 0 4px;color:var(--text);"><input type="checkbox" class="pushEv" value="${e[0]}" style="width:auto;" ${evOn.includes(e[0])?'checked':''} data-on-change="pushEvSave"> ${e[1]}</label>`).join('')}
+      </div>` : '';
   box.innerHTML = sub
     ? `<div style="margin-bottom:8px;color:var(--green,#15803d);font-weight:700;">✅ مفعّلة على هذا الجهاز</div>${adminOpt}${btn('pushDisable','إيقاف الإشعارات على هذا الجهاز','btn-ghost')}`
     : `<div style="margin-bottom:8px;">غير مفعّلة على هذا الجهاز.</div>${btn('pushEnable','تفعيل الإشعارات على هذا الجهاز')}`;
@@ -5205,14 +5210,21 @@ async function pushEnable(){
   }catch(e){ showToast('تعذّر تفعيل الإشعارات: '+(e&&e.message||e),'error'); }
   pushPaint();
 }
-async function pushToggleAll(){
+const PUSH_EVENTS = [['new','طلب جديد'],['approve','كل اعتماد مقبول'],['reject','كل رفض'],['paid','تم صرف طلب'],['cancel','إلغاء طلب'],['overrun','تجاوز ميزانية'],['login_fail','محاولة دخول فاشلة'],['pwreset','طلب إعادة تعيين كلمة مرور'],['security','تنبيهات الأمان'],['userchange','تغيير صلاحية أو إيقاف مستخدم'],['structure','مشكلة في مسار طلب (الهيكل)'],['error','أخطاء النظام']];
+async function pushEvSave(){
   try{
     const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if(!sub) return;
-    const on = !!(document.getElementById('pushAllOn')||{}).checked;
-    const r = await db.rpc('qy_push_set_all', {p_endpoint:sub.endpoint, p_on:on});
-    if(!(await dbCheck(r, 'حفظ خيار الإشعارات'))) return;
-    showToast(on ? 'ستصلك إشعارات بكل طلب جديد' : 'أُوقفت إشعارات كل طلب جديد','success');
+    const on = [...document.querySelectorAll('.pushEv:checked')].map(x=>x.value);
+    const all = document.getElementById('pushEvAll'); if(all) all.checked = (on.length===PUSH_EVENTS.length);
+    const r = await db.rpc('qy_push_set_events', {p_endpoint:sub.endpoint, p_events:on});
+    if(!(await dbCheck(r, 'حفظ خيارات الإشعارات'))) return;
+    showToast('حُفظت خيارات الإشعارات','success');
   }catch(e){ showToast('تعذّر الحفظ: '+(e&&e.message||e),'error'); }
+}
+async function pushEvAll(){
+  const on = !!(document.getElementById('pushEvAll')||{}).checked;
+  document.querySelectorAll('.pushEv').forEach(x=>{ x.checked = on; });
+  await pushEvSave();
 }
 async function pushDisable(){
   try{
