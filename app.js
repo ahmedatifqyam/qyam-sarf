@@ -6596,7 +6596,8 @@ function renderMobileTabs(){
   const acts = Array.from(document.querySelectorAll('.global-floating-bar .gfb-actions > button, .global-floating-bar .gfb-actions > a'))
     .filter(b=>!/^[→←\s]*رجوع\s*$/.test((b.textContent||'').trim()));
   const isMain = b => /btn-(primary|approve)/.test(b.className) && !b.disabled;
-  const main = acts.find(isMain) || acts.find(b=>!b.disabled) || null;
+  // الزر الرئيسي يبقى في الوسط حتى لو كان معطّلاً (يظهر باهتاً ويقول سببه عند الضغط) — لا يأخذ «إلغاء» مكانه
+  const main = acts.find(isMain) || acts.find(b=>/btn-(primary|approve)/.test(b.className)) || acts.find(b=>!b.disabled) || null;
   state._mActs = acts; state._mMain = main ? acts.indexOf(main) : -1;
   const rest = acts.filter(b=>b!==main);
   const isAdminNav = state.user.role==='admin' && !state.impersonatingFromAdmin;
@@ -6632,13 +6633,13 @@ function renderMobileTabs(){
      act: open ? [["closeNavDrawer",[]]] : [["openNavDrawer",[]]]},
     {key:'dashboard', ico:'clip', label:'الطلبات',  on:['dashboard','detail'].includes(state.view) && !open,
      act:[["#13",[]]]},
-    main ? (()=>{ const m = mainLbl.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u); const ic = m ? m[1].replace(/[✓✔]/g,'').trim() : ''; const lb = (m ? m[2] : mainLbl); return {key:'pmain', ico: ic || (/^✓|^✔/.test(mainLbl) ? 'done' : 'plus'), label: mShortLbl(lb), main:true, act:[["mTabMain",[]]]}; })() : slot3,
+    main ? (()=>{ const m = mainLbl.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u); const ic = m ? m[1].replace(/[✓✔]/g,'').trim() : ''; const lb = (m ? m[2] : mainLbl); return {key:'pmain', ico: ic || (/^✓|^✔/.test(mainLbl) ? 'done' : 'plus'), label: mShortLbl(lb), main:true, off: !!(acts[state._mMain]||{}).disabled, act:[["mTabMain",[]]]}; })() : slot3,
     slot4,
     slot5,
   ];
   const pulse = !!state._pathPulse; state._pathPulse = false;
   el.innerHTML = `<div class="mtab-in">${items.map(it=>`
-    <button type="button" class="mtab-btn${it.on?' active':''}${it.main?' mtab-main':''}${it.key==='path' && pulse ? ' mtab-pulse':''}" data-k="${it.key}" ${qon('click', it.act)} aria-label="${escH(it.label)}">
+    <button type="button" class="mtab-btn${it.on?' active':''}${it.main?' mtab-main':''}${it.off?' mtab-off':''}${it.key==='path' && pulse ? ' mtab-pulse':''}" data-k="${it.key}" ${qon('click', it.act)} aria-label="${escH(it.label)}">
       <span class="mtab-ico">${qiOr(it.ico)}</span><span>${escH(it.label)}</span>
       ${it.dot ? `<span class="mtab-dot">${it.dot>99?'99+':it.dot}</span>` : ''}
     </button>`).join('')}</div>`;
@@ -6777,7 +6778,7 @@ function markDupTitle(){
 }
 function mTabCus(){ const b = (state._mActs||[]).find(x=>x.getAttribute('data-on-click')==='openCustodyOfRequest'); if(b) b.click(); }
 function mTabOne(){ const b = (state._mActs||[]).find((x,i)=>i!==state._mMain); if(b) b.click(); }
-function mTabMain(){ const b = (state._mActs||[])[state._mMain]; if(b) b.click(); }
+function mTabMain(){ const b = (state._mActs||[])[state._mMain]; if(!b) return; if(b.disabled){ showToast(b.getAttribute('title') || 'هذا الزر غير متاح الآن', 'error'); return; } b.click(); }
 function mTabMore(){
   const acts = (state._mActs||[]).filter((b,i)=>i!==state._mMain);
   const ov = document.createElement('div'); ov.className = 'mtab-sheet no-print';
@@ -13959,7 +13960,11 @@ function onCustodyHolderChange(id){
   k.holderId = id;
   const bank = custodyHolderBank(userById(id));
   k.iban = bank.iban; k.civilId = bank.civilId;
+  // تبقى الصفحة في مكانها بعد اختيار الاسم ليراه المستخدم (لا تنزل لأسفل)
+  const y = window.scrollY;
   render();
+  const keep = ()=>{ if(document.activeElement && document.activeElement!==document.body) document.activeElement.blur(); window.scrollTo(0, y); };
+  keep(); requestAnimationFrame(keep); setTimeout(keep, 120);
 }
 
 // نموذج العهدة: ثلاثة أقسام بترتيب التفكير — لمن ولماذا، ثم كم ومن أين ومتى، ثم كيف تُسلَّم — وكل حقل تحته ما يحتاجه صاحبه ليقرر
