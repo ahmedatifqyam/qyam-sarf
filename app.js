@@ -4950,6 +4950,18 @@ async function finalizeApprove(req, signatureOverride){
 // ===================== الاعتماد الورقي =====================
 // معتمِد لا يستخدم النظام: يوقّع على الورقة، ويسجّل اعتماده أو رفضه أحد مسجِّليه (حتى ثلاثة) بإرفاق الورقة الموقعة
 function isPaperApprover(uid){ const u = userById(uid); return !!(u && u.paperApproval && (u.paperProxyIds||[]).length); }
+// طلب فيه اعتماد ورقي: مرحلة حالية لمعتمِد ورقي، أو مرحلة سُجّلت ورقياً
+function reqPaperInfo(r){
+  const steps = r.approvalSteps||[];
+  const done = steps.filter(s=>s.method==='paper' && ['approved','rejected'].includes(s.status));
+  const now = r.status==='pending_decision' ? currentDecisionGroup(r).find(s=>isPaperApprover(s.approverId)) : null;
+  if(!done.length && !now) return null;
+  return {waiting: !!now, names: [...new Set((now ? [now] : []).concat(done).map(s=>(userById(s.approverId)||{}).name||''))].filter(Boolean)};
+}
+function reqPaperBadge(r){
+  const p = reqPaperInfo(r); if(!p) return '';
+  return `<span class="badge paper-badge" title="${escH((p.waiting ? 'بانتظار اعتماد ورقي: ' : 'فيه اعتماد ورقي: ') + p.names.join('، '))}">📄 ${p.waiting ? 'بانتظار اعتماد ورقي' : 'اعتماد ورقي'}</span>`;
+}
 function paperProxiesOf(uid){ const u = userById(uid); return u && u.paperApproval ? (u.paperProxyIds||[]).map(userById).filter(Boolean) : []; }
 // خطوة القرار الحالية التي أنا مسجِّلها الورقي
 function paperStepForMe(req){
@@ -13799,6 +13811,7 @@ function renderDashboard(app){
                   ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);" title="لم يُرسل نهائياً بعد — لا يراه المعتمدون">قيد المراجعة</span>`
                   : statusBadge(r.status, r.isCancelled, myTurn, !subNoteText, myTurn && isOverdueFor(r, state.user.id))}${r.fastTracked ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:10.5px;" title="تخطّى بعض خطوات الاعتماد لأن المبلغ ضمن الحد الأدنى">⚡ حد أدنى</span>` : ''}${(isUnspecifiedBudget(r.budgetItemId) && !r.isCancelled && r.status!=='rejected' && r.status!=='completed') ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:10.5px;" title="الصرف متوقف حتى يُسنَد الطلب إلى بند ميزانية">⚠ بند غير محدد</span>` : ''}
                 ${subNoteText ? `<span class="badge sub-status-note ${subNoteClass}">${subNoteText}</span>` : ''}
+                ${reqPaperBadge(r)}
                 ${(()=>{ const hf = handedFromNames(r); return hf.length ? `<span class="badge handed-badge" title="أُسند إليك قرار ${escH(hf.join('، '))} في هذا الطلب">🤝 مُسنَد إليك من ${escH(hf.join('، '))}</span>` : ''; })()}
               </span>
             </div>`;
@@ -13913,7 +13926,7 @@ function renderOldCoPanel(){
         <span data-label="تاريخ الصرف" class="req-field-value">${pd||'—'}</span>
         <span data-label="المستفيدون" class="req-field-value" style="padding-right:22px;">${(r.beneficiaries||[]).length}</span>
         <span data-label="المبلغ" class="req-field-value" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(r.totalAmount)} د.ك</span>
-        <span data-label="الحالة">${statusBadge(r.status, r.isCancelled, false, true)}</span>
+        <span data-label="الحالة">${statusBadge(r.status, r.isCancelled, false, true)}${reqPaperBadge(r)}</span>
       </div>`; }).join('')}
   </div></div>` : '<div class="empty">لا توجد طلبات ضمن هذا الاختيار</div>';
   return `<div class="card no-print">
@@ -15808,7 +15821,7 @@ function renderDetail(app){
     const pu = userById(primary.approverId);
     let label = userLabel(pu);
     if(escRows.length) label += ' · أو المحال إليه: ' + escRows.map(r=>(userById(r.approverId)||{}).name||'').join('، ');
-    if(primary.status==='pending' && isPaperApprover(primary.approverId)) label += ' · ورقي — يسجّله ' + paperProxiesOf(primary.approverId).map(u=>u.name).join(' أو ');
+    if(primary.status==='pending' && isPaperApprover(primary.approverId)) label += ' · يسجّله ' + paperProxiesOf(primary.approverId).map(u=>u.name).join(' أو ');
     let info = null;
     const okRow = rows.find(x=>x.status==='approved'), noRow = rows.find(x=>x.status==='rejected');
     if(okRow && okRow.method==='paper'){
@@ -15871,7 +15884,7 @@ function renderDetail(app){
     }
     const info = d.info;
     // صورة المعتمِد (إن رفع صورته) داخل دائرة الخطوة مكان الرقم، فلا تزيد المساحة
-    return `<div class="${cls}${d.paper ? ' step-paper' : ''}">${stepDotHtml(d.uid, i+1)}<p>${escH(d.label)}</p>${info ? `<span class="step-approver" style="${info.rejected?'color:var(--red);':''}">${escH(info.name)}</span><span class="step-approve-time">${escH(info.time)}</span>` : ''}</div>`;
+    return `<div class="${cls}${d.paper ? ' step-paper' : ''}">${stepDotHtml(d.uid, i+1)}<p>${d.paper ? '<span class="paper-pill">📄 ورقي</span> ' : ''}${escH(d.label)}</p>${info ? `<span class="step-approver" style="${info.rejected?'color:var(--red);':''}">${escH(info.name)}</span><span class="step-approve-time">${escH(info.time)}</span>` : ''}</div>`;
   }).join('');
 
   const canAct = canActOn(req);
