@@ -42,7 +42,7 @@
   .brand-slot.is-blank:hover{border-color:#D4AF37;color:#D4AF37;}
   .brand-name{font-weight:600;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;}
   .brand-sep{width:1px;height:34px;background:rgba(255,255,255,.22);flex:0 0 1px;}
-  .brand-sub{color:#9FC2DB;font-weight:400;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;display:block;}
+  .brand-sub{color:#9FC2DB;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;display:block;}
   @media (max-width:1000px){ .brand-co-group .brand-sub{font-size:13px;max-width:200px;} .brand-sep{display:none;} }
   .topbar-right{display:flex;align-items:center;gap:12px;flex-wrap:nowrap;flex:1;justify-content:flex-start;min-width:0;}
   .topbar-right .tb-tools{display:flex;align-items:center;gap:2px;margin-right:auto;min-width:0;}
@@ -184,7 +184,7 @@
   .snd-row:first-of-type{border-top:0;}
   .snd-lab{flex:1 1 260px;min-width:0;}
   .snd-lab .file-hint{margin:2px 0 0;}
-  .snd-sw{display:flex !important;align-items:center;gap:8px;height:40px;margin:0 !important;font-weight:400;cursor:pointer;min-width:180px;}
+  .snd-sw{display:flex !important;align-items:center;gap:8px;height:40px;margin:0 !important;font-weight:600;cursor:pointer;min-width:180px;}
   /* شارة «نسخة تجريبية» فوق اسم النظام (موقع الاختبار وحده) */
   .brand-name-col{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;gap:2px;flex:0 0 auto;} .brand-co-group{min-width:0;flex:1 1 auto;overflow:hidden;}
   .test-badge{background:#c2410c;color:#fff;font-size:12px;font-weight:700;line-height:18px;padding:0 9px;border-radius:9px;white-space:nowrap;letter-spacing:0;}
@@ -235,7 +235,7 @@
   .cus-form .cf-sec{display:flex;align-items:center;gap:8px;max-width:780px;font-size:15px;font-weight:800;color:var(--ink);margin:22px 0 4px;padding-bottom:7px;border-bottom:1px solid var(--line);}
   .cus-form .cf-sec:first-child{margin-top:0;}
   .cus-form .cf-n{width:24px;height:24px;flex:0 0 24px;border-radius:50%;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;}
-  .cus-form .cf-opt{font-size:12.5px;font-weight:500;color:var(--muted);}
+  .cus-form .cf-opt{font-size:12.5px;font-weight:600;color:var(--muted);}
   .cf-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));max-width:780px;column-gap:20px;row-gap:2px;align-items:start;}
   .cf-grid > *{min-width:0;}
   .cf-s2{grid-column:span 2;} .cf-s4{grid-column:span 4;} .cf-full{grid-column:1 / -1;}
@@ -387,7 +387,7 @@
   .gp-group summary{cursor:pointer;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
   .gp-group .gp-all{margin-right:auto;font-size:12.5px;display:flex;gap:4px;align-items:center;}
   .gp-body{display:flex;flex-wrap:wrap;gap:6px 22px;padding:8px 4px;}
-  .gp-body label{display:flex;gap:6px;align-items:center;margin:0;font-weight:500;}
+  .gp-body label{display:flex;gap:6px;align-items:center;margin:0;font-weight:600;}
   .adm-sub{flex:0 0 auto;padding:7px 13px;font-size:12.5px;font-weight:600;font-family:inherit;white-space:nowrap;
     cursor:pointer;border:none;background:transparent;color:var(--muted);
     border-bottom:2.5px solid transparent;}
@@ -455,7 +455,7 @@
     display:inline-flex;align-items:center;justify-content:center;text-align:center;
     width:var(--btn-w);min-height:var(--btn-h);box-sizing:border-box;border:2px solid transparent;border-radius:6px;
     padding:0 var(--btn-px);font-size:var(--btn-fs);line-height:1.3;
-    cursor:pointer;font-family:inherit;font-weight:500;
+    cursor:pointer;font-family:inherit;font-weight:600;
   }
   /* الارتفاع موحّد 40 لكل الأحجام؛ تختلف الأعراض فقط: كبير 220 / متوسط 150 / صغير 105 / مصغّر 70 (والمزدوجة بخطين داخل الـ40). العرض والارتفاع ثابتان، الحشوة الجانبية 10 للكل */
   .btn.btn-lg {--btn-h:40px; --btn-w:220px; --btn-fs:14.5px;}                       /* 1 الأول */
@@ -467,7 +467,7 @@
   .btn.btn-xs {--btn-h:40px; --btn-w:70px;  --btn-fs:13px;}                       /* 7 الجديد */
   .btn.btn-xs2{--btn-h:40px; --btn-w:70px;  --btn-fs:12px;   --btn-fs2:10px;}     /* 8 الجديد المزدوج */
   .btn.btn-lg2,.btn.btn-md2,.btn.btn-sm2,.btn.btn-xs2{flex-direction:column;gap:0;line-height:1.1;}
-  .btn .bl2{font-size:var(--btn-fs2);font-weight:400;opacity:.85;}
+  .btn .bl2{font-size:var(--btn-fs2);font-weight:600;opacity:.85;}
   .btn-primary{background:#22415C;color:#fff;border-color:#182D40;box-shadow:0 2px 6px rgba(27,39,51,0.4);}
   .btn-primary:hover{opacity:.9;}
   .btn-approve{background:#fff;color:var(--green);border:2px solid var(--green);box-shadow:0 1px 4px rgba(0,0,0,0.08);}
@@ -503,7 +503,7 @@
   /* الشركة في السطر الأول، والمركز تحتها بخط أصغر — بلا اقتطاع على الحاسوب */
   .brand-co-group .brand-sub{display:flex;flex-direction:column;justify-content:center;max-width:none;overflow:visible;line-height:1.2;}
   .brand-sub .bs-co{white-space:nowrap;}
-  .brand-sub .bs-center{font-size:12.5px;font-weight:400;color:#9FC2DB;white-space:nowrap;margin-top:2px;}
+  .brand-sub .bs-center{font-size:12.5px;font-weight:600;color:#9FC2DB;white-space:nowrap;margin-top:2px;}
   @media (max-width:1000px){ .brand-co-group .brand-sub{font-size:14px;} .brand-sub .bs-center{font-size:11.5px;} }
   .brand-name{font-weight:700;}
   /* صفّا التبويب: مسافة صغيرة تحت الشريط العلوي، وعرضهما بعرض الصفحة كالشريط العلوي */
@@ -639,7 +639,7 @@
   textarea.grow-1{min-height:40px;height:40px;resize:none;overflow:hidden;line-height:1.4;padding-top:9px;padding-bottom:9px;}
   /* «هل يتكرر» بجوار «بند الميزانية»: نفس السطر ونفس الارتفاع */
   .row > .recurring-cell{--fw:380px;}
-  .recurring-cell .check-line{display:flex;align-items:center;gap:8px;height:40px;margin:0;font-weight:400;cursor:pointer;}
+  .recurring-cell .check-line{display:flex;align-items:center;gap:8px;height:40px;margin:0;font-weight:600;cursor:pointer;}
   .req-num-note{font-size:12.5px;color:var(--muted,#64748b);}
   .list-item{
     display:flex;justify-content:space-between;align-items:center;gap:12px;
@@ -650,7 +650,7 @@
   .list-item .li-main b{display:block;font-size:14.5px;}
   .list-item .li-main span{color:var(--muted);font-size:12.5px;}
   .badge{
-    font-size:12px;padding:4px 12px;border-radius:20px;font-weight:500;white-space:nowrap;
+    font-size:12px;padding:4px 12px;border-radius:20px;font-weight:600;white-space:nowrap;
   }
   .badge-pending{background:var(--amber-bg);color:var(--amber);}
   .req-card .badge-pending{font-size:10px;padding:3px 8px;}
@@ -762,7 +762,7 @@
     border-radius:4px;cursor:move;display:flex;flex-direction:column;align-items:center;justify-content:center;
     font-size:12px;color:var(--blue);font-weight:600;user-select:none;box-sizing:border-box;
   }
-  .sig-designer-dims{font-size:10px;font-weight:500;color:var(--muted);margin-top:2px;}
+  .sig-designer-dims{font-size:10px;font-weight:600;color:var(--muted);margin-top:2px;}
   .sig-designer-box-preview{
     position:absolute;border:2px dashed;border-radius:4px;
     display:flex;align-items:center;justify-content:center;font-weight:600;
@@ -844,14 +844,14 @@
   .doc-head .num{color:var(--muted);font-size:13px;}
   .doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:18px;}
   .doc-grid div span{display:block;color:var(--muted);font-size:12px;margin-bottom:3px;}
-  .doc-grid div b{font-size:14.5px;font-weight:500;}
+  .doc-grid div b{font-size:14.5px;font-weight:600;}
   .amount-box{
     background:var(--blue-bg);color:var(--blue);border-radius:6px;padding:12px 18px;
     font-size:15px;font-weight:600;margin-bottom:6px;text-align:left;
     display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
   }
   .amount-box .amount-num{font-size:18px;}
-  .amount-words{font-size:12.5px;font-weight:500;color:var(--blue);}
+  .amount-words{font-size:12.5px;font-weight:600;color:var(--blue);}
   .cell-right{text-align:right;}
   .cell-left{text-align:left;color:var(--muted);font-size:12.5px;margin-top:0;}
   /* عرض الطلب وورقته المطبوعة: الكتابة سوداء حادة، واسم المستفيد عريض (ألوان الخصم والإضافي والتوقيعات تبقى) */
@@ -876,7 +876,7 @@
   /* صورة المعتمِد داخل دائرة الخطوة: إطار بلون حالة الخطوة (رمادي/أخضر/برتقالي/أحمر) */
   .step .dot.dot-av{width:30px;height:30px;margin:-2px auto 4px;padding:2px;box-sizing:border-box;overflow:hidden;}
   .step .dot.dot-av img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;background:#fff;}
-  .step.done p, .step.current p{color:var(--text);font-weight:500;}
+  .step.done p, .step.current p{color:var(--text);font-weight:600;}
   .sign-box{
     display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:6px;
     padding:10px 14px;background:var(--paper);margin-top:6px;
@@ -946,7 +946,7 @@
   .print-measure .doc-closing{margin:4px 0 4px;}
   .print-measure .sign-final-block-v2{margin-top:10px;}
   .app-table tr.row-alt td{background:var(--blue-bg);}
-  .amount-table td.num{font-weight:500;text-align:center;}
+  .amount-table td.num{font-weight:600;text-align:center;}
   .req-grid-cols{grid-template-columns: 1fr 1.6fr 0.9fr 0.9fr 0.7fr 1fr 0.9fr;}
   .req-table-head{
     display:grid; grid-template-columns: 1.3fr 1.5fr 0.8fr 0.8fr 0.6fr 1.1fr 1.1fr;
@@ -964,7 +964,7 @@
   .req-card > *{min-width:0;}
   .req-card .badge{overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;width:100%;text-align:center;box-sizing:border-box;}
   .req-card:hover{border-color:var(--blue);box-shadow:0 3px 10px rgba(0,0,0,0.12);}
-  .req-field-value{font-size:13px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .req-field-value{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .req-field-wrap{white-space:normal;word-break:break-word;text-overflow:clip;line-height:1.4;}
   .mini-preview{
     border:2px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px;
@@ -1545,7 +1545,7 @@
   .amount-table td:not(.num), .amount-table td .cell-left, .amount-table td .cell-right{font-weight:700;}
   .amount-table-bene tbody tr > td:nth-child(6){font-size:12.5px !important;font-weight:800;}
   .amount-table-bene tbody tr > td:nth-child(6) .amt-number{width:78px;}
-  @media print{ .amount-table-bene tbody tr > td:nth-child(6){font-size:12.5px !important;} .amount-table td.num{font-weight:500;} }
+  @media print{ .amount-table-bene tbody tr > td:nth-child(6){font-size:12.5px !important;} .amount-table td.num{font-weight:600;} }
 
   /* صفحة الطلبات: شبكة أزرار بعرض ثابت (4 في الصف عند عرض 820) تصعد للأعلى كلما اتسع العرض، وبطاقة ملخص بعرض ثلاثة أزرار */
   #app .dash-grid{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px;align-items:center;}
@@ -1715,7 +1715,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app table.tcards thead,#app table.tcards tfoot,#app table.tcards colgroup{display:none;}
     #app table.tcards tr{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:0 0 8px;background:#fff;}
     #app table.tcards td{border:0 !important;padding:2px 0 !important;text-align:right !important;display:flex;justify-content:space-between;align-items:baseline;gap:12px;white-space:normal !important;}
-    #app table.tcards td[data-l]::before{content:attr(data-l);color:var(--muted);font-size:12px;font-weight:400;flex:0 0 auto;}
+    #app table.tcards td[data-l]::before{content:attr(data-l);color:var(--muted);font-size:12px;font-weight:600;flex:0 0 auto;}
     #app table.tcards td:first-child{font-weight:700;font-size:14px;}
     #app table.tcards td:first-child::before{content:none !important;}
     #app table.tcards td:empty{display:none;}
@@ -1843,7 +1843,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .sig-el > *{width:100% !important;max-width:100% !important;height:36px !important;min-height:36px;}
     #app .sig-el > label{height:auto !important;font-size:13px;}
   }
-  .bar-set-row{display:flex !important;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;margin:0;font-weight:400;}
+  .bar-set-row{display:flex !important;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;margin:0;font-weight:600;}
   .bar-set-row:last-child{border-bottom:0;}
   .bar-set-row .bsr-t{display:flex;flex-direction:column;min-width:0;}
   .bar-set-row .bsr-t b{font-size:14px;}
@@ -1864,7 +1864,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .req-card > span[data-label="المبلغ"]{grid-column:2;grid-row:1;text-align:left !important;font-size:14.5px !important;white-space:nowrap;}
     .req-card > span[data-label="الموضوع"]{grid-column:1 / -1;grid-row:2;font-size:13.5px !important;font-weight:600;}
     .req-card > span[data-label="تاريخ الطلب"]{grid-column:1;grid-row:3;align-self:center;}
-    .req-card > span[data-label="تاريخ الطلب"] > div{display:inline;font-size:12px !important;color:var(--muted);font-weight:400;}
+    .req-card > span[data-label="تاريخ الطلب"] > div{display:inline;font-size:12px !important;color:var(--muted);font-weight:600;}
     .req-card > span[data-label="تاريخ الطلب"] > div + div::before{content:' · ';}
     .req-card > span[data-label="الحالة"]{grid-column:2;grid-row:3;text-align:left;display:flex !important;flex-direction:column;align-items:flex-end;gap:2px;}
     .req-card > span[data-label="الحالة"] .badge{margin:0 !important;}
@@ -1907,7 +1907,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .row > .btn,#app .row > a.btn{width:auto !important;align-self:flex-start;}
     #app#app#app [hidden]{display:none !important;}
     #app .lf{grid-template-columns:minmax(92px,36%) minmax(0,1fr);}
-    #app .lf > label .lf-note{display:block;font-weight:400;font-size:11px;color:var(--muted);line-height:1.3;}
+    #app .lf > label .lf-note{display:block;font-weight:600;font-size:11px;color:var(--muted);line-height:1.3;}
     #app .lf > input[type=color]{height:40px;padding:3px;}
     #app .lf + .file-hint,#app .lf + .sub,#app .lf + p{margin:-4px 0 10px !important;font-size:12px;line-height:1.5;}
     /* مربع الاختيار ملاصق لاسمه ويبدأ من اليمين */
@@ -2121,7 +2121,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .nr-form label{margin:0 0 4px;}
   #app .nr-form textarea{margin:0 !important;display:block;}
   #app .nr-form .nr-f > input,#app .nr-form .nr-f > select,#app .nr-form .nr-f > textarea{width:100% !important;max-width:100% !important;}
-  #app .nr-form .check-line.nr-rec{display:flex;align-items:center;gap:8px;min-height:36px;margin:0;font-weight:400;color:var(--text);cursor:pointer;}
+  #app .nr-form .check-line.nr-rec{display:flex;align-items:center;gap:8px;min-height:36px;margin:0;font-weight:600;color:var(--text);cursor:pointer;}
   #app .nr-sec{font-weight:700;font-size:15px;color:var(--text);border-top:1px solid var(--line);padding-top:10px;margin-top:4px !important;}
   #app .nr-ben{margin:0 0 10px;padding:12px 14px;}
   #app .nr-ben .beneficiary-block-header{margin-bottom:8px;padding-bottom:6px;}
@@ -2167,6 +2167,27 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #secTabs.sec-hide{display:none !important;}
   /* الهاتف: مسافة واضحة بين اسم النظام واسم الشركة فلا يتلامسان */
   @media (max-width:699px){ .topbar .brand{gap:12px !important;} .brand-co-group{padding-inline-start:2px;} .brand-name{padding-inline-end:2px;overflow:visible !important;} .brand-name-col{overflow:visible;} }
+  /* نصوص الطباعة: سطح المكتب بجوار العنوان، والهاتف بجوار «طلب متكرر» */
+  #app .nr-title-row{display:flex;gap:10px;align-items:center;}
+  #app .nr-title-row input{flex:1 1 auto !important;max-width:none !important;min-width:0;width:auto !important;}
+  #app .nr-title-row .btn{flex:0 0 auto;}
+  #app .nr-rec-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 10px;}
+  #app .nr-rec-row .nr-rec{grid-column:1;}
+  #app .nr-rec-row .nr-dt-ph{grid-column:2;grid-row:1 / span 2;}
+  #app .nr-rec-hint{grid-column:1;font-size:12px;color:var(--muted);margin:-6px 30px 0 0;}
+  #app .nr-dt-ph{display:none !important;}
+  #app .nr-dt-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
+  #app #docTextsBox label{margin:6px 0 4px;}
+  #app #docTextsBox input{width:100% !important;max-width:100% !important;}
+  @media (max-width:699px){
+    #app .nr-dt-desk{display:none !important;}
+    #app .nr-dt-ph{display:inline-flex !important;}
+    #app .nr-dt-acts .btn{flex:1 1 calc(50% - 4px);}
+  }
+  /* خطوط النظام عريضة: النص العادي 600، والعريض 700 (أقصى وزن للخط) فيبقى الفرق */
+  body{font-weight:600;}
+  input,select,textarea,button,option{font-weight:inherit;}
+  input::placeholder,textarea::placeholder{font-weight:500;}
 </style>
 </head>
 <body>
@@ -2187,6 +2208,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=deb2da5ce7"></script>
+<script src="app.js?v=569fcaa7ed"></script>
 </body>
 </html>

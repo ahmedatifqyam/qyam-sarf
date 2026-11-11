@@ -585,7 +585,7 @@ function dbCompanyToState(c){
 
 function mapRequestRow(r){
   return {
-    id:r.id, number:r.number, reason:r.reason, detailedReason:r.detailed_reason||'', requestNotes:r.request_notes||'', totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
+    id:r.id, number:r.number, reason:r.reason, detailedReason:r.detailed_reason||'', salutationText:r.salutation_text||'', referenceText:r.reference_text||'', requestNotes:r.request_notes||'', totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
     centerId:r.center_id, companyId:r.company_id, createdBy:r.created_by, createdById:r.created_by_id, dateGreg:r.date_greg, dateHijri:r.date_hijri,
     createdAtRaw:r.created_at, isRecurring: !!r.is_recurring,
     numberPrefix:r.number_prefix||null, numberSuffix:r.number_suffix||null, reviewUntil:r.review_until||null,
@@ -1701,7 +1701,7 @@ function renderSecurityLog(app){
       <div class="row" style="align-items:end;">
         <div style="--fw:280px;"><label>بحث</label><input type="text" value="${escH(state.secQ||'')}" placeholder="اسم، رقم طلب، IP، رسالة…" data-on-input="#28" data-secq></div>
         <div style="--fw:280px;"><label>النوع</label><select data-on-change="#29"><option value="">الكل</option>${kinds.map(k=>`<option value="${escH(k)}" ${state.secKind===k?'selected':''}>${escH(SEC_KIND_AR[k]||k)}</option>`).join('')}</select></div>
-        <div style="--fw:280px;"><label style="display:flex;gap:6px;align-items:center;font-weight:400;"><input type="checkbox" ${state.secShowDone?'checked':''} data-on-change="#30"> إظهار ما تمت مراجعته</label></div>
+        <div style="--fw:280px;"><label style="display:flex;gap:6px;align-items:center;font-weight:600;"><input type="checkbox" ${state.secShowDone?'checked':''} data-on-change="#30"> إظهار ما تمت مراجعته</label></div>
       </div>
       ${tbl}
       <div class="actions-row" data-bar-actions>
@@ -1734,7 +1734,7 @@ function renderVerifySettings(app){
     <p class="sub" style="margin:0 0 14px;">الصفحة التي يفتحها من يمسح رمز QR من السند المطبوع. الاختيار يسري على كل الشركات، ويُطبَّق في الخادم فلا يمكن تجاوزه من المتصفح. أرقام التحقق المتاحة لمن يملك السند فقط، فاختر ما تقبل أن يراه أي حامل لنسخة منه.</p>
     <div class="card">
       ${VERIFY_LEVELS.map(o=>`
-        <label class="opt-row" style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);font-weight:400;cursor:pointer;">
+        <label class="opt-row" style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);font-weight:600;cursor:pointer;">
           <input type="radio" name="vlevel" value="${o.v}" ${cur===o.v?'checked':''} data-on-change="#32" style="margin-top:4px;">
           <span><b>${escH(o.label)}</b><div class="sub" style="font-size:12px;">${escH(o.desc)}</div></span>
         </label>`).join('')}
@@ -2030,7 +2030,7 @@ async function renderVerifyPage(reqId){
           <div style="background:var(--ink,#1B2733);color:#fff;padding:12px 16px 10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <b style="font-size:14px;">الإجمالي الكلي</b>
-              <b style="font-size:16px;direction:ltr;font-variant-numeric:tabular-nums;">${fmtAmt(totalNet)} <span style="font-size:0.75em;font-weight:400;">د.ك</span></b>
+              <b style="font-size:16px;direction:ltr;font-variant-numeric:tabular-nums;">${fmtAmt(totalNet)} <span style="font-size:0.75em;font-weight:600;">د.ك</span></b>
             </div>
             <div style="font-size:13px;color:rgba(255,255,255,0.75);border-top:1px solid rgba(255,255,255,0.15);padding-top:7px;">${amountToArabicWords(totalNet)}</div>
           </div>
@@ -3556,7 +3556,7 @@ function duplicateFromRequest(id){
   if(!req) return;
   state.editingReqId = null;
   state.draft = {
-    reason: req.reason, detailedReason: req.detailedReason||'', number: null, isRecurring: !!req.isRecurring,
+    reason: req.reason, detailedReason: req.detailedReason||'', salutationText: req.salutationText||'', referenceText: req.referenceText||'', number: null, isRecurring: !!req.isRecurring,
     beneficiaries: req.beneficiaries.map(b=>({
       name:b.name, nameEn:b.nameEn, iban:b.iban, civilId:b.civilId, statement:b.statement, notes:b.notes,
       amount:b.amount, deduction:b.deduction, deductionNote:b.deductionNote, extra:b.extra||0, extraNote:b.extraNote,
@@ -3618,7 +3618,7 @@ function editRequest(id){
   state.editingReqId = id;
   // البند و«هل يتكرر» كانا يسقطان من المسودّة، فيفتح النموذج بلا البند المحفوظ
   state.draft = {
-    reason: req.reason, detailedReason: req.detailedReason||'', number: req.number, requestNotes: req.requestNotes||'',
+    reason: req.reason, detailedReason: req.detailedReason||'', salutationText: req.salutationText||'', referenceText: req.referenceText||'', number: req.number, requestNotes: req.requestNotes||'',
     budgetItemId: req.budgetItemId || UNSPECIFIED_BUDGET,
     isRecurring: !!req.isRecurring,
     beneficiaries: req.beneficiaries.map(b=>({...b, idFileName:'', idFileData:'', bankFileName:'', bankFileData:''}))
@@ -4341,11 +4341,11 @@ async function submitDraftInner(){
   const beneRows = beneficiaries.map(b=>({name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, statement:b.statement, notes:b.notes, amount:b.amount, deduction:b.deduction, deduction_note:b.deductionNote, extra:b.extra||0, extra_note:b.extraNote}));
 
   if(state.editingReqId){
-    await applyRequestEdit({reqId: state.editingReqId, reasonInput, detailedReasonInput, budgetItemId, beneficiaries, beneRows, total, requestNotes, identityDiffs, isRecurring: !!d.isRecurring});
+    await applyRequestEdit({reqId: state.editingReqId, reasonInput, detailedReasonInput, budgetItemId, beneficiaries, beneRows, total, requestNotes, identityDiffs, isRecurring: !!d.isRecurring, salutationText: d.salutationText||'', referenceText: d.referenceText||''});
     return;
   }
 
-  await createNewRequest({reasonInput, detailedReasonInput, budgetItemId, beneficiaries, beneRows, total, requestNotes, identityDiffs, isRecurring: !!d.isRecurring});
+  await createNewRequest({reasonInput, detailedReasonInput, budgetItemId, beneficiaries, beneRows, total, requestNotes, identityDiffs, isRecurring: !!d.isRecurring, salutationText: d.salutationText||'', referenceText: d.referenceText||''});
 }
 
 // إنشاء الطلب في القاعدة (مسار الاعتماد والمستفيدون والسجل ونافذة المراجعة) — مشترك بين طلب الصرف وطلب العهدة
@@ -4420,6 +4420,8 @@ async function createNewRequest(o){
     reviewUntil: new Date(Date.now() + winMin*60000).toISOString(),
     reason: reasonInput,
     detailedReason: detailedReasonInput,
+    salutationText: o.salutationText||'',
+    referenceText: o.referenceText||'',
     totalAmount: total,
     beneficiaries,
     status: initialStatus,
@@ -4439,7 +4441,7 @@ async function createNewRequest(o){
     approvalSteps: []
   };
   const reqInsert = await db.from('requests').insert({
-    id:req.id, number:req.number, reason:req.reason, detailed_reason:req.detailedReason||null, total_amount:req.totalAmount, status:req.status,
+    id:req.id, number:req.number, reason:req.reason, detailed_reason:req.detailedReason||null, salutation_text:req.salutationText||null, reference_text:req.referenceText||null, total_amount:req.totalAmount, status:req.status,
     origin:req.origin, center_id:req.centerId, company_id:req.companyId, created_by:req.createdBy, created_by_id:req.createdById,
     date_greg:req.dateGreg, date_hijri:req.dateHijri, is_recurring:req.isRecurring, fast_tracked:req.fastTracked, limit_exceeded:req.limitExceeded,
     budget_item_id: budgetItemId,
@@ -4536,7 +4538,7 @@ async function applyRequestEdit(o){
   }
   const newIds = (insertResult.data||[]).map(r=>r.id);
   // budget_item_id وis_recurring كانا ناقصَين من هذه الجملة، فكان الاختيار يضيع بلا أثر
-  const upd = await db.from('requests').update({reason:reasonInput, detailed_reason:detailedReasonInput||null, total_amount:total, status:newStatus, limit_exceeded:newLimitExceeded, budget_item_id:budgetItemId, is_recurring:nowRecurring, request_notes:requestNotes||null}).eq('id', req.id).select('id');
+  const upd = await db.from('requests').update({reason:reasonInput, detailed_reason:detailedReasonInput||null, salutation_text:o.salutationText||null, reference_text:o.referenceText||null, total_amount:total, status:newStatus, limit_exceeded:newLimitExceeded, budget_item_id:budgetItemId, is_recurring:nowRecurring, request_notes:requestNotes||null}).eq('id', req.id).select('id');
   if(!(await dbCheck(upd, 'تحديث بيانات الطلب')) || !upd.data || !upd.data.length){
     if(newIds.length) await db.from('request_beneficiaries').delete().in('id', newIds);
     if(!upd.error) showToast('تعذّر حفظ التعديل: الطلب لم يعد قابلاً للتعديل. حدّث الصفحة.','error');
@@ -4555,6 +4557,8 @@ async function applyRequestEdit(o){
   await dbCheck(await db.from('request_history').insert({request_id:req.id, step:histEntry.step, actor:histEntry.actor, user_id:histEntry.userId, action:histEntry.action, note:histEntry.note, time:histEntry.time}), 'حفظ سجل التعديل');
   req.reason = reasonInput;
   req.detailedReason = detailedReasonInput;
+  req.salutationText = o.salutationText||'';
+  req.referenceText = o.referenceText||'';
   req.requestNotes = requestNotes;
   if(identityDiffs.length) await pushHistory(req, {step:req.status, actor:state.user.name, userId:state.user.id, action:'تنبيه آيبان', note:identityDiffs.map(x=>x.name).join('، ')+' — يختلف عن المسجّل، محفوظ لهذا الطلب فقط', time:fmtDate()});
   req.beneficiaries = beneficiaries;
@@ -5660,7 +5664,29 @@ async function confirmDeletePassword(){
 
 function toggleDocTextsBox(){
   const box = document.getElementById('docTextsBox');
-  if(box) box.style.display = box.style.display==='none' ? 'block' : 'none';
+  if(box){ box.style.display = box.style.display==='none' ? 'block' : 'none'; state._dtOpen = box.style.display==='block';
+    if(state._dtOpen && isPhone()) box.scrollIntoView({block:'center', behavior:'smooth'}); }
+}
+function nrDocTextsVals(){
+  return {sal:(document.getElementById('docTextSalutation')||{}).value||'', ref:(document.getElementById('docTextReference')||{}).value||''};
+}
+// لهذا الطلب فقط: يُحفظ مع الطلب ويظهر في خطابه وحده
+function nrDocTextsMine(){
+  syncDraftFromDOM();
+  const v = nrDocTextsVals(), co = state.companies.find(c=>c.id===state.currentCompanyId) || {};
+  const sal = v.sal.trim(), ref = v.ref.trim();
+  state.draft.salutationText = (sal && sal!==(co.salutationText||'')) ? sal : '';
+  state.draft.referenceText = (ref && ref!==(co.referenceText||'')) ? ref : '';
+  state._dtOpen = false; saveDraftToStorage(); render();
+  showToast((state.draft.salutationText||state.draft.referenceText) ? 'نصوص الطباعة لهذا الطلب فقط' : 'يستخدم الطلب نص الشركة', 'success');
+}
+function nrDocTextsReset(){ syncDraftFromDOM(); state.draft.salutationText=''; state.draft.referenceText=''; state._dtOpen=false; saveDraftToStorage(); render(); }
+// افتراضي الشركة: للمالية ومدير النظام
+async function nrDocTextsCompany(){
+  if(!(state.user && (state.user.role==='admin' || isFinanceUser()))) return;
+  syncDraftFromDOM();
+  await saveDocTexts();
+  state.draft.salutationText=''; state.draft.referenceText=''; state._dtOpen=false; saveDraftToStorage(); render();
 }
 async function saveDocTexts(){
   const company = state.companies.find(c=>c.id===state.currentCompanyId);
@@ -6170,8 +6196,8 @@ function renderLetterPages(req){
   const kc = isCus ? custodyOf(req) : null;
   const cusHolder = isCus ? ((kc && (userById(kc.holderId)||{}).name) || ((req.beneficiaries||[])[0]||{}).name || '') : '';
   const cusDue = kc ? kc.dueCloseAt : '';
-  const salutationText = docCompany ? docCompany.salutationText : 'الإخوة / الإدارة المالية';
-  const referenceText = docCompany ? docCompany.referenceText : 'بالإشارة إلى الموضوع أعلاه';
+  const salutationText = req.salutationText || (docCompany ? docCompany.salutationText : 'الإخوة / الإدارة المالية');
+  const referenceText = req.referenceText || (docCompany ? docCompany.referenceText : 'بالإشارة إلى الموضوع أعلاه');
 
   const header = `
     <div class="doc-date" dir="ltr">
@@ -7536,7 +7562,7 @@ function reviewBeforeSend(o){
       <label style="margin-top:10px;">هل لديك ملاحظات على هذا الطلب؟ (اختياري — داخلية لا تُطبع)</label>
       <textarea id="rvNotes" rows="4">${escH(o.notes||'')}</textarea>
       ${reviewMode()==='optional'
-        ? `<label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-weight:400;"><input id="rvSkip" type="checkbox" style="width:auto;"> لا تُظهر هذه النافذة مرة أخرى (إرسال مباشر) — تعيدها من «حسابي»</label>`
+        ? `<label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-weight:600;"><input id="rvSkip" type="checkbox" style="width:auto;"> لا تُظهر هذه النافذة مرة أخرى (إرسال مباشر) — تعيدها من «حسابي»</label>`
         : `<div class="sub" style="margin-top:8px;color:var(--muted);">النافذة إلزامية في هذه الشركة</div>`}
       <div class="actions-row" style="margin-top:12px;">
         <button type="button" class="btn btn-primary btn-md" id="rvSend">إرسال</button>
@@ -7755,8 +7781,8 @@ function renderAccount(app){
           <div class="file-hint">أقصى مدة مسموحة لدورك: <b>${idleCapFor(me.role)}</b> دقيقة (حددها مدير النظام)، والأدنى ${IDLE_MIN_MIN}. إن تركته فارغاً فالمدة ${IDLE_DEFAULT_MIN} دقيقة.</div></div>
       </div>
       ${reviewMode()==='optional'
-        ? `<label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-weight:400;"><input type="checkbox" style="width:auto;" ${reviewSkipped()?'':'checked'} data-on-change="#69"> إظهار نافذة «مراجعة قبل الإرسال» عند إرسال طلب</label>`
-        : `<label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-weight:400;color:var(--muted);"><input type="checkbox" style="width:auto;" disabled ${reviewMode()==='required'?'checked':''}> نافذة المراجعة قبل الإرسال: ${reviewMode()==='required'?'إلزامية':'معطّلة'} في هذه الشركة</label>`}
+        ? `<label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-weight:600;"><input type="checkbox" style="width:auto;" ${reviewSkipped()?'':'checked'} data-on-change="#69"> إظهار نافذة «مراجعة قبل الإرسال» عند إرسال طلب</label>`
+        : `<label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-weight:600;color:var(--muted);"><input type="checkbox" style="width:auto;" disabled ${reviewMode()==='required'?'checked':''}> نافذة المراجعة قبل الإرسال: ${reviewMode()==='required'?'إلزامية':'معطّلة'} في هذه الشركة</label>`}
       <div class="row" style="margin-top:16px;">
         <div style="--fw:280px;"><label>جلستك الحالية</label><div id="accSessInfo" class="file-hint">…</div></div>
         <div style="--fw:280px;"><label>الأجهزة</label>
@@ -9828,7 +9854,7 @@ function renderBudgetReportTab(){
     ${totalNet>0?`<div class="card" style="padding:10px 16px;margin-bottom:14px;">
       <div class="rep-use-h" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <span style="font-size:13px;font-weight:700;">معدل الاستهلاك الكلي</span>
-        <span style="font-size:14px;font-weight:800;color:${totalBarColor};">${pctTotal}% &nbsp;·&nbsp; <span style="font-weight:400;font-size:12px;color:var(--muted);">المستهلك ${fmtKWDPlain(totalSpent+totalCommitted+totalPending)} من أصل ${fmtKWDPlain(totalNet)} — مصروف ${fmtKWDPlain(totalSpent)} · مرتبط ${fmtKWDPlain(totalCommitted)} · قيد الطلب ${fmtKWDPlain(totalPending)}</span></span>
+        <span style="font-size:14px;font-weight:800;color:${totalBarColor};">${pctTotal}% &nbsp;·&nbsp; <span style="font-weight:600;font-size:12px;color:var(--muted);">المستهلك ${fmtKWDPlain(totalSpent+totalCommitted+totalPending)} من أصل ${fmtKWDPlain(totalNet)} — مصروف ${fmtKWDPlain(totalSpent)} · مرتبط ${fmtKWDPlain(totalCommitted)} · قيد الطلب ${fmtKWDPlain(totalPending)}</span></span>
       </div>
       <div style="background:var(--line);border-radius:999px;height:10px;overflow:hidden;">
         <div style="height:100%;width:${pctTotal}%;background:${totalBarColor};border-radius:999px;"></div>
@@ -11017,7 +11043,7 @@ function renderCompanyEditForm(){
           <p class="sub" style="margin:4px 0 0;font-size:12px;">المدير المالي يبقى قادراً على الاعتماد أثناء التفويض. بعد تاريخ الانتهاء يعود الاعتماد للمدير المالي وحده تلقائياً. يظهر على المستند «بالتفويض».</p>
         </div>
         <div id="cfoDelegationConfirmBox" style="display:${(c.cfoDelegationMode==='delegate_self')?'block':'none'};margin-top:8px;">
-          <label style="display:flex;align-items:flex-start;gap:6px;font-weight:400;">
+          <label style="display:flex;align-items:flex-start;gap:6px;font-weight:600;">
             <input type="checkbox" id="editCoCfoConfirm" ${c.cfoDelegationMode==='delegate_self'?'checked':''}>
             <span>أقرّ أن المدير المالي فوّض المحاسب نفسه باعتماد التحويل، وسيظهر هذا صراحة بالمستند المطبوع</span>
           </label>
@@ -12900,7 +12926,7 @@ function renderUserEditForm(){
             const ucm = (state.userCompanyManagers||[]).find(x=>x.userId===u.id && x.companyId===co.id);
             return `
             <div class="row" style="margin-bottom:6px;align-items:center;">
-              <label style="flex:0 0 210px;display:flex;align-items:center;gap:6px;font-weight:400;margin:0;">
+              <label style="flex:0 0 210px;display:flex;align-items:center;gap:6px;font-weight:600;margin:0;">
                 <input type="checkbox" data-access-company="${co.id}" data-was-linked="${linked?1:0}" ${(linked||u.isGeneral)?'checked':''} ${u.isGeneral?'disabled':''} style="width:auto;"> ${escH(co.nameAr)}
               </label>
               <div style="flex:1;">
@@ -13576,13 +13602,33 @@ function renderNewRequest(app){
   const winMin = reviewWindowMinutes();
   const numNote = d.number ? `رقم الطلب: <b>${escH(String(d.number))}</b>`
     : (winMin>0 ? `رقم الطلب: يُحدَّد بعد انتهاء نافذة المراجعة (${winMin} ${winMin<=10?'دقائق':'دقيقة'} من الإرسال)` : 'رقم الطلب: يُحدَّد عند الإرسال');
+  // نصوص الخطاب: افتراضي الشركة، ولكل طلب نصّه إن غيّره صاحبه
+  const coDT = state.companies.find(c=>c.id===state.currentCompanyId) || {};
+  const dtOwn = !!((d.salutationText||'').trim() || (d.referenceText||'').trim());
+  const canCoDT = state.user && (state.user.role==='admin' || isFinanceUser());
+  const docBtn = cls => `<button type="button" class="btn ${dtOwn ? 'btn-primary' : 'btn-ghost'} btn-md nr-dtbtn ${cls}" tabindex="-1" data-on-click="toggleDocTextsBox">${dtOwn ? 'نصوص الطباعة ✓' : 'تعديل نصوص الطباعة'}</button>`;
+  const docBox = `<div id="docTextsBox" class="calc-box nr-wide" style="display:${state._dtOpen ? 'block' : 'none'};">
+        <p class="file-hint" style="margin:0 0 6px;">أول الخطاب المطبوع: «[نص المخاطبة]» ثم «بالإشارة إلى الموضوع أعلاه، <b>[نص الطلب]</b> [عنوان الطلب]».</p>
+        <label>نص المخاطبة</label>
+        <input id="docTextSalutation" type="text" value="${escH(d.salutationText || coDT.salutationText || 'الإخوة / الإدارة المالية')}">
+        <label>نص الطلب</label>
+        <input id="docTextReference" type="text" value="${escH(d.referenceText || coDT.referenceText || 'يرجى التكرم بالموافقة على صرف')}">
+        <p class="file-hint">${dtOwn ? 'هذا الطلب يستخدم نصاً خاصاً به.' : 'النص الحالي هو افتراضي الشركة.'} «لهذا الطلب» يغيّره لطلبك فقط${canCoDT ? '، و«افتراضي للشركة» يغيّره لكل طلباتها القادمة' : ''}.</p>
+        <div class="nr-dt-acts">
+          <button type="button" class="btn btn-primary btn-sm" data-on-click="nrDocTextsMine">لهذا الطلب</button>
+          ${canCoDT ? '<button type="button" class="btn btn-ghost btn-sm" data-on-click="nrDocTextsCompany">افتراضي للشركة</button>' : ''}
+          ${dtOwn ? '<button type="button" class="btn btn-ghost btn-sm" data-on-click="nrDocTextsReset">رجوع لنص الشركة</button>' : ''}
+          <button type="button" class="btn btn-ghost btn-sm" data-on-click="toggleDocTextsBox">إغلاق</button>
+        </div>
+      </div>`;
   app.innerHTML = `
     <h1>${state.editingReqId ? 'تعديل الطلب' : 'طلب صرف جديد'}</h1>
     ${(()=>{ const rq = state.editingReqId && state.requests.find(r=>r.id===state.editingReqId); return rq && rq.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid #b91c1c;padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوض</b> — عدّل الطلب ثم أعد إرساله.</div>' : ''; })()}
     <div class="card nr-form">
       ${canSend ? '' : `<div class="warn-box nr-wide" style="background:rgba(180,83,9,.12);border-right:4px solid #b45309;padding:8px 12px;border-radius:8px;margin-bottom:12px;">${state.editingReqId ? 'ليست لديك صلاحية «تعديل طلباتي» (صلاحيتك: قراءة فقط). يمكنك الاطلاع على الطلب فقط.' : 'ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.'}</div>`}
       <div class="nr-f nr-wide"><label>عنوان الطلب</label>
-        <input id="reasonInput" type="text" value="${escH(d.reason||'')}" placeholder="مثال: رواتب شهر 8-2026"></div>
+        <div class="field-with-btn nr-title-row"><input id="reasonInput" type="text" value="${escH(d.reason||'')}" placeholder="مثال: رواتب شهر 8-2026">${docBtn('nr-dt-desk')}</div></div>
+      ${docBox}
       <div class="nr-f nr-wide"><label>سبب تفصيلي (اختياري)</label>
         <textarea id="detailedReasonInput" class="grow-1" rows="1" placeholder="فارغ = يُستخدم عنوان الطلب">${escH(d.detailedReason||'')}</textarea></div>
       <div class="nr-f nr-wide"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
@@ -13593,10 +13639,11 @@ function renderNewRequest(app){
         <option value="${UNSPECIFIED_BUDGET}"${(d.budgetItemId===UNSPECIFIED_BUDGET)?' selected':''}>⚠️ بند غير محدد — يُستكمل قبل الصرف</option>
       </select></div>
       <div id="budgetItemBalanceBox" class="nr-wide" style="display:none;"></div>
-      <label class="check-line nr-rec nr-wide" title="مثل الرواتب الشهرية">
-        <input id="recurringCheck" type="checkbox" style="width:auto;" ${d.isRecurring ? 'checked' : ''}>
-        طلب متكرر مستقبلاً (مثل الرواتب الشهرية)
-      </label>
+      <div class="nr-rec-row nr-wide">
+        <label class="check-line nr-rec"><input id="recurringCheck" type="checkbox" style="width:auto;" ${d.isRecurring ? 'checked' : ''}> طلب متكرر مستقبلاً</label>
+        ${docBtn('nr-dt-ph')}
+        <div class="nr-rec-hint">مثل الرواتب الشهرية</div>
+      </div>
 
       <div class="nr-sec nr-wide">المستفيدون</div>
       <div id="beneficiaryList" class="nr-wide">
@@ -13659,9 +13706,9 @@ function renderNewRequest(app){
       <div class="total-box nr-wide" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:nowrap;">
         <div style="flex-shrink:0;">
           <div style="font-size:19px;font-weight:700;">الإجمالي</div>
-          <div style="font-size:11px;font-weight:400;color:#B8C0CC;margin-top:2px;">(يُحسب تلقائياً)</div>
+          <div style="font-size:11px;font-weight:600;color:#B8C0CC;margin-top:2px;">(يُحسب تلقائياً)</div>
         </div>
-        <span id="totalPreviewWords" style="flex:1;text-align:center;font-size:12px;font-weight:400;color:#D8DEE6;overflow:hidden;"></span>
+        <span id="totalPreviewWords" style="flex:1;text-align:center;font-size:12px;font-weight:600;color:#D8DEE6;overflow:hidden;"></span>
         <b id="totalPreview" style="font-size:24px;flex-shrink:0;">0.000 د.ك</b>
       </div>
       <div id="amountLimitWarning" class="nr-wide" style="display:none;background:var(--amber-bg);color:#1B2733;border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:12.5px;margin-top:10px;"></div>
