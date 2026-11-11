@@ -4041,7 +4041,7 @@ function updateTotalPreview(){
     const extra = extraEl ? (parseFloat(extraEl.value) || 0) : 0;
     const net = Math.max(amount - deduction + extra, 0);
     const netEl = b.querySelector('.b-net');
-    if(netEl) netEl.innerHTML = (deduction||extra) ? `الصافي: <b>${fmtKWDHtml(net)}</b> د.ك` : '';
+    if(netEl) netEl.innerHTML = `الصافي: <b>${fmtKWDHtml(net)}</b> د.ك`;
     total += net;
     if(net > maxBeneAmount) maxBeneAmount = net;
     const overMax = center && center.maxBeneficiaryAmount!=null && net > center.maxBeneficiaryAmount;
