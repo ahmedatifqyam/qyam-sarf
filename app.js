@@ -1050,10 +1050,12 @@ function getNotifSeenAt(){
     t = latestServerTs();
     if(!state.impersonatingFromAdmin) persistNotifSeen(t);
   }
+  // أثناء التصفح كمستخدم: ما فتحه الأدمن يُعدّ مقروءاً في هذه الجلسة فقط، ولا يُحفظ للمستخدم نفسه
+  if(state.impersonatingFromAdmin && state._impSeenAt) t = Math.max(t, state._impSeenAt);
   return t;
 }
 function persistNotifSeen(ms){
-  if(state.impersonatingFromAdmin) return;   // لا نغيّر حالة "المقروء" لمستخدم يتصفحه الأدمن
+  if(state.impersonatingFromAdmin){ state._impSeenAt = Math.max(state._impSeenAt||0, ms); return; }   // لا نغيّر حالة "المقروء" لمستخدم يتصفحه الأدمن (يُعدّ مقروءاً في الجلسة فقط)
   try{ localStorage.setItem(notifSeenKey(), String(ms)); }catch(e){}
   const u = state.users.find(x=>x.id===state.user.id);
   if(u) u.notifSeenAt = new Date(ms).toISOString();
@@ -1353,7 +1355,7 @@ function toggleBell(ev){
 // مقروء بعينه: فتح إشعار يعلّمه وحده مقروءاً (يُحفظ مفتاحه لهذا المستخدم)
 function notifKeysKey(){ return 'qy_seen_keys_' + (state.user ? state.user.id : ''); }
 function notifSeenKeys(){ try{ return new Set(JSON.parse(localStorage.getItem(notifKeysKey())||'[]')); }catch(e){ return new Set(); } }
-function markNotifKeySeen(k){ if(!k || state.impersonatingFromAdmin) return; try{ const st = notifSeenKeys(); st.add(k); localStorage.setItem(notifKeysKey(), JSON.stringify(Array.from(st).slice(-400))); }catch(e){} if(state._freshKeys) state._freshKeys.delete(k); }
+function markNotifKeySeen(k){ if(!k) return; if(state.impersonatingFromAdmin){ if(state._freshKeys) state._freshKeys.delete(k); return; } try{ const st = notifSeenKeys(); st.add(k); localStorage.setItem(notifKeysKey(), JSON.stringify(Array.from(st).slice(-400))); }catch(e){} if(state._freshKeys) state._freshKeys.delete(k); }
 function markAllSeen(){
   // كل ما في القائمة الآن مقروء: أحدث وقت بين أحداث الخادم وأوقات الإشعارات المعروضة نفسها (ومنها عهد شركات أخرى)
   let mx = latestServerTs(); try{ (computeNotifications().items||[]).forEach(i=>{ if(i.ts>mx && i.ts<=Date.now()+86400000) mx = i.ts; markNotifKeySeen(i.key); }); }catch(e){}
@@ -3239,7 +3241,7 @@ function impersonateUser(userId){
   const target = state.users.find(u=>u.id===userId);
   if(!target) return;
   assistantReset(); state.dashOwner='all';
-  state.impersonatingFromAdmin = state.user.id;
+  state.impersonatingFromAdmin = state.user.id; state._impSeenAt = 0;
   state.user = {id: target.id, role: target.role, name: target.name};
   setupCompanyAccess(target);
   state.view = 'dashboard';
