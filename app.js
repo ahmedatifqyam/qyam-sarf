@@ -6770,6 +6770,11 @@ function iconActs(){
     if(!b.title) b.title = t;
     const box = b.parentElement; if(box && [...box.children].filter(x=>x.matches('.btn')).every(x=>x.classList.contains('btn-ico'))) box.classList.add('ico-box');
   });
+  // زر لا يكفي عرضه الثابت لكلامه: يتّسع لكلامه بدل أن يُقصّ (العرض الثابت يبقى حداً أدنى)
+  document.querySelectorAll('#app .btn, .global-floating-bar .btn').forEach(b=>{
+    if(b.classList.contains('btn-ico') || !b.offsetParent || b.closest('.list-item > div:last-child:has(> .btn-ico)')) return;
+    if(b.scrollWidth > b.clientWidth + 1){ const w = b.getBoundingClientRect().width; b.style.minWidth = Math.round(w)+'px'; b.style.width = 'auto'; b.style.whiteSpace = 'nowrap'; }
+  });
 }
 function pageTidy(){ try{ hideEmptyTopBars(); hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
