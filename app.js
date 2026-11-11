@@ -7549,7 +7549,9 @@ function delegatedFromIds(userId, companyId, reqId){
 }
 function qyIsApproverOn(r, userId){
   const dl = delegatedFromIds(userId, r.companyId, r.id);
-  return (r.approvalSteps||[]).some(s=>s.approverId===userId || dl.includes(s.approverId));
+  // والمسجِّل الورقي لمعتمِد في الطلب، أو من سجّل اعتماداً ورقياً فيه
+  return (r.approvalSteps||[]).some(s=>s.approverId===userId || dl.includes(s.approverId) || s.recordedBy===userId
+    || (()=>{ const u = userById(s.approverId); return !!(u && u.paperApproval && (u.paperProxyIds||[]).includes(userId)); })());
 }
 async function loadHandovers(){
   try{
