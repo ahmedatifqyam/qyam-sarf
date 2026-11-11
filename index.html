@@ -2235,6 +2235,9 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .nr-grid .field-with-calc{max-width:100%;}
   #app input.b-deduction:not([type=hidden]):not(:placeholder-shown){color:#a12a1e;border-color:#c0392b !important;background:#fdecec;}
   #app input.b-extra:not([type=hidden]):not(:placeholder-shown){color:#17703d;border-color:#1e8e4e !important;background:#e9f7ee;}
+  /* سطح المكتب: الخصم وبيانه والإضافي وبيانه — عموداً بعمودين، ومن عرض 820 صف واحد (قليلة الاستخدام) */
+  #app .nr-adjrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;}
+  @media (min-width:820px){ #app .nr-adjrow{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 10px;} #app .nr-adjrow label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;} }
 </style>
 </head>
 <body>
@@ -2255,6 +2258,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=44b3233284"></script>
+<script src="app.js?v=5c21a7071c"></script>
 </body>
 </html>

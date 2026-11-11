@@ -13715,10 +13715,16 @@ function renderNewRequest(app){
               <div class="nr-f nr-wide"><label>البيان <span style="color:var(--red);">*</span></label>
                 <input class="b-statement" type="text" value="${escH(b.statement||'')}" placeholder="مثال: مستحقات شهر أغسطس"></div>
               ${desk ? `
+              <div class="nr-adjrow nr-wide">
               <div class="nr-f"><label>خصم (اختياري)</label>
                 <div class="field-with-calc"><input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" data-on-input="updateTotalPreview"><button type="button" class="calc-in" tabindex="-1" title="احسب الخصم" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "deduction"])}">احسب</button></div></div>
               <div class="nr-f"><label>بيان الخصم (اختياري)</label>
-                <input class="b-deductionNote" type="text" value="${escH(b.deductionNote||'')}" placeholder="سبب الخصم إن وُجد"></div>
+                <input class="b-deductionNote" type="text" value="${escH(b.deductionNote||'')}" placeholder="السبب"></div>
+              <div class="nr-f"><label>إضافي (اختياري)</label>
+                <div class="field-with-calc"><input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" data-on-input="updateTotalPreview"><button type="button" class="calc-in" tabindex="-1" title="احسب الإضافي" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "extra"])}">احسب</button></div></div>
+              <div class="nr-f"><label>بيان الإضافي (اختياري)</label>
+                <input class="b-extraNote" type="text" value="${escH(b.extraNote||'')}" placeholder="السبب"></div>
+              </div>
               <div id="calcBox-deduction-${i}" class="calc-box nr-wide" style="display:none;">
                 <label>عدد أيام الغياب</label>
                 <input id="calcDeductionDays-${i}" type="number" placeholder="مثال: 3">
@@ -13726,10 +13732,6 @@ function renderNewRequest(app){
                 <button type="button" class="btn btn-primary btn-xs" data-on-click="applyDeductionCalc" data-on-click-args="${qa([(i)])}">تطبيق</button>
                 <button type="button" class="btn btn-ghost btn-xs" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "deduction"])}">إلغاء</button>
               </div>
-              <div class="nr-f"><label>إضافي (اختياري)</label>
-                <div class="field-with-calc"><input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" data-on-input="updateTotalPreview"><button type="button" class="calc-in" tabindex="-1" title="احسب الإضافي" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "extra"])}">احسب</button></div></div>
-              <div class="nr-f"><label>بيان الإضافي (اختياري)</label>
-                <input class="b-extraNote" type="text" value="${escH(b.extraNote||'')}" placeholder="سبب الإضافي إن وُجد"></div>
               <div id="calcBox-extra-${i}" class="calc-box nr-wide" style="display:none;">
                 <label>عدد ساعات الإضافي</label>
                 <input id="calcExtraHours-${i}" type="number" placeholder="مثال: 5">
