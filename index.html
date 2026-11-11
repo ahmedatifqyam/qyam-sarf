@@ -2294,7 +2294,10 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 2h8l5 5v15H6z' fill='%23ffffff' stroke='%233b82c4' stroke-width='1.6' stroke-linejoin='round'/><path d='M14 2v5h5' fill='none' stroke='%233b82c4' stroke-width='1.6' stroke-linejoin='round'/><path d='M9 12h7M9 15h7M9 18h5' stroke='%233b82c4' stroke-width='1.4' stroke-linecap='round'/></svg>") center/contain no-repeat;filter:drop-shadow(0 1px 2px rgba(59,130,196,.45));pointer-events:none;}
   @media (max-width:699px){ .step.step-paper .dot::after{width:15px;height:15px;left:-8px;} }
   /* الهاتف: شارات الحالة في بطاقة الطلب بعرض واحد */
-  @media (max-width:699px){ .req-card > span[data-label="الحالة"] .badge{display:block !important;width:10.5em !important;max-width:100%;text-align:center;box-sizing:border-box;margin:3px 0 0 !important;} }
+  /* كل شارات خانة الحالة بارتفاع واحد (سطح المكتب) وبعرض وارتفاع واحد (الهاتف) */
+  .req-card > span[data-label="الحالة"] .badge{font-size:11.5px !important;line-height:1.2 !important;min-height:26px;padding-top:0 !important;padding-bottom:0 !important;box-sizing:border-box;align-items:center;justify-content:center;}
+  @media (min-width:700px){ .req-card > span[data-label="الحالة"] .badge{display:inline-flex !important;} }
+  @media (max-width:699px){ .req-card > span[data-label="الحالة"] .badge{display:flex !important;width:12.5em !important;height:30px !important;min-height:30px;max-width:100%;text-align:center;box-sizing:border-box;margin:3px 0 0 !important;font-size:12px !important;padding-left:6px !important;padding-right:6px !important;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;} }
 
   /* كل الشارات بإطار 1 بكسل بلونها (كشارة «معتمد ورقياً») */
   .badge{border:1.5px solid color-mix(in srgb, currentColor 55%, transparent);}
