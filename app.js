@@ -6753,9 +6753,8 @@ function hideEmptyTopBars(){
     t.classList.toggle('tab-empty', !vis);
   });
 }
-// الهاتف: أزرار الحذف والتعديل داخل البطاقات والجداول بشكل واحد في كل النظام — مربع برمز فقط، والاسم يظهر تلميحاً
+// الهاتف وسطح المكتب: أزرار الحذف والتعديل داخل البطاقات والجداول بشكل واحد في كل النظام — مربع برمز فقط، والاسم يظهر تلميحاً
 function iconActs(){
-  if(!isPhone()) return;
   const app = document.getElementById('app'); if(!app) return;
   app.querySelectorAll('.btn').forEach(b=>{
     if(b.classList.contains('btn-ico') || b.closest('.modal-overlay,.mtab-sheet,.gfb-actions,[data-bar-actions]')) return;
