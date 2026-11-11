@@ -2937,9 +2937,8 @@ function navSections(){
   const v = state.view, out = [];
   const pend = (typeof getMyPendingRequests==='function') ? getMyPendingRequests().length : 0;
   const nOld = (typeof oldCoReqList==='function') ? oldCoReqList().length : 0;
-  const mine = state.dashStatusFilter==='mypending';
-  const req = [{label:'كل الطلبات', views:['dashboard','detail','duplicateList','printPreview'], on: v==='dashboard' ? !mine : ['detail','duplicateList','printPreview'].includes(v), js:[["navGoRequests",[]]]}];
-  if(pend || u.role!=='employee') req.push({label:'بانتظار قراري', count:pend, views:[], on: v==='dashboard' && mine, js:[["navMyPending",[]]]});
+    // «بانتظار قراري» لم يعد تبويباً: هو زر «بانتظار قرارك» في فلتر صفحة الطلبات، ورقمه على القسم وعلى زر «الطلبات» في الهاتف
+  const req = [{label:'كل الطلبات', views:['dashboard','detail','duplicateList','printPreview'], js:[["navGoRequests",[]]]}];
   req.push({label:'طلب صرف جديد', views:['newRequest','newRequestChoice'], js:[["#5",[]]]});
   if(nOld) req.push({label:'طلباتي في شركات أخرى', count:nOld, views:['oldRequests'], js:[["openOldRequests",[]]]});
   // الإسناد صار تبويباً في «طلبات الصرف» (كان قسماً مستقلاً في الشريط الجانبي)
@@ -2988,7 +2987,7 @@ function navSections(){
   out.forEach(sec=>{ sec.active = sec.admin ? inAdminArea() : sec.pages.some(pg=>pg.views.includes(v)); });
   return out;
 }
-function navGoRequests(){ if(state.dashStatusFilter==='mypending') state.dashStatusFilter = 'all'; state.view = 'dashboard'; render(); window.scrollTo(0,0); }
+function navGoRequests(){ state.view = 'dashboard'; render(); window.scrollTo(0,0); }
 function navMyPending(){ state.dashStatusFilter = 'mypending'; state.view = 'dashboard'; render(); window.scrollTo(0,0); }
 function navTopItems(){
   return navSections().map(sec => sec.admin
@@ -6320,7 +6319,11 @@ window.addEventListener('popstate',ev=>{
   try{ while((state._navStack||[]).length > d && (state._navStack||[]).length>0){ const before=(state._navStack||[]).length; navBack('dashboard'); if((state._navStack||[]).length>=before) break; } } finally { qyHist.fromPop = false; }
 });
 function render(){
-  { const pv = state.view+'|'+state.activeReqId+'|'+state.activeCustodyId; if(state._pv!==pv){ state._pv = pv; state.cusPathOpen = false; } }
+  { const pv = state.view+'|'+state.activeReqId+'|'+state.activeCustodyId; if(state._pv!==pv){
+    // الدخول إلى صفحة الطلبات من صفحة أخرى: من عنده طلبات تنتظر قراره يرى «بانتظار قرارك» مختاراً أولاً
+    const fromV = (state._pv||'').split('|')[0];
+    if(state.view==='dashboard' && !['dashboard','detail','printPreview'].includes(fromV) && state.user && typeof getMyPendingRequests==='function' && getMyPendingRequests().length && (!state.dashStatusFilter || state.dashStatusFilter==='all') && (state.dashOwner||'all')==='all') state.dashStatusFilter = 'mypending';
+    state._pv = pv; state.cusPathOpen = false; } }
   if(state.pendingEscalate && state.pendingEscalate.reqId!==state.activeReqId) state.pendingEscalate = null;
   if(state.user && !viewAllowed(state.view)) state.view = 'dashboard';
   if(state.view!=='ledger') state._inLedger = false;
@@ -6631,7 +6634,7 @@ function renderMobileTabs(){
   const items = [
     {key:'menu',      ico:'menu',  label:'القائمة',  on:open,
      act: open ? [["closeNavDrawer",[]]] : [["openNavDrawer",[]]]},
-    {key:'dashboard', ico:'clip', label:'الطلبات',  on:['dashboard','detail'].includes(state.view) && !open,
+    {key:'dashboard', ico:'clip', label:'الطلبات',  on:['dashboard','detail'].includes(state.view) && !open, dot:(typeof getMyPendingRequests==='function' ? getMyPendingRequests().length : 0),
      act:[["#13",[]]]},
     main ? (()=>{ const m = mainLbl.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u); const ic = m ? m[1].replace(/[✓✔]/g,'').trim() : ''; const lb = (m ? m[2] : mainLbl); return {key:'pmain', ico: ic || (/^✓|^✔/.test(mainLbl) ? 'done' : 'plus'), label: mShortLbl(lb), main:true, off: !!(acts[state._mMain]||{}).disabled, act:[["mTabMain",[]]]}; })() : slot3,
     slot4,
