@@ -5085,7 +5085,7 @@ function paperSettingsCard(u, adminView){
       <div><label>المسجِّل الثاني</label>${sel(1)}</div>
       <div><label>المسجِّل الثالث</label>${sel(2)}</div>
     </div>
-    <div class="actions-row no-bar"><button type="button" class="btn btn-primary btn-md" data-on-click="savePaperSettings" data-on-click-args="${qa([(''+u.id)])}">حفظ الاعتماد الورقي</button></div>
+    ${adminView ? `<div class="actions-row no-bar"><button type="button" class="btn btn-primary btn-md" data-on-click="savePaperSettings" data-on-click-args="${qa([(''+u.id)])}">حفظ الاعتماد الورقي</button></div>` : '<p class="file-hint" style="margin:8px 0 0;">يُحفظ مع زر «حفظ» أسفل الصفحة.</p>'}
   </div>`;
 }
 function paperToggleUi(){ const on = !!(document.getElementById('paperOn')||{}).checked; [0,1,2].forEach(i=>{ const s = document.getElementById('paperProxy'+i); if(s) s.disabled = !on; }); }
@@ -5756,8 +5756,18 @@ async function saveAccount(){
   if(bankFile){ updates.stamp_data = await readFileAsDataURL(bankFile); }
   if(stampFile2){ updates.stamp_data_2 = await readFileAsDataURL(stampFile2); }
 
-  const updResult = await db.from('users').update(updates).eq('id', me.id);
+  // الاعتماد الورقي يُحفظ مع بقية الحساب بزر «حفظ» نفسه
+  const paperOnEl = document.getElementById('paperOn');
+  if(paperOnEl){
+    const pOn = !!paperOnEl.checked;
+    const pIds = [...new Set([0,1,2].map(i=>(document.getElementById('paperProxy'+i)||{}).value||'').filter(Boolean))];
+    if(pOn && !pIds.length){ const pc = document.getElementById('paperCard'); if(pc && pc.dataset.accsec) setAccountSec(+pc.dataset.accsec); fieldErr(document.getElementById('paperProxy0'), 'اختر مسجِّلاً واحداً على الأقل للاعتماد الورقي'); return; }
+    updates.paper_approval = pOn; updates.paper_proxy_ids = pOn ? pIds : [];
+  }
+  const updResult = await db.from('users').update(updates).eq('id', me.id).select('id');
   if(!(await dbCheck(updResult, 'حفظ بيانات الحساب'))) return;
+  if(!updResult.data || !updResult.data.length){ showToast('لم يُحفظ شيء: لا صلاحية لتعديل هذا الحساب','error'); return; }
+  if(paperOnEl){ me.paperApproval = updates.paper_approval; me.paperProxyIds = updates.paper_proxy_ids; }
   // مهلة إغلاق الدخول (عمود منفصل: إن لم يُشغَّل ملف SQL 7 بعد لا يفشل حفظ بقية البيانات)
   const idleEl = document.getElementById('accIdle');
   if(idleEl){
@@ -5773,7 +5783,8 @@ async function saveAccount(){
   }
 
   // تغيير كلمة المرور يمرّ عبر Supabase Auth لا عبر الجدول
-  if(newPass){
+  if(newPass && state.impersonatingFromAdmin){ showToast('لا تُغيَّر كلمة المرور أثناء التصفح كمستخدم آخر — حُفظت بقية البيانات','error'); }
+  else if(newPass){
     if(newPass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن 6 خانات','error'); return; }
     const { error: pwErr } = await db.auth.updateUser({ password: newPass });
     if(pwErr){ showToast('تعذّر تغيير كلمة المرور: ' + (pwErr.message||''),'error'); return; }
