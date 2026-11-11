@@ -2238,6 +2238,14 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* سطح المكتب: الخصم وبيانه والإضافي وبيانه — عموداً بعمودين، ومن عرض 820 صف واحد (قليلة الاستخدام) */
   #app .nr-adjrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;}
   @media (min-width:820px){ #app .nr-adjrow{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 10px;} #app .nr-adjrow label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;} }
+  /* صندوق «احسب» ينفتح تحت حقله مباشرة، صغيراً فوق ما تحته */
+  #app .nr-adjrow > .nr-f{position:relative;}
+  #app .nr-calc-pop{position:absolute;top:100%;right:0;z-index:30;width:max(100%,250px);margin-top:4px !important;padding:10px !important;background:#fff;box-shadow:0 8px 22px rgba(0,0,0,.18);border-radius:8px;}
+  #app .nr-calc-pop label{margin:0 0 3px !important;font-size:12.5px;}
+  #app .nr-calc-pop input,#app .nr-calc-pop select{width:100% !important;max-width:100% !important;margin:0 0 6px !important;}
+  #app .nr-calc-pop .file-hint{margin:0 0 8px !important;font-size:11.5px;}
+  #app .nr-calc-acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  #app .nr-calc-acts .btn{width:100% !important;min-width:0 !important;margin:0 !important;}
 </style>
 </head>
 <body>
@@ -2258,6 +2266,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=5c21a7071c"></script>
+<script src="app.js?v=e613c2144c"></script>
 </body>
 </html>
