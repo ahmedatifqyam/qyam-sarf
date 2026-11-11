@@ -2064,6 +2064,57 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .req-wrap.closed .req-side-open{border:1px solid #8ea3b8;}
   /* المسار المفتوح بجوار صندوق الطلب: يخرج من جهة الزر (أعلى اليمين) */
   .req-side.beside{transform-origin:calc(100% + 30px) 0;}
+
+  /* ===== جولة الهاتف (11 نوفمبر) ===== */
+  /* حقل نص يتمدد بأسطر */
+  textarea.grow-ta{resize:none;overflow:hidden;min-height:40px;line-height:1.5;padding-top:8px;padding-bottom:8px;box-sizing:border-box;width:100%;font-family:inherit;}
+  /* المستويات الوظيفية: أزرار مربعة ثابتة 40 في الهاتف وسطح المكتب */
+  #app .btn.lvl-mv{width:40px !important;min-width:40px !important;max-width:40px;height:40px !important;padding:0 !important;font-size:13px !important;}
+  #app td.lvl-acts .btn{margin-inline-start:6px;vertical-align:middle;}
+  /* صلاحيات الصفحات: دور واحد في كل مرة، صفحتان في الصف على سطح المكتب */
+  .perm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 28px;max-width:780px;}
+  .perm-row{display:grid;grid-template-columns:120px minmax(0,1fr);align-items:center;gap:10px;}
+  .perm-row .perm-lbl{font-weight:700;font-size:13.5px;}
+  .perm-row select{width:100% !important;max-width:100% !important;}
+  .perm-row.perm-custom select{border-color:#b45309 !important;box-shadow:0 0 0 1px #b45309 inset;}
+  /* صور الهوية: زرا الاختيار والحذف فوق بعض بجانب الصورة */
+  .brand-img-block{flex-wrap:nowrap !important;align-items:center;}
+  .brand-btns{display:flex;flex-direction:column;gap:8px;}
+  .brand-btns .btn{width:150px !important;}
+  .file-btn{cursor:pointer;}
+  @media (max-width:699px){ #app .lf > label.file-btn{width:100% !important;} }
+  @media (max-width:699px){
+    .perm-grid{grid-template-columns:1fr;gap:6px;}
+    .perm-row{grid-template-columns:104px minmax(0,1fr);}
+    .brand-preview{min-width:0 !important;width:130px;max-width:130px !important;flex:0 0 130px;}
+    .brand-preview img{max-height:110px;}
+    .brand-btns{flex:1 1 auto;}
+    .brand-btns .btn{width:100% !important;}
+    /* اسم الحقل بعرض أطول اسم في النموذج فقط */
+    #app .lf{grid-template-columns:var(--lfw, minmax(86px,34%)) minmax(0,1fr) !important;column-gap:12px !important;}
+    /* زر بعد حقل: تحته مباشرة وبعرضه */
+    #app .under-lf{margin:2px calc(var(--lfw, 34%) + 12px) 12px 0 !important;width:calc(100% - var(--lfw, 34%) - 12px) !important;max-width:none !important;align-self:auto !important;}
+    #app .btn.under-lf,#app .under-lf > .btn{flex-direction:row !important;gap:4px;white-space:nowrap;height:40px !important;}
+    #app .under-lf:not(.btn){display:flex;gap:8px;}
+    #app .under-lf > .btn{flex:1 1 0;width:auto !important;min-width:0 !important;}
+    #app .btn.under-lf .bl2,#app .under-lf .btn .bl2{font-size:inherit;font-weight:inherit;opacity:1;}
+    /* مسافات أقل بين صفوف الحقول */
+    #app .row{row-gap:0 !important;}
+    #app .lf{margin:0 0 8px !important;}
+    /* بطاقات المستخدمين: التعديل فوق الحذف فيتسع الكلام */
+    #app .list-item > div.ico-box.ico-box{flex-direction:column !important;flex-wrap:nowrap !important;gap:8px !important;width:40px !important;min-width:40px !important;flex:0 0 40px !important;}
+    /* الأدوار الوظيفية: «حفظ» وبجانبه مربع الحذف في صف واحد */
+    #app .list-item.jr-row.jr-row > div:last-child:has(> .btn-ico):has(> .btn){display:flex !important;flex-direction:row !important;grid-column:1 / -1;width:auto !important;min-width:0 !important;gap:8px !important;justify-content:flex-start;margin:6px 0 0 !important;}
+    #app .list-item.jr-row.jr-row > div:last-child:has(> .btn-ico):has(> .btn) > .btn:not(.btn-ico){order:0 !important;flex:0 0 150px !important;width:150px !important;grid-column:auto !important;font-size:inherit !important;}
+    #app .list-item.jr-row.jr-row > div:last-child:has(> .btn-ico):has(> .btn) > .btn-ico{width:40px !important;flex:0 0 40px !important;}
+    /* الأدوار النظامية: الحقل ثم «حفظ الاسم» تحته بعرضه ثم الشرح بخط صغير — بطاقة أصغر */
+    #app .list-item.fr-row.fr-row.fr-row{display:grid !important;grid-template-columns:var(--lfw,34%) minmax(0,1fr) !important;column-gap:12px;row-gap:0;padding:10px 12px !important;align-items:start !important;}
+    #app .list-item.fr-row.fr-row.fr-row > div:first-child{grid-column:1 / -1;}
+    #app .list-item.fr-row.fr-row.fr-row > div:first-child .lf{margin:0 0 6px !important;}
+    #app .list-item.fr-row.fr-row.fr-row > div:last-child{grid-column:2;order:2;margin:0 !important;width:auto !important;min-width:0 !important;max-width:none !important;justify-self:stretch;display:block !important;}
+    #app .list-item.fr-row.fr-row.fr-row > div:last-child > .btn{width:100% !important;}
+    #app .list-item.fr-row.fr-row.fr-row > .sub{grid-column:1 / -1;order:3;font-size:11.5px !important;margin:6px 0 0 !important;line-height:1.5;}
+  }
 </style>
 </head>
 <body>
@@ -2084,6 +2135,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=e0cc609975"></script>
+<script src="app.js?v=a668650f7d"></script>
 </body>
 </html>

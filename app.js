@@ -6318,7 +6318,12 @@ window.addEventListener('popstate',ev=>{
   qyHist.fromPop = true;
   try{ while((state._navStack||[]).length > d && (state._navStack||[]).length>0){ const before=(state._navStack||[]).length; navBack('dashboard'); if((state._navStack||[]).length>=before) break; } } finally { qyHist.fromPop = false; }
 });
+// إعادة الرسم داخل الصفحة نفسها (اختيار، علامة، حفظ) لا تحرّك الصفحة — تبقى حيث كان المستخدم
+(function(){ const o = window.scrollTo.bind(window); window._qyScrollTo = o; window.scrollTo = function(){ window._qyScrollAt = Date.now(); return o.apply(window, arguments); };
+  const si = Element.prototype.scrollIntoView; Element.prototype.scrollIntoView = function(){ window._qyScrollAt = Date.now(); return si.apply(this, arguments); }; })();
 function render(){
+  window._qyInRender = true; queueMicrotask(()=>{ window._qyInRender = false; });
+  const _sy = window.scrollY, _sk = [state.view, state.adminSubTab, state.activeReqId, state.activeCustodyId, state.cusDocs ? 1 : 0].join('|'), _same = state._sk===_sk; state._sk = _sk;
   { const pv = state.view+'|'+state.activeReqId+'|'+state.activeCustodyId; if(state._pv!==pv){
     // الدخول إلى صفحة الطلبات من صفحة أخرى: من عنده طلبات تنتظر قراره يرى «بانتظار قرارك» مختاراً أولاً
     const fromV = (state._pv||'').split('|')[0];
@@ -6398,6 +6403,8 @@ function render(){
   pageTidy();
   decorateButtons();
   iconActs();
+  window._qyInRender = false; { const a = document.getElementById('app'); if(a){ _qyMO.takeRecords(); _qyMO.observe(a, {childList:true, subtree:true}); } }
+  if(_same && _sy > 0){ const t0 = Date.now(); const keep = ()=>{ if((window._qyScrollAt||0) >= t0) return; if(Math.abs(window.scrollY - _sy) > 2) window._qyScrollTo(0, _sy); }; keep(); requestAnimationFrame(keep); setTimeout(keep, 60); }
   scrollActiveTabIntoView();
   fitFilterButtons();
   reapplyFieldErr();
@@ -6681,9 +6688,9 @@ function infoTips(){
 function pairFields(){
   if(!isPhone() || state.view==='login') return;
   const app = document.getElementById('app'); if(!app) return;
-  const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]), select, .sel-add, .field-with-btn';
+  const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]), select, .sel-add, .field-with-btn, label.file-btn';
   app.querySelectorAll('label').forEach(l=>{
-    if(l.closest('.lf,.modal-overlay,.mtab-sheet,table,.tcards,.cus-docs,.dash-filt,.snd-row,.sig-ed,.recipe,.sig-el')) return;
+    if(l.closest('.lf,.modal-overlay,.mtab-sheet,table,.tcards,.cus-docs,.dash-filt,.snd-row,.sig-ed,.recipe,.sig-el,.perm-row')) return;
     if(l.querySelector('input,select,textarea')) return;          // مربع اختيار داخل اسمه
     let f = l.nextElementSibling;
     if(!f || !f.matches(FIELD)) return;
@@ -6694,6 +6701,26 @@ function pairFields(){
     if(p && p.children.length===2 && p.parentElement && p.parentElement.classList.contains('row')){ p.classList.add('lf'); return; }
     const w = document.createElement('div'); w.className = 'lf';
     l.before(w); w.appendChild(l); w.appendChild(f);
+  });
+  // عمود الأسماء في كل نموذج بعرض أطول اسم فيه فقط (حد أقصى 42%) — فلا يبعد الحقل عن اسمه، وتبقى الحقول متساوية
+  const groups = new Map();
+  app.querySelectorAll('.lf').forEach(f=>{ if(f.closest('.filt-bar')) return; const g = f.closest('.list-item, .modal') || app; if(!groups.has(g)) groups.set(g, []); groups.get(g).push(f); });
+  groups.forEach((lfs, g)=>{
+    const labs = lfs.map(f=>f.querySelector(':scope > label')).filter(Boolean);
+    labs.forEach(l=>{ l.style.whiteSpace = 'nowrap'; l.style.width = 'max-content'; });
+    let mx = 0; labs.forEach(l=>{ const c = l.cloneNode(true); c.querySelectorAll('.lf-note').forEach(x=>x.remove()); l.after(c); c.style.position = 'absolute'; c.style.visibility = 'hidden'; mx = Math.max(mx, c.getBoundingClientRect().width); c.remove(); });
+    labs.forEach(l=>{ l.style.whiteSpace = ''; l.style.width = ''; });
+    const cap = Math.round((lfs[0].clientWidth || g.clientWidth || 360) * 0.30);
+    g.style.setProperty('--lfw', Math.max(48, Math.min(cap, Math.ceil(mx) + 2)) + 'px');
+  });
+  // زر يأتي بعد حقل مباشرة: تحت الحقل نفسه وبعرضه (لا ملتصقاً به ولا في الطرف الآخر)
+  app.querySelectorAll('.lf').forEach(f=>{
+    let n = f.nextElementSibling;
+    if(!n && f.parentElement && f.parentElement.children.length===1) n = f.parentElement.nextElementSibling;
+    if(!n || n.closest('.list-item') && n.closest('.list-item')!==f.closest('.list-item')) return;
+    const kids = [...n.children].filter(k=>k.offsetParent || k.matches('.btn'));
+    const isBtnBox = n.matches('.btn') || (kids.length && kids.length<=2 && kids.every(k=>k.matches('.btn')) && !n.matches('[data-bar-actions], .list-item, .lf'));
+    if(isBtnBox && !n.classList.contains('bar-moved')) n.classList.add('under-lf');
   });
   // زر انكسر كلامه سطرين: يتّسع لكلامه في سطر واحد
   app.querySelectorAll('.btn').forEach(b=>{ if(b.closest('table.amount-table,.doc,.doc-page,.modal-overlay')) return; if(!b.offsetParent || b.classList.contains('btn-fit')) return; let two = b.offsetHeight > 46; if(!two){ const rg = document.createRange(); rg.selectNodeContents(b); const tops = new Set([...rg.getClientRects()].filter(r=>r.width>2).map(r=>Math.round(r.top/8))); two = tops.size>1 && (b.textContent||'').trim().length>6 && [...rg.getClientRects()].some(r=>r.height<24 && r.width>2) && b.getBoundingClientRect().height<50 && (()=>{ const rs=[...rg.getClientRects()].filter(r=>r.width>2 && r.height<26); const mn=Math.min(...rs.map(r=>r.top)), mx=Math.max(...rs.map(r=>r.top)); return mx-mn>10; })(); } if(two) b.classList.add('btn-fit'); });
@@ -6806,7 +6833,42 @@ function fitDocZoom(){
   if(av > 0 && av < DOC_BASE_W){ d.style.width = DOC_BASE_W+'px'; d.style.maxWidth = 'none'; d.style.zoom = (av / DOC_BASE_W).toFixed(4); }
 }
 window.addEventListener('resize', ()=>{ clearTimeout(window._dzT); window._dzT = setTimeout(()=>{ try{ fitDocZoom(); }catch(e){} }, 140); });
-function pageTidy(){ try{ requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
+// حقل نص لا يكفيه سطر: يصير حقلاً يتمدد بأسطر بدل أن يُقصّ الكلام (هاتف وسطح مكتب)
+function growTa(t){ t.style.height = 'auto'; t.style.height = Math.max(40, t.scrollHeight + 2) + 'px'; }
+function growInput(inp, keepFocus){
+  if(!inp || inp.tagName!=='INPUT' || inp.type!=='text' || inp.list || inp.dir==='ltr' || inp.closest('table,.modal-overlay,.tb-tools,.search-float,.filt-bar,.sel-add,.field-with-btn')) return null;
+  if(inp.scrollWidth <= inp.clientWidth + 2) return null;
+  const t = document.createElement('textarea');
+  [...inp.attributes].forEach(a=>{ if(!['type','value','autocomplete','inputmode'].includes(a.name)) t.setAttribute(a.name, a.value); });
+  t.classList.add('grow-ta'); t.rows = 1; t.value = inp.value;
+  const st = keepFocus ? inp.selectionStart : null;
+  inp.replaceWith(t); growTa(t);
+  if(keepFocus){ t.focus(); try{ t.setSelectionRange(st, st); }catch(e){} }
+  return t;
+}
+function growInputs(){ document.querySelectorAll('#app input[type=text]').forEach(i=>growInput(i,false)); document.querySelectorAll('#app textarea.grow-ta').forEach(growTa); }
+document.addEventListener('input', e=>{ const t = e.target; if(!t) return; if(t.matches && t.matches('textarea.grow-ta')) growTa(t); else if(t.tagName==='INPUT') growInput(t, true); });
+document.addEventListener('keydown', e=>{ if(e.key==='Enter' && e.target && e.target.matches && e.target.matches('textarea.grow-ta')) e.preventDefault(); });
+// زر رفع ملف بشكل أزرار النظام بدل الشكل الافتراضي للمتصفح («Choose File»)
+function fileButtons(){
+  document.querySelectorAll('#app input[type=file]').forEach(inp=>{
+    if(inp.closest('label.file-btn') || inp.dataset.fb) return;
+    inp.dataset.fb = '1';
+    const lb = document.createElement('label'); lb.className = 'btn btn-ghost btn-sm file-btn';
+    const tx = document.createElement('span'); tx.textContent = inp.multiple ? 'اختيار ملفات' : 'اختيار ملف';
+    lb.appendChild(tx); inp.before(lb); lb.appendChild(inp); inp.hidden = true;
+    inp.addEventListener('change', ()=>{ const f = inp.files || []; if(f.length) tx.textContent = f.length>1 ? f.length+' ملفات' : (f[0].name.length>22 ? f[0].name.slice(0,20)+'…' : f[0].name); });
+  });
+}
+// أجزاء تُرسم دون إعادة رسم الصفحة كلها (تبويب فرعي، نافذة داخل الصفحة): تأخذ نفس الترتيب تلقائياً
+const _qyMO = new MutationObserver(()=>{ if(window._qyInRender) return; cancelAnimationFrame(window._qyMOt); window._qyMOt = requestAnimationFrame(tidyLite); });
+function tidyLite(){
+  const app = document.getElementById('app'); if(!app) return;
+  _qyMO.disconnect();
+  try{ infoTips(); fileButtons(); pairFields(); growInputs(); iconActs(); }catch(e){ console.error('tidyLite', e); }
+  _qyMO.takeRecords(); _qyMO.observe(app, {childList:true, subtree:true});
+}
+function pageTidy(){ try{ requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); infoTips(); fileButtons(); pairFields(); growInputs(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
   const a = document.querySelector('#app .adm-t2.active');
@@ -11702,9 +11764,9 @@ function brandImgBlock(kind, id, current){
   return `
     <div class="brand-img-block">
       <div class="brand-preview">${current ? `<img src="${escH(current)}" alt="">` : '<span class="sub" style="font-size:12px;">لا توجد صورة</span>'}</div>
-      <div>
-        <input type="file" accept="image/*" data-on-change="brandUpload" data-on-change-args="${qa([(''+(kind)), (''+(id||'')), QA.t])}">
-        ${current ? `<button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px;" data-on-click="brandRemove" data-on-click-args="${qa([(''+(kind)), (''+(id||''))])}">حذف الصورة</button>` : ''}
+      <div class="brand-btns">
+        <label class="btn btn-ghost btn-sm file-btn">${current ? 'تغيير الصورة' : 'اختيار صورة'}<input type="file" accept="image/*" hidden data-on-change="brandUpload" data-on-change-args="${qa([(''+(kind)), (''+(id||'')), QA.t])}"></label>
+        ${current ? `<button type="button" class="btn btn-ghost btn-sm" data-on-click="brandRemove" data-on-click-args="${qa([(''+(kind)), (''+(id||''))])}">حذف الصورة</button>` : ''}
       </div>
     </div>`;
 }
@@ -11994,9 +12056,8 @@ function renderBrandingPanel(){
     </div>
     <div class="card" style="margin-top:20px;">
       <h2 style="margin:0 0 8px;">هوية الشركة: ${escH(co?co.nameAr:'—')}</h2>
-      <label>اسم الشركة</label>
       <div class="row" style="align-items:flex-end;">
-        <div><input id="brandCoName" type="text" value="${escH(co?co.nameAr:'')}" maxlength="80"></div>
+        <div><label>اسم الشركة</label><input id="brandCoName" type="text" value="${escH(co?co.nameAr:'')}" maxlength="80"></div>
         <div style="flex:0 0 auto;"><button type="button" class="btn btn-primary btn-md" data-on-click="saveBrandCompanyName">حفظ الاسم</button></div>
       </div>
       <label style="margin-top:14px;">${escH(BRAND_SPECS.coLogo.label)}</label>
@@ -12141,9 +12202,9 @@ function renderJobLevels(app){
     <tr>
       <td style="width:28px;">${l.sortOrder}</td>
       <td><span class="org-editable" data-kind="level" data-id="${l.id}" data-on-click="startLevelNameEdit" data-on-click-args="${qa([QA.t, (''+(l.id))])}" style="cursor:pointer;text-decoration:underline dotted;">${escH(l.name)}</span></td>
-      <td style="white-space:nowrap;">
-        <button type="button" class="btn btn-ghost btn-xs" ${i===0?'disabled':''} data-on-click="moveLevel" data-on-click-args="${qa([(''+(l.id)), -1])}">▲</button>
-        <button type="button" class="btn btn-ghost btn-xs" ${i===levels.length-1?'disabled':''} data-on-click="moveLevel" data-on-click-args="${qa([(''+(l.id)), 1])}">▼</button>
+      <td class="lvl-acts" style="white-space:nowrap;width:1%;">
+        <button type="button" class="btn btn-ghost btn-xs lvl-mv" title="أعلى" ${i===0?'disabled':''} data-on-click="moveLevel" data-on-click-args="${qa([(''+(l.id)), -1])}">▲</button>
+        <button type="button" class="btn btn-ghost btn-xs lvl-mv" title="أسفل" ${i===levels.length-1?'disabled':''} data-on-click="moveLevel" data-on-click-args="${qa([(''+(l.id)), 1])}">▼</button>
         <button type="button" class="btn btn-reject btn-xs" data-on-click="deleteLevel" data-on-click-args="${qa([(''+(l.id))])}">حذف</button>
       </td>
     </tr>`).join('');
@@ -12359,18 +12420,22 @@ function permDraftLevel(role, key){
 function permSet(role, key, val){
   state.permDraft = state.permDraft || {};
   state.permDraft[role+'|'+key] = val;
-  document.querySelectorAll('[data-perm-btn]').forEach(b=>{ b.disabled = false; });
+  render();
 }
+function permPickRole(v){ state.permRole = v; render(); }
 function permReset(){ state.permDraft = {}; render(); }
 function renderPermissionsPanel(){
   const roles = permAllRoles(), co = permCo();
   const coName = (state.companies.find(c=>c.id===co)||{}).nameAr || '';
   const dirty = Object.keys(state.permDraft||{}).length > 0;
-  const head = `<tr><th style="text-align:right;">الدور</th>${PAGE_CATALOG.map(p=>`<th style="text-align:right;" title="${escH(p.hint)}">${escH(p.label)}</th>`).join('')}</tr>`;
-  const body = roles.map(r=>`<tr><td style="text-align:right;"><b>${escH(r.name)}</b></td>${PAGE_CATALOG.map(p=>{
-      const cur = permDraftLevel(r.id, p.key), def = pageDefaultLevel(r.id, p.key);
-      return `<td data-label="${escH(p.label)}" style="text-align:right;"><select style="--fw:175px;max-width:190px;${cur!==def?'border-color:#b45309;':''}" data-on-change="permSet" data-on-change-args="${qa([(''+(r.id)), (''+(p.key)), QA.v])}" title="${escH(p.hint)}">${PAGE_LEVELS.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}${v===def?' (افتراضي)':''}</option>`).join('')}</select></td>`;
-    }).join('')}</tr>`).join('');
+  // دور واحد في كل مرة: اختر الدور ثم اضبط صفحاته (بدل جدول عريض لا يتسع للشاشة)
+  const pr = (state.permRole && roles.some(r=>r.id===state.permRole)) ? state.permRole : (roles[0]||{}).id;
+  const nCustom = rid => PAGE_CATALOG.filter(p=>permDraftLevel(rid, p.key)!==pageDefaultLevel(rid, p.key)).length;
+  const roleSel = `<select data-on-change="permPickRole" data-on-change-args="${qa([QA.v])}">${roles.map(r=>{ const n = nCustom(r.id); return `<option value="${escH(r.id)}" ${r.id===pr?'selected':''}>${escH(r.name)}${n ? ' · '+n+' مخصّص' : ''}</option>`; }).join('')}</select>`;
+  const rowsHtml = PAGE_CATALOG.map(p=>{
+    const cur = permDraftLevel(pr, p.key), def = pageDefaultLevel(pr, p.key);
+    return `<div class="perm-row${cur!==def?' perm-custom':''}"><span class="perm-lbl" title="${escH(p.hint)}">${escH(p.label)}</span><select data-on-change="permSet" data-on-change-args="${qa([(''+pr), (''+(p.key)), QA.v])}" title="${escH(p.hint)}">${PAGE_LEVELS.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}${v===def?' (افتراضي)':''}</option>`).join('')}</select></div>`;
+  }).join('');
   return `
     <div class="card" style="margin-top:28px;"><h2>صلاحيات الصفحات — ${escH(coName)}</h2>
       <div class="row" style="align-items:flex-end;margin-bottom:6px;">
@@ -12380,7 +12445,9 @@ function renderPermissionsPanel(){
       </div>
       <p class="sub">لكل دور في الشركة الحالية: هل يرى الصفحة، وماذا يفعل فيها. الخيار «افتراضي» هو الوضع المعمول به الآن. مدير النظام يرى كل شيء دائماً. لوحة التحكم لا تظهر لغير مدير النظام مهما كانت الصلاحية.</p>
       <p class="sub" style="font-size:12.5px;">ملاحظة: هذه الصلاحيات تتحكم في ظهور الصفحات والأزرار. أما البيانات المالية نفسها فتحميها قاعدة البيانات للأدوار المالية فقط، فمنح صفحة مالية لدور غير مالي لا يكشف له بيانات لا يملك حق قراءتها.</p>
-      <div style="overflow-x:auto;"><table class="exec-table perm-tbl" style="direction:rtl;width:100%;"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+      <div class="row" style="align-items:flex-end;margin:10px 0 6px;"><div style="--fw:320px;"><label>الدور</label>${roleSel}</div></div>
+      <div class="perm-grid">${rowsHtml}</div>
+      <p class="sub" style="font-size:12px;margin:8px 0 0;">الإطار البرتقالي = مختلف عن الافتراضي. تغييراتك على كل الأدوار تُحفظ معاً بزر «حفظ الصلاحيات».</p>
       <div id="permSaveBar" class="actions-row">
         <button class="btn btn-primary btn-md" data-perm-btn ${dirty?'':'disabled'} data-on-click="savePagePerms" title="يحفظ التغييرات بعد تأكيد كلمة مرورك">حفظ الصلاحيات</button>
         <button class="btn btn-ghost btn-md" data-perm-btn ${dirty?'':'disabled'} data-on-click="permReset" title="يتجاهل التغييرات غير المحفوظة">تراجع</button>
@@ -12437,7 +12504,7 @@ function renderRolesPanel(){
   const lvOpts = (sel)=> allLevelNames().map(n=>`<option value="${escH(n)}" ${n===sel?'selected':''}>${escH(n)}</option>`).join('');
   const jobRows = state.customRoles.length ? state.customRoles.map(r=>{
     const n = jobRoleUsersCount(r.id);
-    return `<div class="list-item" style="cursor:default;align-items:flex-end;gap:10px;flex-wrap:wrap;">
+    return `<div class="list-item jr-row" style="cursor:default;align-items:flex-end;gap:10px;flex-wrap:wrap;">
       <div style="flex:1 1 200px;"><label>اسم الدور</label><input id="jr_name_${r.id}" type="text" value="${escH(r.name)}" maxlength="60"></div>
       <div style="flex:0 1 210px;"><label>المستوى الافتراضي</label><select id="jr_lv_${r.id}">${lvOpts(r.defaultLevelName)}</select></div>
       <label style="flex:0 0 auto;display:flex;align-items:center;gap:6px;font-weight:600;margin:0 0 10px;"><input type="checkbox" id="jr_gen_${r.id}" ${r.generalDefault?'checked':''} style="width:auto;"> 🌐 عام افتراضياً</label>
@@ -12450,7 +12517,7 @@ function renderRolesPanel(){
   const fixedRows = ROLES.map(r=>{
     const nm = findRole(r.id).name;
     const sys = {accountant:'يتصرف بالذيل التنفيذي (التحويل والصرف)', cfo:'يعتمد التحويل البنكي', admin:'إدارة النظام'}[r.id];
-    return `<div class="list-item" style="cursor:default;align-items:flex-end;gap:10px;flex-wrap:wrap;">
+    return `<div class="list-item fr-row" style="cursor:default;align-items:flex-end;gap:10px;flex-wrap:wrap;">
       <div style="flex:1 1 200px;"><label>اسم الدور (الأصلي: ${escH(r.name)})</label><input id="fr_name_${r.id}" type="text" value="${escH(nm)}" maxlength="60" ${r.id==='admin'?'disabled':''}></div>
       <span class="sub" style="flex:1 1 220px;margin:0 0 12px;">${sys ? '🔒 صلاحية نظام: '+sys : 'دور إداري بالمسار (الصلاحية من مسار الاعتماد لا من الاسم)'} · ${jobRoleUsersCount(r.id)} مستخدم</span>
       ${r.id==='admin' ? '' : `<div style="margin-bottom:6px;"><button type="button" class="btn btn-ghost btn-xs" data-on-click="saveFixedRoleName" data-on-click-args="${qa([(''+(r.id))])}">حفظ الاسم</button></div>`}</div>`;
