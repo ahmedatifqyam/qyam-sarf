@@ -1123,7 +1123,7 @@ function computeNotifications(){
       const ts = tsOf(h.createdAt); if(ts < Date.now()-14*86400000) return;
       const key = 'po:'+r.id+':'+ts;
       items.push({key, kind:'paper_off', reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey(key)), overdue:false,
-        title:'أُلغي الاعتماد الورقي '+h.note.split('|ids:')[0].replace(/ — .*$/,'')+' — لم يعد عليك تسجيله', sub:r.number+' — '+r.reason});
+        title:'أُلغي الاعتماد الورقي '+h.note.split('|ids:')[0].replace(/ — .*$/,'').replace(/^لـ /,'لـ')+' — لم يعد عليك تسجيله', sub:r.number+' — '+r.reason});
     });
   });
   // الاعتماد الورقي في شركات أخرى أعمل فيها (المسجِّل العام): لا يُفوَّت لأن الشركة المختارة غيرها
@@ -1274,13 +1274,13 @@ function renderBellPanel(){
   if(!p) return;
   if(!state.bellOpen || !state.user){ p.classList.remove('open'); p.innerHTML=''; return; }
   const n = computeNotifications();
-  const icon = {pending:'📝', custody_receipt:'💼', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳', reset:'🔑', recurring:'🔁', iban:'🏦', handover:'🤝', handover_res:'🤝'};
+  const icon = {pending:'📝', custody_receipt:'💼', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳', reset:'🔑', recurring:'🔁', iban:'🏦', handover:'🤝', handover_res:'🤝', paper_off:'📄'};
   // «إخفاء المقروء»: اختيار محفوظ لكل مستخدم. يُخفي كل مقروء؛ وما ينتظر إجراءك يبقى في «ما ينتظرني» وعدّاد الجرس
   const hideRead = bellHideRead();
   const shown = hideRead ? n.items.filter(i=>i.isNew) : n.items;
   const rows = shown.map(i=>`
     <div class="bell-item${i.isNew?' new':''}" data-on-click="openNotifItem" data-on-click-args="${qa([(''+(i.reqId)), (''+(i.kind)), (''+(i.key||''))])}">
-      <span class="bell-ico">${icon[i.kind]}</span>
+      <span class="bell-ico">${icon[i.kind] || '🔔'}</span>
       <div style="flex:1;min-width:0;">
         <div class="bell-title">${escH(i.title)}${i.overdue ? ' <span class="bell-late">⏰ متأخر</span>' : ''}</div>
         <div class="bell-sub">${i.kind==='structure' ? highlightIssueText(i.sub) : escH(i.sub)}</div>
