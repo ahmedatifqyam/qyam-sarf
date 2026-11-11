@@ -5586,6 +5586,18 @@ function renderAttachmentsModal(){
 // مرفقات طلب كاملة للطباعة: صفحات جاهزة (صور data) لكل مستفيد
 async function attCollectForRequest(req){
   const out = [];
+  // أوراق الاعتماد الورقي الموقعة: تُطبع مع مرفقات الطلب
+  for(const st of (req.approvalSteps||[]).filter(x=>x.method==='paper' && x.paperPath && ['approved','rejected'].includes(x.status))){
+    try{
+      const sg = await db.storage.from('attachments').createSignedUrl(st.paperPath, 300);
+      if(sg.error || !sg.data) throw new Error((sg.error && sg.error.message) || 'تعذّر الفتح');
+      const rs = await fetch(sg.data.signedUrl); if(!rs.ok) throw new Error('تعذّر التحميل');
+      const blob = await rs.blob(), mime = /\.pdf$/i.test(st.paperPath) ? 'application/pdf' : (blob.type || 'image/jpeg');
+      const pages = await attBlobToPages(blob, mime);
+      const who = (userById(st.approverId)||{}).name || '', d = String(st.paperSignedAt||'').split('-').reverse().join('-');
+      pages.forEach((u,i)=>out.push({name: who, img: u, label: (st.status==='rejected' ? 'ورقة الرفض الورقي' : 'ورقة الاعتماد الورقي') + ' — ' + d + (pages.length>1 ? ' (' + (i+1) + '/' + pages.length + ')' : '')}));
+    }catch(e){ showToast('تعذّر تجهيز ورقة الاعتماد الورقي للطباعة: ' + e.message, 'error'); }
+  }
   const byName = []; const seen = {};
   req.beneficiaries.forEach(b=>{
     const mst = state.beneficiaries.find(x=>x.name===b.name && x.id);
