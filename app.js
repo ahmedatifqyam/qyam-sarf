@@ -13650,18 +13650,21 @@ function renderNewRequest(app){
       ${docBox}
       <div class="nr-f nr-wide"><label>سبب تفصيلي (اختياري)</label>
         <textarea id="detailedReasonInput" class="grow-1" rows="1" placeholder="فارغ = يُستخدم عنوان الطلب">${escH(d.detailedReason||'')}</textarea></div>
-      <div class="nr-f nr-wide"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
+      <div class="nr-bi-row nr-wide">
+      <div class="nr-bi-col">
+      <div class="nr-f"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
       <select id="budgetItemSelect" data-on-change="onBudgetItemSelectChange" style="width:100%;">
         <option value="">اختر البند</option>
         ${(state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId && b.is_active!==false).map(b=>
           `<option value="${b.id}"${(d.budgetItemId===b.id)?' selected':''}>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('')}
         <option value="${UNSPECIFIED_BUDGET}"${(d.budgetItemId===UNSPECIFIED_BUDGET)?' selected':''}>⚠️ بند غير محدد — يُستكمل قبل الصرف</option>
       </select></div>
-      <div id="budgetItemBalanceBox" class="nr-wide" style="display:none;"></div>
-      <div class="nr-rec-row nr-wide">
-        <label class="check-line nr-rec"><input id="recurringCheck" type="checkbox" style="width:auto;" ${d.isRecurring ? 'checked' : ''}> طلب متكرر مستقبلاً</label>
+      <div id="budgetItemBalanceBox" style="display:none;"></div>
+      </div>
+      <div class="nr-rec-row">
+        <label class="check-line nr-rec"><input id="recurringCheck" type="checkbox" style="width:auto;" ${d.isRecurring ? 'checked' : ''}><span class="nr-rec-t">طلب متكرر مستقبلاً<small class="nr-rec-hint">مثل الرواتب الشهرية</small></span></label>
         ${docBtn('nr-dt-ph')}
-        <div class="nr-rec-hint">مثل الرواتب الشهرية</div>
+      </div>
       </div>
 
       <div class="nr-sec nr-wide">المستفيدون</div>
