@@ -5181,8 +5181,12 @@ async function pushPaint(){
   if(Notification.permission==='denied'){ box.innerHTML = 'الإشعارات محظورة لهذا الموقع. افتح إعدادات المتصفح للموقع وغيّرها إلى «سماح»، ثم ارجع هنا.'; return; }
   let sub = null;
   try{ const reg = await navigator.serviceWorker.ready; sub = await reg.pushManager.getSubscription(); }catch(e){}
+  let allOn = false;
+  if(sub && state.user && state.user.role==='admin'){ try{ const q = await db.from('push_subscriptions').select('all_requests').eq('endpoint', sub.endpoint).maybeSingle(); allOn = !!(q.data && q.data.all_requests); }catch(e){} }
+  const adminOpt = (sub && state.user && state.user.role==='admin')
+    ? `<label class="check-line" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-weight:700;color:var(--text);"><input id="pushAllOn" type="checkbox" style="width:auto;" ${allOn?'checked':''} data-on-change="pushToggleAll"> إشعار بكل طلب جديد في النظام (لمدير النظام)</label>` : '';
   box.innerHTML = sub
-    ? `<div style="margin-bottom:8px;color:var(--green,#15803d);font-weight:700;">✅ مفعّلة على هذا الجهاز</div>${btn('pushDisable','إيقاف الإشعارات على هذا الجهاز','btn-ghost')}`
+    ? `<div style="margin-bottom:8px;color:var(--green,#15803d);font-weight:700;">✅ مفعّلة على هذا الجهاز</div>${adminOpt}${btn('pushDisable','إيقاف الإشعارات على هذا الجهاز','btn-ghost')}`
     : `<div style="margin-bottom:8px;">غير مفعّلة على هذا الجهاز.</div>${btn('pushEnable','تفعيل الإشعارات على هذا الجهاز')}`;
 }
 async function pushEnable(){
@@ -5200,6 +5204,15 @@ async function pushEnable(){
     showToast('فُعّلت الإشعارات على هذا الجهاز','success');
   }catch(e){ showToast('تعذّر تفعيل الإشعارات: '+(e&&e.message||e),'error'); }
   pushPaint();
+}
+async function pushToggleAll(){
+  try{
+    const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if(!sub) return;
+    const on = !!(document.getElementById('pushAllOn')||{}).checked;
+    const r = await db.rpc('qy_push_set_all', {p_endpoint:sub.endpoint, p_on:on});
+    if(!(await dbCheck(r, 'حفظ خيار الإشعارات'))) return;
+    showToast(on ? 'ستصلك إشعارات بكل طلب جديد' : 'أُوقفت إشعارات كل طلب جديد','success');
+  }catch(e){ showToast('تعذّر الحفظ: '+(e&&e.message||e),'error'); }
 }
 async function pushDisable(){
   try{

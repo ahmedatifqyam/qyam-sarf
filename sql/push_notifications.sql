@@ -178,3 +178,56 @@ begin
 end $$;
 revoke all on function public.qy_push_flush() from public, anon, authenticated;
 grant all on public.push_config, public.push_subscriptions, public.push_outbox to service_role;
+
+-- (إضافة) مدير النظام: خيار «إشعار بكل طلب جديد» لكل جهاز
+alter table public.push_subscriptions add column if not exists all_requests boolean not null default false;
+create or replace function public.qy_push_set_all(p_endpoint text, p_on boolean) returns void
+language plpgsql security definer set search_path to 'public','pg_temp' as $$
+begin
+  if not exists (select 1 from public.users u where u.id = public.qy_me() and u.role = 'admin') then raise exception 'للمدير فقط'; end if;
+  update public.push_subscriptions set all_requests = coalesce(p_on,false) where endpoint = p_endpoint and user_id = public.qy_me();
+end $$;
+revoke all on function public.qy_push_set_all(text,boolean) from public, anon;
+grant execute on function public.qy_push_set_all(text,boolean) to authenticated;
+create or replace function public.qy_push_new() returns trigger
+language plpgsql security definer set search_path to 'public','pg_temp' as $$
+declare v_ids text[];
+begin
+  select coalesce(array_agg(distinct s.user_id), '{}') into v_ids from public.push_subscriptions s join public.users u on u.id = s.user_id
+   where s.all_requests and u.role = 'admin' and s.user_id is distinct from new.created_by_id;
+  perform public.qy_push_enqueue(v_ids, 'طلب جديد في النظام', null, 'new', new.id, new.id, greatest(now(), coalesce(new.review_until, now())));
+  return new;
+end $$;
+drop trigger if exists qy_push_new_t on public.requests;
+create trigger qy_push_new_t after insert on public.requests for each row execute function public.qy_push_new();
+
+create or replace function public.qy_push_flush() returns int
+language plpgsql security definer set search_path to 'public','pg_temp','extensions' as $$
+declare v_url text; v_secret text; v_items jsonb; v_n int := 0;
+begin
+  select value into v_url from public.push_config where key = 'push_url';
+  select value into v_secret from public.push_config where key = 'push_secret';
+  if v_url is null or v_secret is null then return 0; end if;
+  delete from public.push_outbox where created_at < now() - interval '7 days';
+  create temp table if not exists _qy_due(id bigint) on commit drop;
+  truncate _qy_due;
+  insert into _qy_due select id from public.push_outbox where sent_at is null and send_after <= now() order by id limit 200 for update skip locked;
+  -- قديمة (أكثر من 6 ساعات) أو لم يعد الإجراء مطلوباً: تُهمل
+  update public.push_outbox o set sent_at = now() from _qy_due d where o.id = d.id and (
+    o.send_after < now() - interval '6 hours'
+    or (o.kind = 'step' and not exists (select 1 from public.request_approval_steps s join public.requests r on r.id = s.request_id
+         where s.id = split_part(o.ref,':',1) and s.status = 'pending' and not coalesce(r.is_cancelled,false) and r.status = 'pending_decision'
+           and (r.review_until is null or r.review_until <= now())))
+    or (o.kind = 'new' and not exists (select 1 from public.requests r where r.id = o.request_id and not coalesce(r.is_cancelled,false)))
+    or (o.kind = 'acc' and not exists (select 1 from public.requests r where r.id = o.request_id and not coalesce(r.is_cancelled,false)
+         and r.status = o.ref and (r.review_until is null or r.review_until <= now()))));
+  update public.push_outbox o set body = r.number from _qy_due d, public.requests r where o.id = d.id and o.kind = 'new' and o.sent_at is null and r.id = o.request_id;
+  select coalesce(jsonb_agg(jsonb_build_object('user_id',o.user_id,'title',o.title,'body',o.body,'url',o.url,'tag',o.tag)), '[]'::jsonb), count(*)
+    into v_items, v_n from public.push_outbox o join _qy_due d on d.id = o.id where o.sent_at is null;
+  if v_n > 0 then
+    perform net.http_post(url := v_url, headers := jsonb_build_object('Content-Type','application/json','x-push-secret',v_secret), body := jsonb_build_object('items', v_items));
+    update public.push_outbox o set sent_at = now() from _qy_due d where o.id = d.id and o.sent_at is null;
+  end if;
+  return v_n;
+end $$;
+revoke all on function public.qy_push_flush() from public, anon, authenticated;
