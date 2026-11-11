@@ -6961,7 +6961,8 @@ function renderMobileTabs(){
     .filter(b=>!/^[→←\s]*رجوع\s*$/.test((b.textContent||'').trim()));
   const isMain = b => /btn-(primary|approve)/.test(b.className) && !b.disabled;
   // الزر الرئيسي يبقى في الوسط حتى لو كان معطّلاً (يظهر باهتاً ويقول سببه عند الضغط) — لا يأخذ «إلغاء» مكانه
-  const main = acts.find(isMain) || acts.find(b=>/btn-(primary|approve)/.test(b.className)) || acts.find(b=>!b.disabled) || null;
+  // قرار مطلوب منك (اعتماد / اعتماد ورقي) يتقدّم على «معاينة الطلب» وغيرها في الوسط
+  const main = acts.find(b=>/btn-approve/.test(b.className) && !b.disabled) || acts.find(isMain) || acts.find(b=>/btn-(primary|approve)/.test(b.className)) || acts.find(b=>!b.disabled) || null;
   state._mActs = acts; state._mMain = main ? acts.indexOf(main) : -1;
   const rest = acts.filter(b=>b!==main);
   const isAdminNav = state.user.role==='admin' && !state.impersonatingFromAdmin;
