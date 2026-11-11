@@ -1227,6 +1227,11 @@
   #qyamAssistant .chat-heading h1{
     order:1 !important; direction:rtl; text-align:right; flex:1 1 auto;
   }
+  /* ترويسة أصغر: عنوان أصغر وقرب بينه وبين السطر التحتي */
+  #qyamAssistant .chat-header{padding:8px 14px 10px !important;gap:0 !important;}
+  #qyamAssistant .chat-heading{margin:0 !important;padding:0 !important;}
+  #qyamAssistant .chat-heading h1{font-size:17px !important;line-height:1.3 !important;margin:0 !important;}
+  #qyamAssistant .chat-header p{margin:2px 0 0 !important;font-size:12.5px !important;line-height:1.35 !important;}
   /* الرسمة التي أرسلتها (سهم 32px) هي فقاعة التبديل نفسها: تتحول إلى سهم "إغلاق"
      حين تُفتح النافذة، وتقف أسفل النافذة عند طرفها الأيمن. نثبّت اتجاه الغلاف
      على ltr ليكون flex-start هو اليسار دائماً، ونعيد rtl للنافذة ومحتواها. */
@@ -2322,6 +2327,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=f07084390c"></script>
+<script src="app.js?v=50ddef3713"></script>
 </body>
 </html>
