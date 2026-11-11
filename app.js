@@ -1159,7 +1159,7 @@ function computeNotifications(){
     let last = null;
     (r.history||[]).forEach(h=>{
       if(h.userId===me) return;
-      if(!['اعتماد','رفض الطلب','تم الصرف'].includes(h.action)) return;
+      if(!['اعتماد','اعتماد ورقي','رفض الطلب','تم الصرف'].includes(h.action)) return;
       if(h.action==='رفض الطلب' && r.status!=='rejected') return;   // رُفض ثم أُعيد إرساله: لا داعي للتنبيه القديم
       const ts = tsOf(h.createdAt);
       if(ts<horizon) return;
@@ -1167,7 +1167,7 @@ function computeNotifications(){
     });
     if(!last) return;
     const {h, ts} = last;
-    let kind = 'approved', title = 'تم اعتماد طلبك', extra = '';
+    let kind = 'approved', title = h.action==='اعتماد ورقي' ? 'اعتُمد طلبك ورقياً' : 'تم اعتماد طلبك', extra = h.action==='اعتماد ورقي' && h.note ? ' — '+h.note : '';
     if(h.action==='رفض الطلب'){ kind = 'rejected'; title = 'رُفض طلبك'; extra = h.note ? ' — السبب: '+h.note : ''; }
     else if(h.action==='تم الصرف' || r.status==='completed'){ kind = 'paid'; title = 'تم صرف طلبك'; }
     items.push({key:'e:'+r.id+':'+ts, kind, reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey('e:'+r.id+':'+ts)), overdue:false,
@@ -7015,12 +7015,35 @@ function renderMobileTabs(){
     slot5,
   ];
   const pulse = !!state._pathPulse; state._pathPulse = false;
+  // صفحة فيها أزرار: سطران — الأعلى أزرار الصفحة كلها بأسمائها (لا «المزيد»)، والأسفل أيقونات التنقّل بلا كلام
+  if(acts.length){
+    const clean = t => String(t||'').replace(/^[^\p{L}\p{N}]+/u,'').replace(/\s+/g,' ').trim();
+    const kind = b => /btn-approve/.test(b.className) ? 'ok' : /btn-reject/.test(b.className) ? 'no' : /btn-(primary|warning)/.test(b.className) ? 'pri' : 'gh';
+    const order = acts.map((b,i)=>i).sort((x,y)=>{ const r = b=>({ok:0,pri:1,gh:2,no:3})[kind(acts[b])]; return r(x)-r(y); });
+    const cols = Math.min(3, acts.length);
+    const nav = [
+      {key:'menu', ico:'menu', label:'القائمة', on:open, act: open ? [["closeNavDrawer",[]]] : [["openNavDrawer",[]]]},
+      {key:'dashboard', ico:'clip', label:'الطلبات', on:['dashboard','detail'].includes(state.view) && !open, dot:(typeof getMyPendingRequests==='function' ? getMyPendingRequests().length : 0), act:[["#13",[]]]},
+      newItem, accItem
+    ].concat(hasPath ? [{key:'path', ico:'route', label:'المسار', on:!!state.cusPathOpen, act:[["cusPathToggle",[]]]}] : ((typeof viewAllowed!=='function' || viewAllowed('custodyList')) ? [cusListItem] : []));
+    el.innerHTML = `<div class="mtab-acts" style="--mta-cols:${cols};">${order.map(i=>{ const b = acts[i];
+        return `<button type="button" class="mta mta-${kind(b)}${b.disabled ? ' mta-off' : ''}" ${qon('click', [["mTabAct",[i]]])} title="${escH(b.getAttribute('title')||clean(b.textContent))}">${escH(({'رفض لأسباب محاسبية':'رفض'})[clean(b.textContent)] || mShortLbl(clean(b.textContent)))}</button>`; }).join('')}</div>
+      <div class="mtab-in mtab-icons">${nav.map(it=>`
+        <button type="button" class="mtab-btn${it.on?' active':''}${it.key==='path' && pulse ? ' mtab-pulse':''}" data-k="${it.key}" ${qon('click', it.act)} aria-label="${escH(it.label)}" title="${escH(it.label)}">
+          <span class="mtab-ico">${qiOr(it.ico)}</span>
+          ${it.dot ? `<span class="mtab-dot">${it.dot>99?'99+':it.dot}</span>` : ''}
+        </button>`).join('')}</div>`;
+    document.body.style.setProperty('--mtab-h', (el.offsetHeight || 104) + 'px');
+    return;
+  }
   el.innerHTML = `<div class="mtab-in">${items.map(it=>`
     <button type="button" class="mtab-btn${it.on?' active':''}${it.main?' mtab-main':''}${it.off?' mtab-off':''}${it.key==='path' && pulse ? ' mtab-pulse':''}" data-k="${it.key}" ${qon('click', it.act)} aria-label="${escH(it.label)}">
       <span class="mtab-ico">${qiOr(it.ico)}</span><span>${escH(it.label)}</span>
       ${it.dot ? `<span class="mtab-dot">${it.dot>99?'99+':it.dot}</span>` : ''}
     </button>`).join('')}</div>`;
+  document.body.style.setProperty('--mtab-h', (el.offsetHeight || 56) + 'px');
 }
+function mTabAct(i){ const b = (state._mActs||[])[i]; if(!b) return; if(b.disabled){ showToast(b.getAttribute('title') || 'هذا الزر غير متاح الآن', 'error'); return; } b.click(); }
 // على الهاتف: عنوان الصفحة الكبير يُخفى إن كان يكرّر التبويب المختار
 // ===== تهذيب عام للصفحات (10 نوفمبر): ⓘ للشروح، اسم الحقل بجانبه على الهاتف، الجداول، مؤشر التمرير =====
 // الشرح الطويل يُطوى خلف ⓘ بجانب عنوانه؛ يُحفظ ما فتحه المستخدم حتى يعيد الضغط
@@ -15849,7 +15872,7 @@ function renderDetail(app){
   const myTurnHtml = turn ? `<div class="my-turn no-print">
       <div class="my-turn-t">⏳ بانتظارك الآن: <b>${escH(turn[0])}</b></div>
       <button type="button" class="btn btn-approve btn-md" ${turn[1]==='paperRecordOpen' ? `data-on-click="paperRecordOpen" data-on-click-args="${qa([(''+req.id), 'approve'])}"` : `data-on-click="${turn[1]}"`}>${escH(turn[1]==='paperRecordOpen' ? 'اعتماد ورقي' : turn[1]==='markDisbursedFix' ? 'تأكيد الصرف' : req.status==='pending_transfer_request' ? 'تسجيل التحويل' : 'اعتماد')}</button>
-      <div class="my-turn-h">${req.status==='pending_decision' || pMine ? 'وللرفض: زر «رفض» أسفل الطلب (وفي «المزيد» بالهاتف).' : 'وللرفض لأسباب محاسبية: أسفل الطلب (وفي «المزيد» بالهاتف).'}</div>
+      <div class="my-turn-h">${req.status==='pending_decision' || pMine ? 'وللرفض: زر «رفض» أسفل الطلب وفي الشريط السفلي.' : 'وللرفض لأسباب محاسبية: زره أسفل الطلب وفي الشريط السفلي.'}</div>
     </div>` : '';
 
   // الاعتماد الورقي: أزرار المسجِّل، وتنبيه لكل من يرى الطلب، وروابط الأوراق الموقعة
