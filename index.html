@@ -2032,6 +2032,15 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .btn{font-size:calc(var(--btn-fs) - 1px);font-weight:700 !important;padding-left:4px !important;padding-right:4px !important;}
   .btn .bl2{font-weight:600 !important;}
   @media (max-width:699px){ .btn{padding-left:2px !important;padding-right:2px !important;} }
+
+  /* المسار المطوي في سطح المكتب: زر صغير برمز المسار وكلمة «المسار» (مثل زر الهاتف) */
+  .req-wrap.closed .req-side{width:auto;height:auto;bottom:auto;padding:0;background:transparent;border:0;box-shadow:none;}
+  .req-side-open{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:64px;height:64px;box-sizing:border-box;
+    border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(27,39,51,.14);}
+  .req-side-open .qi{width:24px;height:24px;}
+  .req-side-open:hover{background:#eef3f8;}
+  /* شارة «نسخة تجريبية»: طبقة مستقلة ثابتة فلا يتغيّر شكل خطها حين يُفتح المسار أو يُغلق */
+  .test-badge{will-change:transform;backface-visibility:hidden;-webkit-font-smoothing:antialiased;}
 </style>
 </head>
 <body>
@@ -2052,6 +2061,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=339df38ab1"></script>
+<script src="app.js?v=89a4c2e9cf"></script>
 </body>
 </html>

@@ -15023,8 +15023,9 @@ function pathSideWrap(mainHtml, title, stepsHtml){
   const open = reqPathOpen();
   const an = state._reqPathAnim ? ' '+state._reqPathAnim : ''; state._reqPathAnim = '';
   return `<div class="req-wrap${open ? '' : ' closed'}"><div class="req-main">${mainHtml}</div>
-    <aside class="req-side no-print${an}"><div class="req-side-h">${open ? `<b>${escH(title)}</b>` : ''}<button type="button" class="req-side-x" data-on-click="reqPathToggle" title="${open ? 'طيّ المسار' : 'إظهار المسار'}">${open ? '›' : '‹'}</button></div>
-    ${open ? `<div class="stepper path-v">${stepsHtml}</div>` : `<div class="req-side-v" data-on-click="reqPathToggle">${escH(title)}</div>`}</aside></div>`;
+    <aside class="req-side no-print${an}">${open
+      ? `<div class="req-side-h"><b>${escH(title)}</b><button type="button" class="req-side-x" data-on-click="reqPathToggle" title="طيّ المسار">›</button></div><div class="stepper path-v">${stepsHtml}</div>`
+      : `<button type="button" class="req-side-open" data-on-click="reqPathToggle" title="إظهار ${escH(title)}">${qi('route')}<span>المسار</span></button>`}</aside></div>`;
 }
 function renderCustodyPage(app){
   const kc = (state.custodies||[]).find(x=>x.id===state.activeCustodyId);
