@@ -1115,6 +1115,17 @@ function computeNotifications(){
     items.push({key:'p:'+r.id, kind:'pending', reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey('p:'+r.id)), overdue:isOverdueFor(r, me),
       title:(!myDecisionStep(r, me) && paperStepForMe(r)) ? ('بانتظار تسجيل اعتماد ورقي عن '+((userById(paperStepForMe(r).approverId)||{}).name||'')) : 'طلب بانتظار اعتمادك', sub:r.number+' — '+r.reason+' — '+fmtKWDPlain(r.totalAmount)+' — من '+r.createdBy});
   });
+  // أُلغي الاعتماد الورقي لمعتمِد كنتُ مسجِّله: يصلني إشعار في كل طلب كان ينتظرني
+  state.requests.filter(r=>(state.myCompanyIds||[state.currentCompanyId]).includes(r.companyId)).forEach(r=>{
+    (r.history||[]).forEach(h=>{
+      if(h.action!=='إلغاء الاعتماد الورقي' || !h.note || h.userId===me) return;
+      const ids = (h.note.split('|ids:')[1]||'').split(','); if(!ids.includes(me)) return;
+      const ts = tsOf(h.createdAt); if(ts < Date.now()-14*86400000) return;
+      const key = 'po:'+r.id+':'+ts;
+      items.push({key, kind:'paper_off', reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey(key)), overdue:false,
+        title:'أُلغي الاعتماد الورقي '+h.note.split('|ids:')[0].replace(/ — .*$/,'')+' — لم يعد عليك تسجيله', sub:r.number+' — '+r.reason});
+    });
+  });
   // الاعتماد الورقي في شركات أخرى أعمل فيها (المسجِّل العام): لا يُفوَّت لأن الشركة المختارة غيرها
   (state.myCompanyIds||[]).filter(c=>c!==state.currentCompanyId).forEach(cid=>{
     const coName = (state.companies.find(c=>c.id===cid)||{}).nameAr || '';
@@ -5038,8 +5049,10 @@ async function finalizePaper(req, step, rej, path, date, note){
   const upd = {status: rej ? 'rejected' : 'approved', acted_at: nowIso, method:'paper', paper_path:path, paper_signed_at:date, recorded_by:me};
   if(rej) upd.note = note;
   const r = await db.from('request_approval_steps').update(upd).eq('id', step.id).eq('status','pending').select('id');
-  if(!(await dbCheck(r, rej ? 'تسجيل الرفض الورقي' : 'تسجيل الاعتماد الورقي'))){ render(); return; }
-  if(!r.data || !r.data.length){ showToast('المرحلة لم تعد بانتظار التسجيل (ربما حسمها غيرك). حدّث الصفحة.','error'); render(); return; }
+  // رُفض التسجيل: الورقة المرفوعة لا تبقى معلّقة في التخزين
+  const dropFile = ()=>{ db.storage.from('attachments').remove([path]).catch(()=>{}); };
+  if(!(await dbCheck(r, rej ? 'تسجيل الرفض الورقي' : 'تسجيل الاعتماد الورقي'))){ dropFile(); render(); return; }
+  if(!r.data || !r.data.length){ dropFile(); showToast('المرحلة لم تعد بانتظار التسجيل (ربما حسمها غيرك أو أُلغي الاعتماد الورقي). حدّث الصفحة.','error'); render(); return; }
   Object.assign(step, {status:upd.status, actedAt:nowIso, method:'paper', paperPath:path, paperSignedAt:date, recordedBy:me});
   const group = currentDecisionGroup(req).concat([]);
   for(const o of (req.approvalSteps||[]).filter(x=>x!==step && x.status==='pending' && x.sequenceOrder===step.sequenceOrder)){
@@ -5102,15 +5115,36 @@ function paperSettingsCard(u, adminView){
     ${adminView ? `<div class="actions-row no-bar"><button type="button" class="btn btn-primary btn-md" data-on-click="savePaperSettings" data-on-click-args="${qa([(''+u.id)])}">حفظ الاعتماد الورقي</button></div>` : '<p class="file-hint" style="margin:8px 0 0;">يُحفظ مع زر «حفظ» أسفل الصفحة.</p>'}
   </div>`;
 }
+// طلبات تنتظر الآن تسجيلاً ورقياً عن هذا المعتمِد
+function paperPendingFor(uid){
+  return state.requests.filter(r=>r.status==='pending_decision' && !r.isCancelled && !isUnderReview(r) && currentDecisionGroup(r).some(s=>s.approverId===uid));
+}
+// قبل إلغاء الاعتماد الورقي: تنبيه بما ينتظر، ثم إشعار للمسجِّلين في سجل كل طلب
+async function paperConfirmOff(u){
+  if(!u || !u.paperApproval) return true;
+  const list = paperPendingFor(u.id); if(!list.length) return true;
+  const ok = await askModal({title:'إلغاء الاعتماد الورقي', confirm:'إلغاء الاعتماد الورقي',
+    text:`${state.user.id===u.id ? 'لديك' : 'لدى '+escH(u.name)} ${list.length} ${list.length===1 ? 'طلب' : 'طلبات'} بانتظار تسجيل ورقي. بعد الإلغاء ${list.length===1 ? 'يعود' : 'تعود'} للاعتماد من النظام مباشرة، ويُبلَّغ المسجِّلون بذلك.`});
+  return !!ok;
+}
+async function paperNotifyOff(u, oldIds){
+  const list = paperPendingFor(u.id); if(!list.length || !(oldIds||[]).length) return;
+  for(const r of list){
+    await pushHistory(r, {step:r.status, actor:state.user.name, userId:state.user.id, action:'إلغاء الاعتماد الورقي', note:'لـ '+u.name+' — يعتمد من النظام مباشرة|ids:'+oldIds.join(','), time:fmtDate()});
+  }
+}
 function paperToggleUi(){ const on = !!(document.getElementById('paperOn')||{}).checked; [0,1,2].forEach(i=>{ const s = document.getElementById('paperProxy'+i); if(s) s.disabled = !on; }); }
 async function savePaperSettings(uid){
   const u = state.users.find(x=>x.id===uid); if(!u) return;
   const on = !!(document.getElementById('paperOn')||{}).checked;
   const ids = [...new Set([0,1,2].map(i=>(document.getElementById('paperProxy'+i)||{}).value||'').filter(Boolean))];
   if(on && !ids.length){ fieldErr(document.getElementById('paperProxy0'), 'اختر مسجِّلاً واحداً على الأقل'); return; }
+  const oldIds = (u.paperProxyIds||[]).slice(), turningOff = u.paperApproval && !on;
+  if(turningOff && !(await paperConfirmOff(u))) return;
   const r = await db.from('users').update({paper_approval:on, paper_proxy_ids: on ? ids : []}).eq('id', uid).select('id');
   if(!(await dbCheck(r, 'حفظ الاعتماد الورقي'))) return;
   if(!r.data || !r.data.length){ showToast('تعذّر الحفظ: لا صلاحية لتعديل هذا الحساب','error'); return; }
+  if(turningOff) await paperNotifyOff(u, oldIds);
   u.paperApproval = on; u.paperProxyIds = on ? ids : [];
   qyLog('paper_settings', (on ? 'تفعيل' : 'إيقاف') + ' الاعتماد الورقي لـ ' + u.name, ids.map(id=>(userById(id)||{}).name||id).join('، '));
   showToast(on ? 'فُعّل الاعتماد الورقي' : 'أُوقف الاعتماد الورقي', 'success');
@@ -5789,10 +5823,13 @@ async function saveAccount(){
     const pIds = [...new Set([0,1,2].map(i=>(document.getElementById('paperProxy'+i)||{}).value||'').filter(Boolean))];
     if(pOn && !pIds.length){ const pc = document.getElementById('paperCard'); if(pc && pc.dataset.accsec) setAccountSec(+pc.dataset.accsec); fieldErr(document.getElementById('paperProxy0'), 'اختر مسجِّلاً واحداً على الأقل للاعتماد الورقي'); return; }
     updates.paper_approval = pOn; updates.paper_proxy_ids = pOn ? pIds : [];
+    if(me.paperApproval && !pOn && !(await paperConfirmOff(me))) return;
   }
+  const _paperOffIds = (paperOnEl && me.paperApproval && !updates.paper_approval) ? (me.paperProxyIds||[]).slice() : null;
   const updResult = await db.from('users').update(updates).eq('id', me.id).select('id');
   if(!(await dbCheck(updResult, 'حفظ بيانات الحساب'))) return;
   if(!updResult.data || !updResult.data.length){ showToast('لم يُحفظ شيء: لا صلاحية لتعديل هذا الحساب','error'); return; }
+  if(_paperOffIds) await paperNotifyOff(me, _paperOffIds);
   if(paperOnEl){ me.paperApproval = updates.paper_approval; me.paperProxyIds = updates.paper_proxy_ids; }
   // مهلة إغلاق الدخول (عمود منفصل: إن لم يُشغَّل ملف SQL 7 بعد لا يفشل حفظ بقية البيانات)
   const idleEl = document.getElementById('accIdle');
@@ -9604,7 +9641,7 @@ function renderAdmin(app){
         ${avatarHtml(u.id, u.name, 'u-av u-av-md')}
         <div class="li-main">
           <b>${escH(u.name)}</b>
-          <span>${escH(findRole(u.role).name)} · ${escH(getUserUnit(u))} · هاتف: ${escH(u.phone)} · الشركة: ${escH((state.companies.find(c=>c.id===u.companyId)||{}).nameAr || '⚠️ غير محددة')}${u.isGeneral ? ' · 🌐 مستخدم عام' : (u.companyId!==state.currentCompanyId ? ' · 🔗 مربوط من شركة أخرى' : '')}${u.noNextApprover||u.noRequestApprover ? ' · ⏹ مسار ينتهي عنده' : ''}</span>
+          <span>${escH(findRole(u.role).name)} · ${escH(getUserUnit(u))} · هاتف: ${escH(u.phone)} · الشركة: ${escH((state.companies.find(c=>c.id===u.companyId)||{}).nameAr || '⚠️ غير محددة')}${u.isGeneral ? ' · 🌐 مستخدم عام' : (u.companyId!==state.currentCompanyId ? ' · 🔗 مربوط من شركة أخرى' : '')}${u.paperApproval ? ' · <span class="paper-tag">📄 اعتماد ورقي — يسجّله: '+escH(paperProxiesOf(u.id).map(x=>x.name).join('، '))+'</span>' : ''}${u.noNextApprover||u.noRequestApprover ? ' · ⏹ مسار ينتهي عنده' : ''}</span>
         </div>
         <div style="display:flex;gap:10px;">
           <button class="btn btn-ghost btn-xs" data-on-click="editUser" data-on-click-args="${qa([(''+(u.id))])}">تعديل</button>
@@ -12158,7 +12195,7 @@ function showPathPreview(){
   const {chain, error} = computeApprovalChainPreview(sel.value, state.currentCompanyId);
   const host = document.getElementById('pathPreviewResult');
   if(!host) return;
-  const names = chain.map(u=>escH(u.name)+' ('+escH(findRole(u.role).name)+')');
+  const names = chain.map(u=>(isPaperApprover(u.id) ? '📄 ' : '')+escH(u.name)+' ('+escH(findRole(u.role).name)+')'+(isPaperApprover(u.id) ? ' — ورقي' : ''));
   host.innerHTML = `
     ${names.length ? `<div style="font-size:13.5px;">${names.join(' <span style="color:var(--muted);">←</span> ')}</div>` : (((state.users.find(u=>u.id===sel.value)||{}).directToTransfer) ? '<div class="sub">لا معتمِد فوقه — هذا المستخدم في أعلى السلسلة («الانتقال المباشر»)، فيُحسب إنشاؤه الطلب اعتماداً له ثم ينتقل للمحاسب.</div>' : '<div class="sub" style="color:var(--red);">⛔ لا يوجد معتمِد لهذا المستخدم — لا يمكنه رفع طلب حتى يُحدَّد له معتمِد.</div>')}
     ${error ? `<div style="color:var(--red);font-size:12.5px;margin-top:6px;">⛔ ${escH(error)}</div>` : ''}
@@ -15546,7 +15583,7 @@ function custodyMobileHtml(kc, req, act){
       ${act}
       ${sec('lines', `السندات <span class="cnt">${L.length}</span>`, L.length ? `<div class="mcus-lines">${rows}</div>` : '<div class="empty" style="margin:8px 0;">لا سندات بعد' + (canAdd ? ' — اضغط «📷 سند جديد» في الأسفل' : '') + '</div>', true)}
       ${lim ? sec('limit', 'حد الصرف فوق العهدة', lim, false) : ''}
-      ${sec('hist', 'سجل الطلب والعهدة', H.map(h=>`<div class="history-item"><div class="t">${h.time}</div><div><b>${escH(h.actor)}</b> — ${escH(h.action)}${h.note ? `<div style="color:var(--red);margin-top:2px;">${escH(h.note)}</div>` : ''}</div></div>`).join(''), false)}
+      ${sec('hist', 'سجل الطلب والعهدة', H.map(h=>`<div class="history-item"><div class="t">${h.time}</div><div><b>${escH(h.actor)}</b> — ${escH(h.action)}${h.note ? `<div style="color:var(--red);margin-top:2px;">${escH(String(h.note).split('|ids:')[0])}</div>` : ''}</div></div>`).join(''), false)}
     </div>
     ${state.cusPathOpen ? mpathHtml('مسار العهدة', custodyLifeStepperHtml(req, kc)) : ''}`;
 }
@@ -15661,7 +15698,7 @@ function renderCustodyPage(app){
           <div class="history-item">
             <div class="t">${h.time}</div>
             <div><b>${escH(h.actor)}</b> — ${escH(h.action)} <span style="color:var(--muted);">(${escH(STEP_LABELS[h.step]||h.step)})</span>
-              ${h.note ? `<div style="color:var(--red);margin-top:2px;">${escH(h.note)}</div>` : ''}
+              ${h.note ? `<div style="color:var(--red);margin-top:2px;">${escH(String(h.note).split('|ids:')[0])}</div>` : ''}
             </div>
           </div>`).join('')}
       </details>
@@ -15785,7 +15822,7 @@ function renderDetail(app){
       const h = req.history.find(h=>h.action==='رفض الطلب' && h.userId===noRow.approverId);
       info = {name:'✕ مرفوض', time: h?h.note:'', rejected:true};
     }
-    return {key:'decision_'+i, label, info, order:ord, uid: okRow ? okRow.approverId : primary.approverId};
+    return {key:'decision_'+i, label, info, order:ord, uid: okRow ? okRow.approverId : primary.approverId, paper: !!(okRow ? okRow.method==='paper' : isPaperApprover(primary.approverId))};
   });
   // ذيل تنفيذي ثابت لكل الطلبات
   const tailKeys = ['pending_transfer_request','pending_transfer_approval','pending_disbursement','completed'];
@@ -15834,7 +15871,7 @@ function renderDetail(app){
     }
     const info = d.info;
     // صورة المعتمِد (إن رفع صورته) داخل دائرة الخطوة مكان الرقم، فلا تزيد المساحة
-    return `<div class="${cls}">${stepDotHtml(d.uid, i+1)}<p>${escH(d.label)}</p>${info ? `<span class="step-approver" style="${info.rejected?'color:var(--red);':''}">${escH(info.name)}</span><span class="step-approve-time">${escH(info.time)}</span>` : ''}</div>`;
+    return `<div class="${cls}${d.paper ? ' step-paper' : ''}">${stepDotHtml(d.uid, i+1)}<p>${escH(d.label)}</p>${info ? `<span class="step-approver" style="${info.rejected?'color:var(--red);':''}">${escH(info.name)}</span><span class="step-approve-time">${escH(info.time)}</span>` : ''}</div>`;
   }).join('');
 
   const canAct = canActOn(req);
@@ -15983,7 +16020,7 @@ function renderDetail(app){
           <div class="history-item">
             <div class="t">${h.time}</div>
             <div><b>${escH(h.actor)}</b> — ${escH(h.action)} <span style="color:var(--muted);">(${escH(STEP_LABELS[h.step]||h.step)})</span>
-              ${h.note ? `<div style="color:var(--red);margin-top:2px;">${escH(h.note)}</div>` : ''}
+              ${h.note ? `<div style="color:var(--red);margin-top:2px;">${escH(String(h.note).split('|ids:')[0])}</div>` : ''}
             </div>
           </div>`).join('')}
       </div>
