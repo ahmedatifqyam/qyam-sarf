@@ -4972,7 +4972,9 @@ function paperStepForMe(req){
 // الخطوة الحالية لمعتمِد ورقي (لأي ناظر): لعرض التنبيه
 function paperStepNow(req){
   if(!req || req.status!=='pending_decision') return null;
-  return currentDecisionGroup(req).find(s=>isPaperApprover(s.approverId)) || null;
+  const me = state.user && state.user.id;
+  // لا يظهر لصاحب القرار نفسه (يعتمد بنفسه) ولا لمسجِّليه (عندهم «بانتظارك الآن»)
+  return currentDecisionGroup(req).find(s=>isPaperApprover(s.approverId) && s.approverId!==me && !paperProxiesOf(s.approverId).some(u=>u.id===me)) || null;
 }
 function waLink(phone){ const d = String(phone||'').replace(/\D/g,''); if(!d) return ''; return 'https://wa.me/' + (d.length===8 ? '965'+d : d.replace(/^00/,'')); }
 // صندوق التنبيه: من يعتمد ورقياً، وزر الطباعة والتواصل مع المسجِّلين
