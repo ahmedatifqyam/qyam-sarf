@@ -314,7 +314,8 @@ function noteSelfApproval(req){
 }
 function mapStepRow(s){
   return {id:s.id, approverId:s.approver_id, sequenceOrder:s.sequence_order, roleLabel:s.role_label, status:s.status, actedAt:s.acted_at||null, note:s.note||'',
-          kind:s.kind||'primary', escalatedFrom:s.escalated_from||null, activatedAt:s.activated_at||null};
+          kind:s.kind||'primary', escalatedFrom:s.escalated_from||null, activatedAt:s.activated_at||null,
+          method:s.method||'', paperPath:s.paper_path||'', paperSignedAt:s.paper_signed_at||'', recordedBy:s.recorded_by||''};
 }
 // تخطّي الأدوار المسموح تخطّيها لمبلغ صغير حسب مركز صاحب الطلب (مطابق لدالة الخادم qy_decision_chain)
 function applyFastTrack(creatorUser, total, chain){
@@ -534,7 +535,8 @@ function dbUserToState(u){
     requestApproverId:u.request_approver_id||null, nextApproverId:u.next_approver_id||null, execSubstituteId:u.exec_substitute_id||null,
     isSuspended:!!u.is_suspended, suspendedAt:u.suspended_at||null, suspendedNote:u.suspended_note||'', skipReview:!!u.skip_review,
     isGeneral:!!u.is_general, noRequestApprover:!!u.no_request_approver, noNextApprover:!!u.no_next_approver, directToTransfer:!!u.direct_to_transfer,
-    approvalDeadlineDays:(u.approval_deadline_days===undefined||u.approval_deadline_days===null ? null : Number(u.approval_deadline_days)), escalateMode:u.escalate_mode||'', escalateUserId:u.escalate_user_id||null
+    approvalDeadlineDays:(u.approval_deadline_days===undefined||u.approval_deadline_days===null ? null : Number(u.approval_deadline_days)), escalateMode:u.escalate_mode||'', escalateUserId:u.escalate_user_id||null,
+    paperApproval:!!u.paper_approval, paperProxyIds:Array.isArray(u.paper_proxy_ids) ? u.paper_proxy_ids : []
   };
 }
 function dbCenterToState(c){
@@ -604,7 +606,8 @@ function mapRequestRow(r){
     approvalSteps:(r.request_approval_steps||[]).slice().sort((a,b)=>a.sequence_order-b.sequence_order).map(s=>({
       id:s.id, approverId:s.approver_id, sequenceOrder:s.sequence_order, roleLabel:s.role_label,
       status:s.status, actedAt:s.acted_at, note:s.note||'',
-      kind:s.kind||'primary', escalatedFrom:s.escalated_from||null, activatedAt:s.activated_at||null
+      kind:s.kind||'primary', escalatedFrom:s.escalated_from||null, activatedAt:s.activated_at||null,
+      method:s.method||'', paperPath:s.paper_path||'', paperSignedAt:s.paper_signed_at||'', recordedBy:s.recorded_by||''
     }))
   };
 }
@@ -616,7 +619,7 @@ const USER_COLS = 'id,phone,name,role,center_id,signature_data,stamp_data,email,
   + 'signature_mode,signature_color,signature_width,company_id,'
   + 'stamp_data_2,manager_id,notif_seen_at,job_title,level_id,request_approver_id,'
   + 'next_approver_id,exec_substitute_id,is_general,no_request_approver,no_next_approver,direct_to_transfer,'
-  + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id,is_suspended,suspended_at,suspended_note,skip_review';
+  + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id,is_suspended,suspended_at,suspended_note,skip_review,paper_approval,paper_proxy_ids';
 
 async function reloadUsers(){
   const {data} = await db.from('users').select(USER_COLS);
@@ -761,7 +764,7 @@ function getMyPendingRequests(){
   const role = state.user.role, myId = state.user.id, cid = state.currentCompanyId;
   const list = state.requests.filter(r=>r.companyId===cid && !r.isCancelled && !isUnderReview(r));
   return list.filter(r=>{
-    if(r.status==='pending_decision') return !!myDecisionStep(r, myId);
+    if(r.status==='pending_decision') return !!myDecisionStep(r, myId) || !!paperStepForMe(r);
     if(r.status==='pending_transfer_request' || r.status==='pending_disbursement') return role==='accountant';
     if(r.status==='pending_transfer_approval'){
       const target = cfoApprovalTarget(r);
@@ -1106,7 +1109,7 @@ function computeNotifications(){
   getMyPendingRequests().forEach(r=>{
     const ts = lastEventAt(r);
     items.push({key:'p:'+r.id, kind:'pending', reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey('p:'+r.id)), overdue:isOverdueFor(r, me),
-      title:'طلب بانتظار اعتمادك', sub:r.number+' — '+r.reason+' — '+fmtKWDPlain(r.totalAmount)+' — من '+r.createdBy});
+      title:(!myDecisionStep(r, me) && paperStepForMe(r)) ? ('بانتظار تسجيل اعتماد ورقي عن '+((userById(paperStepForMe(r).approverId)||{}).name||'')) : 'طلب بانتظار اعتمادك', sub:r.number+' — '+r.reason+' — '+fmtKWDPlain(r.totalAmount)+' — من '+r.createdBy});
   });
   // عهدة صُرفت لك بانتظار تأكيد استلامك: إجراء مطلوب منك (يُعدّ مع ما ينتظرك، ويُفتح على صفحة العهدة)
   if(state.custodyReady) custodyAwaitingMine().forEach(k=>{
@@ -4913,6 +4916,187 @@ async function finalizeApprove(req, signatureOverride){
   for(const he of postHist){ await pushHistory(req, he); }
   showToast('تم اعتماد الطلب', 'success');
   render();
+  if(newStatus==='pending_decision') paperAfterApprove(req);
+}
+// ===================== الاعتماد الورقي =====================
+// معتمِد لا يستخدم النظام: يوقّع على الورقة، ويسجّل اعتماده أو رفضه أحد مسجِّليه (حتى ثلاثة) بإرفاق الورقة الموقعة
+function isPaperApprover(uid){ const u = userById(uid); return !!(u && u.paperApproval && (u.paperProxyIds||[]).length); }
+function paperProxiesOf(uid){ const u = userById(uid); return u && u.paperApproval ? (u.paperProxyIds||[]).map(userById).filter(Boolean) : []; }
+// خطوة القرار الحالية التي أنا مسجِّلها الورقي
+function paperStepForMe(req){
+  if(!req || !state.user || req.status!=='pending_decision' || isUnderReview(req) || req.isCancelled) return null;
+  const me = state.user.id;
+  return currentDecisionGroup(req).find(s=>{ const u = userById(s.approverId); return u && u.paperApproval && (u.paperProxyIds||[]).includes(me); }) || null;
+}
+// الخطوة الحالية لمعتمِد ورقي (لأي ناظر): لعرض التنبيه
+function paperStepNow(req){
+  if(!req || req.status!=='pending_decision') return null;
+  return currentDecisionGroup(req).find(s=>isPaperApprover(s.approverId)) || null;
+}
+function waLink(phone){ const d = String(phone||'').replace(/\D/g,''); if(!d) return ''; return 'https://wa.me/' + (d.length===8 ? '965'+d : d.replace(/^00/,'')); }
+// صندوق التنبيه: من يعتمد ورقياً، وزر الطباعة والتواصل مع المسجِّلين
+function paperNoticeHtml(req, step, compact){
+  const ap = userById(step.approverId) || {}, px = paperProxiesOf(step.approverId);
+  const names = px.map(u=>u.name).join(' أو ');
+  return `<div class="note-box paper-note no-print">
+    <b>📄 المرحلة ${compact ? 'الحالية' : 'التالية'}: ${escH(ap.name||'')} يعتمد ورقياً.</b>
+    <div>اطبع الطلب وأرسله له ليوقّعه، أو بلّغ ${escH(names)} — ${px.length>1 ? 'فهم مخوّلون' : 'فهو مخوّل'} بتسجيل اعتماده في النظام.</div>
+    <div class="paper-note-acts">
+      <button type="button" class="btn btn-ghost btn-sm" data-on-click="openPrintPreview" data-on-click-args="${qa([(''+req.id)])}">طباعة الطلب</button>
+      ${px.map(u=>{ const l = waLink(u.phone); return l ? `<a class="btn btn-ghost btn-sm" href="${escH(l)}" target="_blank" rel="noopener">واتساب ${escH(u.name)}</a>` : ''; }).join('')}
+    </div>
+  </div>`;
+}
+// بعد اعتمادي: إن كانت المرحلة التالية ورقية يظهر التنبيه في صندوق عائم
+function paperAfterApprove(req){
+  const st = paperStepNow(req); if(!st) return;
+  const ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.id = 'paperNextModal';
+  ov.innerHTML = `<div class="modal-box" style="max-width:480px;"><h2 style="margin:0 0 8px;">تم الاعتماد</h2>${paperNoticeHtml(req, st, false)}
+    <div class="actions-row"><button type="button" class="btn btn-primary btn-md" data-on-click="paperNextClose">تم</button></div></div>`;
+  document.body.appendChild(ov);
+}
+function paperNextClose(){ const m = document.getElementById('paperNextModal'); if(m) m.remove(); }
+
+// ---- صندوق التسجيل ----
+function paperRecordOpen(reqId, action){
+  const req = state.requests.find(r=>r.id===reqId); if(!req) return;
+  const st = paperStepForMe(req); if(!st){ showToast('لا توجد مرحلة بانتظار تسجيلك. حدّث الصفحة.','error'); return; }
+  const ap = userById(st.approverId) || {}, rej = action==='reject';
+  paperRecordClose();
+  const t = new Date(), today = t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+  const ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.id = 'paperRecModal';
+  ov.dataset.req = reqId; ov.dataset.step = st.id; ov.dataset.act = rej ? 'reject' : 'approve';
+  ov.innerHTML = `<div class="modal-box paper-rec-box" role="dialog">
+      <h2 style="margin:0 0 4px;">${rej ? 'تسجيل رفض ورقي' : 'تسجيل اعتماد ورقي'}</h2>
+      <p class="sub" style="margin:0 0 10px;">عن <b>${escH(ap.name||'')}</b> — الطلب ${escH(req.number||'')}</p>
+      <label>الورقة الموقعة (صورة أو PDF) *</label>
+      <label class="btn btn-ghost btn-sm file-btn" style="width:100%;">اختيار الملف<input id="paperFile" type="file" accept="image/*,application/pdf" hidden data-on-change="paperFilePicked"></label>
+      <div id="paperFileName" class="file-hint"></div>
+      <label>تاريخ التوقيع *</label>
+      <input id="paperDate" type="date" max="${today}" value="${today}">
+      <label>${rej ? 'سبب الرفض *' : 'ملاحظة (اختياري)'}</label>
+      <textarea id="paperNote" rows="2" placeholder="${rej ? 'كما كتبه على الورقة' : ''}"></textarea>
+      <div class="nr-adj-acts">
+        <button type="button" class="btn ${rej ? 'btn-reject' : 'btn-approve'} btn-md" id="paperSaveBtn" data-on-click="paperRecordSave">${rej ? 'تسجيل الرفض' : 'تسجيل الاعتماد'}</button>
+        <button type="button" class="btn btn-ghost btn-md" data-on-click="paperRecordClose">إلغاء</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  qyAutoBox(ov.querySelector('.paper-rec-box'), null, paperRecordClose);
+}
+function paperRecordClose(){ const m = document.getElementById('paperRecModal'); if(m) m.remove(); }
+function paperFilePicked(input){ const f = input.files && input.files[0]; const n = document.getElementById('paperFileName'); if(n) n.textContent = f ? '📎 ' + f.name : ''; }
+async function paperRecordSave(){
+  const m = document.getElementById('paperRecModal'); if(!m) return;
+  const req = state.requests.find(r=>r.id===m.dataset.req); if(!req) return;
+  const step = (req.approvalSteps||[]).find(s=>s.id===m.dataset.step); if(!step) return;
+  const rej = m.dataset.act==='reject';
+  const fi = document.getElementById('paperFile'), f = fi && fi.files && fi.files[0];
+  const date = (document.getElementById('paperDate')||{}).value || '';
+  const note = ((document.getElementById('paperNote')||{}).value || '').trim();
+  if(!f){ showToast('أرفق صورة الورقة الموقعة','error'); return; }
+  if(!/^image\//.test(f.type) && f.type!=='application/pdf'){ showToast('الملف يجب أن يكون صورة أو PDF','error'); return; }
+  if(f.size > 15*1024*1024){ showToast('الملف أكبر من 15 ميجابايت','error'); return; }
+  if(!date){ showToast('اكتب تاريخ التوقيع','error'); return; }
+  const t = new Date(), today = t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+  if(date > today){ showToast('تاريخ التوقيع لا يكون في المستقبل','error'); return; }
+  if(rej && !note){ showToast('اكتب سبب الرفض','error'); return; }
+  const btn = document.getElementById('paperSaveBtn'); if(btn){ btn.disabled = true; btn.textContent = 'جارٍ الحفظ…'; }
+  try{
+    const ext = f.type==='application/pdf' ? 'pdf' : ((f.type.split('/')[1]||'jpg').replace('jpeg','jpg'));
+    const path = req.companyId + '/paper/' + req.id + '/' + (crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random().toString(36).slice(2)) + '.' + ext;
+    const up = await db.storage.from('attachments').upload(path, f, {contentType: f.type, upsert:false});
+    if(up.error) throw new Error(up.error.message);
+    paperRecordClose();
+    await finalizePaper(req, step, rej, path, date, note);
+  }catch(e){
+    showToast('تعذّر رفع الورقة: ' + e.message, 'error');
+    if(btn){ btn.disabled = false; btn.textContent = rej ? 'تسجيل الرفض' : 'تسجيل الاعتماد'; }
+  }
+}
+async function finalizePaper(req, step, rej, path, date, note){
+  const ap = userById(step.approverId) || {}, nowIso = new Date().toISOString(), me = state.user.id;
+  const dmy = date.split('-').reverse().join('-');
+  const upd = {status: rej ? 'rejected' : 'approved', acted_at: nowIso, method:'paper', paper_path:path, paper_signed_at:date, recorded_by:me};
+  if(rej) upd.note = note;
+  const r = await db.from('request_approval_steps').update(upd).eq('id', step.id).eq('status','pending').select('id');
+  if(!(await dbCheck(r, rej ? 'تسجيل الرفض الورقي' : 'تسجيل الاعتماد الورقي'))){ render(); return; }
+  if(!r.data || !r.data.length){ showToast('المرحلة لم تعد بانتظار التسجيل (ربما حسمها غيرك). حدّث الصفحة.','error'); render(); return; }
+  Object.assign(step, {status:upd.status, actedAt:nowIso, method:'paper', paperPath:path, paperSignedAt:date, recordedBy:me});
+  const group = currentDecisionGroup(req).concat([]);
+  for(const o of (req.approvalSteps||[]).filter(x=>x!==step && x.status==='pending' && x.sequenceOrder===step.sequenceOrder)){
+    await dbCheck(await db.from('request_approval_steps').update({status:'skipped', acted_at:nowIso, note:(rej?'أُغلقت لرفض ورقي عن ':'أُغلقت لاعتماد ورقي عن ')+(ap.name||'')}).eq('id', o.id), 'إغلاق خطوة موازية');
+    o.status='skipped'; o.actedAt=nowIso;
+  }
+  if(rej){
+    if(!(await setRequestStatus(req, 'rejected'))){ render(); return; }
+    await pushHistory(req, {step:'pending_decision', actor:state.user.name, userId:me, action:'رفض الطلب', note:'(رفض ورقي عن '+(ap.name||'')+' — وقّعه بتاريخ '+dmy+') '+note, time:fmtDate()});
+    showToast('سُجّل الرفض الورقي','success'); render(); return;
+  }
+  await pushHistory(req, {step:'pending_decision', actor:state.user.name, userId:me, action:'اعتماد ورقي', note:'عن '+(ap.name||'')+' — وقّعه بتاريخ '+dmy+(note ? ' — '+note : ''), time:fmtDate()});
+  // المعتمِد الورقي نفسه في خطوة لاحقة بالطلب: لا يُسأل مرتين
+  for(const o of (req.approvalSteps||[])){
+    if(o.status==='pending' && o.approverId===step.approverId && o.sequenceOrder>step.sequenceOrder){
+      await dbCheck(await db.from('request_approval_steps').update({status:'skipped', acted_at:nowIso, note:'اعتُمدت ضمن خطوة سابقة'}).eq('id', o.id), 'تخطي خطوة مكررة');
+      o.status='skipped'; o.actedAt=nowIso;
+    }
+  }
+  const nextGroup = currentDecisionGroup(req);
+  for(const o of nextGroup){ await dbCheck(await db.from('request_approval_steps').update({activated_at:nowIso}).eq('id', o.id), 'بدء مهلة الخطوة التالية'); o.activatedAt = nowIso; }
+  if(!(await setRequestStatus(req, nextGroup.length ? 'pending_decision' : 'pending_transfer_request'))){ render(); return; }
+  showToast('سُجّل الاعتماد الورقي','success');
+  render();
+  paperAfterApprove(req);
+}
+// عرض الورقة الموقعة
+async function paperView(reqId, stepId){
+  const req = state.requests.find(r=>r.id===reqId); const st = req && (req.approvalSteps||[]).find(s=>s.id===stepId);
+  if(!st || !st.paperPath) return;
+  const sg = await db.storage.from('attachments').createSignedUrl(st.paperPath, 300);
+  if(sg.error || !sg.data){ showToast('تعذّر فتح الورقة: ' + ((sg.error&&sg.error.message)||''), 'error'); return; }
+  window.open(sg.data.signedUrl, '_blank', 'noopener');
+}
+
+// ---- الإعداد: في «حسابي» ولمدير النظام في تعديل المستخدم ----
+// المسجِّل: من نفس شركة صاحب الحساب، أو مستخدم عام في المؤسسة
+function paperCandidates(u){
+  const cos = u.isGeneral ? state.companies.map(c=>c.id) : [u.companyId, ...(state.userCompanyLinks||[]).filter(l=>l.userId===u.id).map(l=>l.companyId)].filter(Boolean);
+  return state.users.filter(x=>x.id!==u.id && !x.isSuspended && (x.isGeneral || u.isGeneral || cos.some(c=>userHasCompany(x, c))))
+    .sort((a,b)=>(a.isGeneral===b.isGeneral) ? a.name.localeCompare(b.name,'ar') : (a.isGeneral ? 1 : -1));
+}
+function paperSettingsCard(u, adminView){
+  const cands = paperCandidates(u), cur = u.paperProxyIds||[];
+  const sel = i => `<select id="paperProxy${i}" ${u.paperApproval ? '' : 'disabled'}>
+      <option value="">${i===0 ? 'اختر المسجِّل' : 'مسجِّل إضافي (اختياري)'}</option>
+      ${cands.map(x=>`<option value="${escH(x.id)}"${cur[i]===x.id?' selected':''}>${escH(x.name)} — ${escH((x.jobTitle&&x.jobTitle.trim()) || findRole(x.role).name)}${x.isGeneral ? ' · عام' : ''}</option>`).join('')}
+    </select>`;
+  return `<div class="card paper-card" id="paperCard">
+    <h2 style="margin:0 0 4px;font-size:15px;">الاعتماد الورقي</h2>
+    <p class="file-hint" style="margin:0 0 8px;">${adminView ? 'إن كان هذا الشخص لا يستخدم النظام' : 'إن كنت لا تستخدم النظام في الاعتماد'}: يوقّع على الطلب المطبوع، ويسجّل اعتماده أو رفضه في النظام أحد المسجِّلين بإرفاق الورقة الموقعة. حتى ثلاثة مسجِّلين من نفس الشركة أو من العامّين في المؤسسة.</p>
+    <label class="check-line" style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-weight:700;color:var(--text);">
+      <input id="paperOn" type="checkbox" style="width:auto;" ${u.paperApproval ? 'checked' : ''} data-on-change="paperToggleUi"> تفعيل الاعتماد الورقي
+    </label>
+    <div class="paper-proxies">
+      <div><label>المسجِّل الأول</label>${sel(0)}</div>
+      <div><label>المسجِّل الثاني</label>${sel(1)}</div>
+      <div><label>المسجِّل الثالث</label>${sel(2)}</div>
+    </div>
+    <div class="actions-row"><button type="button" class="btn btn-primary btn-md" data-on-click="savePaperSettings" data-on-click-args="${qa([(''+u.id)])}">حفظ الاعتماد الورقي</button></div>
+  </div>`;
+}
+function paperToggleUi(){ const on = !!(document.getElementById('paperOn')||{}).checked; [0,1,2].forEach(i=>{ const s = document.getElementById('paperProxy'+i); if(s) s.disabled = !on; }); }
+async function savePaperSettings(uid){
+  const u = state.users.find(x=>x.id===uid); if(!u) return;
+  const on = !!(document.getElementById('paperOn')||{}).checked;
+  const ids = [...new Set([0,1,2].map(i=>(document.getElementById('paperProxy'+i)||{}).value||'').filter(Boolean))];
+  if(on && !ids.length){ fieldErr(document.getElementById('paperProxy0'), 'اختر مسجِّلاً واحداً على الأقل'); return; }
+  const r = await db.from('users').update({paper_approval:on, paper_proxy_ids: on ? ids : []}).eq('id', uid).select('id');
+  if(!(await dbCheck(r, 'حفظ الاعتماد الورقي'))) return;
+  if(!r.data || !r.data.length){ showToast('تعذّر الحفظ: لا صلاحية لتعديل هذا الحساب','error'); return; }
+  u.paperApproval = on; u.paperProxyIds = on ? ids : [];
+  qyLog('paper_settings', (on ? 'تفعيل' : 'إيقاف') + ' الاعتماد الورقي لـ ' + u.name, ids.map(id=>(userById(id)||{}).name||id).join('، '));
+  showToast(on ? 'فُعّل الاعتماد الورقي' : 'أُوقف الاعتماد الورقي', 'success');
+  render();
 }
 // المحاسب يؤكد إتمام الصرف فعلياً — الخطوة الأخيرة بالطلب، تأكيد بسيط بلا توقيع
 // إسناد طلب «بند غير محدد» إلى بند حقيقي — يُسجَّل في سجل الطلب
@@ -7770,6 +7954,8 @@ function renderAccount(app){
       </div>
     </div>
 
+    ${paperSettingsCard(me, false)}
+
     <div class="card">
       <h2 style="margin:0 0 10px;font-size:15px;">التوقيع والختم</h2>
       ${['dept_manager','senior_manager','executive_manager','accountant','cfo'].includes(me.role) ? `
@@ -8074,7 +8260,14 @@ function sigSlotsForRequest(req){
   orders.forEach(ord=>{
     const rows = req.approvalSteps.filter(x=>x.sequenceOrder===ord);
     const ok = rows.find(x=>x.status==='approved');
-    if(ok){
+    const pr0 = rows.find(x=>x.status==='rejected' && x.method==='paper');
+    if(!ok && pr0){
+      const pu = userOf(pr0.approverId);
+      slots.push({kind:'decision', user:pu, actor:(pu||{}).name||'', time:String(pr0.paperSignedAt||'').split('-').reverse().join('-'), step:'', signed:true, sigOverride:'', paper:true, paperRej:true});
+    } else if(ok && ok.method==='paper'){
+      const pu = userOf(ok.approverId);
+      slots.push({kind:'decision', user:pu, actor:(pu||{}).name||'', time:String(ok.paperSignedAt||'').split('-').reverse().join('-'), step:'', signed:true, sigOverride:'', paper:true});
+    } else if(ok){
       const e = last(h=>h.action==='اعتماد' && h.userId===ok.approverId && h.step==='pending_decision') || last(h=>h.action==='اعتماد' && h.userId===ok.approverId);
       slots.push({kind:'decision', user:userOf(ok.approverId), actor:(e&&e.actor)||(userOf(ok.approverId)||{}).name||'', time:(e&&e.time)||'', step:'', signed:true, sigOverride:(e&&e.signatureOverride)||''});
     } else {
@@ -8104,7 +8297,7 @@ function renderSeqSignatures(req, context){
     const cfg = (saved[key] && Object.keys(saved[key]).length) ? ensureSigCfg(JSON.parse(JSON.stringify(saved[key])), context, key) : defaultSeqConfig(context, N, idx+1, co.signatureDir||'ltr');
     const u = sl.user;
     const title = u ? ((u.jobTitle && u.jobTitle.trim()) || findRole(u.role).name) : '';
-    const sigImg = sl.noSig ? '' : (sl.sigOverride || (u && u.signatureData) || ''), stampImg = sl.noSig ? '' : ((u && u.stampData) || '');
+    const sigImg = (sl.noSig || sl.paper) ? '' : (sl.sigOverride || (u && u.signatureData) || ''), stampImg = (sl.noSig || sl.paper) ? '' : ((u && u.stampData) || '');
     const box = b => `position:absolute;left:${b.x*PX}mm;top:${b.y*PX}mm;width:${b.w*PX}mm;height:${b.h*PX}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;text-align:center;`;
     const txt = (t, text, cls, dfltW)=>{
       const b = cfg[t]; if(!b || !b.visible || !text) return '';
@@ -8113,7 +8306,9 @@ function renderSeqSignatures(req, context){
     };
     const img = (t, src)=>{ const b = cfg[t]; return (b && b.visible && src) ? `<div style="${box(b)}"><img src="${escH(src)}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>` : ''; };
     html += txt('title', title, 'sign-role-title', '700') + txt('name', sl.actor, 'sign-name', '400') + txt('step', sl.step, 'sign-step', '400')
-          + img('signature', sigImg) + img('stamp', stampImg) + txt('date', toWesternDigits(sl.time)||'', 'sign-date', '400');
+          + img('signature', sigImg) + img('stamp', stampImg) + txt('date', toWesternDigits(sl.time)||'', 'sign-date', '400')
+          + (sl.paper ? (()=>{ const b = cfg.signature || cfg.stamp; if(!b) return ''; const fs = context==='mini' ? 6.5 : 8;
+              return `<div style="${box(b)}"><div class="paper-stamp${sl.paperRej ? ' rej' : ''}" style="font-size:${fs}px;"><b>${sl.paperRej ? 'مرفوض ورقياً' : 'معتمد ورقياً'}</b><span>المستند الموقّع بالمرفقات</span><span>التاريخ: ${escH(toWesternDigits(sl.time)||'')}</span></div></div>`; })() : '');
   });
   if(!html) return '';
   return context==='mini' ? `<div class="sign-mini-overlay">${html}</div>` : `<div class="sign-final-block-v2">${html}</div>`;
@@ -12991,6 +13186,7 @@ function renderUserEditForm(){
           : `<button class="btn btn-reject btn-sm" data-on-click="openSuspendCheck" data-on-click-args="${qa([(''+(u.id))])}">إيقاف الحساب (ترك العمل)</button>`) : ''}
       </div>
     </div>
+    ${paperSettingsCard(u, true)}
   `;
 }
 
@@ -15508,9 +15704,13 @@ function renderDetail(app){
     const pu = userById(primary.approverId);
     let label = userLabel(pu);
     if(escRows.length) label += ' · أو المحال إليه: ' + escRows.map(r=>(userById(r.approverId)||{}).name||'').join('، ');
+    if(primary.status==='pending' && isPaperApprover(primary.approverId)) label += ' · ورقي — يسجّله ' + paperProxiesOf(primary.approverId).map(u=>u.name).join(' أو ');
     let info = null;
     const okRow = rows.find(x=>x.status==='approved'), noRow = rows.find(x=>x.status==='rejected');
-    if(okRow){
+    if(okRow && okRow.method==='paper'){
+      const au = userById(okRow.approverId), rb = userById(okRow.recordedBy);
+      info = {name: (au?au.name:'') + ' (ورقي)', time: String(okRow.paperSignedAt||'').split('-').reverse().join('-') + (rb ? ' — سجّله '+rb.name : '')};
+    } else if(okRow){
       const au = userById(okRow.approverId);
       const h = req.history.find(h=>h.action==='اعتماد' && h.userId===okRow.approverId);
       info = {name: (au?au.name:'') + (okRow.kind==='escalation' ? ' (محال إليه)' : '') + (okRow.approverId===req.createdById ? ' (بإنشائه)' : ''), time: h?h.time:''};
@@ -15599,6 +15799,19 @@ function renderDetail(app){
         <button class="btn btn-reject btn-md" data-on-click="openRejectModal" data-on-click-args="${qa([(''+(req.id))])}">رفض</button>
       </div>`;
   }
+
+  // الاعتماد الورقي: أزرار المسجِّل، وتنبيه لكل من يرى الطلب، وروابط الأوراق الموقعة
+  if(paperStepForMe(req)){
+    actionsHtml += `
+      <div class="actions-row no-print" data-bar-actions>
+        <button class="btn btn-approve btn-md" data-on-click="paperRecordOpen" data-on-click-args="${qa([(''+req.id), 'approve'])}" title="تسجيل اعتماد ورقي بإرفاق الورقة الموقعة">اعتماد ورقي</button>
+        <button class="btn btn-reject btn-md" data-on-click="paperRecordOpen" data-on-click-args="${qa([(''+req.id), 'reject'])}" title="تسجيل رفض ورقي بإرفاق الورقة الموقعة">رفض ورقي</button>
+      </div>`;
+  }
+  const pNow = !isUnderReview(req) && !req.isCancelled ? paperStepNow(req) : null;
+  if(pNow) actionsHtml = paperNoticeHtml(req, pNow, true) + actionsHtml;
+  const pDone = (req.approvalSteps||[]).filter(s=>s.method==='paper' && s.paperPath && ['approved','rejected'].includes(s.status));
+  if(pDone.length) actionsHtml = `<div class="note-box no-print paper-docs"><b>أوراق الاعتماد الموقعة:</b> ${pDone.map(s=>`<button type="button" class="btn btn-ghost btn-sm" data-on-click="paperView" data-on-click-args="${qa([(''+req.id), (''+s.id)])}">📄 ${escH((userById(s.approverId)||{}).name||'')} — ${s.status==='rejected' ? 'رفض' : 'اعتماد'} ${escH(String(s.paperSignedAt||'').split('-').reverse().join('-'))}</button>`).join(' ')}</div>` + actionsHtml;
 
   // هل الطلب وصل للذيل التنفيذي أو اعتمده أحد؟
   const isInTail = TAIL_FLOW.includes(req.status) && req.status !== 'completed';
