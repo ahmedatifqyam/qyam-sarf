@@ -6284,6 +6284,9 @@ function navBackSafe(){
 // نافذة مفتوحة (معاينة ملف، مرفقات، رفض…): زر الرجوع يغلقها أولاً بدل مغادرة الصفحة
 function navCloseOverlay(){
   const keys=['filePreviewModal','cusDocs','attModal','rejectModalReqId','pendingDelete','suspendCheck','manualSignReqId','transferFormReqId'];
+  const sh = document.querySelector('.mtab-sheet'); if(sh){ sh.remove(); return true; }
+  if(state.navDrawer || document.body.classList.contains('nav-drawer-open')){ closeNavDrawer(); return true; }
+  if(state.cusPathOpen && isPhone()){ cusPathToggle(); return true; }
   const k=keys.find(x=>state[x]);
   if(!k) return false;
   state[k]=null; render(); return true;
@@ -6605,25 +6608,36 @@ function renderMobileTabs(){
   const cusBtn = rest.find(b=>b.getAttribute('data-on-click')==='openCustodyOfRequest');
   const rest2 = rest.filter(b=>b!==cusBtn);
   const accItem = {key:'account', ico:'account', label:'حسابي', on:state.view==='account' && !open, act:[["#10",[]]]};
+  // لا يتكرر زر في الشريط: الخانات الفارغة تُملأ بالترتيب من (جديد/عرض كمستخدم ← حسابي ← العهد)
+  const cusListItem = {key:'cuslist', ico:'case', label:'العهد', on:['custodyList','custody','newCustody'].includes(state.view) && !open, act:[["openCustodyList",[]]]};
+  const slot3 = main ? null : newItem;
+  const used = new Set(slot3 ? [slot3.key] : []);
+  if(main && /جديد/.test(mainLbl)) used.add('new');
+  const fillers = [newItem, accItem].concat((typeof viewAllowed!=='function' || viewAllowed('custodyList')) ? [cusListItem] : []);
+  const nextFill = ()=>{ const f = fillers.find(x=>!used.has(x.key)) || accItem; used.add(f.key); return f; };
   let slot4;
   if(cusBtn && !rest2.length) slot4 = {key:'cus', ico:'case', label:'عرض العهدة', act:[["mTabCus",[]]]};
-  else if(main && rest.length) slot4 = {key:'more', ico:'⋯', label:'المزيد', act:[["mTabMore",[]]], dot:0};
-  else slot4 = (main && !/جديد/.test(mainLbl)) ? newItem : accItem;
+  else if(rest.length===1 && !rest[0].disabled){   // زر واحد إضافي: يظهر مباشرة بدل «المزيد»
+    const t = (rest[0].textContent||'').trim(); const m = t.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u);
+    const lb1 = m ? m[2] : t; slot4 = {key:'one', ico:(m && m[1].replace(/[✓✔]/g,'').trim()) || btnIconFor(lb1) || '⋯', label:mShortLbl(lb1), act:[["mTabOne",[]]]};
+  }
+  else if(rest.length) slot4 = {key:'more', ico:'⋯', label:'المزيد', act:[["mTabMore",[]]], dot:0};
+  else slot4 = nextFill();
   const hasPath = ['detail','custody'].includes(state.view) && !!document.querySelector('#app .req-wrap, #app .mcus, #app .doc');
-  const slot5 = hasPath ? {key:'path', ico:'route', label:'المسار', on:!!state.cusPathOpen, act:[["cusPathToggle",[]]]}
-    : (slot4.key!=='account' ? accItem : newItem);
+  const slot5 = hasPath ? {key:'path', ico:'route', label:'المسار', on:!!state.cusPathOpen, act:[["cusPathToggle",[]]]} : nextFill();
   // RTL: أول زرّ في الكود يظهر أقصى اليمين
   const items = [
     {key:'menu',      ico:'menu',  label:'القائمة',  on:open,
      act: open ? [["closeNavDrawer",[]]] : [["openNavDrawer",[]]]},
     {key:'dashboard', ico:'clip', label:'الطلبات',  on:['dashboard','detail'].includes(state.view) && !open,
      act:[["#13",[]]]},
-    main ? (()=>{ const m = mainLbl.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u); const ic = m ? m[1].replace(/[✓✔]/g,'').trim() : ''; const lb = (m ? m[2] : mainLbl); return {key:'pmain', ico: ic || (/^✓|^✔/.test(mainLbl) ? 'done' : 'plus'), label: mShortLbl(lb), main:true, act:[["mTabMain",[]]]}; })() : newItem,
+    main ? (()=>{ const m = mainLbl.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u); const ic = m ? m[1].replace(/[✓✔]/g,'').trim() : ''; const lb = (m ? m[2] : mainLbl); return {key:'pmain', ico: ic || (/^✓|^✔/.test(mainLbl) ? 'done' : 'plus'), label: mShortLbl(lb), main:true, act:[["mTabMain",[]]]}; })() : slot3,
     slot4,
     slot5,
   ];
+  const pulse = !!state._pathPulse; state._pathPulse = false;
   el.innerHTML = `<div class="mtab-in">${items.map(it=>`
-    <button type="button" class="mtab-btn${it.on?' active':''}${it.main?' mtab-main':''}" ${qon('click', it.act)} aria-label="${escH(it.label)}">
+    <button type="button" class="mtab-btn${it.on?' active':''}${it.main?' mtab-main':''}${it.key==='path' && pulse ? ' mtab-pulse':''}" data-k="${it.key}" ${qon('click', it.act)} aria-label="${escH(it.label)}">
       <span class="mtab-ico">${qiOr(it.ico)}</span><span>${escH(it.label)}</span>
       ${it.dot ? `<span class="mtab-dot">${it.dot>99?'99+':it.dot}</span>` : ''}
     </button>`).join('')}</div>`;
@@ -6662,17 +6676,22 @@ function infoTips(){
 function pairFields(){
   if(!isPhone() || state.view==='login') return;
   const app = document.getElementById('app'); if(!app) return;
-  const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=color]), select, .sel-add, .field-with-btn';
+  const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]), select, .sel-add, .field-with-btn';
   app.querySelectorAll('label').forEach(l=>{
-    if(l.closest('.lf,.modal-overlay,.mtab-sheet,table,.tcards,.cus-docs,.dash-filt,.snd-row,.sig-ed,.recipe')) return;
+    if(l.closest('.lf,.modal-overlay,.mtab-sheet,table,.tcards,.cus-docs,.dash-filt,.snd-row,.sig-ed,.recipe,.sig-el')) return;
     if(l.querySelector('input,select,textarea')) return;          // مربع اختيار داخل اسمه
     let f = l.nextElementSibling;
     if(!f || !f.matches(FIELD)) return;
     const p = l.parentElement;
+    if(f.type==='color' && p && p.parentElement && p.parentElement.querySelectorAll('input[type=color]').length>1) return;   // صف ألوان: ثلاث خانات متجاورة
+    // الجزء بين قوسين في آخر الاسم يصغر حتى لا يطول الاسم ثلاثة أسطر
+    if(l.childNodes.length===1 && l.firstChild.nodeType===3){ const m = l.textContent.match(/^(.{3,}?)\s*(\([^()]{6,}\))\s*$/); if(m){ l.textContent = m[1]+' '; const sm = document.createElement('small'); sm.className = 'lf-note'; sm.textContent = m[2]; l.appendChild(sm); } }
     if(p && p.children.length===2 && p.parentElement && p.parentElement.classList.contains('row')){ p.classList.add('lf'); return; }
     const w = document.createElement('div'); w.className = 'lf';
     l.before(w); w.appendChild(l); w.appendChild(f);
   });
+  // زر انكسر كلامه سطرين: يتّسع لكلامه في سطر واحد
+  app.querySelectorAll('.btn').forEach(b=>{ if(b.closest('table.amount-table,.doc,.doc-page,.modal-overlay')) return; if(!b.offsetParent || b.classList.contains('btn-fit')) return; let two = b.offsetHeight > 46; if(!two){ const rg = document.createRange(); rg.selectNodeContents(b); const tops = new Set([...rg.getClientRects()].filter(r=>r.width>2).map(r=>Math.round(r.top/8))); two = tops.size>1 && (b.textContent||'').trim().length>6 && [...rg.getClientRects()].some(r=>r.height<24 && r.width>2) && b.getBoundingClientRect().height<50 && (()=>{ const rs=[...rg.getClientRects()].filter(r=>r.width>2 && r.height<26); const mn=Math.min(...rs.map(r=>r.top)), mx=Math.max(...rs.map(r=>r.top)); return mx-mn>10; })(); } if(two) b.classList.add('btn-fit'); });
 }
 // الجداول: لغير مدير النظام على الهاتف بطاقات (اسم العمود أمام كل قيمة)؛ لمدير النظام جدول بعمود أول ثابت ومؤشر تمرير
 function adaptTables(){
@@ -6703,14 +6722,15 @@ function scrollHints(){
     };
     if(!sc.dataset.xs){ sc.dataset.xs = '1'; sc.addEventListener('scroll', upd, {passive:true}); }
     sc.classList.add('xs');
-    // العمود الأول ثابت عند التمرير: خلفيته من صفّه حتى لا يظهر ما تحته
-    const t = sc.querySelector(':scope > table');
-    if(t && sc.scrollWidth > sc.clientWidth + 2){
-      t.classList.add('xs-sticky');
-      [...t.rows].forEach(r=>{ const c = r.cells[0]; if(!c) return;
-        let e = c, bg = 'rgba(0, 0, 0, 0)';
-        while(e && (bg==='rgba(0, 0, 0, 0)' || bg==='transparent')){ bg = getComputedStyle(e).backgroundColor; e = e.parentElement; }
-        c.style.background = (bg==='rgba(0, 0, 0, 0)' || bg==='transparent') ? '#fff' : bg; });
+    // الجداول: ظلّ بطول الجدول كله على الطرف الذي بقي فيه محتوى (لا على صف العناوين وحده)
+    if(sc.querySelector(':scope > table')){
+      const par = sc.parentElement;
+      if(par && getComputedStyle(par).position==='static') par.style.position = 'relative';
+      while(sc.nextElementSibling && sc.nextElementSibling.classList.contains('xs-shade')) sc.nextElementSibling.remove();
+      ['l','r'].forEach(side=>{ const d = document.createElement('div'); d.className = 'xs-shade xs-shade-'+side+' no-print';
+        d.style.top = sc.offsetTop+'px'; d.style.height = sc.clientHeight+'px';
+        if(side==='l') d.style.left = sc.offsetLeft+'px'; else d.style.left = (sc.offsetLeft + sc.clientWidth - 26)+'px';
+        sc.after(d); });
     }
     upd();
   });
@@ -6739,6 +6759,7 @@ function markDupTitle(){
   h.classList.toggle('m-dup-title', !!(a && (t(h.textContent)===t(a.textContent) || h.hasAttribute('data-m-hide'))) || h.hasAttribute('data-m-hide'));
 }
 function mTabCus(){ const b = (state._mActs||[]).find(x=>x.getAttribute('data-on-click')==='openCustodyOfRequest'); if(b) b.click(); }
+function mTabOne(){ const b = (state._mActs||[]).find((x,i)=>i!==state._mMain); if(b) b.click(); }
 function mTabMain(){ const b = (state._mActs||[])[state._mMain]; if(b) b.click(); }
 function mTabMore(){
   const acts = (state._mActs||[]).filter((b,i)=>i!==state._mMain);
@@ -8075,7 +8096,7 @@ function renderSigDesigner(app){
       ${seq ? `<p class="sub" style="margin:6px 0 0;font-size:12px;">المنشئ بأقصى اليمين بنفس مقاس الصناديق وعناصره أصغر. كل خطوة صندوق (حتى لو وقّعها الشخص نفسه). فوق 5 صناديق تنزل الزائدة لسطر ثانٍ. لكل عدد توقيعات تخطيطه الخاص.</p>` : ''}
     </div>
 
-    <div class="row" style="align-items:flex-end;margin-bottom:16px;">
+    <div class="row sig-pos-row" style="align-items:flex-end;margin-bottom:16px;">
       <div><label>${seq ? 'الموضع' : 'الدور الوظيفي'}</label>
         <select id="sigRoleSel" data-on-change="switchSigDesignerRole" data-on-change-args="${qa([QA.v])}">
           ${keys.map(r=>`<option value="${r}" ${r===state.sigDesignerRole?'selected':''}>${escH(sigRoleLabel(r))}</option>`).join('')}
@@ -8089,15 +8110,15 @@ function renderSigDesigner(app){
         <button type="button" class="btn btn-primary btn-md" data-on-click="applySlotToAllCounts" title="يطبّق رؤية وحجم وموضع وخط عناصر هذا الموضع على نفس الموضع في كل الأعداد الأخرى">↓ طبّق هذا الموضع على كل الأعداد</button>` : ''}
     </div>
 
-    <div style="margin-bottom:14px;">${checkboxesHtml}</div>
+    <div class="sig-els" style="margin-bottom:14px;">${checkboxesHtml}</div>
 
-    <div id="sigDesignerCanvas" class="sig-designer-canvas" style="width:${20*SIG_DESIGNER_SCALE}px;height:${heightCm*SIG_DESIGNER_SCALE}px;">
+    <div class="sig-canvas-scroll"><div id="sigDesignerCanvas" class="sig-designer-canvas" style="width:${20*SIG_DESIGNER_SCALE}px;height:${heightCm*SIG_DESIGNER_SCALE}px;">
       ${previewAllHtml}
       ${boxesHtml}
-    </div>
+    </div></div>
 
     <div class="actions-row" style="margin-top:16px;" data-bar-actions data-bar-key="sig_designer_save">
-      <button class="btn btn-primary btn-lg" data-on-click="saveSigDesignerConfig">حفظ تكوين "${escH(sigRoleLabel(state.sigDesignerRole))}"</button>
+      <button class="btn btn-primary btn-lg" data-on-click="saveSigDesignerConfig" title="حفظ تكوين «${escH(sigRoleLabel(state.sigDesignerRole))}»">حفظ التكوين</button>
       <button class="btn btn-ghost btn-md2" data-on-click="#71"><span class="bl1">إعادة الضبط</span><span class="bl2">الافتراضي</span></button>
     </div>
   `);
@@ -8224,7 +8245,7 @@ function renderMonitor(app){
   if(!canSeeMonitor()){ app.innerHTML = `<div class="card"><h2>لوحة المتابعة</h2><p class="sub">ليست لديك صلاحية هذه الصفحة.</p></div>`; return; }
   if((!m.data || m.company!==state.currentCompanyId || (Date.now()-(m.at||0)) > 60000) && !m.loading) setTimeout(loadMonitor, 0);
   const d = (m.company===state.currentCompanyId && m.data) || null;
-  const head = `<div class="card"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+  const head = `<div class="card"><div class="mon-head" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
       <h2 style="margin:0;">لوحة المتابعة</h2><span class="sub">${escH(currentCompanyName())}${m.at ? ' · آخر تحديث ' + escH(monitorAgo(new Date(m.at).toISOString())) : ''}</span>
       <span style="margin-right:auto;"></span>
       <label class="sub" style="display:flex;gap:6px;align-items:center;">حركات آخر
@@ -8249,7 +8270,7 @@ function renderMonitor(app){
       ${tile('تم الصرف', n('completed'), sm('completed'), 'var(--green)')}${tile('مرفوضة', n('rejected'), sm('rejected'), 'var(--red)')}
       ${tile('ملغاة', d.cancelled||0, null, '#9a9890')}</div></div>`;
   const sec = d.security ? `<div class="card" style="border-right:4px solid ${(d.security.alerts||d.security.errors)?'var(--red)':'var(--green)'};">
-      <h3 style="margin-top:0;">الأمان (لمدير النظام)</h3><div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;">
+      <h3 style="margin-top:0;">الأمان (لمدير النظام)</h3><div class="mon-sec" style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;">
       <span>تنبيهات لم تُراجع: <b>${d.security.alerts||0}</b></span><span>أخطاء اليوم: <b>${d.security.errors||0}</b></span>
       <span>دخول فاشل (24 ساعة): <b>${d.security.failed_logins||0}</b></span>
       <button type="button" class="btn btn-ghost btn-sm" data-on-click="openSecurityLogFromMonitor">فتح سجل الأمان</button></div></div>` : '';
@@ -9604,7 +9625,7 @@ function renderBudgetReportTab(){
 
     <!-- شريط الاستهلاك الكلي — ثانياً -->
     ${totalNet>0?`<div class="card" style="padding:10px 16px;margin-bottom:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <div class="rep-use-h" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <span style="font-size:13px;font-weight:700;">معدل الاستهلاك الكلي</span>
         <span style="font-size:14px;font-weight:800;color:${totalBarColor};">${pctTotal}% &nbsp;·&nbsp; <span style="font-weight:400;font-size:12px;color:var(--muted);">المستهلك ${fmtKWDPlain(totalSpent+totalCommitted+totalPending)} من أصل ${fmtKWDPlain(totalNet)} — مصروف ${fmtKWDPlain(totalSpent)} · مرتبط ${fmtKWDPlain(totalCommitted)} · قيد الطلب ${fmtKWDPlain(totalPending)}</span></span>
       </div>
@@ -9617,7 +9638,7 @@ function renderBudgetReportTab(){
     <div class="no-print rep-bar">
       <!-- ١ نوع العرض — أقصى اليمين -->
       <!-- ٢ طي / فتح -->
-      ${parentIds.size>0?`<button class="btn btn-ghost" data-on-click="budgetReportCollapseAll">◀ طي الكل</button><button class="btn btn-ghost" data-on-click="budgetReportExpandAll">▼ فتح الكل</button>`:''}
+      ${parentIds.size>0?((state.budgetReportCollapsed && state.budgetReportCollapsed.size>0) ? `<button class="btn btn-ghost rep-fold" data-on-click="budgetReportExpandAll" title="يفتح كل البنود المطوية">▼ فتح الكل</button>` : `<button class="btn btn-ghost rep-fold" data-on-click="budgetReportCollapseAll" title="يطوي كل البنود الفرعية">◀ طي الكل</button>`):''}
       <!-- ٣ فلتر الأنواع -->
       <select data-on-change="#85">${typeFilterOpts}</select>
       <!-- ٤ فراغ يدفع التصدير لأقصى اليسار -->
@@ -14941,18 +14962,39 @@ function custodyMobileHtml(kc, req, act){
       ${lim ? sec('limit', 'حد الصرف فوق العهدة', lim, false) : ''}
       ${sec('hist', 'سجل الطلب والعهدة', H.map(h=>`<div class="history-item"><div class="t">${h.time}</div><div><b>${escH(h.actor)}</b> — ${escH(h.action)}${h.note ? `<div style="color:var(--red);margin-top:2px;">${escH(h.note)}</div>` : ''}</div></div>`).join(''), false)}
     </div>
-    ${state.cusPathOpen ? `<div class="mpath-ov no-print" data-on-click="cusPathToggle"></div><aside class="mpath no-print"><div class="mpath-h"><b>مسار العهدة</b><button class="btn btn-ghost btn-sm" data-on-click="cusPathToggle">✕</button></div><div class="stepper path-v">${custodyLifeStepperHtml(req, kc)}</div></aside>` : ''}`;
+    ${state.cusPathOpen ? mpathHtml('مسار العهدة', custodyLifeStepperHtml(req, kc)) : ''}`;
 }
-function cusPathToggle(){ state.cusPathOpen = !state.cusPathOpen; render(); }
+// حركة المسار: يخرج من زر «المسار» عند الفتح ويعود إليه عند الإغلاق، ثم يومض الزر ليُعرف مكانه
+function cusPathToggle(){
+  const el = document.querySelector('.mpath');
+  if(state.cusPathOpen && el){
+    if(el.classList.contains('closing')) return;
+    el.classList.remove('opening'); el.classList.add('closing');
+    const ov = document.querySelector('.mpath-ov'); if(ov) ov.classList.add('closing');
+    setTimeout(()=>{ state.cusPathOpen = false; state._pathPulse = true; render(); }, 240);
+    return;
+  }
+  state._pathAnim = !state.cusPathOpen;
+  state.cusPathOpen = !state.cusPathOpen; render();
+}
+function mpathHtml(title, stepsHtml){
+  const anim = state._pathAnim ? ' opening' : ''; state._pathAnim = false;
+  return `<div class="mpath-ov no-print${anim}" data-on-click="cusPathToggle"></div><aside class="mpath no-print${anim}"><div class="mpath-h"><b>${escH(title)}</b><button class="btn btn-ghost btn-sm" data-on-click="cusPathToggle">✕</button></div><div class="stepper path-v">${stepsHtml}</div></aside>`;
+}
 // مسار الطلب/العهدة: على الحاسوب شريط عمودي على يسار الصفحة خارج صندوقها، مفتوح افتراضياً ويتذكر آخر وضع؛
 // وعلى الهاتف شريط عائم يُفتح بزر «المسار». المراحل في عشر خانات متساوية (أطول مسار عشر مراحل)
 function reqPathOpen(){ try{ return localStorage.getItem('qy_reqpath')!=='0'; }catch(e){ return true; } }
-function reqPathToggle(){ try{ localStorage.setItem('qy_reqpath', reqPathOpen() ? '0' : '1'); }catch(e){} render(); }
+function reqPathToggle(){
+  const side = document.querySelector('.req-side'); const was = reqPathOpen();
+  const go = ()=>{ try{ localStorage.setItem('qy_reqpath', was ? '0' : '1'); }catch(e){} state._reqPathAnim = was ? 'pulse' : 'opening'; render(); };
+  if(was && side && !side.classList.contains('closing')){ side.classList.add('closing'); setTimeout(go, 220); } else go();
+}
 function pathSideWrap(mainHtml, title, stepsHtml){
-  if(isPhone()) return mainHtml + (state.cusPathOpen ? `<div class="mpath-ov no-print" data-on-click="cusPathToggle"></div><aside class="mpath no-print"><div class="mpath-h"><b>${escH(title)}</b><button class="btn btn-ghost btn-sm" data-on-click="cusPathToggle">✕</button></div><div class="stepper path-v">${stepsHtml}</div></aside>` : '');
+  if(isPhone()) return mainHtml + (state.cusPathOpen ? mpathHtml(title, stepsHtml) : '');
   const open = reqPathOpen();
+  const an = state._reqPathAnim ? ' '+state._reqPathAnim : ''; state._reqPathAnim = '';
   return `<div class="req-wrap${open ? '' : ' closed'}"><div class="req-main">${mainHtml}</div>
-    <aside class="req-side no-print"><div class="req-side-h">${open ? `<b>${escH(title)}</b>` : ''}<button type="button" class="req-side-x" data-on-click="reqPathToggle" title="${open ? 'طيّ المسار' : 'إظهار المسار'}">${open ? '›' : '‹'}</button></div>
+    <aside class="req-side no-print${an}"><div class="req-side-h">${open ? `<b>${escH(title)}</b>` : ''}<button type="button" class="req-side-x" data-on-click="reqPathToggle" title="${open ? 'طيّ المسار' : 'إظهار المسار'}">${open ? '›' : '‹'}</button></div>
     ${open ? `<div class="stepper path-v">${stepsHtml}</div>` : `<div class="req-side-v" data-on-click="reqPathToggle">${escH(title)}</div>`}</aside></div>`;
 }
 function renderCustodyPage(app){

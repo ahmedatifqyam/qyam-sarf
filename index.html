@@ -1677,14 +1677,18 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
   .tip-body{background:var(--blue-bg);border-radius:8px;padding:8px 12px !important;margin:6px 0 10px !important;font-size:12.5px;line-height:1.7;color:var(--text) !important;}
   /* مؤشر التمرير الجانبي: طرف باهت وسهم ‹ حين يبقى محتوى جهة اليسار */
   .xs{position:relative;}
-  .xs.xs-more{-webkit-mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px);mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px);}
-  .xs.xs-start{-webkit-mask-image:linear-gradient(to left, rgba(0,0,0,.25) 0, #000 30px);mask-image:linear-gradient(to left, rgba(0,0,0,.25) 0, #000 30px);}
-  .xs.xs-more.xs-start{-webkit-mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px, #000 calc(100% - 30px), rgba(0,0,0,.25) 100%);mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px, #000 calc(100% - 30px), rgba(0,0,0,.25) 100%);}
-  .adm-nav2:has(.adm-tabs2.xs-more)::after,.card:has(> .xs-more)::after,.card:has(> div > .xs-more)::after{content:'‹';direction:ltr;unicode-bidi:isolate;position:absolute;left:4px;top:50%;transform:translateY(-50%);
+  .adm-tabs2.xs.xs-more{-webkit-mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px);mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px);}
+  .adm-tabs2.xs.xs-start{-webkit-mask-image:linear-gradient(to left, rgba(0,0,0,.25) 0, #000 30px);mask-image:linear-gradient(to left, rgba(0,0,0,.25) 0, #000 30px);}
+  .adm-tabs2.xs.xs-more.xs-start{-webkit-mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px, #000 calc(100% - 30px), rgba(0,0,0,.25) 100%);mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px, #000 calc(100% - 30px), rgba(0,0,0,.25) 100%);}
+  .adm-nav2:has(.adm-tabs2.xs-more)::after{content:'‹';direction:ltr;unicode-bidi:isolate;position:absolute;left:4px;top:18px;transform:translateY(-50%);
     width:22px;height:22px;border-radius:50%;background:rgba(27,39,51,.75);color:#fff;font-size:17px;line-height:21px;text-align:center;pointer-events:none;z-index:3;}
-  .adm-nav2:has(.adm-tabs2.xs-more)::after{top:18px;}
-  .card:has(> .xs-more),.card:has(> div > .xs-more){position:relative;}
-  table.xs-sticky th:first-child,table.xs-sticky td:first-child{position:sticky;right:0;z-index:2;box-shadow:-3px 0 4px -2px rgba(0,0,0,.18);}
+  /* الجداول العريضة: ظلّ بطول الجدول على الطرف الذي بقي فيه محتوى، وسهم في وسطه */
+  .xs-shade{position:absolute;width:26px;pointer-events:none;z-index:3;display:none;}
+  .xs-shade-l{background:linear-gradient(to right, rgba(27,39,51,.30), rgba(27,39,51,0));border-radius:8px 0 0 8px;}
+  .xs-shade-r{background:linear-gradient(to left, rgba(27,39,51,.22), rgba(27,39,51,0));width:18px;margin-left:8px;border-radius:0 8px 8px 0;}
+  .xs.xs-more + .xs-shade-r + .xs-shade-l,.xs.xs-start + .xs-shade-r{display:block;}
+  .xs-shade-l::after{content:'‹';direction:ltr;unicode-bidi:isolate;position:absolute;left:2px;top:min(50%,150px);transform:translateY(-50%);
+    width:22px;height:22px;border-radius:50%;background:rgba(27,39,51,.78);color:#fff;font-size:17px;line-height:21px;text-align:center;}
   /* شريط «نسخة تجريبية» على الحاسوب: أكبر ليُرى */
   @media (min-width:700px){
     .test-badge{top:30px !important;left:-58px !important;width:240px !important;font-size:15px !important;line-height:30px !important;}
@@ -1864,13 +1868,130 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
     .req-card > span[data-label="تاريخ الصرف"],.req-card > span[data-label="المستفيدون"]{display:none !important;}
   }
   @media (max-width:699px){
-    #app .row:has(> div > input[type=color]){display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+    #app .row:has(> div > input[type=color] ~ *),#app .row:has(> div > input[type=color]):not(:has(> div > .lf)):not(:has(> .lf)){display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
     #app .row > div:has(> input[type=color]){max-width:none !important;}
     #app .row > div:has(> input[type=color]) > label{font-size:12px;margin:0 0 4px;}
     #app .row > div > input[type=color]{width:100% !important;height:40px;}
   }
   .top-action-bar.tab-empty{display:none !important;}
   .lf-skip-login{}
+
+  /* ===== ضبط عرض الهاتف (١٠ نوفمبر — ٣) ===== */
+  /* حركة المسار: يخرج من زرّه ويعود إليه */
+  @keyframes qyPathIn{from{transform:scale(.06);opacity:.2;}to{transform:none;opacity:1;}}
+  @keyframes qyPathOut{from{transform:none;opacity:1;}to{transform:scale(.06);opacity:.15;}}
+  @keyframes qyFadeIn{from{opacity:0;}to{opacity:1;}}
+  @keyframes qyFadeOut{from{opacity:1;}to{opacity:0;}}
+  @keyframes qyPulse{0%{box-shadow:0 0 0 0 rgba(212,160,23,.75);background:rgba(212,160,23,.35);}100%{box-shadow:0 0 0 16px rgba(212,160,23,0);background:transparent;}}
+  .mpath{transform-origin:10vw calc(100% + 26px);}
+  .mpath.opening{animation:qyPathIn .26s cubic-bezier(.2,.8,.3,1) both;}
+  .mpath.closing{animation:qyPathOut .24s ease-in both;}
+  .mpath-ov.opening{animation:qyFadeIn .2s both;} .mpath-ov.closing{animation:qyFadeOut .24s both;}
+  .mtab-btn.mtab-pulse{animation:qyPulse .7s ease-out 2;border-radius:12px;}
+  .req-side{transform-origin:22px 22px;}
+  .req-side.opening{animation:qyPathIn .24s cubic-bezier(.2,.8,.3,1) both;}
+  .req-side.closing{animation:qyPathOut .22s ease-in both;}
+  .req-side.pulse{animation:qyPulse .7s ease-out 2;}
+  @media (prefers-reduced-motion:reduce){ .mpath,.mpath-ov,.req-side,.mtab-btn.mtab-pulse{animation:none !important;} }
+
+  @media (max-width:699px){
+    /* الشريط العلوي: الأدوات لا تخرج عن الحافة، ومكان لشريط «نسخة تجريبية» */
+    .topbar .brand{flex:0 1 auto !important;}
+    .topbar-right{flex:1 1 auto;min-width:0;justify-content:flex-end;}
+    .tb-company{max-width:100px;}
+    body:has(.test-badge) .topbar{padding-left:46px;}
+    /* النماذج: كل حقل صف كامل — اسمه يميناً بعرض ثابت والحقل يملأ الباقي، فتتساوى الحقول كلها */
+    #app .row > *{flex:0 0 auto !important;width:100% !important;max-width:100% !important;align-self:stretch;box-sizing:border-box;}
+    #app .row > .btn,#app .row > a.btn{width:auto !important;align-self:flex-start;}
+    #app#app#app [hidden]{display:none !important;}
+    #app .lf{grid-template-columns:minmax(92px,36%) minmax(0,1fr);}
+    #app .lf > label .lf-note{display:block;font-weight:400;font-size:11px;color:var(--muted);line-height:1.3;}
+    #app .lf > input[type=color]{height:40px;padding:3px;}
+    #app .lf + .file-hint,#app .lf + .sub,#app .lf + p{margin:-4px 0 10px !important;font-size:12px;line-height:1.5;}
+    /* مربع الاختيار ملاصق لاسمه ويبدأ من اليمين */
+    #app label:has(> input[type=checkbox]):not(.bar-set-row):not(.opt-row),#app label:has(> input[type=radio]):not(.opt-row){display:flex !important;align-items:center;justify-content:flex-start;gap:8px;margin:2px 0 10px !important;min-height:32px;width:auto;text-align:right;}
+    #app label:has(> input[type=checkbox]) > input,#app label:has(> input[type=radio]) > input{width:20px !important;height:20px;flex:0 0 20px;margin:0 !important;}
+    #app table label:has(> input[type=checkbox]),#app .gp-body label,#app .sig-el > label{margin:0 !important;}
+    /* زر انكسر كلامه: يتسع لكلامه */
+    #app .btn.btn-fit{width:auto !important;min-width:0 !important;max-width:100%;white-space:nowrap;padding:0 14px !important;height:40px !important;line-height:1.2;}
+    #app .btn.btn-fit br{display:none;}
+    #app .btn.btn-fit small{display:inline !important;font-size:inherit;margin:0 4px 0 0;opacity:1;}
+    /* شريط الاختيار المقسّم: سطر واحد يُمرَّر */
+    #app .seg{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none;}
+    #app .seg::-webkit-scrollbar{display:none;}
+    #app .seg-btn{flex:1 0 auto;white-space:nowrap;padding:7px 12px;}
+    /* البطاقات: حشو على قدر المحتوى، وخلفية بيضاء تميّزها عن الصفحة */
+    #app .list-item{padding:10px 12px !important;margin-bottom:8px !important;}
+    #app .list-item .li-main .sub,#app .list-item .li-main span{line-height:1.6;}
+    .exec-card{background:#fff !important;}
+    /* شريط الفلترة (السنة/الشهر): خانتان متجاورتان */
+    #app .filt-bar{display:grid !important;grid-template-columns:1fr 1fr;gap:8px 12px;align-items:center;}
+    #app .filt-bar > div{min-width:0;max-width:none !important;}
+    #app .filt-bar .lf{grid-template-columns:auto minmax(0,1fr);margin:0;}
+    #app .filt-bar > [data-bar-actions]{display:none;}
+    /* تقرير الميزانية: طيّ/فتح زر واحد، والأدوات في سطر */
+    #app .rep-bar{display:grid !important;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;}
+    #app .rep-bar .rep-spacer{display:none;}
+    #app .rep-bar > select{width:100% !important;min-width:0;}
+    #app .rep-bar > .btn{min-width:0;padding:0 10px;white-space:nowrap;}
+    /* لوحة المتابعة */
+    #app .mon-head{gap:8px !important;}
+    #app .mon-head > .sub{flex:1 1 100%;margin:0;}
+    #app .mon-head > span:empty{display:none;}
+    #app .mon-head > label{flex:1 1 auto;margin:0 !important;white-space:nowrap;}
+    #app .mon-head > label select{flex:1 1 auto;}
+    #app .mon-head > .btn{flex:0 0 104px;}
+    #app .mon-sec{display:grid !important;grid-template-columns:1fr 1fr;gap:6px 12px !important;}
+    #app .mon-sec > .btn{grid-column:1 / -1;width:100% !important;}
+    /* صفوف الأدوار (حقول داخل بطاقة): الحقول صفوف كاملة ثم سطر للخيار والعدد ثم الأزرار متساوية */
+    #app .list-item:has(> div > .lf){display:grid !important;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center !important;}
+    #app .list-item:has(> div > .lf) > div:has(> .lf){grid-column:1 / -1;}
+    #app .list-item:has(> div > .lf) .lf{margin:0 0 4px;}
+    #app .list-item:has(> div > .lf) > label{margin:0 !important;}
+    #app .list-item:has(> div > .lf) > .sub{margin:0 !important;font-size:12px;text-align:left;}
+    #app .list-item:has(> div > .lf) > div:has(> .lf) + .sub{grid-column:1 / -1;text-align:right;line-height:1.5;}
+    #app .list-item:has(> div > .lf) > div:last-child:has(> .btn){grid-column:1 / -1;display:flex !important;flex-direction:row !important;flex:none !important;gap:8px;margin:4px 0 0 !important;}
+    #app .list-item:has(> div > .lf) > div:last-child:has(> .btn) > .btn{flex:1 1 0;width:auto !important;}
+    /* المستويات الوظيفية: أزرار صغيرة مربعة لا تطغى على الاسم */
+    #app table:has([data-kind="level"]) td{padding:6px 4px !important;vertical-align:middle;}
+    #app table:has([data-kind="level"]) td:nth-child(2){font-weight:700;font-size:14px;}
+    #app table:has([data-kind="level"]) td .btn{width:40px !important;min-width:40px !important;height:40px;padding:0 !important;margin:0 0 0 4px;}
+    #app table:has([data-kind="level"]) td .btn-reject{font-size:0 !important;gap:0 !important;}
+    #app table:has([data-kind="level"]) td .btn-reject svg{margin:0 !important;width:18px;height:18px;}
+    /* محرر مواقع التوقيعات */
+    #app .sig-pos-row > .btn{align-self:stretch !important;width:100% !important;height:40px !important;white-space:nowrap;margin:0 0 8px !important;font-size:13px;padding:0 8px !important;}
+    #app .sig-pos-row > label{margin:0 0 10px !important;font-size:13px;}
+    #app .sig-els{display:flex;flex-wrap:wrap;gap:0 14px;}
+    #app .sig-els > .sig-el{flex:1 1 100%;}
+    #app .sig-els > .sig-el:not(:has(select)){flex:1 1 40% !important;width:auto !important;border-bottom:0 !important;}
+  }
+
+  @media (max-width:699px){
+    #app .lf > span:not(.sel-add):not(.field-with-btn),#app .lf > div:not(.sel-add):not(.field-with-btn){display:block;}
+    #app .lf > * > input:only-child,#app .lf > input[type=date]{width:100% !important;max-width:100% !important;--fw:100%;}
+    /* بطاقات القوائم: النص يلتف ولا يدخل تحت الشارة أو الأزرار، وعمود الأزرار يتسع لكلامه */
+    #app .list-item .li-main{overflow-wrap:anywhere;}
+    #app .list-item .li-main > span{white-space:normal !important;}
+    #app .list-item > .cus-li-badges{flex:0 0 auto;}
+    #app .list-item > div:not(.li-main):last-child:has(> .btn){flex:0 0 auto !important;width:max-content;min-width:104px;max-width:48%;}
+    #app .list-item > div:not(.li-main):last-child:has(> .btn) > .btn{min-width:0 !important;padding:0 10px !important;}
+    .bell-btn{margin-left:8px;}
+    #app .list-item > div:not(.li-main):last-child:has(> .btn) > .btn{white-space:nowrap;height:40px !important;}
+    #app .list-item > div:not(.li-main):last-child:has(> .btn) > span{font-size:11px !important;white-space:nowrap;min-width:0 !important;padding:2px 6px !important;}
+    #app .mon-head > label{flex:1 1 0 !important;min-width:0;}
+    #app .mon-head > label select{flex:1 1 0;min-width:0;width:auto !important;}
+    /* دفتر الحركات: عمود البيان لا ينضغط إلى كلمة في السطر */
+    #app table.ledger-tbl td:nth-child(2),#app table.ledger-tbl th:nth-child(2){min-width:170px;}
+    #app table.ledger-tbl td:nth-child(3),#app table.ledger-tbl td:nth-child(4){min-width:92px;}
+  }
+  .xs-shade-l{background:linear-gradient(to right, rgba(27,39,51,.20), rgba(27,39,51,0)) !important;}
+  .xs-shade-r{background:linear-gradient(to left, rgba(27,39,51,.14), rgba(27,39,51,0)) !important;}
+
+  @media (max-width:699px){ #app .rep-use-h{display:block !important;} #app .rep-use-h > span{display:block;} #app .rep-use-h > span + span{margin-top:2px;line-height:1.6;} }
+
+  #app .sig-pos-row > .btn{white-space:nowrap;}
+  .sig-canvas-scroll{max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
+  @media (max-width:699px){ #app .sig-el input,#app .sig-el select{height:40px !important;} }
 </style>
 </head>
 <body>
@@ -1891,6 +2012,6 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=11b10dffb0"></script>
+<script src="app.js?v=3fce053cd6"></script>
 </body>
 </html>
