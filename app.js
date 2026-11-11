@@ -4095,6 +4095,12 @@ function toggleCalcBox(i, type){
   }
 }
 
+// صندوق «احسب» يُغلق عند الضغط خارجه
+document.addEventListener('mousedown', ev=>{
+  const t = ev.target; if(!t || !t.closest) return;
+  if(t.closest('.nr-calc-pop, .calc-in')) return;
+  document.querySelectorAll('.nr-calc-pop').forEach(x=>{ if(x.style.display!=='none') x.style.display='none'; });
+}, true);
 function applyDeductionCalc(i){
   const blocks = document.querySelectorAll('.beneficiary-block');
   const block = blocks[i];
@@ -13778,7 +13784,7 @@ function renderNewRequest(app){
       </div>
       <div id="amountLimitWarning" class="nr-wide" style="display:none;background:var(--amber-bg);color:#1B2733;border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:12.5px;margin-top:10px;"></div>
 
-      ${((d.requestNotes||'').trim() || d._showNotes) ? `<div class="nr-f nr-wide"><label>ملاحظة داخلية (لا تُطبع، يراها المعتمدون والمالية)</label>
+      ${(desk || (d.requestNotes||'').trim() || d._showNotes) ? `<div class="nr-f nr-wide"><label>ملاحظة داخلية (لا تُطبع، يراها المعتمدون والمالية)</label>
       <textarea id="requestNotesInput" class="grow-1" rows="1" placeholder="مثال: الفاتورة الأصلية مع المحاسب">${escH(d.requestNotes||'')}</textarea></div>`
       : `<div class="nr-wide"><button type="button" class="nr-link" data-on-click="nrShowReqNotes">+ ملاحظة داخلية للمعتمدين</button></div>`}
 
