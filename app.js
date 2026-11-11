@@ -6998,7 +6998,7 @@ function renderMobileTabs(){
      act: open ? [["closeNavDrawer",[]]] : [["openNavDrawer",[]]]},
     {key:'dashboard', ico:'clip', label:'الطلبات',  on:['dashboard','detail'].includes(state.view) && !open, dot:(typeof getMyPendingRequests==='function' ? getMyPendingRequests().length : 0),
      act:[["#13",[]]]},
-    main ? (()=>{ const m = mainLbl.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u); const ic = m ? m[1].replace(/[✓✔]/g,'').trim() : ''; const lb = (m ? m[2] : mainLbl); return {key:'pmain', ico: ic || (/^✓|^✔/.test(mainLbl) ? 'done' : 'plus'), label: mShortLbl(lb), main:true, off: !!(acts[state._mMain]||{}).disabled, act:[["mTabMain",[]]]}; })() : slot3,
+    main ? (()=>{ const m = mainLbl.match(/^([^\p{L}\p{N}\s]+)\s*(.*)$/u); const ic = m ? m[1].replace(/[✓✔]/g,'').trim() : ''; const lb = (m ? m[2] : mainLbl); return {key:'pmain', ico: ic || (/^✓|^✔/.test(mainLbl) ? 'done' : (btnIconFor(lb) || 'plus')), label: mShortLbl(lb), main:true, off: !!(acts[state._mMain]||{}).disabled, act:[["mTabMain",[]]]}; })() : slot3,
     slot4,
     slot5,
   ];
@@ -15830,6 +15830,16 @@ function renderDetail(app){
       </div>`;
   }
 
+  // «بانتظارك الآن»: صندوق واضح أعلى الطلب بما هو مطلوب منك وزره، فلا يُبحث عن الزر في الشريط السفلي
+  const pMine = paperStepForMe(req);
+  const turn = (canAct && !req.isCancelled) ? ({pending_transfer_request:['تسجيل التحويل','approveFix'], pending_transfer_approval:['اعتماد التحويل','approveFix'], pending_disbursement:['تأكيد إتمام الصرف','markDisbursedFix']}[req.status] || ['اعتماد الطلب أو رفضه','approveFix'])
+    : (pMine ? ['تسجيل اعتماد ورقي عن '+((userById(pMine.approverId)||{}).name||''), 'paperRecordOpen'] : null);
+  const myTurnHtml = turn ? `<div class="my-turn no-print">
+      <div class="my-turn-t">⏳ بانتظارك الآن: <b>${escH(turn[0])}</b></div>
+      <button type="button" class="btn btn-approve btn-md" ${turn[1]==='paperRecordOpen' ? `data-on-click="paperRecordOpen" data-on-click-args="${qa([(''+req.id), 'approve'])}"` : `data-on-click="${turn[1]}"`}>${escH(turn[1]==='paperRecordOpen' ? 'اعتماد ورقي' : turn[1]==='markDisbursedFix' ? 'تأكيد الصرف' : req.status==='pending_transfer_request' ? 'تسجيل التحويل' : 'اعتماد')}</button>
+      <div class="my-turn-h">${req.status==='pending_decision' || pMine ? 'وللرفض: زر «رفض» أسفل الطلب (وفي «المزيد» بالهاتف).' : 'وللرفض لأسباب محاسبية: أسفل الطلب (وفي «المزيد» بالهاتف).'}</div>
+    </div>` : '';
+
   // الاعتماد الورقي: أزرار المسجِّل، وتنبيه لكل من يرى الطلب، وروابط الأوراق الموقعة
   if(paperStepForMe(req)){
     actionsHtml += `
@@ -15922,6 +15932,7 @@ function renderDetail(app){
         </div>
       </div>
 
+      ${myTurnHtml}
       ${isCus ? custodyStripHtml(req, kc) : ''}
       ${renderAppRequestView(req)}
 
