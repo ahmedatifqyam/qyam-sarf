@@ -13678,7 +13678,7 @@ function renderNewRequest(app){
           const ded = Number(b.deduction)||0, ext = Number(b.extra)||0;
           const showNotes = !!((b.notes||'').trim() || b._showNotes);
           const tail = s => s ? String(s).replace(/\s+/g,'').slice(-4) : '';
-          const chip = (type, word, val, note) => `<button type="button" class="btn btn-sm nr-abtn nr-chip nr-chip-${type}" title="${escH((note ? note+' — ' : '')+'اضغط للتعديل')}" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">${type==='deduction' ? '−' : '+'} ${word} <b>${fmtKWDHtml(val)}</b></button>`;
+          const chip = (type, word, val, note) => `<button type="button" class="btn btn-sm nr-abtn nr-chip nr-chip-${type}" title="${escH((note ? note+' — ' : '')+'اضغط للتعديل')}" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}"><span class="nr-cw">${type==='deduction' ? '−' : '+'} ${word}</span><b>${fmtKWDHtml(val)}</b></button>`;
           const link = (type, txt) => `<button type="button" class="btn btn-ghost btn-sm nr-abtn" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">+ ${txt}</button>`;
           return `
           <div class="beneficiary-block nr-ben">

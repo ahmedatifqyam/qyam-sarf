@@ -2226,6 +2226,10 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .nr-bi-row{grid-template-columns:minmax(0,1fr);gap:8px;}
     #app .nr-bi-row .nr-rec-row{padding-top:0;justify-content:space-between;}
   }
+  /* زر الخصم/الإضافي بعد الحفظ: الكلمة أعلى والمبلغ تحتها، فيتسع لأي رقم */
+  #app .nr-adj .nr-chip{display:flex !important;flex-direction:column;align-items:center;justify-content:center;height:auto !important;min-height:40px;line-height:1.2 !important;padding:3px 4px !important;white-space:normal !important;}
+  #app .nr-adj .nr-chip .nr-cw{font-size:12px;}
+  #app .nr-adj .nr-chip b{font-size:14px;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -2246,6 +2250,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=b355ce312e"></script>
+<script src="app.js?v=2c76622af6"></script>
 </body>
 </html>
