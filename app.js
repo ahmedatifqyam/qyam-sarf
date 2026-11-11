@@ -3974,6 +3974,24 @@ function showBudgetBalance(){
     + (bits.length ? `<div style="font-size:11px;opacity:.85;margin-top:2px;font-weight:600;">من إيراد ${fmtKWD(f.revenue,{noUnit:true})} — ${bits.join(' · ')}</div>` : '');
 }
 
+// مستفيد مكرر في الطلب نفسه (بالاسم أو الآيبان): تنبيه وإطار برتقالي، دون منع — قد يتكرر ببيان مختلف
+function nrDupMark(){
+  const blocks = [...document.querySelectorAll('.beneficiary-block')];
+  const norm = v => String(v||'').replace(/\s+/g,' ').trim().toLowerCase();
+  const info = blocks.map(b=>({n:norm((b.querySelector('.b-name')||{}).value), i:norm((b.querySelector('.b-iban')||{}).value).replace(/ /g,'')}));
+  let any = false;
+  blocks.forEach((b,k)=>{
+    const me = info[k];
+    const others = info.map((x,j)=>j).filter(j=>j!==k && ((me.n && info[j].n===me.n) || (me.i && me.i.length>8 && info[j].i===me.i)));
+    const inp = b.querySelector('.b-name'), h = b.querySelector('.nr-dup-h');
+    const dup = others.length>0; if(dup) any = true;
+    if(inp){ inp.classList.toggle('nr-dup', dup); }
+    if(h){ h.style.display = dup ? '' : 'none';
+      h.textContent = dup ? `⚠ هذا المستفيد مكرر في الطلب (المستفيد رقم ${others.map(j=>j+1).join(' و')}). تأكد أن البيان مختلف وأن التكرار مقصود.` : ''; }
+  });
+  return any;
+}
+document.addEventListener('input', ev=>{ const t = ev.target; if(t && t.matches && t.matches('.beneficiary-block .b-name, .beneficiary-block .b-iban')) nrDupMark(); });
 function onBeneficiaryNameChange(index, value){
   syncDraftFromDOM();
   const item = state.draft.beneficiaries[index];
@@ -3985,6 +4003,7 @@ function onBeneficiaryNameChange(index, value){
     item.civilId = known.civilId || item.civilId;
   }
   render();
+  if(nrDupMark() && (value||'').trim()) showToast('تنبيه: هذا المستفيد مضاف أكثر من مرة في الطلب','warning');
 }
 
 function toggleAttachmentUpdate(index){
@@ -13667,6 +13686,7 @@ function renderNewRequest(app){
                 <datalist id="benList">
                   ${state.beneficiaries.filter(x=>x.companyId===state.currentCompanyId).map(x=>`<option value="${escH(x.name)}">`).join('')}
                 </datalist></div>
+              <div class="nr-dup-h nr-wide" style="display:none;"></div>
               ${folded ? `<div class="nr-known">
                 <div class="nr-known-l"><span class="nr-ok">✓ مستفيد مسجّل</span> · الآيبان ينتهي بـ <bdi>${escH(tail(mIban))}</bdi>${b.civilId ? ` · الهوية <bdi>…${escH(tail(b.civilId))}</bdi>` : ''}</div>
                 <button type="button" class="btn btn-ghost btn-sm" data-on-click="nrEditBen" data-on-click-args="${qa([(i)])}">تعديل</button>
@@ -13737,6 +13757,7 @@ function renderNewRequest(app){
   `;
   updateTotalPreview();
   showBudgetBalance();
+  nrDupMark();
   app.querySelectorAll('textarea.grow-1').forEach(qyGrow);
   attachDraftAutoSave();
 }
