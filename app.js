@@ -2850,7 +2850,7 @@ function viewNote(){
     const r = state.requests.find(x=>x.id===state.activeReqId);
     return r ? `الطلب <bdi>${escH(r.number||'قيد المراجعة')}</bdi>: تفاصيله ومراحل اعتماده. «معاينة الطلب» تعرضه كما سيُطبع.` : 'تفاصيل الطلب ومراحل اعتماده.';
   }
-  if(v==='newRequest') return state.editingReqId ? 'عدّل بيانات الطلب ثم اضغط «حفظ التعديلات».' : 'اكتب عنوان الطلب واختر البند وأضف المستفيدين، ثم اضغط «إرسال للاعتماد».';
+  if(v==='newRequest') return state.editingReqId ? 'عدّل بيانات الطلب ثم اضغط «حفظ التعديلات».' : '';
   if(v==='newRequestChoice') return 'ابدأ طلباً جديداً فارغاً أو انسخ طلباً سابقاً.';
   if(v==='duplicateList') return 'اختر الطلب الذي تريد نسخه طلباً جديداً.';
   if(v==='oldRequests') return 'طلباتك في شركات لم تعد مرتبطاً بها، للمتابعة فقط.';
@@ -2872,7 +2872,13 @@ function fillSecNote(){
   const p = (e && e.tagName==='P' && e.classList.contains('sub')) ? e : null;
   const note = document.createElement('div'); note.className = 'sec-note';
   if(p){ while(p.firstChild) note.appendChild(p.firstChild); p.remove(); note.dataset.moved = '1'; }
-  else { note.innerHTML = viewNote() || '&nbsp;'; }
+  else {
+    const vn = viewNote();
+    // صفحة الطلب الجديد: بلا سطر تعريف، فيرتفع النموذج
+    if(!vn && state.view==='newRequest'){ host.classList.add('sec-hide'); return; }
+    note.innerHTML = vn || '&nbsp;';
+  }
+  host.classList.remove('sec-hide');
   host.appendChild(note);
 }
 function setAccountSec(i){
@@ -3931,6 +3937,10 @@ function computeBudgetItemStats(itemId, includeChildren){
 
 function onBudgetItemSelectChange(){
   syncDraftFromDOM();
+  showBudgetBalance();
+}
+// سطر الرصيد تحت «بند الميزانية»: القائمة تحمل اسم البند فقط، والرصيد هنا بلونه
+function showBudgetBalance(){
   const sel = document.getElementById('budgetItemSelect');
   const box = document.getElementById('budgetItemBalanceBox');
   if(!sel||!box) return;
@@ -3938,7 +3948,7 @@ function onBudgetItemSelectChange(){
 
   // «بند غير محدد»: تحذير صريح بأن الطلب ناقص ولن يُصرف قبل إسناده لبند حقيقي
   if(itemId === UNSPECIFIED_BUDGET){
-    box.style.cssText = 'display:block;margin-top:6px;padding:10px 13px;border-radius:8px;font-size:12.5px;'
+    box.style.cssText = 'display:block;margin-top:-2px;padding:8px 11px;border-radius:8px;font-size:12.5px;'
       + 'line-height:1.75;background:rgba(245,158,11,.1);color:#8a5a00;border:1px solid var(--amber);';
     box.innerHTML = '<b style="font-size:13px;">⚠️ الطلب لن يكتمل بهذا الاختيار</b><br>'
       + 'سيمضي في سلسلة الاعتماد، لكن <b>الصرف سيتوقف</b> حتى يُفتح بند مناسب '
@@ -3951,7 +3961,7 @@ function onBudgetItemSelectChange(){
   if(bal==null){ box.style.display='none'; return; }
   const color = bal>50 ? 'var(--green)' : bal>0 ? 'var(--amber)' : 'var(--red)';
   const bg = bal>50 ? 'rgba(34,197,94,.08)' : bal>0 ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)';
-  box.style.cssText = `display:block;margin-top:6px;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;background:${bg};color:${color};border:1px solid ${color};`;
+  box.style.cssText = `display:block;margin-top:-2px;padding:6px 10px;border-radius:8px;font-size:12.5px;font-weight:600;background:${bg};color:${color};border:1px solid ${color};`;
   const f = computeBudgetItemFigures(itemId);
   const bits = [];
   if(f){
@@ -3960,8 +3970,8 @@ function onBudgetItemSelectChange(){
     if(f.reservedCustody>0 || f.reservedExtra>0) bits.push(`محجوز في العهد المفتوحة ${fmtKWD(f.reservedCustody+f.reservedExtra,{noUnit:true})}`);
     if(f.pending>0)   bits.push(`قيد الطلب ${fmtKWD(f.pending,{noUnit:true})}`);
   }
-  box.innerHTML = `المتاح لطلب جديد: ${fmtKWD(bal)}`
-    + (bits.length ? `<div style="font-size:11.5px;opacity:.85;margin-top:3px;font-weight:600;">من إيراد ${fmtKWD(f.revenue,{noUnit:true})} — ${bits.join(' · ')}</div>` : '');
+  box.innerHTML = `الرصيد المتاح لطلب جديد: ${fmtKWD(bal)}`
+    + (bits.length ? `<div style="font-size:11px;opacity:.85;margin-top:2px;font-weight:600;">من إيراد ${fmtKWD(f.revenue,{noUnit:true})} — ${bits.join(' · ')}</div>` : '');
 }
 
 function onBeneficiaryNameChange(index, value){
@@ -4011,6 +4021,8 @@ function updateTotalPreview(){
     const extraEl = b.querySelector('.b-extra');
     const extra = extraEl ? (parseFloat(extraEl.value) || 0) : 0;
     const net = Math.max(amount - deduction + extra, 0);
+    const netEl = b.querySelector('.b-net');
+    if(netEl) netEl.innerHTML = (deduction||extra) ? `الصافي: <b>${fmtKWDHtml(net)}</b> د.ك` : '';
     total += net;
     if(net > maxBeneAmount) maxBeneAmount = net;
     const overMax = center && center.maxBeneficiaryAmount!=null && net > center.maxBeneficiaryAmount;
@@ -4094,6 +4106,70 @@ function addBeneficiaryRow(){
     if(firstInput) firstInput.focus({preventScroll:true});
   }
 }
+// ── صفحة طلب جديد: أجزاء تنفتح عند الحاجة ──
+function nrEditBen(i){ syncDraftFromDOM(); const b = state.draft.beneficiaries[i]; if(b) b._edit = true; render(); }
+function nrShowNotes(i){ syncDraftFromDOM(); const b = state.draft.beneficiaries[i]; if(b) b._showNotes = true; render();
+  setTimeout(()=>{ const el = document.querySelectorAll('.beneficiary-block .b-notes')[i]; if(el) el.focus({preventScroll:true}); }, 30); }
+function nrShowReqNotes(){ syncDraftFromDOM(); state.draft._showNotes = true; render();
+  setTimeout(()=>{ const el = document.getElementById('requestNotesInput'); if(el) el.focus({preventScroll:true}); }, 30); }
+// الخصم والإضافي: صندوق عائم فيه المبلغ وزر «احسب» والسبب
+function nrAdjOpen(i, type){
+  syncDraftFromDOM();
+  const b = state.draft.beneficiaries[i]; if(!b) return;
+  nrAdjClose();
+  const isDed = type==='deduction';
+  const val = isDed ? b.deduction : b.extra, note = isDed ? b.deductionNote : b.extraNote;
+  const base = Number(b.amount)||0;
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay nr-adj-ov'; ov.id = 'nrAdjModal';
+  ov.dataset.i = i; ov.dataset.t = type;
+  ov.innerHTML = `
+    <div class="modal-box nr-adj-box" role="dialog">
+      <h2 style="margin:0 0 4px;">${isDed ? 'خصم' : 'إضافي'}${(b.name||'').trim() ? ' — '+escH(b.name.trim()) : ''}</h2>
+      <p class="sub" style="margin:0 0 12px;">المبلغ الأساسي: <b>${fmtKWDHtml(base)}</b> د.ك</p>
+      <label>${isDed ? 'مبلغ الخصم' : 'مبلغ الإضافي'} (د.ك)</label>
+      <div class="field-with-calc"><input id="nrAdjAmt" type="number" inputmode="decimal" value="${escH(String(val||''))}" placeholder="0.000"><button type="button" class="calc-in" data-on-click="nrAdjCalcToggle">احسب</button></div>
+      <div id="nrAdjCalc" class="calc-box" style="display:none;">
+        ${isDed ? `<label>عدد أيام الغياب</label><input id="nrAdjQty" type="number" inputmode="decimal" placeholder="مثال: 3">
+          <p class="file-hint">الحساب: (المبلغ ÷ 26) × عدد الأيام</p>`
+        : `<label>عدد ساعات الإضافي</label><input id="nrAdjQty" type="number" inputmode="decimal" placeholder="مثال: 5">
+          <label>نوع اليوم</label><select id="nrAdjKind"><option value="1.25">يوم عمل (×1.25)</option><option value="1.5">يوم عطلة (×1.5)</option></select>
+          <p class="file-hint">الحساب: (المبلغ ÷ 26 ÷ 8) × عدد الساعات × المعامل</p>`}
+        <button type="button" class="btn btn-primary btn-sm" data-on-click="nrAdjCalcApply">تطبيق</button>
+      </div>
+      <label style="margin-top:10px;">${isDed ? 'سبب الخصم' : 'سبب الإضافي'}</label>
+      <input id="nrAdjNote" type="text" value="${escH(note||'')}" placeholder="${isDed ? 'مثال: غياب يومين' : 'مثال: ساعات إضافية'}">
+      <div class="nr-adj-acts">
+        <button type="button" class="btn btn-primary btn-md" data-on-click="nrAdjSave">حفظ</button>
+        <button type="button" class="btn btn-ghost btn-md" data-on-click="nrAdjClose">إلغاء</button>
+        ${(Number(val)||0)>0 ? `<button type="button" class="btn btn-ghost btn-md nr-adj-del" data-on-click="nrAdjClear">حذف ${isDed ? 'الخصم' : 'الإضافي'}</button>` : ''}
+      </div>
+    </div>`;
+  ov.addEventListener('mousedown', e=>{ if(e.target===ov) nrAdjClose(); });
+  document.body.appendChild(ov);
+  setTimeout(()=>{ const a = document.getElementById('nrAdjAmt'); if(a) a.focus({preventScroll:true}); }, 30);
+}
+function nrAdjClose(){ const m = document.getElementById('nrAdjModal'); if(m) m.remove(); }
+function nrAdjCalcToggle(){ const c = document.getElementById('nrAdjCalc'); if(c) c.style.display = c.style.display==='none' ? 'block' : 'none'; }
+function nrAdjCalcApply(){
+  const m = document.getElementById('nrAdjModal'); if(!m) return;
+  const b = state.draft.beneficiaries[+m.dataset.i]; if(!b) return;
+  const base = Number(b.amount)||0, q = parseFloat((document.getElementById('nrAdjQty')||{}).value)||0;
+  if(!base){ showToast('اكتب مبلغ المستفيد أولاً ليُحسب منه','error'); return; }
+  const r = m.dataset.t==='deduction' ? (base/26)*q : (base/26/8)*q*(parseFloat((document.getElementById('nrAdjKind')||{}).value)||1.25);
+  document.getElementById('nrAdjAmt').value = r.toFixed(3);
+  nrAdjCalcToggle();
+}
+function nrAdjSave(clear){
+  const m = document.getElementById('nrAdjModal'); if(!m) return;
+  const b = state.draft.beneficiaries[+m.dataset.i]; if(!b){ nrAdjClose(); return; }
+  const v = clear===true ? '' : String(document.getElementById('nrAdjAmt').value||'').trim();
+  const n = clear===true ? '' : String(document.getElementById('nrAdjNote').value||'').trim();
+  if(v && !(parseFloat(v)>=0)){ showToast('المبلغ غير صحيح','error'); return; }
+  if(m.dataset.t==='deduction'){ b.deduction = v; b.deductionNote = n; } else { b.extra = v; b.extraNote = n; }
+  nrAdjClose(); render(); saveDraftToStorage();
+}
+function nrAdjClear(){ nrAdjSave(true); }
 function removeBeneficiaryRow(i){
   syncDraftFromDOM();
   state.draft.beneficiaries.splice(i,1);
@@ -5595,8 +5671,8 @@ async function saveDocTexts(){
   if(!(await dbCheck(result, 'حفظ نصوص الطباعة'))) return;
   company.salutationText = salutation;
   company.referenceText = reference;
-  showToast('تم حفظ نصوص الطباعة', 'success');
-  toggleDocTextsBox();
+  showToast('تم حفظ نصوص الخطاب', 'success');
+  render();
 }
 
 function renderDeleteConfirmModal(){
@@ -6688,7 +6764,7 @@ function infoTips(){
 function pairFields(){
   if(!isPhone() || state.view==='login') return;
   const app = document.getElementById('app'); if(!app) return;
-  const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]), select, .sel-add, .field-with-btn, label.file-btn';
+  const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]), select, textarea.grow-1, .sel-add, .field-with-btn, label.file-btn';
   app.querySelectorAll('label').forEach(l=>{
     if(l.closest('.lf,.modal-overlay,.mtab-sheet,table,.tcards,.cus-docs,.dash-filt,.snd-row,.sig-ed,.recipe,.sig-el,.perm-row')) return;
     if(l.querySelector('input,select,textarea')) return;          // مربع اختيار داخل اسمه
@@ -6868,7 +6944,16 @@ function tidyLite(){
   try{ infoTips(); fileButtons(); pairFields(); growInputs(); iconActs(); }catch(e){ console.error('tidyLite', e); }
   _qyMO.takeRecords(); _qyMO.observe(app, {childList:true, subtree:true});
 }
-function pageTidy(){ try{ requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); infoTips(); fileButtons(); pairFields(); growInputs(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
+// شريط «تتصفح الآن كـ» على الهاتف: فوق أعلى شريط سفلي ظاهر، فلا يغطي أزراره
+function impAboveBar(){
+  const f = document.querySelector('.imp-float'); if(!f) return;
+  if(!isPhone()){ f.style.bottom = ''; return; }
+  let top = innerHeight;
+  document.querySelectorAll('#mTab, .sticky-submit-bar, .global-floating-bar').forEach(e=>{ const cs = getComputedStyle(e); if(cs.display==='none' || cs.visibility==='hidden' || !/fixed|sticky/.test(cs.position)) return; const r = e.getBoundingClientRect(); if(r.height>0 && r.bottom>=innerHeight-2 && r.top<top) top = r.top; });
+  f.style.bottom = Math.max(12, Math.round(innerHeight - top + 8)) + 'px';
+}
+window.addEventListener('resize', ()=>requestAnimationFrame(impAboveBar));
+function pageTidy(){ try{ requestAnimationFrame(impAboveBar); setTimeout(impAboveBar, 300); requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); infoTips(); fileButtons(); pairFields(); growInputs(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
   const a = document.querySelector('#app .adm-t2.active');
@@ -6952,7 +7037,7 @@ function siteMapPages(){
   P.push({g:'الطلبات', ico:'📋', label:'طلباتي / الرئيسية', desc:'كل طلباتك وما ينتظر قرارك مع حالة كل طلب.', js:[["#12",[]]], guide:'track',
     btns:[['+ طلب صرف جديد','يبدأ طلب صرف جديداً'],['فلاتر الحالة والبحث','تضييق القائمة بحالة الطلب أو كلمة'],['فتح الطلب','يعرض مساره وسجله وأزرار قراره']]});
   P.push({g:'الطلبات', ico:'➕', label:'طلب صرف جديد', desc:'نموذج إنشاء طلب: العنوان والبند والمستفيدون والمرفقات.', js:[["openNewRequestChoice",[]]], guide:'new',
-    btns:[['إرسال','يرسل الطلب بعد نافذة المراجعة'],['إلغاء','يتجاهل المسودة'],['تعديل نصوص الطباعة','يغيّر نص الخطاب المطبوع']]});
+    btns:[['إرسال','يرسل الطلب بعد نافذة المراجعة'],['إلغاء','يتجاهل المسودة'],['+ خصم / + إضافي','يفتح صندوقاً عائماً للمبلغ وحسابه وسببه'],['تعديل (للمستفيد المسجّل)','يُظهر بياناته المحفوظة لتغييرها']]});
   if(canSeeRevenues()){
     P.push({g:'المالية', ico:'💰', label:'الإيرادات', desc:'ما دخل الصندوق على كل بند.', js:[["openRevenues",[0]]], guide:'rev',
       btns:[['حذف','يحذف سجل الإيراد (لمن يملك تحكماً كاملاً)']]});
@@ -11989,6 +12074,15 @@ function renderPrintSetupPanel(){
       ${co.logoData ? '' : '<p class="sub" style="margin:8px 0 0;font-size:12.5px;">تستخدم هذي الشركة الترويسة الافتراضية (بدون بيانات تواصل أسفلها). بيانات التواصل تُكتب في التذييل أدناه.</p>'}
     </div>
     <div class="card" style="margin-top:20px;">
+      <h2 style="margin:0 0 4px;">نصوص خطاب طلب الصرف</h2>
+      <p class="sub" style="margin:0 0 10px;">تظهر في أول خطاب الطلب المطبوع: «${escH(co.salutationText || 'الإخوة / الإدارة المالية')}» ثم «بالإشارة إلى الموضوع أعلاه، ${escH(co.referenceText || 'يرجى التكرم بالموافقة على صرف')} [عنوان الطلب]». تُطبّق على كل طلبات هذه الشركة.</p>
+      <div class="row">
+        <div><label>نص المخاطبة</label><input id="docTextSalutation" type="text" value="${escH(co.salutationText || 'الإخوة / الإدارة المالية')}"></div>
+        <div><label>نص الطلب</label><input id="docTextReference" type="text" value="${escH(co.referenceText || 'يرجى التكرم بالموافقة على صرف')}"></div>
+      </div>
+      <div class="actions-row"><button type="button" class="btn btn-primary btn-md" data-on-click="saveDocTexts">حفظ نصوص الخطاب</button></div>
+    </div>
+    <div class="card" style="margin-top:20px;">
       <h2 style="margin:0 0 4px;">التذييل وترقيم الصفحات (أسفل كل ورقة مطبوعة)</h2>
       <p class="sub" style="margin:0 0 10px;">يظهر النص بالمنتصف: سطر واحد، وينزل لسطرين تلقائياً إن طال (أو بكسر سطر يدوي بزر Enter). رقم الصفحة يساراً وخط أفقي رفيع ملاصق لهما. يظهر على كل الصفحات بما فيها المرفقات.</p>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600;"><input type="checkbox" id="pfShowText" ${chk(co.footerShowText!==false)} data-on-change="updateFooterPreview"> إظهار نص التذييل</label>
@@ -13485,148 +13579,84 @@ function renderNewRequest(app){
   app.innerHTML = `
     <h1>${state.editingReqId ? 'تعديل الطلب' : 'طلب صرف جديد'}</h1>
     ${(()=>{ const rq = state.editingReqId && state.requests.find(r=>r.id===state.editingReqId); return rq && rq.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid #b91c1c;padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوض</b> — عدّل الطلب ثم أعد إرساله.</div>' : ''; })()}
-    <div class="card">
-      ${canSend ? '' : `<div class="warn-box" style="background:rgba(180,83,9,.12);border-right:4px solid #b45309;padding:8px 12px;border-radius:8px;margin-bottom:12px;">${state.editingReqId ? 'ليست لديك صلاحية «تعديل طلباتي» (صلاحيتك: قراءة فقط). يمكنك الاطلاع على الطلب فقط.' : 'ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.'}</div>`}
-      <label>عنوان الطلب</label>
-      <div class="field-with-btn">
-        <input id="reasonInput" style="--fw:580px;" type="text" value="${escH(d.reason||'')}" placeholder="مثال: رواتب شهر 8-2026 أو عهدة">
-        <button type="button" class="btn btn-primary btn-md" tabindex="-1" data-on-click="toggleDocTextsBox">تعديل نصوص الطباعة</button>
-      </div>
-      <div id="docTextsBox" class="calc-box" style="display:none;">
-        <p class="file-hint">بالإشارة إلى الموضوع أعلاه، <b>[الجزء القابل للتعديل]</b> [عنوان الطلب] وفق الجدول الآتي:</p>
-        <label>نص الطلب (بدل "يرجى التكرم بالموافقة على صرف")</label>
-        <input id="docTextReference" type="text" value="${(state.companies.find(c=>c.id===state.currentCompanyId)||{}).referenceText || 'يرجى التكرم بالموافقة على صرف'}">
-        <label>نص المخاطبة (بدل "الإخوة / الإدارة المالية")</label>
-        <input id="docTextSalutation" type="text" value="${(state.companies.find(c=>c.id===state.currentCompanyId)||{}).salutationText || 'الإخوة / الإدارة المالية'}">
-        <p class="file-hint">يُطبّق على كل الطلبات القادمة لهذه الشركة.</p>
-        <button type="button" class="btn btn-primary btn-xs" data-on-click="saveDocTexts">حفظ</button>
-        <button type="button" class="btn btn-ghost btn-xs" data-on-click="toggleDocTextsBox">إلغاء</button>
-      </div>
-
-      <label style="margin-top:14px;">سبب الطلب التفصيلي (اختياري — يُستخدم بالخطاب الرسمي بدل العنوان)</label>
-      <textarea id="detailedReasonInput" class="grow-1" rows="1" placeholder="اتركه فارغاً لاستخدام عنوان الطلب نفسه">${escH(d.detailedReason||'')}</textarea>
-
-      <div class="row">
-      <div>
-      <label>بند الميزانية <span style="color:var(--red);">*</span></label>
+    <div class="card nr-form">
+      ${canSend ? '' : `<div class="warn-box nr-wide" style="background:rgba(180,83,9,.12);border-right:4px solid #b45309;padding:8px 12px;border-radius:8px;margin-bottom:12px;">${state.editingReqId ? 'ليست لديك صلاحية «تعديل طلباتي» (صلاحيتك: قراءة فقط). يمكنك الاطلاع على الطلب فقط.' : 'ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.'}</div>`}
+      <div class="nr-f nr-wide"><label>عنوان الطلب</label>
+        <input id="reasonInput" type="text" value="${escH(d.reason||'')}" placeholder="مثال: رواتب شهر 8-2026"></div>
+      <div class="nr-f nr-wide"><label>سبب تفصيلي (اختياري)</label>
+        <textarea id="detailedReasonInput" class="grow-1" rows="1" placeholder="فارغ = يُستخدم عنوان الطلب">${escH(d.detailedReason||'')}</textarea></div>
+      <div class="nr-f nr-wide"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
       <select id="budgetItemSelect" data-on-change="onBudgetItemSelectChange" style="width:100%;">
-        <option value="">— اختر البند —</option>
-        ${(state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId && b.is_active!==false).map(b=>{
-          const bal = computeBudgetItemBalance(b.id);
-          const balStr = bal!=null ? ` (الرصيد: ${fmtKWDPlain(bal)})` : '';
-          return `<option value="${b.id}"${(d.budgetItemId===b.id)?' selected':''}>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${balStr}</option>`;
-        }).join('')}
+        <option value="">اختر البند</option>
+        ${(state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId && b.is_active!==false).map(b=>
+          `<option value="${b.id}"${(d.budgetItemId===b.id)?' selected':''}>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('')}
         <option value="${UNSPECIFIED_BUDGET}"${(d.budgetItemId===UNSPECIFIED_BUDGET)?' selected':''}>⚠️ بند غير محدد — يُستكمل قبل الصرف</option>
-      </select>
-      <div id="budgetItemBalanceBox" style="display:none;margin-top:6px;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;"></div>
-      </div>
-      <div class="recurring-cell">
-        <label for="recurringCheck">هل يتكرر هذا الطلب؟</label>
-        <label class="check-line" title="مثل رواتب شهرية أو عهدة متكررة">
-          <input id="recurringCheck" type="checkbox" style="width:auto;" ${d.isRecurring ? 'checked' : ''}>
-          نعم، يتكرر مستقبلاً (رواتب شهرية، عهدة متكررة…)
-        </label>
-      </div>
-      </div>
+      </select></div>
+      <div id="budgetItemBalanceBox" class="nr-wide" style="display:none;"></div>
+      <label class="check-line nr-rec nr-wide" title="مثل الرواتب الشهرية">
+        <input id="recurringCheck" type="checkbox" style="width:auto;" ${d.isRecurring ? 'checked' : ''}>
+        طلب متكرر مستقبلاً (مثل الرواتب الشهرية)
+      </label>
 
-      <label>المستفيدون (شخص أو أكثر، أو جهة)</label>
-      <div id="beneficiaryList">
+      <div class="nr-sec nr-wide">المستفيدون</div>
+      <div id="beneficiaryList" class="nr-wide">
         ${d.beneficiaries.map((b,i)=>{
-          const known = isKnownBeneficiary(b.name);
-          const showUpload = !known || b._showUpload;
+          const mst = (b.name||'').trim() ? state.beneficiaries.find(x=>x.name===(b.name||'').trim() && x.companyId===state.currentCompanyId && x.id) : null;
+          const mIban = mst && mst.iban ? String(mst.iban).replace(/\s+/g,'').toUpperCase() : '';
+          const cIban = String(b.iban||'').replace(/\s+/g,'').toUpperCase();
+          const diff = !!(mIban && cIban && cIban!==mIban && !isFinanceUser());
+          const folded = !!(mIban && (!cIban || cIban===mIban) && !b._edit);
+          const ded = Number(b.deduction)||0, ext = Number(b.extra)||0;
+          const showNotes = !!((b.notes||'').trim() || b._showNotes);
+          const tail = s => s ? String(s).replace(/\s+/g,'').slice(-4) : '';
+          const chip = (type, word, val, note) => `<button type="button" class="nr-chip" title="اضغط للتعديل" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">${word} <b>${fmtKWDHtml(val)}</b>${note ? ' — '+escH(note) : ''} <span class="nr-pen">✎</span></button>`;
+          const link = (type, txt) => `<button type="button" class="nr-link" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">+ ${txt}</button>`;
           return `
-          <div class="beneficiary-block flow">
+          <div class="beneficiary-block nr-ben">
             <div class="beneficiary-block-header">مستفيد رقم ${i+1}${d.beneficiaries.length>1 ? `<span class="remove-b" data-on-click="removeBeneficiaryRow" data-on-click-args="${qa([(i)])}">إزالة ✕</span>` : ''}</div>
-            <div class="row">
-              <div>
-                <label>الاسم</label>
+            <div class="nr-grid">
+              <div class="nr-f"><label>الاسم</label>
                 <input class="b-name" type="text" data-combo="benList" autocomplete="off" value="${escH(b.name||'')}" placeholder="اسم الشخص أو الجهة" data-on-change="onBeneficiaryNameChange" data-on-change-args="${qa([(i), QA.v])}">
                 <datalist id="benList">
                   ${state.beneficiaries.filter(x=>x.companyId===state.currentCompanyId).map(x=>`<option value="${escH(x.name)}">`).join('')}
-                </datalist>
+                </datalist></div>
+              ${folded ? `<div class="nr-known">
+                <div class="nr-known-l"><span class="nr-ok">✓ مستفيد مسجّل</span> · الآيبان ينتهي بـ <bdi>${escH(tail(mIban))}</bdi>${b.civilId ? ` · الهوية <bdi>…${escH(tail(b.civilId))}</bdi>` : ''}</div>
+                <button type="button" class="btn btn-ghost btn-sm" data-on-click="nrEditBen" data-on-click-args="${qa([(i)])}">تعديل</button>
+                <div class="nr-known-h">بياناته محفوظة من طلب سابق. اضغط «تعديل» إن تغيّر الآيبان أو الهوية.</div>
+              </div>` : ''}
+              <div class="nr-idfs"${folded ? ' style="display:none;"' : ''}>
+                <div class="nr-f"><label>الاسم بالإنجليزية</label>
+                  <input class="b-nameEn" type="text" value="${escH(b.nameEn||'')}" placeholder="Name in English"></div>
+                <div class="nr-f"><label>رقم الهوية</label>
+                  <input class="b-civilId" type="text" inputmode="numeric" value="${escH(b.civilId||'')}" placeholder="الرقم المدني"></div>
+                <div class="nr-f"><label>الآيبان</label>
+                  <input class="b-iban" type="text" dir="ltr" value="${escH(b.iban||'')}" placeholder="KW00 XXXX…" data-on-change="#125">
+                  ${mIban ? `<div class="file-hint nr-iban-h" style="${diff?'color:var(--amber);font-weight:600;':''}">${diff ? '⚠ يختلف عن الآيبان المسجّل لهذا المستفيد (ينتهي بـ '+escH(tail(mIban))+'): سيُحفظ لهذا الطلب، ويراجعه المحاسب قبل اعتماده كآيبان دائم.' : 'الآيبان المسجّل لهذا المستفيد ينتهي بـ '+escH(tail(mIban))}</div>` : ''}</div>
               </div>
-              <div>
-                <label>الاسم بالإنجليزية</label>
-                <input class="b-nameEn" type="text" value="${escH(b.nameEn||'')}" placeholder="Name in English">
+              <div class="nr-f nr-wide"><label>البيان <span style="color:var(--red);">*</span></label>
+                <input class="b-statement" type="text" value="${escH(b.statement||'')}" placeholder="مثال: مستحقات شهر أغسطس"></div>
+              <div class="nr-f"><label>المبلغ (د.ك)</label>
+                <input class="b-amount" type="number" inputmode="decimal" value="${b.amount||''}" placeholder="0.000" data-on-input="updateTotalPreview"></div>
+              <div class="nr-f nr-notes"${showNotes ? '' : ' style="display:none;"'}><label>ملاحظة</label>
+                <input class="b-notes" type="text" value="${escH(b.notes||'')}" placeholder="أي ملاحظة إضافية"></div>
+              <input class="b-deduction" type="hidden" value="${escH(String(b.deduction||''))}">
+              <input class="b-deductionNote" type="hidden" value="${escH(b.deductionNote||'')}">
+              <input class="b-extra" type="hidden" value="${escH(String(b.extra||''))}">
+              <input class="b-extraNote" type="hidden" value="${escH(b.extraNote||'')}">
+              <div class="nr-adj nr-wide">
+                ${ded>0 ? chip('deduction','خصم', ded, b.deductionNote) : link('deduction','خصم')}
+                ${ext>0 ? chip('extra','إضافي', ext, b.extraNote) : link('extra','إضافي')}
+                ${showNotes ? '' : `<button type="button" class="nr-link" data-on-click="nrShowNotes" data-on-click-args="${qa([(i)])}">+ ملاحظة</button>`}
               </div>
+              <div class="nr-foot nr-wide">${attButtonHtml(i, b)}<span class="b-net"></span></div>
             </div>
-            <div class="row">
-              <div>
-                <label>رقم الهوية</label>
-                <input class="b-civilId" type="text" value="${escH(b.civilId||'')}" placeholder="الرقم المدني / الهوية">
-              </div>
-              <div>
-                <label>رقم الآيبان (IBAN)</label>
-                <input class="b-iban" type="text" value="${escH(b.iban||'')}" placeholder="KW00 XXXX XXXX XXXX" data-on-change="#125">
-                ${(()=>{ const m = (b.name||'').trim() ? state.beneficiaries.find(x=>x.name===(b.name||'').trim() && x.companyId===state.currentCompanyId && x.id) : null;
-                  if(!m || !m.iban) return '';
-                  const t = String(m.iban).replace(/\s+/g,'').toUpperCase(), cur = String(b.iban||'').replace(/\s+/g,'').toUpperCase();
-                  const diff = cur && cur!==t && !isFinanceUser();
-                  return `<div class="file-hint" style="${diff?'color:var(--amber);font-weight:600;':''}">${diff ? '⚠ يختلف عن الآيبان المسجّل لهذا المستفيد (ينتهي بـ '+escH(t.slice(-4))+'): سيُحفظ لهذا الطلب فقط، وتُكتب ملحوظة، ويصل تنبيه للمالية.' : 'مستفيد مسجّل — الآيبان المسجّل ينتهي بـ '+escH(t.slice(-4))+'.'}</div>`; })()}
-              </div>
-            </div>
-            <div class="row">
-              <div>
-                <label>البيان *</label>
-                <input class="b-statement" type="text" value="${escH(b.statement||'')}" placeholder="مثال: مستحقات شهر أغسطس">
-              </div>
-            </div>
-            <div class="row">
-              <div>
-                <label>المبلغ (د.ك)</label>
-                <input class="b-amount" type="number" value="${b.amount||''}" placeholder="0.000" data-on-input="updateTotalPreview">
-              </div>
-              <div>
-                <label>ملاحظات (اختياري)</label>
-                <input class="b-notes" type="text" value="${escH(b.notes||'')}" placeholder="أي ملاحظة إضافية">
-              </div>
-            </div>
-            <div class="row">
-              <div>
-                <label>خصم (اختياري)</label>
-                <div class="field-with-calc"><input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" data-on-input="updateTotalPreview"><button type="button" class="calc-in" tabindex="-1" title="احسب الخصم" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "deduction"])}">احسب</button></div>
-              </div>
-              <div>
-                <label>بيان الخصم (اختياري)</label>
-                <input class="b-deductionNote" type="text" value="${escH(b.deductionNote||'')}" placeholder="سبب الخصم إن وُجد">
-              </div>
-            </div>
-            <div id="calcBox-deduction-${i}" class="calc-box" style="display:none;">
-              <label>عدد أيام الغياب</label>
-              <input id="calcDeductionDays-${i}" type="number" placeholder="مثال: 3">
-              <p class="file-hint">الحساب: (المبلغ ÷ 26) × عدد الأيام</p>
-              <button type="button" class="btn btn-primary btn-xs" data-on-click="applyDeductionCalc" data-on-click-args="${qa([(i)])}">تطبيق</button>
-              <button type="button" class="btn btn-ghost btn-xs" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "deduction"])}">إلغاء</button>
-            </div>
-            <div class="row">
-              <div>
-                <label>إضافي (اختياري)</label>
-                <div class="field-with-calc"><input class="b-extra" type="number" value="${b.extra||''}" placeholder="0.000" data-on-input="updateTotalPreview"><button type="button" class="calc-in" tabindex="-1" title="احسب الإضافي" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "extra"])}">احسب</button></div>
-              </div>
-              <div>
-                <label>بيان الإضافي (اختياري)</label>
-                <input class="b-extraNote" type="text" value="${escH(b.extraNote||'')}" placeholder="سبب الإضافي إن وُجد">
-              </div>
-            </div>
-            <div id="calcBox-extra-${i}" class="calc-box" style="display:none;">
-              <label>عدد ساعات الإضافي</label>
-              <input id="calcExtraHours-${i}" type="number" placeholder="مثال: 5">
-              <label>نوع اليوم</label>
-              <select id="calcExtraType-${i}">
-                <option value="1.25">يوم عمل (×1.25)</option>
-                <option value="1.5">يوم عطلة (×1.5)</option>
-              </select>
-              <p class="file-hint">الحساب: (المبلغ ÷ 26 ÷ 8) × عدد الساعات × المعامل</p>
-              <button type="button" class="btn btn-primary btn-xs" data-on-click="applyExtraCalc" data-on-click-args="${qa([(i)])}">تطبيق</button>
-              <button type="button" class="btn btn-ghost btn-xs" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "extra"])}">إلغاء</button>
-            </div>
-            <div class="row"><div>${attButtonHtml(i, b)}</div></div>
           </div>
         `}).join('')}
       </div>
-      <span class="add-beneficiary" data-on-click="addBeneficiaryRow">+ إضافة مستفيد آخر</span>
+      <span class="add-beneficiary nr-wide" data-on-click="addBeneficiaryRow">+ إضافة مستفيد آخر</span>
 
-      <div class="total-box" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:nowrap;">
+      <div class="total-box nr-wide" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:nowrap;">
         <div style="flex-shrink:0;">
           <div style="font-size:19px;font-weight:700;">الإجمالي</div>
           <div style="font-size:11px;font-weight:400;color:#B8C0CC;margin-top:2px;">(يُحسب تلقائياً)</div>
@@ -13634,16 +13664,17 @@ function renderNewRequest(app){
         <span id="totalPreviewWords" style="flex:1;text-align:center;font-size:12px;font-weight:400;color:#D8DEE6;overflow:hidden;"></span>
         <b id="totalPreview" style="font-size:24px;flex-shrink:0;">0.000 د.ك</b>
       </div>
-      <div id="amountLimitWarning" style="display:none;background:var(--amber-bg);color:#1B2733;border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:12.5px;margin-top:10px;"></div>
+      <div id="amountLimitWarning" class="nr-wide" style="display:none;background:var(--amber-bg);color:#1B2733;border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:12.5px;margin-top:10px;"></div>
 
-      <label style="margin-top:14px;">ملاحظات الطلب (اختياري — داخلية لا تُطبع، يراها المعتمدون والمالية)</label>
-      <textarea id="requestNotesInput" class="grow-1" rows="1" placeholder="مثال: الفاتورة الأصلية مع المحاسب">${escH(d.requestNotes||'')}</textarea>
+      ${((d.requestNotes||'').trim() || d._showNotes) ? `<div class="nr-f nr-wide"><label>ملاحظة داخلية (لا تُطبع، يراها المعتمدون والمالية)</label>
+      <textarea id="requestNotesInput" class="grow-1" rows="1" placeholder="مثال: الفاتورة الأصلية مع المحاسب">${escH(d.requestNotes||'')}</textarea></div>`
+      : `<div class="nr-wide"><button type="button" class="nr-link" data-on-click="nrShowReqNotes">+ ملاحظة داخلية للمعتمدين</button></div>`}
 
-      <div class="actions-row" style="align-items:center;">
+      <div class="actions-row nr-actions nr-wide" style="align-items:center;">
         <button id="submitDraftBtn" class="btn btn-primary submit-draft-trigger btn-md" ${canSend?'':`disabled title="${noSendTip}"`} data-on-click="submitDraft">${state.editingReqId ? 'حفظ التعديلات' : 'إرسال للاعتماد'}</button>
         <button class="btn btn-ghost btn-md" ${qon('click', state.editingReqId ? [["#25",[]]] : [["discardDraftAndCancel",[]]])}>إلغاء${state.editingReqId ? '' : ' ومسح المسودة'}</button>
-        <span class="req-num-note">${numNote}</span>
       </div>
+      <div class="req-num-note nr-wide">${numNote}</div>
     </div>
     <div class="gfb-spacer" style="height:70px;"></div>
     <div class="sticky-submit-bar no-print">
@@ -13658,6 +13689,7 @@ function renderNewRequest(app){
     </div>
   `;
   updateTotalPreview();
+  showBudgetBalance();
   app.querySelectorAll('textarea.grow-1').forEach(qyGrow);
   attachDraftAutoSave();
 }

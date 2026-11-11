@@ -2115,6 +2115,56 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .list-item.fr-row.fr-row.fr-row > div:last-child > .btn{width:100% !important;}
     #app .list-item.fr-row.fr-row.fr-row > .sub{grid-column:1 / -1;order:3;font-size:11.5px !important;margin:6px 0 0 !important;line-height:1.5;}
   }
+
+  /* ═══ صفحة طلب صرف جديد: ترتيب مضغوط ═══ */
+  #app .nr-form{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;max-width:860px;padding:16px 18px;}
+  #app .nr-form > *{min-width:0;margin-top:0 !important;margin-bottom:0 !important;}
+  #app .nr-form label{margin:0 0 4px;}
+  #app .nr-form textarea{margin:0 !important;display:block;}
+  #app .nr-form .nr-f > input,#app .nr-form .nr-f > select,#app .nr-form .nr-f > textarea{width:100% !important;max-width:100% !important;}
+  #app .nr-form .check-line.nr-rec{display:flex;align-items:center;gap:8px;min-height:36px;margin:0;font-weight:400;color:var(--text);cursor:pointer;}
+  #app .nr-sec{font-weight:700;font-size:15px;color:var(--text);border-top:1px solid var(--line);padding-top:10px;margin-top:4px !important;}
+  #app .nr-ben{margin:0 0 10px;padding:12px 14px;}
+  #app .nr-ben .beneficiary-block-header{margin-bottom:8px;padding-bottom:6px;}
+  #app .nr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;align-items:start;}
+  #app .nr-grid > .nr-wide{grid-column:1 / -1;}
+  #app .nr-idfs{display:contents;}
+  #app .nr-known{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;background:var(--paper,#f6f4ef);border:1px solid var(--line);border-radius:8px;padding:6px 10px;align-self:end;}
+  #app .nr-known-l{font-size:13px;line-height:1.5;}
+  #app .nr-ok{color:var(--green);font-weight:700;}
+  #app .nr-known-h{grid-column:1 / -1;font-size:11.5px;color:var(--muted);line-height:1.45;}
+  #app .nr-known .btn{min-width:64px;}
+  #app .nr-iban-h{margin:3px 0 0;font-size:11.5px;line-height:1.45;}
+  #app .nr-adj{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;}
+  #app .nr-link{background:none;border:0;padding:4px 0;color:var(--blue);font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;}
+  #app .nr-chip{background:var(--blue-bg,#eef5fc);border:1px solid #3b82c4;color:var(--text);border-radius:16px;padding:4px 12px;font:inherit;font-size:13px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #app .nr-pen{color:#3b82c4;}
+  #app .nr-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  #app .b-net{font-size:13px;color:var(--text);}
+  #app .nr-form .add-beneficiary{margin:0;justify-self:start;}
+  #app .nr-form .total-box{margin:4px 0 0 !important;}
+  #app .nr-form .nr-actions{margin:4px 0 0 !important;}
+  #app .nr-form .req-num-note{margin:0;}
+  .nr-adj-box{max-width:420px;width:calc(100% - 32px);}
+  .nr-adj-box label{margin:8px 0 4px;}
+  .nr-adj-box .field-with-calc{max-width:100%;}
+  .nr-adj-box .calc-box{margin-top:8px;}
+  .nr-adj-acts{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;margin-top:16px;}
+  .nr-adj-acts .btn{width:100% !important;min-width:0 !important;margin:0 !important;}
+  .nr-adj-acts .nr-adj-del{color:var(--red);border-color:var(--red);}
+  @media (max-width:699px){
+    #app .nr-form{padding:12px;gap:8px;}
+    #app .nr-grid{grid-template-columns:minmax(0,1fr);gap:8px;}
+    #app .nr-form .lf{margin:0 !important;}
+    #app .nr-ben{padding:10px 12px;}
+    #app .nr-form .nr-actions{display:none !important;}   /* الإرسال والإلغاء في الشريط السفلي */
+    #app .nr-known{align-self:auto;}
+    .nr-adj-ov{align-items:flex-end;}
+    .nr-adj-box{width:100%;max-width:none;border-radius:16px 16px 0 0;margin:0;}
+  }
+  #secTabs.sec-hide{display:none !important;}
+  /* الهاتف: مسافة واضحة بين اسم النظام واسم الشركة فلا يتلامسان */
+  @media (max-width:699px){ .topbar .brand{gap:12px !important;} .brand-co-group{padding-inline-start:2px;} .brand-name{padding-inline-end:2px;overflow:visible !important;} .brand-name-col{overflow:visible;} }
 </style>
 </head>
 <body>
@@ -2135,6 +2185,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=675309177b"></script>
+<script src="app.js?v=5a87d48c1c"></script>
 </body>
 </html>
