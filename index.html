@@ -2013,8 +2013,8 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     /* بطاقة فيها زر بكلام مع الحذف والتعديل: الزر بكلامه أعلى، والمربعان تحته متجاوران في الوسط */
     #app .list-item > div:last-child:has(> .btn-ico):has(> .btn:not(.btn-ico)),#app .list-item > div:last-child:has(> .btn-ico):has(> .cur-co,> span.badge){display:grid !important;grid-template-columns:1fr 1fr;width:136px !important;min-width:136px !important;gap:8px;align-items:center;}
     #app .list-item > div:last-child:has(> .btn-ico) > :not(.btn-ico){grid-column:1 / -1;order:-1;width:100% !important;min-width:0 !important;justify-content:center;padding:0 6px !important;white-space:nowrap;}
-    #app .list-item > div:last-child:has(> .btn-ico) > .btn-ico-edit{justify-self:end;}
-    #app .list-item > div:last-child:has(> .btn-ico) > .btn-ico-del{justify-self:start;}
+    /* الزر الأعلى بعرض الزرين تحته معاً: المربعان يتمددان ليملأا العرض نفسه */
+    #app .list-item > div:last-child:has(> .btn-ico):has(> :not(.btn-ico)) > .btn-ico{width:100% !important;max-width:none !important;min-width:0 !important;flex:none !important;justify-self:stretch;}
   }
 
   /* أزرار الحذف والتعديل في البطاقات والجداول (هاتف وسطح مكتب): مربع 40 برمز فقط — الحذف أحمر والتعديل أزرق */
