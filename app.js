@@ -668,7 +668,7 @@ async function loadAllAfterAuth(){
 async function loadAll(){
   // الاستعلامات الستة عشر مستقلة تماماً: كل واحد يملأ مفتاحاً خاصاً به في state
   // ولا تقرأ دوال التحويل من state. لذا تُرسل دفعة واحدة بدل انتظار بعضها.
-  // على خادم بعيد (سيول) هذا يختصر ١٥ رحلة متتابعة إلى موجة واحدة.
+  // على خادم بعيد (سيول) هذا يختصر 15 رحلة متتابعة إلى موجة واحدة.
   const q = [
     db.from('companies').select('*'),
     db.from('centers').select('*'),
@@ -852,7 +852,7 @@ const DEFAULT_TAGLINE2 = 'طلبات الصرف ومسارات الاعتماد 
 function brandCache(k){ try{ return localStorage.getItem('qayam_brand_'+k) || ''; }catch(e){ return ''; } }
 function brandCacheSet(k, v){ try{ if(v) localStorage.setItem('qayam_brand_'+k, v); else localStorage.removeItem('qayam_brand_'+k); }catch(e){} }
 // الاسم لا يظهر ثم يتغيّر: قبل وصول الاسم من قاعدة البيانات يبقى مكانه فارغاً (إلا إن حفظه المتصفح من زيارة سابقة)،
-// وإن تأخّر الخادم أكثر من ٣ ثوانٍ ظهر الاسم الافتراضي
+// وإن تأخّر الخادم أكثر من 3 ثوانٍ ظهر الاسم الافتراضي
 function systemName(){ const v = (state.appSettings && state.appSettings.system_name) || brandCache('name'); return v || (state.brandSettled ? DEFAULT_SYSTEM_NAME : ''); }
 // السطران تحت الاسم في صفحة الدخول: «فارغ» في الإعدادات = لا يظهر السطر
 function systemTagline(k){
@@ -1274,7 +1274,7 @@ function renderBellPanel(){
 }
 const AUTO_OPEN_NOTIFS = true;   // فتح لوحة الإشعارات وحدها عند الدخول وعند وصول إشعار جديد (غيّرها إلى false لإيقافه)
 // نغمة تنبيه قصيرة عند وصول إشعار (مولّدة بالمتصفح، بدون ملف صوتي خارجي)
-// مستويات الصوت: ٣ عالٍ، ٢ متوسط، ١ منخفض (الصوت القديم)، ٠ صامت. الافتراضي عالٍ.
+// مستويات الصوت: 3 عالٍ، 2 متوسط، 1 منخفض (الصوت القديم)، 0 صامت. الافتراضي عالٍ.
 const NOTIF_LEVELS = {3:{g:1.0, ico:'🔊', name:'عالٍ'}, 2:{g:0.5, ico:'🔉', name:'متوسط'}, 1:{g:0.16, ico:'🔈', name:'منخفض'}, 0:{g:0, ico:'🔇', name:'صامت'}};
 let _notifLevel = null;
 function notifLevel(){
@@ -1575,9 +1575,9 @@ async function seedIfEmpty(){
   await dbCheck(await db.from('users').insert(seeds), 'زرع الحسابات التجريبية');
 }
 
-// ═══════════ سجل الأمان والأخطاء (ملف SQL ٩) ═══════════
+// ═══════════ سجل الأمان والأخطاء (ملف SQL 9) ═══════════
 // يلتقط أخطاء الواجهة ومحاولات الدخول ويرسلها لدالة qy_log_event. لا يُسجَّل أي كلمة مرور أبداً.
-// بلا الملف ٩ تفشل الدالة بصمت ويتوقف الإرسال لبقية الجلسة، ولا يتأثر عمل النظام.
+// بلا الملف 9 تفشل الدالة بصمت ويتوقف الإرسال لبقية الجلسة، ولا يتأثر عمل النظام.
 const QY_DEV_KEY = 'qayam_dev_id';
 let _qyLogOff = false, _qyLogCount = 0, _qyLogBusy = false; const _qyLogSeen = {};
 function qyDevice(){
@@ -1639,7 +1639,7 @@ async function loadSecurityLog(){
     const a = await db.from('qy_audit_alerts').select('*').order('at',{ascending:false}).limit(500);
     const b = await db.from('qy_client_events').select('*').order('at',{ascending:false}).limit(800);
     state.secLog.alerts = (a.data||[]); state.secLog.events = (b.data||[]);
-    state.secLog.err = (a.error||b.error) ? ((a.error||b.error).message + ' — شغّل ملف SQL ٩ إن لم تشغّله') : null;
+    state.secLog.err = (a.error||b.error) ? ((a.error||b.error).message + ' — شغّل ملف SQL 9 إن لم تشغّله') : null;
   }catch(e){ state.secLog.err = 'تعذر التحميل: ' + (e.message||e); }
   state.secLog.loading = false;
   const L = state.secLog; state.secUnread = L.alerts.filter(x=>!x.reviewed).length + L.events.filter(x=>!x.reviewed && x.kind!=='login_ok' && x.kind!=='logout').length;
@@ -1685,7 +1685,7 @@ function renderSecurityLog(app){
       <td class="sec-msg" style="max-width:360px;word-break:break-word;">${escH(r.message||'')}${r.details?`<details><summary class="file-hint">التفاصيل</summary><pre style="white-space:pre-wrap;font-size:11px;direction:ltr;text-align:left;">${escH(r.details)}</pre></details>`:''}</td>
       <td>${escH(secUserName(r.user_id))}</td><td title="${escH((r.device&&r.device.ua)||'')}">${escH(qyUaShort(r.device))}</td><td dir="ltr">${escH(r.ip||'—')}</td><td>${done('qy_client_events',r.id,r)}</td></tr>`).join('');
   } else {
-    head = '<th>الوقت</th><th>الحدث</th><th>الرقم المُدخَل / المستخدم</th><th>IP</th><th>الجهاز</th><th>فاشلة من نفس الجهة (٢٤ س)</th><th></th>';
+    head = '<th>الوقت</th><th>الحدث</th><th>الرقم المُدخَل / المستخدم</th><th>IP</th><th>الجهاز</th><th>فاشلة من نفس الجهة (24 س)</th><th></th>';
     body = rows.map(r=>{ const n = r.kind==='login_failed' ? (failedByIp[r.ip||r.device_id||'?']||1) : '';
       return `<tr><td>${secWhen(r.at)}</td><td><b style="color:${r.kind==='login_failed'?'#b91c1c':r.kind==='login_suspended'?'#b45309':'inherit'}">${escH(SEC_KIND_AR[r.kind]||r.kind)}</b></td>
       <td>${r.kind==='login_failed' ? `<span dir="ltr">${escH(r.phone_tried||'—')}</span>` : (r.kind==='login_suspended' && !r.user_id) ? (()=>{ const su = (state.users||[]).find(u=>u.phone && u.phone===r.phone_tried); return su ? escH(su.name)+` <span class="file-hint" dir="ltr">${escH(r.phone_tried||'')}</span>` : `<span dir="ltr">${escH(r.phone_tried||'—')}</span>`; })() : escH(secUserName(r.user_id))}${r.message?`<div class="file-hint">${escH(r.message)}</div>`:''}</td>
@@ -1716,7 +1716,7 @@ function secMarkAllShown(){
 }
 
 
-// ═══ إعداد ما تعرضه صفحة التحقق من السند (يُطبَّق في الخادم، ملف SQL ١٠) ═══
+// ═══ إعداد ما تعرضه صفحة التحقق من السند (يُطبَّق في الخادم، ملف SQL 10) ═══
 const VERIFY_LEVELS = [   // مرتبة من الأكثر حماية إلى الأقل (الرقم v داخلي يقرؤه الخادم ولا يظهر للمستخدم)
   {v:'4', label:'الإجمالي فقط', desc:'رقم الطلب والشركة والتاريخ والحالة والإجمالي، بلا أي أسماء. الأكثر حماية.'},
   {v:'6', label:'أسماء المستفيدين مختصرة فقط', desc:'الإجمالي مع أسماء المستفيدين مختصرة (أحمد ع.)، بلا مبالغ ولا بيان ولا سجل اعتماد.'},
@@ -1879,7 +1879,7 @@ async function renderVerifyPage(reqId){
       _hasBenes: Array.isArray(vr.beneficiaries), _hasHist: Array.isArray(vr.history),
       request_history: vr.history || []} : null;
     if(error || !r){
-      app.innerHTML = `<div class="card" style="max-width:420px;margin:60px auto;text-align:center;"><h2 style="color:var(--red);">⚠️ طلب غير موجود</h2><p class="sub">لم يتم العثور على أي طلب بهذا الرمز. قد يكون الرمز غير صحيح أو الطلب تم حذفه، أو تجاوزت عدد المحاولات المسموح (٣٠ في الدقيقة).</p></div><div style="max-width:420px;margin:12px auto;padding:0 12px;direction:rtl;">${verifyFormHtml}</div>`;
+      app.innerHTML = `<div class="card" style="max-width:420px;margin:60px auto;text-align:center;"><h2 style="color:var(--red);">⚠️ طلب غير موجود</h2><p class="sub">لم يتم العثور على أي طلب بهذا الرمز. قد يكون الرمز غير صحيح أو الطلب تم حذفه، أو تجاوزت عدد المحاولات المسموح (30 في الدقيقة).</p></div><div style="max-width:420px;margin:12px auto;padding:0 12px;direction:rtl;">${verifyFormHtml}</div>`;
       return;
     }
     const company = r.company || null;
@@ -2427,7 +2427,7 @@ function getDocDates(){
   const mm = String(now.getMonth()+1).padStart(2,'0');
   const yyyy = now.getFullYear();
   const greg = `${yyyy}/${mm}/${dd}`;
-  const weekday = new Intl.DateTimeFormat('ar', {weekday:'long'}).format(now);
+  const weekday = new Intl.DateTimeFormat('ar-u-nu-latn', {weekday:'long'}).format(now);
   let hijri;
   try{
     const f = new Intl.DateTimeFormat('ar-u-ca-islamic-umalqura-nu-latn', {day:'numeric', month:'long', year:'numeric'});
@@ -3270,9 +3270,9 @@ function openSearchResult(reqId){
 async function logout(){ state._loggingOut = true; assistantReset(); state.dashOwner='all'; try{ if(state.user) qyLog('logout','خروج',''); await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state._loggingOut=false; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; state._navStack=[]; state._navPrev=null; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
 
 // ───────── إغلاق الدخول تلقائياً عند عدم النشاط ─────────
-// ٣٠ دقيقة بلا نقر أو كتابة أو تمرير؛ تنبيه قبل الإغلاق بدقيقة؛ وآخر نشاط مشترك بين كل التبويبات.
+// 30 دقيقة بلا نقر أو كتابة أو تمرير؛ تنبيه قبل الإغلاق بدقيقة؛ وآخر نشاط مشترك بين كل التبويبات.
 const IDLE_DEFAULT_MIN = 30, IDLE_MIN_MIN = 5, IDLE_DEFAULT_CAP = 60, IDLE_WARN_MS = 60*1000;
-// السقف: أطول مهلة يسمح بها المدير لكل دور (التخزين: app_settings.idle_caps) — وإن لم يُحدَّد فالسقف الافتراضي ٦٠ دقيقة
+// السقف: أطول مهلة يسمح بها المدير لكل دور (التخزين: app_settings.idle_caps) — وإن لم يُحدَّد فالسقف الافتراضي 60 دقيقة
 function idleCaps(){ try{ return JSON.parse((state.appSettings && state.appSettings.idle_caps) || '{}') || {}; }catch(e){ return {}; } }
 function idleCapFor(role){
   const c = idleCaps(); let v = Number(c[role]); if(!(v>0)) v = Number(c.default); if(!(v>0)) v = IDLE_DEFAULT_CAP;
@@ -4939,7 +4939,7 @@ async function submitBankTransfer(){
   await finalizeApprove(req, null);
 }
 
-/* ═══ المرفقات المتعددة (صور + PDF) في مجلد خاص — الجزء ٧ ═══ */
+/* ═══ المرفقات المتعددة (صور + PDF) في مجلد خاص — الجزء 7 ═══ */
 const ATT_MAX_FILES = 10, ATT_MAX_BYTES = 10*1024*1024;
 const ATT_LABELS = ['هوية','حساب بنكي','فاتورة','عقد','أخرى'];
 const ATT_EXT = {'image/jpeg':'jpg','image/png':'png','image/webp':'webp','application/pdf':'pdf'};
@@ -5389,12 +5389,12 @@ async function confirmManualSign(){
   await finalizeApprove(req, dataUrl);
 }
 
-// حدّ المرفقات: صور وPDF فقط وبحجم لا يزيد عن ٤ ميغابايت (يمنع تضخيم الجداول ورفع ملفات غريبة)
+// حدّ المرفقات: صور وPDF فقط وبحجم لا يزيد عن 4 ميغابايت (يمنع تضخيم الجداول ورفع ملفات غريبة)
 const UPLOAD_MAX_BYTES = 4*1024*1024;
 function uploadProblem(file){
   if(!file) return '';
   if(!/^(image\/(png|jpe?g|webp|gif|svg\+xml)|application\/pdf)$/.test(file.type||'')) return 'نوع الملف غير مسموح — المسموح صور (PNG/JPG/WEBP/GIF) أو PDF';
-  if(file.size > UPLOAD_MAX_BYTES) return 'حجم الملف أكبر من ٤ ميغابايت — صغّر الصورة ثم أعد المحاولة';
+  if(file.size > UPLOAD_MAX_BYTES) return 'حجم الملف أكبر من 4 ميغابايت — صغّر الصورة ثم أعد المحاولة';
   return '';
 }
 document.addEventListener('change', e=>{
@@ -5451,7 +5451,7 @@ async function saveAccount(){
 
   const updResult = await db.from('users').update(updates).eq('id', me.id);
   if(!(await dbCheck(updResult, 'حفظ بيانات الحساب'))) return;
-  // مهلة إغلاق الدخول (عمود منفصل: إن لم يُشغَّل ملف SQL ٧ بعد لا يفشل حفظ بقية البيانات)
+  // مهلة إغلاق الدخول (عمود منفصل: إن لم يُشغَّل ملف SQL 7 بعد لا يفشل حفظ بقية البيانات)
   const idleEl = document.getElementById('accIdle');
   if(idleEl){
     let v = parseInt(idleEl.value, 10); if(!(v>0)) v = null;
@@ -5460,14 +5460,14 @@ async function saveAccount(){
     if(v!==null && v>cap){ v = cap; showToast('أقصى مهلة مسموحة لدورك '+cap+' دقيقة، فضُبطت عليها','error'); }
     if((v||null) !== (state.myIdleMin||null)){
       const ir = await db.from('users').update({idle_minutes: v}).eq('id', me.id);
-      if(ir.error) showToast('تعذّر حفظ مهلة الإغلاق — يلزم تشغيل ملف SQL ٧ أولاً','error');
+      if(ir.error) showToast('تعذّر حفظ مهلة الإغلاق — يلزم تشغيل ملف SQL 7 أولاً','error');
       else { state.myIdleMin = v; idleStay(); }
     }
   }
 
   // تغيير كلمة المرور يمرّ عبر Supabase Auth لا عبر الجدول
   if(newPass){
-    if(newPass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن ٦ خانات','error'); return; }
+    if(newPass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن 6 خانات','error'); return; }
     const { error: pwErr } = await db.auth.updateUser({ password: newPass });
     if(pwErr){ showToast('تعذّر تغيير كلمة المرور: ' + (pwErr.message||''),'error'); return; }
   }
@@ -5717,7 +5717,7 @@ function fbtn(k, label, n, on, act, blink, ico, boxC){
   const dis = !on && n===0;
   return `<button type="button" class="fb${k?'':' fb-neu'}${on?' on':''}${on && !k && c ? ' fb-tint' : ''}${blink?' fb-blink':''}" style="${st}" ${dis?'disabled':''} ${qon('click', act)} title="${escH(dis ? 'لا توجد طلبات بهذه الحالة' : on ? 'اضغط مرة أخرى لإلغاء هذا الاختيار' : 'اعرض '+label+' فقط')}">${mark}<span class="fb-l">${escH(label)}</span><span class="fb-n">${Number(n).toLocaleString('en')}</span></button>`;
 }
-// عرض واحد لكل أزرار الصف: يُقاس أطول زر بعدد من خمس خانات، ويُزاد ١٠٪
+// عرض واحد لكل أزرار الصف: يُقاس أطول زر بعدد من خمس خانات، ويُزاد 10٪
 function fitFilterButtons(){
   const app = document.getElementById('app'); if(!app) return;
   const bs = [...app.querySelectorAll('.fb:not(.fb-sel)')]; if(!bs.length) return;
@@ -6225,7 +6225,7 @@ function renderPrintPreview(app){
     </div>
   `;
 }
-// الورقة A4 كما هي (٢١٠ مم) مكبّرة أو مصغّرة بنسبتها لتطابق عرض صفحة الطلب (٩٢٠) أو المساحة المتاحة إن ضاقت
+// الورقة A4 كما هي (210 مم) مكبّرة أو مصغّرة بنسبتها لتطابق عرض صفحة الطلب (920) أو المساحة المتاحة إن ضاقت
 const DOC_BOX_W = 920;
 function fitPreviewZoom(){
   const z = document.querySelector('#app .pv-zoom'); if(!z) return;
@@ -6644,7 +6644,7 @@ function renderMobileTabs(){
     </button>`).join('')}</div>`;
 }
 // على الهاتف: عنوان الصفحة الكبير يُخفى إن كان يكرّر التبويب المختار
-// ===== تهذيب عام للصفحات (١٠ نوفمبر): ⓘ للشروح، اسم الحقل بجانبه على الهاتف، الجداول، مؤشر التمرير =====
+// ===== تهذيب عام للصفحات (10 نوفمبر): ⓘ للشروح، اسم الحقل بجانبه على الهاتف، الجداول، مؤشر التمرير =====
 // الشرح الطويل يُطوى خلف ⓘ بجانب عنوانه؛ يُحفظ ما فتحه المستخدم حتى يعيد الضغط
 const _tipOpen = new Set();
 function infoTips(){
@@ -7586,7 +7586,7 @@ function renderAccount(app){
   try{
     db.auth.getSession().then(r=>{
       const el = document.getElementById('accSessInfo'); const u = r && r.data && r.data.session && r.data.session.user;
-      if(el && u && u.last_sign_in_at) el.textContent = 'بدأت بتاريخ ' + new Date(u.last_sign_in_at).toLocaleString('ar-KW', {dateStyle:'medium', timeStyle:'short'});
+      if(el && u && u.last_sign_in_at) el.textContent = 'بدأت بتاريخ ' + new Date(u.last_sign_in_at).toLocaleString('ar-KW-u-nu-latn', {dateStyle:'medium', timeStyle:'short'});
       else if(el) el.textContent = 'غير متاح';
     });
   }catch(e){}
@@ -7595,7 +7595,7 @@ function passStrengthHint(el){
   const v = el.value, box = document.getElementById('passStrength'); if(!box) return;
   if(!v){ box.textContent=''; return; }
   let sc = 0; if(v.length>=8) sc++; if(v.length>=12) sc++; if(/[a-z]/.test(v)&&/[A-Z]/.test(v)) sc++; if(/\d/.test(v)) sc++; if(/[^A-Za-z0-9]/.test(v)) sc++;
-  const lab = v.length<6 ? ['ضعيفة جداً — أقل من ٦ خانات','#b91c1c'] : sc<=1 ? ['ضعيفة — يُنصح بـ٨ خانات فأكثر مع أرقام وحروف','#b45309'] : sc<=3 ? ['مقبولة','#8a6d00'] : ['قوية','#15803d'];
+  const lab = v.length<6 ? ['ضعيفة جداً — أقل من 6 خانات','#b91c1c'] : sc<=1 ? ['ضعيفة — يُنصح بـ8 خانات فأكثر مع أرقام وحروف','#b45309'] : sc<=3 ? ['مقبولة','#8a6d00'] : ['قوية','#15803d'];
   box.textContent = 'قوة كلمة المرور: ' + lab[0]; box.style.color = lab[1];
 }
 async function logoutAllDevices(){
@@ -8761,13 +8761,13 @@ function renderCancelledArchive(app){
 }
 // ---- فئات الشريط الجانبي لمدير النظام: مشتركة بين صفحة الأدمن وكل الصفحات المستقلة المرتبطة بها، حتى يبقى التنقل ثابتاً أينما كنت ----
 const ADMIN_NAV = [
-  // ١ المنشأة — ما هي المنشأة: كياناتها وشكل هيكلها
+  // 1 المنشأة — ما هي المنشأة: كياناتها وشكل هيكلها
   {gkey:'org', tab:'المنشأة', cat:'المنشأة', items:[
     {key:'companies', label:'الشركات', kind:'tab'},
     {key:'centers', label:'الوحدات التنظيمية', kind:'tab'},
     {key:'orgTree', label:'الهيكل التنظيمي', kind:'view'}
   ]},
-  // ٢ المستخدمون والصلاحيات — من يعمل فيها وماذا يملك
+  // 2 المستخدمون والصلاحيات — من يعمل فيها وماذا يملك
   {gkey:'people', tab:'المستخدمون والصلاحيات', cat:'المستخدمون والصلاحيات', items:[
     {key:'users', label:'المستخدمون', kind:'tab'},
     {key:'roles', label:'الأدوار الوظيفية', kind:'tab'},
@@ -8776,12 +8776,12 @@ const ADMIN_NAV = [
     {key:'jobLevels', label:'سلّم المستويات الوظيفية', tab:'المستويات الوظيفية', kind:'view'},
     {key:'impersonate', label:'تصفّح كمستخدم آخر', tab:'تصفّح كمستخدم', kind:'tab'}
   ]},
-  // ٣ المالية — المال: تخطيطه وصرفه وتحليله
+  // 3 المالية — المال: تخطيطه وصرفه وتحليله
   {gkey:'finance', tab:'المالية', cat:'المالية', items:[
     {key:'budgetItems', label:'بنود الميزانية', tab:'البنود', kind:'tab'}
     // تقرير الميزانية وأرشيف الملغاة انتقلا إلى «المتابعة والتقارير» (للمالية ومدير النظام)
   ]},
-  // ٤ الهوية والمستندات — كيف يبدو النظام على الشاشة وعلى الورق
+  // 4 الهوية والمستندات — كيف يبدو النظام على الشاشة وعلى الورق
   {gkey:'brand', tab:'الهوية والمستندات', cat:'الهوية والمستندات', items:[
     {key:'branding', label:'الهوية والشعارات', kind:'tab'},
     {key:'printSetup', label:'الترويسة والتذييل', kind:'tab'},
@@ -8790,12 +8790,12 @@ const ADMIN_NAV = [
     {key:'barSettings', label:'الشريط السفلي العام', tab:'الشريط السفلي', kind:'view'},
     {key:'verifySettings', label:'صفحة التحقق من السند', tab:'صفحة التحقق', kind:'view'}
   ]},
-  // ٥ القيود الدورية والإشعارات — من ينشئ القوالب ولمن تصل إشعارات اعتمادها
+  // 5 القيود الدورية والإشعارات — من ينشئ القوالب ولمن تصل إشعارات اعتمادها
   {gkey:'recur', tab:'القيود الدورية والإشعارات', cat:'القيود الدورية والإشعارات', items:[
     {key:'recCreators', label:'من ينشئ القوالب', kind:'tab'},
     {key:'recNotify', label:'إشعارات اعتماد القوالب', kind:'tab'}
   ]},
-  // ٦ سجل الأمان والأخطاء — تنبيهات الحماية وأخطاء الواجهة ومحاولات الدخول (ملف SQL ٩)
+  // 6 سجل الأمان والأخطاء — تنبيهات الحماية وأخطاء الواجهة ومحاولات الدخول (ملف SQL 9)
   {gkey:'seclog', tab:'سجل الأمان والأخطاء', cat:'سجل الأمان والأخطاء', items:[
     {key:'alerts', label:'تنبيهات الحماية', kind:'seclog'},
     {key:'errors', label:'أخطاء الواجهة', kind:'seclog'},
@@ -9653,14 +9653,14 @@ function renderBudgetReportTab(){
 
     <!-- شريط الأدوات — ثالثاً (سطر واحد صارم) -->
     <div class="no-print rep-bar">
-      <!-- ١ نوع العرض — أقصى اليمين -->
-      <!-- ٢ طي / فتح -->
+      <!-- 1 نوع العرض — أقصى اليمين -->
+      <!-- 2 طي / فتح -->
       ${parentIds.size>0?((state.budgetReportCollapsed && state.budgetReportCollapsed.size>0) ? `<button class="btn btn-ghost rep-fold" data-on-click="budgetReportExpandAll" title="يفتح كل البنود المطوية">▼ فتح الكل</button>` : `<button class="btn btn-ghost rep-fold" data-on-click="budgetReportCollapseAll" title="يطوي كل البنود الفرعية">◀ طي الكل</button>`):''}
-      <!-- ٣ فلتر الأنواع -->
+      <!-- 3 فلتر الأنواع -->
       <select data-on-change="#85">${typeFilterOpts}</select>
-      <!-- ٤ فراغ يدفع التصدير لأقصى اليسار -->
+      <!-- 4 فراغ يدفع التصدير لأقصى اليسار -->
       <div class="rep-spacer"></div>
-      <!-- ٥ تصدير + طباعة — أقصى اليسار -->
+      <!-- 5 تصدير + طباعة — أقصى اليسار -->
       <button class="btn btn-ghost" data-on-click="exportBudgetReportCSV">📥 Excel</button>
     </div>
 
@@ -10336,7 +10336,7 @@ function recurringFormHtml(){
     </div>
     <div class="card flow"><h2>التنبيهات</h2>
       <div class="row">
-        <div ${W}><label>قبل الاستحقاق بكم يوماً (٠ = بلا تنبيه مسبق)</label><input id="rcDaysBefore" type="number" min="0" max="60" step="1" value="${v('notify_days_before',3)}" autocomplete="off" ${W}></div>
+        <div ${W}><label>قبل الاستحقاق بكم يوماً (0 = بلا تنبيه مسبق)</label><input id="rcDaysBefore" type="number" min="0" max="60" step="1" value="${v('notify_days_before',3)}" autocomplete="off" ${W}></div>
       </div>
       <div><label style="display:flex;gap:8px;align-items:center;margin:6px 0;"><input id="rcOnDue" type="checkbox" ${v('notify_on_due',true)?'checked':''}> تنبيه يوم الاستحقاق</label>
       <label style="display:flex;gap:8px;align-items:center;margin:6px 0;"><input id="rcOverdue" type="checkbox" ${v('notify_overdue',true)?'checked':''}> تنبيه عند التأخر عن المراجعة</label>
@@ -11113,7 +11113,7 @@ async function addUser(){
   if(!name || !phone || !pass){ showToast('الرجاء تعبئة جميع الحقول','error'); return; }
   if(!isGeneral && !chosenCo){ showToast('اختر الشركة','error'); return; }
   if(state.users.some(u=>u.phone===phone)){ showToast('رقم الهاتف مستخدم من قبل','error'); return; }
-  if(pass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن ٦ خانات','error'); return; }
+  if(pass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن 6 خانات','error'); return; }
   const user = {id:'u_'+Date.now(), phone, name, role, centerId: finalCId, managerId: managerId||null, companyId: chosenCo, isGeneral, levelId, signatureData:'', stampData:'', stampData2:''};
   // الإنشاء يتم في الخادم: حساب مصادقة + صف المستخدم معاً، ولمدير النظام فقط
   const { error: rpcErr } = await db.rpc('admin_create_user', {
@@ -11162,7 +11162,7 @@ function lowestLevelFor(companyId){
 function userRank(u){
   if(!u) return 999;
   if(u.levelId){ const lv = state.jobLevels.find(l=>l.id===u.levelId); if(lv) return lv.sortOrder; }
-  // بلا مستوى محدد: نقارن على مقياس مستويات الشركة نفسه، لا على جدول الأدوار القديم (١–٦) فيختلط المقياسان
+  // بلا مستوى محدد: نقارن على مقياس مستويات الشركة نفسه، لا على جدول الأدوار القديم (1–6) فيختلط المقياسان
   { const dl = defaultLevelFor(u.role, u.companyId); if(dl) return dl.sortOrder; }
   if(DEFAULT_LEVEL_RANK[u.role]!=null) return DEFAULT_LEVEL_RANK[u.role];
   if(isCustomRole(u.role)){ const lv = jobRoleLevel(u.role, u.companyId); return lv ? lv.sortOrder : 6; }
@@ -11195,7 +11195,7 @@ function computeApprovalChainPreview(userId, companyId){
   let error = null;
   while(currentId){
     if(visited.has(currentId)){ error = 'حلقة دائرية: تكرر "'+((state.users.find(u=>u.id===currentId)||{}).name||currentId)+'"'; break; }
-    if(chain.length>=20){ error = 'مسار طويل جداً (٢٠ خطوة فأكثر) — يُشتبه بحلقة دائرية'; break; }
+    if(chain.length>=20){ error = 'مسار طويل جداً (20 خطوة فأكثر) — يُشتبه بحلقة دائرية'; break; }
     visited.add(currentId);
     const approver = state.users.find(u=>u.id===currentId);
     if(!approver) break;
@@ -12277,7 +12277,7 @@ function renderAdminsPanel(){
       <div class="row">
         <div style="--fw:280px;"><label>الاسم</label><input id="newAdminName" type="text" autocomplete="off" style="--fw:280px;"></div>
         <div style="--fw:280px;"><label>رقم الهاتف</label><input id="newAdminPhone" type="text" dir="ltr" autocomplete="off" style="--fw:280px;"></div>
-        <div style="--fw:280px;"><label>كلمة المرور (٦ خانات فأكثر)</label><input id="newAdminPass" type="password" autocomplete="new-password" style="--fw:280px;"></div>
+        <div style="--fw:280px;"><label>كلمة المرور (6 خانات فأكثر)</label><input id="newAdminPass" type="password" autocomplete="new-password" style="--fw:280px;"></div>
       </div>
       <div class="actions-row" data-bar-actions><button class="btn btn-primary btn-md" data-on-click="createAdminUser" title="ينشئ حساب مدير نظام جديداً بعد تأكيد كلمة مرورك">إنشاء مدير نظام</button></div>
     </div>`;
@@ -12287,7 +12287,7 @@ async function createAdminUser(){
   const phone = document.getElementById('newAdminPhone').value.trim();
   const pass = document.getElementById('newAdminPass').value.trim();
   if(!name || !phone || !pass){ showToast('الرجاء تعبئة جميع الحقول','error'); return; }
-  if(pass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن ٦ خانات','error'); return; }
+  if(pass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن 6 خانات','error'); return; }
   if(state.users.some(u=>u.phone===phone)){ showToast('رقم الهاتف مستخدم من قبل','error'); return; }
   if(!(await reauthModal('تأكيد إنشاء مدير نظام','سيُنشأ حساب بصلاحية كاملة باسم «'+escH(name)+'».','إنشاء'))) return;
   const orgUnitRow = state.centers.find(c=>c.scope==='org');
@@ -12432,7 +12432,7 @@ function renderRolesPanel(){
     ${jobRows}
     <div class="card flow" style="margin-top:26px;">
       <h2 style="margin:0 0 4px;font-size:15px;">مهلة إغلاق الدخول التلقائي (السقف لكل دور)</h2>
-      <p class="file-hint" style="margin:0 0 6px;">أطول مدة بلا نشاط يستطيع صاحب الدور أن يضبطها لنفسه من «حسابي ← الأمان» (من ${IDLE_MIN_MIN} إلى ١٤٤٠ دقيقة). اترك الحقل فارغاً ليأخذ السقف الافتراضي أدناه. مثال: اجعل من يعتمد الصرف ٣٠ دقيقة.</p>
+      <p class="file-hint" style="margin:0 0 6px;">أطول مدة بلا نشاط يستطيع صاحب الدور أن يضبطها لنفسه من «حسابي ← الأمان» (من ${IDLE_MIN_MIN} إلى 1440 دقيقة). اترك الحقل فارغاً ليأخذ السقف الافتراضي أدناه. مثال: اجعل من يعتمد الصرف 30 دقيقة.</p>
       <div class="row">
         <div style="--fw:280px;"><label>السقف الافتراضي لكل الأدوار</label>
           <input id="idlecap_default" type="number" min="${IDLE_MIN_MIN}" max="1440" dir="ltr" value="${Number(idleCaps().default)||''}" placeholder="${IDLE_DEFAULT_CAP}"></div>
@@ -12477,7 +12477,7 @@ async function saveIdleCaps(){
   const d = document.getElementById('idlecap_default'); if(d && d.value.trim()) caps.default = parseInt(d.value,10);
   document.querySelectorAll('[data-idlecap]').forEach(el=>{ if(el.value.trim()) caps[el.dataset.idlecap] = parseInt(el.value,10); });
   for(const k of Object.keys(caps)){
-    if(!(caps[k]>=IDLE_MIN_MIN && caps[k]<=1440)){ showToast('كل مهلة تكون بين '+IDLE_MIN_MIN+' و١٤٤٠ دقيقة','error'); return; }
+    if(!(caps[k]>=IDLE_MIN_MIN && caps[k]<=1440)){ showToast('كل مهلة تكون بين '+IDLE_MIN_MIN+' و1440 دقيقة','error'); return; }
   }
   const r = await db.from('app_settings').upsert({key:'idle_caps', value:JSON.stringify(caps)});
   if(!(await dbCheck(r, 'حفظ مهل الإغلاق'))) return;
@@ -12779,7 +12779,7 @@ async function saveUserEdit(){
   }
   // كلمة المرور اختيارية عند التعديل: تُترك فارغة لتبقى كما هي
   if(pass){
-    if(pass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن ٦ خانات','error'); return; }
+    if(pass.length < 6){ showToast('كلمة المرور يجب ألا تقل عن 6 خانات','error'); return; }
     const { error: pwErr } = await db.rpc('admin_set_password', { p_user_id: u.id, p_password: pass });
     if(pwErr){ showToast('تعذّر تغيير كلمة المرور: ' + (pwErr.message||''), 'error'); return; }
     await closeResetRequestsFor(u.id);   // طلب هذا المستخدم — إن وُجد — عولج بهذا
@@ -13783,7 +13783,7 @@ function avatarHtml(uid, name, cls){
   const src = avSrc(uid);
   return src ? `<img class="${cls||'u-av'}" src="${escH(src)}" alt="">` : `<span class="${cls||'u-av'} u-av-l">${escH((name||'?').trim().charAt(0))}</span>`;
 }
-// تُقصّ مربعة من الوسط وتُصغَّر إلى ١٦٠ بكسل قبل الرفع (بضعة كيلوبايت)
+// تُقصّ مربعة من الوسط وتُصغَّر إلى 160 بكسل قبل الرفع (بضعة كيلوبايت)
 function imageToAvatar(file){
   return new Promise((res, rej)=>{
     const fr = new FileReader();
@@ -13983,7 +13983,7 @@ function renderNewCustody(app){
     <h1>${editing ? 'تعديل العهدة' : 'عهدة جديدة'}</h1>
     ${req && req.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid #b91c1c;padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوضة</b> — عدّل العهدة ثم أعد إرسالها.</div>' : ''}
     <div class="card cus-form">
-      <div class="cf-sec"><span class="cf-n">١</span>لمن العهدة ولماذا</div>
+      <div class="cf-sec"><span class="cf-n">1</span>لمن العهدة ولماذا</div>
       <div class="cf-grid">
         <div class="cf-s4">
           <label for="cusHolder">صاحب العهدة <span class="req-star">*</span></label>
@@ -13993,17 +13993,17 @@ function renderNewCustody(app){
           </select>
           <div class="cf-hint">${editing ? 'لا يتغير بعد الإنشاء.' : 'أنت أو أي موظف في الشركة، وهو المستفيد في السند.'}</div>
         </div>
-        <div class="cf-s4 cf-side">
-          ${k.holderId ? `<div class="cus-limit${atLimit ? ' over' : ''}">${atLimit ? '⛔' : ''} عهد «${escH(holder ? holder.name : '')}» المفتوحة: <b>${open}</b> من <b>${lim}</b>${co.custodyMaxTotal!=null ? ` · مجموعها <b>${fmtKWDHtml(openSum)}</b> من <b>${fmtKWDHtml(co.custodyMaxTotal)}</b> د.ك` : ''}${atLimit ? '<br>لا تُفتح له عهدة جديدة حتى تُقفل إحداها أو يرفع مدير النظام الحد.' : ''}</div>` : `<div class="cus-limit">اختر صاحب العهدة لترى عهده المفتوحة.</div>`}
-        </div>
-        <div class="cf-full">
+        <div class="cf-s4">
           <label for="cusPurpose">غرض العهدة <span class="req-star">*</span></label>
           <input id="cusPurpose" type="text" maxlength="200" value="${escH(k.purpose||'')}" placeholder="مثال: مصروفات تجهيز معرض الكتاب">
           <div class="cf-hint">يصير عنوان الطلب، ويُكتب في ورقة «طلب صرف عهدة».</div>
         </div>
+        <div class="cf-full cf-side">
+          ${k.holderId ? `<div class="cus-limit${atLimit ? ' over' : ''}">${atLimit ? '⛔' : ''} عهد «${escH(holder ? holder.name : '')}» المفتوحة: <b>${open}</b> من <b>${lim}</b>${co.custodyMaxTotal!=null ? ` · مجموعها <b>${fmtKWDHtml(openSum)}</b> من <b>${fmtKWDHtml(co.custodyMaxTotal)}</b> د.ك` : ''}${atLimit ? '<br>لا تُفتح له عهدة جديدة حتى تُقفل إحداها أو يرفع مدير النظام الحد.' : ''}</div>` : `<div class="cus-limit">اختر صاحب العهدة لترى عهده المفتوحة.</div>`}
+        </div>
       </div>
 
-      <div class="cf-sec"><span class="cf-n">٢</span>المبلغ والبند وموعد التسوية</div>
+      <div class="cf-sec"><span class="cf-n">2</span>المبلغ والبند وموعد التسوية</div>
       <div class="cf-grid">
         <div class="cf-s2">
           <label for="cusAmount">المبلغ (د.ك) <span class="req-star">*</span></label>
@@ -14025,14 +14025,14 @@ function renderNewCustody(app){
         <div class="cf-full cf-hint cf-amt" id="cusAmtHint"></div>
       </div>
 
-      <div class="cf-sec"><span class="cf-n">٣</span>بيانات الصرف <span class="cf-opt">(اختيارية)</span></div>
+      <div class="cf-sec"><span class="cf-n">3</span>بيانات الصرف <span class="cf-opt">(اختيارية)</span></div>
       <div class="cf-grid">
         <div class="cf-s4">
           <label for="cusIban">الآيبان</label>
           <input id="cusIban" type="text" dir="ltr" value="${escH(k.iban||'')}" placeholder="KW.." style="direction:ltr;">
           <div class="cf-hint">يُقترح من سجل المستفيدين. اتركه فارغاً إن كان الصرف نقداً.</div>
         </div>
-        <div class="cf-s2">
+        <div class="cf-s4">
           <label for="cusCivil">الرقم المدني</label>
           <input id="cusCivil" type="text" dir="ltr" value="${escH(k.civilId||'')}" style="direction:ltr;">
         </div>
@@ -14247,7 +14247,7 @@ function openCustodyOfRequest(reqId){
 }
 
 // صفحة العهدة: مسار حياتها، صاحبها وموعدها، الأرصدة الخمسة، وزر تأكيد الاستلام
-// ===== العهدة — المرحلة الثانية (١): السطور وطلب الإقفال =====
+// ===== العهدة — المرحلة الثانية (1): السطور وطلب الإقفال =====
 function custodyDocsEntryHtml(kc){
   if(!state.custodyLinesReady) return '';
   const L = custodyLinesOf(kc), reviewing = cusCanReviewLines(kc), holder = cusLineEditable(kc, null);
@@ -14280,7 +14280,7 @@ function custodyLinesTableHtml(kc){
     ${rows}</tbody></table>`;
 }
 // نموذج السطر: المبلغ والوصف وصورة السند إلزامية (المصروف من مبلغ تحدده الشركة)؛ رقم الفاتورة والتاريخ اختياريان
-// ===== العهدة — المرحلة الثانية (٢): المراجعة والاعتماد والتوقيع والتسوية =====
+// ===== العهدة — المرحلة الثانية (2): المراجعة والاعتماد والتوقيع والتسوية =====
 function cusIsFinance(kc){ return !!state.user && (state.user.role==='admin' || (['accountant','cfo'].includes(state.user.role) && userHasCompany(state.users.find(u=>u.id===state.user.id)||state.user, kc.companyId))); }
 function cusCanReviewLines(kc){
   if(!state.user || state.user.id===kc.holderId) return false;
@@ -14406,7 +14406,7 @@ function cusDocPrevInner(l, editable){
   const i = Math.max(0, Math.min(Number(state.cusImgIdx)||0, list.length-1));
   const th = (list.length>1 || editable) ? `<div class="cus-gal-th no-print">${list.map((u,k)=>`<span class="cus-th${k===i ? ' cur' : ''}"><button type="button" class="cus-th-b" data-on-click="cusPicGo" data-on-click-args="${qa([k])}" title="صورة ${k+1}">${String(u).startsWith('data:application/pdf') ? '<span class="cus-th-pdf">PDF</span>' : `<img src="${u}" alt="">`}</button>${editable ? `<button type="button" class="cus-th-x" data-on-click="cusPicDel" data-on-click-args="${qa([k])}" title="حذف هذه الصورة">✕</button>` : ''}</span>`).join('')}</div>` : '';
   const rk = cusRotKey(l ? l.id : 0, i), isPdf = String(list[i]).startsWith('data:application/pdf');
-  return `<div class="cus-gal">${isPdf ? '' : `<div class="no-print"><button type="button" class="btn btn-ghost btn-sm" data-on-click="cusRotate" title="تدوير المستند ٩٠° (للمصوَّر بالعرض)">↻ تدوير المستند</button></div>`}<div class="cus-gal-main" data-swipe="1">${list.length>1 ? `<button type="button" class="cus-gal-arr prev no-print" data-on-click="cusPicStep" data-on-click-args="${qa([-1])}" ${i<=0 ? 'disabled' : ''} aria-label="الصورة السابقة">›</button>` : ''}<div class="cus-gal-zoom" data-on-click="cusPicZoom" title="اضغط للتكبير">${cusA4Html(list[i], cusRotGet(rk))}</div>${list.length>1 ? `<button type="button" class="cus-gal-arr next no-print" data-on-click="cusPicStep" data-on-click-args="${qa([1])}" ${i>=list.length-1 ? 'disabled' : ''} aria-label="الصورة التالية">‹</button><span class="cus-gal-cnt">${i+1} / ${list.length}</span>` : ''}</div>${th}</div>`;
+  return `<div class="cus-gal">${isPdf ? '' : `<div class="no-print"><button type="button" class="btn btn-ghost btn-sm" data-on-click="cusRotate" title="تدوير المستند 90° (للمصوَّر بالعرض)">↻ تدوير المستند</button></div>`}<div class="cus-gal-main" data-swipe="1">${list.length>1 ? `<button type="button" class="cus-gal-arr prev no-print" data-on-click="cusPicStep" data-on-click-args="${qa([-1])}" ${i<=0 ? 'disabled' : ''} aria-label="الصورة السابقة">›</button>` : ''}<div class="cus-gal-zoom" data-on-click="cusPicZoom" title="اضغط للتكبير">${cusA4Html(list[i], cusRotGet(rk))}</div>${list.length>1 ? `<button type="button" class="cus-gal-arr next no-print" data-on-click="cusPicStep" data-on-click-args="${qa([1])}" ${i>=list.length-1 ? 'disabled' : ''} aria-label="الصورة التالية">‹</button><span class="cus-gal-cnt">${i+1} / ${list.length}</span>` : ''}</div>${th}</div>`;
 }
 function cusPrevRefresh(){
   const c = cusCurDoc(), box = document.getElementById('cusDocPrev'); if(!c || !box) return;
@@ -14448,9 +14448,9 @@ async function cusPicAdd(){
   const cp = state.cusPics;
   if(!cp.dirty && !cp.list.length && c.l && c.l.hasImage){ const raw = (state.cusImgs||{})[c.l.id]; if(raw && raw!=='x') cp.list = cusParseImgs(raw); }
   for(const f of files){
-    if(cp.list.length>=5){ showToast('الحد الأقصى ٥ صور للسند الواحد', 'error'); break; }
+    if(cp.list.length>=5){ showToast('الحد الأقصى 5 صور للسند الواحد', 'error'); break; }
     try{
-      if(f.type==='application/pdf'){ if(f.size>2000000){ showToast('ملف PDF أكبر من ٢ ميجابايت', 'error'); continue; } cp.list.push(await readFileAsDataURL(f)); }
+      if(f.type==='application/pdf'){ if(f.size>2000000){ showToast('ملف PDF أكبر من 2 ميجابايت', 'error'); continue; } cp.list.push(await readFileAsDataURL(f)); }
       else { const r = await resizeImageFile(f, 1400, 1400); cp.list.push(r.dataUrl); }
       cp.dirty = true; state.cusImgIdx = cp.list.length-1;
     }catch(e){ showToast('تعذّر قراءة الصورة', 'error'); }
@@ -14494,7 +14494,7 @@ function cusDocsHtml(kc){
         <label class="btn btn-primary btn-md cus-pickbtn">📷 تصوير<input id="cusCam" type="file" accept="image/*" capture="environment" hidden data-on-change="cusPicAdd"></label>
         <label class="btn btn-ghost btn-md cus-pickbtn">اختيار من المعرض<input id="cusGal" type="file" accept="image/*,application/pdf" multiple hidden data-on-change="cusPicAdd"></label>
       </div>
-      <div class="file-hint">حتى ٥ صور للسند الواحد (فاتورة وإيصال مثلاً). تُصغَّر الصور تلقائياً.</div>
+      <div class="file-hint">حتى 5 صور للسند الواحد (فاتورة وإيصال مثلاً). تُصغَّر الصور تلقائياً.</div>
       ${(state.companies.find(c=>c.id===kc.companyId)||{}).custodyNodocOn ? `<label class="cus-nodoc-chk"><input type="checkbox" id="cusLineNoDoc" data-on-change="cusNoDocToggle" ${(l ? l.noDoc : dr.nodoc) ? 'checked' : ''}> مبلغ بلا سند (إكرامية، هدية، مواصلات…)</label>
       <div id="cusNoDocBox" ${(l ? l.noDoc : dr.nodoc) ? '' : 'hidden'}><label>سبب عدم وجود سند *</label><input id="cusLineNoDocWhy" type="text" maxlength="300" style="--fw:100%;" value="${escH(l ? l.noDocReason : (dr.nodocWhy||''))}" placeholder="مثال: إكرامية عامل التوصيل" data-on-change="cusDraftSave">${cusNodocCapHint(kc, l)}</div>` : ''}
       ${!l && (state.cusQueue||[]).length ? `<div class="note-box no-print">في الانتظار <b>${state.cusQueue.length}</b> سند مصوّر: بعد حفظ هذا السند يُحمَّل التالي تلقائياً.</div>` : ''}
@@ -14769,7 +14769,7 @@ function cusLineFormHtml(kc){
 }
 async function cusImageData(file){
   if(!file) return '';
-  if(file.type==='application/pdf'){ if(file.size > 2000000) throw new Error('ملف PDF أكبر من ٢ ميجابايت'); return await readFileAsDataURL(file); }
+  if(file.type==='application/pdf'){ if(file.size > 2000000) throw new Error('ملف PDF أكبر من 2 ميجابايت'); return await readFileAsDataURL(file); }
   const r = await resizeImageFile(file, 1400, 1400); return r.dataUrl;
 }
 async function cusOverConfirm(over, itemName, k){

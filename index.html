@@ -231,7 +231,7 @@
   .cus-li-badges{display:flex;flex-direction:column;gap:3px;align-items:flex-end;}
   .why-line{font-size:12.5px;font-weight:600;color:var(--muted);margin-top:6px;}
   .cus-stepper .step{min-width:70px;}
-  /* نموذج العهدة على شبكة الموقع: ثمانية أعمدة × ٨٠ وبينها ٢٠ (حقول ١٨٠ و٣٨٠ و٧٨٠) */
+  /* نموذج العهدة على شبكة الموقع: ثمانية أعمدة × 80 وبينها 20 (حقول 180 و380 و780) */
   .cus-form .cf-sec{display:flex;align-items:center;gap:8px;max-width:780px;font-size:15px;font-weight:800;color:var(--ink);margin:22px 0 4px;padding-bottom:7px;border-bottom:1px solid var(--line);}
   .cus-form .cf-sec:first-child{margin-top:0;}
   .cus-form .cf-n{width:24px;height:24px;flex:0 0 24px;border-radius:50%;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;}
@@ -244,7 +244,8 @@
   .cf-hint.cf-amt{margin-top:2px;}
   .cf-words{color:var(--blue);font-weight:700;}
   .cf-bad{color:var(--red);font-weight:700;}
-  .cf-side{align-self:end;padding-bottom:calc(1.6em + 4px);}
+  .cf-side{align-self:start;padding-bottom:0;margin:2px 0 6px;}
+  .cf-side:empty{display:none;}
   .cf-side .cus-limit{margin:0;min-height:40px;display:flex;align-items:center;flex-wrap:wrap;gap:0 4px;}
   .req-star{color:var(--red);}
   @media (max-width:860px){ .cf-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px;} .cf-s4,.cf-full{grid-column:1 / -1;} .cf-s2{grid-column:span 1;} .cf-side{padding-bottom:0;} }
@@ -264,7 +265,7 @@
     .cus-lines td{flex-direction:column !important;gap:0 !important;justify-content:flex-start !important;min-height:0 !important;}
   }
   .req-card .badge.handed-badge,.badge.handed-badge{background:#FEF3C7;color:#92400E;border:1px solid #F5D27A;margin-top:3px;font-size:10.5px;white-space:normal;line-height:1.35;text-overflow:clip;}
-  /* أزرار فلتر الطلبات: مربّع اللون والاسم والعدد، حد أيمن (بلون الحالة) وحد أسفل وظل خفيف، ارتفاع ٣٠ (استثناء مقصود من قاعدة ٤٠) وعرض واحد ثابت يُقاس على أطول زر */
+  /* أزرار فلتر الطلبات: مربّع اللون والاسم والعدد، حد أيمن (بلون الحالة) وحد أسفل وظل خفيف، ارتفاع 30 (استثناء مقصود من قاعدة 40) وعرض واحد ثابت يُقاس على أطول زر */
   .dash-filt{justify-content:flex-start;}
   .dash-filt-left{margin-right:auto;}
   .dash-filt-left:empty{display:none;}
@@ -433,19 +434,19 @@
   .row > *:has(> #accIdle), .row > *:has(> #idlecap_default), .row > *:has(> [data-idlecap]){--fw:280px;}
   input#accIdle, input#idlecap_default, input[data-idlecap]{--fw:280px;}
   input[type=date]{--fw:180px;}
-  /* ١ عمود — نسبة · عدّاد · مقاس */
+  /* 1 عمود — نسبة · عدّاد · مقاس */
   #nbiPct, #ebiPct, #pfFontSize, #pfOffset, #accSignWidth,
   .row > *:has(> #nbiPct), .row > *:has(> #ebiPct), .row > *:has(> #pfFontSize), .row > *:has(> #pfOffset), .row > *:has(> #accSignWidth){--fw:80px;}
-  /* ٢ — رمز · هاتف · تاريخ · مبلغ · سقف */
+  /* 2 — رمز · هاتف · تاريخ · مبلغ · سقف */
   #editCoReviewWindow, #newCoCode, #editCoCode, #newCoHqCode, #editCoHqCode, #newCenterCode, #editCenterCode, #editCoCurrency, #newUtIcon, #pageWidthInput, #loginPhone, #newUserPhone, #editUserPhone, #meAmount, #nrevAmount, #nbiFix, #ebiFix, #editCenterMaxBene, #editCenterMaxRequest, #editCenterMinThreshold, #editCenterMonthlyBudget, #editCenterAnnualBudget,
   .row > *:has(> #editCoReviewWindow), .row > *:has(> #newCoCode), .row > *:has(> #editCoCode), .row > *:has(> #newCoHqCode), .row > *:has(> #editCoHqCode), .row > *:has(> #newCenterCode), .row > *:has(> #editCenterCode), .row > *:has(> #editCoCurrency), .row > *:has(> #newUtIcon), .row > *:has(> #pageWidthInput), .row > *:has(> #loginPhone), .row > *:has(> #newUserPhone), .row > *:has(> #editUserPhone), .row > *:has(> #meAmount), .row > *:has(> #nrevAmount), .row > *:has(> #nbiFix), .row > *:has(> #ebiFix), .row > *:has(> #editCenterMaxBene), .row > *:has(> #editCenterMaxRequest), .row > *:has(> #editCenterMinThreshold), .row > *:has(> #editCenterMonthlyBudget), .row > *:has(> #editCenterAnnualBudget){--fw:180px;}
-  /* ٣ — اسم شخص · كلمة مرور · بريد · آيبان · هوية */
+  /* 3 — اسم شخص · كلمة مرور · بريد · آيبان · هوية */
   #accName, #accNameEn, #accEmail, #accPass, #accIban, #accCivilId, #loginPassword, #newUserName, #newUserPass, #editUserName, #editUserPass, #editUserJobTitle, #newCenterName, #editCenterName, #newRoleName, #newUtName, #levelNameInput, #deleteConfirmPass, #bankTransferRefInput, #meBene, .b-name, .b-nameEn, .b-iban, .b-civilId,
   .row > *:has(> #accName), .row > *:has(> #accNameEn), .row > *:has(> #accEmail), .row > *:has(> #accPass), .row > *:has(> #accIban), .row > *:has(> #accCivilId), .row > *:has(> #loginPassword), .row > *:has(> #newUserName), .row > *:has(> #newUserPass), .row > *:has(> #editUserName), .row > *:has(> #editUserPass), .row > *:has(> #editUserJobTitle), .row > *:has(> #newCenterName), .row > *:has(> #editCenterName), .row > *:has(> #newRoleName), .row > *:has(> #newUtName), .row > *:has(> #levelNameInput), .row > *:has(> #deleteConfirmPass), .row > *:has(> #bankTransferRefInput), .row > *:has(> #meBene), .row > *:has(> .b-name), .row > *:has(> .b-nameEn), .row > *:has(> .b-iban), .row > *:has(> .b-civilId){--fw:280px;}
-  /* ٤ — اسم شركة أو بند · نصوص المستندات · القوائم الطويلة */
+  /* 4 — اسم شركة أو بند · نصوص المستندات · القوائم الطويلة */
   #newRoleName, #newCoNameAr, #newCoNameEn, #editCoNameAr, #editCoNameEn, #newCoTax, #editCoTax, #nbiName, #ebiName, #brandSysName, #brandCoName, #reasonInput, #docTextReference, #docTextSalutation, #newUserCenter, #newUserManager, #editUserCenter, #editUserManager, #budgetItemSelect, #nbiParent, #ebiParent, #newCenterParent, #editCenterParent, #meItem, #nrevItem, #editUserNextApprover, #editUserRequestApprover, #editCoCfoUser, #pathPreviewUser, #impersonateSelect, #assignBudgetSel, #newUserRole, #editUserRole, #newUserCompanySelect, #editUserCompany, #newCenterKind, #editCenterKind, #nrevSource, #nbiType, #ebiType, #nbiMode, #ebiMode, #newRoleLevel, #editUserLevel, #editUserEscUser, #editCoCfoMode, #editCoDayMode, #editCoEscMode, #editUserEscMode, #accSignatureMode, .b-statement,
   .row > *:has(> #newRoleName), .row > *:has(> #newCoNameAr), .row > *:has(> #newCoNameEn), .row > *:has(> #editCoNameAr), .row > *:has(> #editCoNameEn), .row > *:has(> #newCoTax), .row > *:has(> #editCoTax), .row > *:has(> #nbiName), .row > *:has(> #ebiName), .row > *:has(> #brandSysName), .row > *:has(> #brandCoName), .row > *:has(> #reasonInput), .row > *:has(> #docTextReference), .row > *:has(> #docTextSalutation), .row > *:has(#newUserCenter), .row > *:has(> #newUserManager), .row > *:has(#editUserCenter), .row > *:has(> #editUserManager), .row > *:has(#budgetItemSelect), .row > *:has(> #nbiParent), .row > *:has(> #ebiParent), .row > *:has(> #newCenterParent), .row > *:has(> #editCenterParent), .row > *:has(> #meItem), .row > *:has(#nrevItem), .row > *:has(> #editUserNextApprover), .row > *:has(> #editUserRequestApprover), .row > *:has(> #editCoCfoUser), .row > *:has(> #pathPreviewUser), .row > *:has(> #impersonateSelect), .row > *:has(#assignBudgetSel), .row > *:has(> #newUserRole), .row > *:has(> #editUserRole), .row > *:has(> #newUserCompanySelect), .row > *:has(> #editUserCompany), .row > *:has(#newCenterKind), .row > *:has(#editCenterKind), .row > *:has(> #nrevSource), .row > *:has(> #nbiType), .row > *:has(> #ebiType), .row > *:has(> #nbiMode), .row > *:has(> #ebiMode), .row > *:has(> #newRoleLevel), .row > *:has(> #editUserLevel), .row > *:has(> #editUserEscUser), .row > *:has(> #editCoCfoMode), .row > *:has(> #editCoDayMode), .row > *:has(> #editCoEscMode), .row > *:has(> #editUserEscMode), .row > *:has(> #accSignatureMode), .row > *:has(> .b-statement){--fw:380px;}
-  /* ٦ — بيان وملاحظات */
+  /* 6 — بيان وملاحظات */
   #nbiNotes, #ebiNotes, #meDesc, #nrevDesc, #meNote,
   .row > *:has(> #nbiNotes), .row > *:has(> #ebiNotes), .row > *:has(> #meDesc), .row > *:has(> #nrevDesc), .row > *:has(> #meNote){--fw:580px;}
   /* ===== نظام أحجام الأزرار الموحّد (3 أحجام فقط، نفس القيم بالحاسوب والجوال) ===== */
@@ -511,14 +512,14 @@
     .adm-nav2,.adm-subs-solo{border-radius:0;}
     .adm-head + .adm-nav2,h1[data-top] + .adm-subs-solo,h1[data-top] + .adm-nav2,#app > .adm-subs-solo:first-child,#app > .adm-nav2:first-child{margin-top:-28px;}
   }
-  /* ===== ارتفاع موحّد ٤٠ للأزرار والحقول والقوائم ===== */
+  /* ===== ارتفاع موحّد 40 للأزرار والحقول والقوائم ===== */
   input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=range]):not([type=color]),select{height:40px;padding-top:0;padding-bottom:0;}
   #app th input,#app th select{height:auto !important;padding:3px 6px !important;}
   .btn,.btn.btn-lg,.btn.btn-xs{--btn-h:40px;}
   .rep-bar .btn,.rev-actions .btn{min-height:40px;}
   .adm-t2,.adm-sub{min-height:36px;}
   .seg-btn{min-height:40px;}
-  /* الزر داخل الحقل: إطار واحد حول الحقل والزر، والزر أصغر منه بهامش ٤ */
+  /* الزر داخل الحقل: إطار واحد حول الحقل والزر، والزر أصغر منه بهامش 4 */
   .sel-add{align-items:center;border:1px solid var(--line);border-radius:8px;background:#fff;padding:3px 4px;height:40px;gap:4px;}
   .sel-add:focus-within{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-bg);}
   #app .sel-add > select,#app .sel-add > input{height:32px !important;border:0 !important;box-shadow:none !important;background:transparent;}
@@ -1428,7 +1429,7 @@
     .rep-bar select{min-width:0 !important;flex:1 1 130px;}
     .search-box input{width:110px;}
     .row{flex-direction:column;}
-    .row > *{min-width:0;flex-basis:auto;}   /* في العمود يصير الأساس ارتفاعاً: بلا هذا يأخذ الحقل ارتفاع عرضه (٣٨٠) فراغاً */
+    .row > *{min-width:0;flex-basis:auto;}   /* في العمود يصير الأساس ارتفاعاً: بلا هذا يأخذ الحقل ارتفاع عرضه (380) فراغاً */
     .stat-cards{grid-template-columns:repeat(2,1fr);}
     .doc-page{max-width:100%;}
     .attachment-dual{flex-direction:column;align-items:center;}
@@ -1546,7 +1547,7 @@
   .amount-table-bene tbody tr > td:nth-child(6) .amt-number{width:78px;}
   @media print{ .amount-table-bene tbody tr > td:nth-child(6){font-size:12.5px !important;} .amount-table td.num{font-weight:500;} }
 
-  /* صفحة الطلبات: شبكة أزرار بعرض ثابت (٤ في الصف عند عرض ٨٢٠) تصعد للأعلى كلما اتسع العرض، وبطاقة ملخص بعرض ثلاثة أزرار */
+  /* صفحة الطلبات: شبكة أزرار بعرض ثابت (4 في الصف عند عرض 820) تصعد للأعلى كلما اتسع العرض، وبطاقة ملخص بعرض ثلاثة أزرار */
   #app .dash-grid{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px;align-items:center;}
   #app .dash-grid .fb, #app .dash-sumrow .dash-own-sel{width:184px;flex:0 0 184px;min-width:0;}
   #app .dash-sumrow .dash-own-sel{width:376px;flex:0 0 376px;}
@@ -1563,12 +1564,13 @@
 .dt-box > input.dtx{width:100%;box-sizing:border-box;}
 input.dtx{color:transparent !important;-webkit-text-fill-color:transparent !important;caret-color:transparent;} input.dtx::-webkit-datetime-edit,input.dtx::-webkit-datetime-edit-fields-wrapper,input.dtx::-webkit-datetime-edit-text,input.dtx::-webkit-datetime-edit-day-field,input.dtx::-webkit-datetime-edit-month-field,input.dtx::-webkit-datetime-edit-year-field{opacity:0 !important;color:transparent !important;-webkit-text-fill-color:transparent !important;}
 input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
+input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{position:absolute;left:8px;top:50%;transform:translateY(-50%);margin:0;} /* رمز التقويم يساراً دائماً فلا يغطي التاريخ */
 .dt-txt{position:absolute;inset:0 12px 0 34px;display:flex;align-items:center;justify-content:flex-start;pointer-events:none;color:var(--text);font:inherit;font-size:inherit;direction:rtl;white-space:nowrap;overflow:hidden;}
 .dt-txt.ph{color:#8a8a84;} .dt-txt.dis{opacity:.55;}
 .qy-back[disabled]{opacity:.4;cursor:not-allowed;}
 .sticky-submit-bar .qy-back{background:transparent;color:#fff;border-color:rgba(255,255,255,0.35);}
 
-  /* ===== قواعد الهاتف العامة (١٠ نوفمبر) ===== */
+  /* ===== قواعد الهاتف العامة (10 نوفمبر) ===== */
   /* شارة «نسخة تجريبية»: شريط مائل شفاف في الزاوية اليسرى العليا، لا يأخذ مكاناً ولا يعيق الضغط */
   .test-badge{position:fixed !important;top:16px;left:-38px;width:150px;text-align:center;transform:rotate(-45deg);
     background:rgba(194,65,12,.62) !important;color:#fff;font-size:11px;font-weight:800;line-height:20px;padding:0 !important;border-radius:0 !important;
@@ -1580,7 +1582,7 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
     /* الصف العلوي ملتصق بالشريط العلوي بعرض الشاشة */
     .adm-nav2,.adm-subs-solo{margin:0 -12px 10px !important;border-radius:0 !important;border-left:0 !important;border-right:0 !important;}
     #app h1.m-dup-title{display:none;}
-    /* شريط التنقل السفلي: خمسة أزرار وأصغر ١٠٪ */
+    /* شريط التنقل السفلي: خمسة أزرار وأصغر 10٪ */
     .mtab-in{height:50px !important;}
     .mtab-btn{font-size:10px !important;gap:2px !important;}
     .mtab-btn .mtab-ico .qi{width:21px !important;height:21px !important;}
@@ -1664,8 +1666,8 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
   .cus-nodoc-chk input{width:20px;height:20px;}
   .mpath-h .btn{width:36px !important;min-width:0;padding:0;}
 
-  /* ===== تهذيب عام (١٠ نوفمبر — ٢) ===== */
-  /* ع١: عنوان الصفحة لا يتكرر تحت الشريط في أي عرض (التبويب يسمّي الصفحة) */
+  /* ===== تهذيب عام (10 نوفمبر — 2) ===== */
+  /* ع1: عنوان الصفحة لا يتكرر تحت الشريط في أي عرض (التبويب يسمّي الصفحة) */
   h1[data-top]{display:none;}
   .adm-head:has(h1[data-top]){display:none;}
   @media print{ h1[data-top]{display:block !important;} }
@@ -1694,19 +1696,19 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
     .test-badge{top:30px !important;left:-58px !important;width:240px !important;font-size:15px !important;line-height:30px !important;}
   }
   @media (max-width:699px){
-    /* ع٢: اسم الحقل بجانبه */
+    /* ع2: اسم الحقل بجانبه */
     #app .lf{display:grid !important;grid-template-columns:minmax(86px,34%) minmax(0,1fr);align-items:center;column-gap:10px;row-gap:2px;margin:0 0 10px;}
     #app .row > .lf{flex:1 1 100% !important;max-width:100% !important;}
     #app .lf > label{margin:0 !important;font-weight:700;font-size:13px;color:var(--text);line-height:1.35;}
     #app .lf > :not(label){grid-column:2;min-width:0;width:100% !important;max-width:100% !important;margin:0 !important;}
     #app .row{gap:0 14px;}
-    /* ع٣: أزرار البطاقة فوق بعض بمقاس واحد، والصورة بجانب الاسم */
+    /* ع3: أزرار البطاقة فوق بعض بمقاس واحد، والصورة بجانب الاسم */
     #app .list-item{flex-wrap:nowrap !important;align-items:center;gap:10px;}
     #app .list-item > .li-main{flex:1 1 auto;min-width:0;}
     #app .list-item > .u-av{flex:0 0 auto;}
     #app .list-item > div:not(.li-main):last-child:has(> .btn){display:flex !important;flex-direction:column;flex-wrap:nowrap !important;gap:6px;flex:0 0 104px;}
     #app .list-item > div:not(.li-main):last-child:has(> .btn) > .btn{width:100% !important;margin:0 !important;padding:0 6px;}
-    /* ع٥: الجدول بطاقات لغير مدير النظام */
+    /* ع5: الجدول بطاقات لغير مدير النظام */
     #app table.tcards,#app table.tcards tbody,#app table.tcards tr,#app table.tcards td{display:block;width:auto !important;min-width:0 !important;}
     #app table.tcards{border:0 !important;background:transparent !important;}
     #app table.tcards thead,#app table.tcards tfoot,#app table.tcards colgroup{display:none;}
@@ -1717,11 +1719,11 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
     #app table.tcards td:first-child::before{content:none !important;}
     #app table.tcards td:empty{display:none;}
     #app table.tcards td .btn{width:auto;}
-    /* ع٦: خانات الأرقام تبقى بصناديقها، خانتان في الصف */
+    /* ع6: خانات الأرقام تبقى بصناديقها، خانتان في الصف */
     #app .card .card.tile{border:1px solid var(--line) !important;border-top-width:4px !important;border-radius:8px !important;background:#fff !important;
       padding:8px 10px !important;margin:0 !important;flex:1 1 calc(50% - 5px) !important;min-width:0 !important;box-shadow:none !important;}
     #app .tile-row{gap:8px !important;}
-    /* ع٤: مسافات موحّدة */
+    /* ع4: مسافات موحّدة */
     #app > .card,#app > div > .card{margin-bottom:14px !important;}
     #app .card h2,#app .card h3{margin-top:0;}
   }
@@ -1876,7 +1878,7 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
   .top-action-bar.tab-empty{display:none !important;}
   .lf-skip-login{}
 
-  /* ===== ضبط عرض الهاتف (١٠ نوفمبر — ٣) ===== */
+  /* ===== ضبط عرض الهاتف (10 نوفمبر — 3) ===== */
   /* حركة المسار: يخرج من زرّه ويعود إليه */
   @keyframes qyPathIn{from{transform:scale(.06);opacity:.2;}to{transform:none;opacity:1;}}
   @keyframes qyPathOut{from{transform:none;opacity:1;}to{transform:scale(.06);opacity:.15;}}
@@ -2001,6 +2003,10 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
     #app .list-item > div:last-child:has(> .btn-ico) > .btn:not(.btn-ico){flex:1 1 100% !important;}
     #app td:has(> .btn-ico){white-space:nowrap;}
   }
+
+  /* حقل التاريخ بعرض خانته كبقية الحقول */
+  .cf-grid .dt-box,#app .lf > .dt-box{display:block !important;width:100% !important;max-width:100% !important;flex:1 1 auto !important;}
+  .cf-grid .dt-box > input.dtx,#app .lf > .dt-box > input.dtx{width:100% !important;max-width:100% !important;}
 </style>
 </head>
 <body>
@@ -2021,6 +2027,6 @@ input.dtx::-webkit-calendar-picker-indicator{cursor:pointer;}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=fe542fe6bf"></script>
+<script src="app.js?v=e23e3e10b9"></script>
 </body>
 </html>
