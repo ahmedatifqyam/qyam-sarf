@@ -4090,16 +4090,24 @@ function toggleCalcBox(i, type){
   box.style.display = box.style.display==='none' ? 'block' : 'none';
   if(box.style.display==='block'){
     const f = box.querySelector('input'); if(f) f.focus({preventScroll:true});
+    qyAutoBox(box, box.previousElementSibling, ()=>{ box.style.display='none'; });
     // لا يختفي خلف الشريط السفلي
     requestAnimationFrame(()=>{ const r = box.getBoundingClientRect(), bar = document.querySelector('.sticky-submit-bar'); const lim = bar ? bar.getBoundingClientRect().top - 8 : innerHeight - 8; if(r.bottom > lim) window.scrollBy({top: r.bottom - lim, behavior:'smooth'}); });
   }
 }
 
-// صندوق «احسب» يُغلق عند الضغط خارجه
-document.addEventListener('mousedown', ev=>{
-  const t = ev.target; if(!t || !t.closest) return;
-  if(t.closest('.nr-calc-pop, .calc-in')) return;
-  document.querySelectorAll('.nr-calc-pop').forEach(x=>{ if(x.style.display!=='none') x.style.display='none'; });
+// ── أي صندوق يفتحه زر: يُغلق تلقائياً عند الضغط خارجه ما دام لم يُستخدم ──
+// «لم يُستخدم» = حقوله كما كانت لحظة فتحه (من كتب ثم مسح ما كتب كأنه لم يستخدمه). من كتب فيه يبقى مفتوحاً.
+const _qyBoxes = new Set();
+function qySnap(b){ return [...b.querySelectorAll('input:not([type=hidden]),select,textarea')].map(x=>(x.type==='checkbox'||x.type==='radio') ? (x.checked?'1':'0') : String(x.value||'').trim()).join('\u0001'); }
+function qyAutoBox(box, opener, close){ if(!box) return; box._qyInit = qySnap(box); box._qyOpener = opener || null; box._qyClose = close; _qyBoxes.add(box); }
+document.addEventListener('pointerdown', ev=>{
+  const t = ev.target;
+  _qyBoxes.forEach(b=>{
+    if(!b.isConnected || b.hidden || getComputedStyle(b).display==='none'){ _qyBoxes.delete(b); return; }
+    if(b.contains(t) || (b._qyOpener && b._qyOpener.isConnected && b._qyOpener.contains(t))) return;
+    if(qySnap(b)===b._qyInit){ _qyBoxes.delete(b); try{ b._qyClose(); }catch(e){} }
+  });
 }, true);
 function applyDeductionCalc(i){
   const blocks = document.querySelectorAll('.beneficiary-block');
@@ -4177,8 +4185,8 @@ function nrAdjOpen(i, type){
         ${(Number(val)||0)>0 ? `<button type="button" class="btn btn-ghost btn-md nr-adj-del" data-on-click="nrAdjClear">حذف ${isDed ? 'الخصم' : 'الإضافي'}</button>` : ''}
       </div>
     </div>`;
-  ov.addEventListener('mousedown', e=>{ if(e.target===ov) nrAdjClose(); });
   document.body.appendChild(ov);
+  qyAutoBox(ov.querySelector('.nr-adj-box'), null, nrAdjClose);
   setTimeout(()=>{ const a = document.getElementById('nrAdjAmt'); if(a) a.focus({preventScroll:true}); }, 30);
 }
 function nrAdjClose(){ const m = document.getElementById('nrAdjModal'); if(m) m.remove(); }
@@ -5697,6 +5705,7 @@ async function confirmDeletePassword(){
 function toggleDocTextsBox(){
   const box = document.getElementById('docTextsBox');
   if(box){ box.style.display = box.style.display==='none' ? 'block' : 'none'; state._dtOpen = box.style.display==='block';
+    if(state._dtOpen){ const ops = [...document.querySelectorAll('.nr-dtbtn')]; qyAutoBox(box, {isConnected:true, contains:t=>ops.some(o=>o.contains(t))}, ()=>{ box.style.display='none'; state._dtOpen=false; }); }
     if(state._dtOpen && isPhone()) box.scrollIntoView({block:'center', behavior:'smooth'}); }
 }
 function nrDocTextsVals(){
@@ -6813,7 +6822,8 @@ function infoTips(){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'tip-btn no-print'; b.textContent = 'ⓘ';
     b.title = 'شرح'; b.setAttribute('aria-label','شرح');
     b.addEventListener('click', ev=>{ ev.preventDefault(); ev.stopPropagation();
-      el.hidden = !el.hidden; if(el.hidden) _tipOpen.delete(key); else _tipOpen.add(key); b.classList.toggle('on', !el.hidden); });
+      el.hidden = !el.hidden; if(el.hidden) _tipOpen.delete(key); else _tipOpen.add(key); b.classList.toggle('on', !el.hidden);
+      if(!el.hidden) qyAutoBox(el, b, ()=>{ el.hidden = true; _tipOpen.delete(key); b.classList.remove('on'); }); });
     b.classList.toggle('on', !el.hidden);
     a.appendChild(b);
   });
