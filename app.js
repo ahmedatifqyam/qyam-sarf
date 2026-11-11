@@ -761,9 +761,9 @@ async function refreshRequests(){
   const kChanged = applyCustodies(kRes);
   return changed || kChanged;
 }
-function getMyPendingRequests(){
+function getMyPendingRequests(cidOverride){
   if(!state.user) return [];
-  const role = state.user.role, myId = state.user.id, cid = state.currentCompanyId;
+  const role = state.user.role, myId = state.user.id, cid = cidOverride || state.currentCompanyId;
   const list = state.requests.filter(r=>r.companyId===cid && !r.isCancelled && !isUnderReview(r));
   return list.filter(r=>{
     if(r.status==='pending_decision') return !!myDecisionStep(r, myId) || !!paperStepForMe(r);
@@ -1113,6 +1113,15 @@ function computeNotifications(){
     items.push({key:'p:'+r.id, kind:'pending', reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey('p:'+r.id)), overdue:isOverdueFor(r, me),
       title:(!myDecisionStep(r, me) && paperStepForMe(r)) ? ('بانتظار تسجيل اعتماد ورقي عن '+((userById(paperStepForMe(r).approverId)||{}).name||'')) : 'طلب بانتظار اعتمادك', sub:r.number+' — '+r.reason+' — '+fmtKWDPlain(r.totalAmount)+' — من '+r.createdBy});
   });
+  // الاعتماد الورقي في شركات أخرى أعمل فيها (المسجِّل العام): لا يُفوَّت لأن الشركة المختارة غيرها
+  (state.myCompanyIds||[]).filter(c=>c!==state.currentCompanyId).forEach(cid=>{
+    const coName = (state.companies.find(c=>c.id===cid)||{}).nameAr || '';
+    state.requests.filter(r=>r.companyId===cid && paperStepForMe(r)).forEach(r=>{
+      const ts = lastEventAt(r), key = 'pp:'+r.id;
+      items.push({key, kind:'pending', reqId:r.id, number:r.number, ts, isNew:(ts>seen || isFreshKey(key)), overdue:false,
+        title:'بانتظار تسجيل اعتماد ورقي عن '+((userById(paperStepForMe(r).approverId)||{}).name||'')+' — '+coName, sub:r.number+' — '+r.reason+' — '+fmtKWDPlain(r.totalAmount)});
+    });
+  });
   // عهدة صُرفت لك بانتظار تأكيد استلامك: إجراء مطلوب منك (يُعدّ مع ما ينتظرك، ويُفتح على صفحة العهدة)
   if(state.custodyReady) custodyAwaitingMine().forEach(k=>{
     const r = state.requests.find(x=>x.id===k.requestId);
@@ -1385,6 +1394,9 @@ function openNotifItem(id, kind, key){
   }
   persistNotifSeen(latestServerTs());
   renderBellPanel();
+  // طلب في شركة أخرى أعمل فيها: أنتقل إليها أولاً فيظهر بأزراره
+  const rq = state.requests.find(r=>r.id===id);
+  if(rq && rq.companyId!==state.currentCompanyId && (state.myCompanyIds||[]).includes(rq.companyId)){ state.currentCompanyId = rq.companyId; if(state.user) saveLastCompany(state.user.id, rq.companyId); }
   openRequest(id);
 }
 function notifShowPending(){
@@ -3161,7 +3173,7 @@ function renderTopbar(){
   const bellBtn = `<button type="button" class="bell-btn" data-on-click="toggleBell" data-on-click-args="${qa([QA.e])}" title="الإشعارات" aria-label="الإشعارات"><svg class="tb-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="bell-badge${bn.badge?' on':''}" id="bellBadge">${bn.badge>99?'99+':bn.badge}</span></button>`;
   const companySwitcher = (state.myCompanyIds && state.myCompanyIds.length>1)
     ? `<select class="tb-company" data-on-change="switchCompany" data-on-change-args="${qa([QA.v])}" style="border-radius:6px;padding:8px 10px;font-size:13px;border:1px solid #2E4356;background:#2E4356;color:#fff;">
-        ${state.myCompanyIds.map(id=>{ const c = state.companies.find(x=>x.id===id); return `<option value="${escH(id)}" ${id===state.currentCompanyId?'selected':''}>${escH(c?c.nameAr:id)}</option>`; }).join('')}
+        ${state.myCompanyIds.map(id=>{ const c = state.companies.find(x=>x.id===id); const n = id===state.currentCompanyId ? 0 : getMyPendingRequests(id).length; return `<option value="${escH(id)}" ${id===state.currentCompanyId?'selected':''}>${escH(c?c.nameAr:id)}${n ? ' ('+n+' بانتظارك)' : ''}</option>`; }).join('')}
       </select>`
     : '';
   const impersonateSwitcher = (state.user.role==='admin' && !state.impersonatingFromAdmin)
