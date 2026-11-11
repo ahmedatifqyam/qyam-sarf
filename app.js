@@ -6776,7 +6776,17 @@ function iconActs(){
     if(b.scrollWidth > b.clientWidth + 1){ const w = b.getBoundingClientRect().width; b.style.minWidth = Math.round(w)+'px'; b.style.width = 'auto'; b.style.whiteSpace = 'nowrap'; }
   });
 }
-function pageTidy(){ try{ hideEmptyTopBars(); hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
+// سطح المكتب: صندوق الطلب تصميمه ثابت بعرض 880؛ إن ضاقت الصفحة (تكبير المتصفح أو نافذة صغيرة) يُصغَّر كله بنسبته بدل أن تنضغط أعمدته
+const DOC_BASE_W = 880;
+function fitDocZoom(){
+  const d = document.querySelector('#app .req-main > .doc'); if(!d) return;
+  d.style.zoom = ''; d.style.width = ''; d.style.maxWidth = '';
+  if(isPhone()) return;
+  const av = d.parentElement.clientWidth;
+  if(av > 0 && av < DOC_BASE_W){ d.style.width = DOC_BASE_W+'px'; d.style.maxWidth = 'none'; d.style.zoom = (av / DOC_BASE_W).toFixed(4); }
+}
+window.addEventListener('resize', ()=>{ clearTimeout(window._dzT); window._dzT = setTimeout(()=>{ try{ fitDocZoom(); }catch(e){} }, 140); });
+function pageTidy(){ try{ fitDocZoom(); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
   const a = document.querySelector('#app .adm-t2.active');
@@ -15025,7 +15035,7 @@ function pathSideWrap(mainHtml, title, stepsHtml){
   return `<div class="req-wrap${open ? '' : ' closed'}"><div class="req-main">${mainHtml}</div>
     <aside class="req-side no-print${an}">${open
       ? `<div class="req-side-h"><b>${escH(title)}</b><button type="button" class="req-side-x" data-on-click="reqPathToggle" title="طيّ المسار">›</button></div><div class="stepper path-v">${stepsHtml}</div>`
-      : `<button type="button" class="req-side-open" data-on-click="reqPathToggle" title="إظهار ${escH(title)}">${qi('route')}<span>المسار</span></button>`}</aside></div>`;
+      : `<button type="button" class="req-side-open" data-on-click="reqPathToggle" title="إظهار ${escH(title)}">${qi('route')}<span>${escH(title)}</span></button>`}</aside></div>`;
 }
 function renderCustodyPage(app){
   const kc = (state.custodies||[]).find(x=>x.id===state.activeCustodyId);

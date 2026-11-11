@@ -2041,6 +2041,23 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .req-side-open:hover{background:#eef3f8;}
   /* شارة «نسخة تجريبية»: طبقة مستقلة ثابتة فلا يتغيّر شكل خطها حين يُفتح المسار أو يُغلق */
   .test-badge{will-change:transform;backface-visibility:hidden;-webkit-font-smoothing:antialiased;}
+
+  /* المسار المطوي في سطح المكتب: زر «مسار الطلب» على الحافة العليا اليسرى لصندوق الطلب، يتحرك معه */
+  .req-wrap{position:relative;}
+  .req-wrap.closed .req-side{position:absolute !important;left:18px;top:-18px;right:auto;bottom:auto !important;width:auto !important;z-index:6;}
+  .req-wrap.closed .req-side-open{flex-direction:row;width:auto;height:40px;padding:0 14px;gap:7px;border-radius:20px;font-size:13.5px;}
+  .req-wrap.closed .req-side-open .qi{width:20px;height:20px;}
+
+  /* سطح المكتب الضيق (تكبير المتصفح): أدوات الشريط العلوي لا تنضغط ولا تخرج عن الشاشة؛ اسم الشركة يكفيه مربع اختيار الشركة */
+  @media (min-width:700px) and (max-width:1100px){
+    .tb-tools{flex-shrink:0;gap:6px;}
+    .topbar-right{flex:0 0 auto !important;}
+    .tb-tools .tb-company,.tb-tools .tb-impersonate{width:120px !important;max-width:120px !important;min-width:0 !important;}
+    .topbar .brand{flex:1 1 0 !important;}
+    .topbar .brand{min-width:0;overflow:hidden;}
+    .topbar .brand-co-group,.topbar .brand-sep{display:none !important;}
+    .topbar .tb-page{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  }
 </style>
 </head>
 <body>
@@ -2061,6 +2078,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=89a4c2e9cf"></script>
+<script src="app.js?v=c4a3b1f6f3"></script>
 </body>
 </html>
