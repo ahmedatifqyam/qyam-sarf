@@ -6777,6 +6777,26 @@ function iconActs(){
   });
 }
 // سطح المكتب: صندوق الطلب تصميمه ثابت بعرض 880؛ إن ضاقت الصفحة (تكبير المتصفح أو نافذة صغيرة) يُصغَّر كله بنسبته بدل أن تنضغط أعمدته
+// الشريط السفلي: إن اقتربت الأزرار من «الدعم الفني» يُختصر إلى رمز واتساب فقط (الأرقام تظهر عند الوقوف عليه)
+function barFit(){
+  const bar = document.querySelector('.global-floating-bar'); if(!bar) return;
+  const c = bar.querySelector('.gfb-contact-fixed'), a = bar.querySelector('.gfb-actions'); if(!c || !a) return;
+  bar.classList.remove('gfb-tight');
+  const btns = [...a.children].filter(x=>x.offsetParent); if(!btns.length) return;
+  const minL = Math.min(...btns.map(b=>b.getBoundingClientRect().left));
+  if(minL < c.getBoundingClientRect().right + 10){ bar.classList.add('gfb-tight'); c.title = 'للدعم الفني: ' + [...c.querySelectorAll('.gfb-contact-numbers a')].map(x=>x.textContent.trim()).join(' · '); }
+}
+// سطح المكتب: المسار المفتوح صندوق بجوار صندوق الطلب مباشرة إن اتسعت الصفحة له، وإلا يطفو على يسار الشاشة
+function placePathSide(){
+  const side = document.querySelector('#app .req-wrap:not(.closed) > .req-side'); if(!side) return;
+  side.classList.remove('beside'); side.style.left = '';
+  if(isPhone()) return;
+  const doc = side.parentElement.querySelector('.req-main > .doc') || side.parentElement.querySelector('.req-main');
+  const L = doc.getBoundingClientRect().left;
+  side.style.top = '';
+  if(L >= 300 + 14 + 14){ side.classList.add('beside'); side.style.left = Math.round(L - 300 - 14)+'px'; const T = doc.getBoundingClientRect().top; if(T > 60 && T < innerHeight/2) side.style.top = Math.round(T)+'px'; }
+}
+window.addEventListener('resize', ()=>{ clearTimeout(window._bfT); window._bfT = setTimeout(()=>{ try{ barFit(); placePathSide(); }catch(e){} }, 160); });
 const DOC_BASE_W = 880;
 function fitDocZoom(){
   const d = document.querySelector('#app .req-main > .doc'); if(!d) return;
@@ -6786,7 +6806,7 @@ function fitDocZoom(){
   if(av > 0 && av < DOC_BASE_W){ d.style.width = DOC_BASE_W+'px'; d.style.maxWidth = 'none'; d.style.zoom = (av / DOC_BASE_W).toFixed(4); }
 }
 window.addEventListener('resize', ()=>{ clearTimeout(window._dzT); window._dzT = setTimeout(()=>{ try{ fitDocZoom(); }catch(e){} }, 140); });
-function pageTidy(){ try{ fitDocZoom(); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
+function pageTidy(){ try{ requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
   const a = document.querySelector('#app .adm-t2.active');

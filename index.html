@@ -2058,6 +2058,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .topbar .brand-co-group,.topbar .brand-sep{display:none !important;}
     .topbar .tb-page{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   }
+
+  .global-floating-bar.gfb-tight .gfb-contact-label,.global-floating-bar.gfb-tight .gfb-contact-numbers{display:none !important;}
+  /* زر «مسار الطلب» المطوي: إطار 1 بكسل ظاهر */
+  .req-wrap.closed .req-side-open{border:1px solid #8ea3b8;}
+  /* المسار المفتوح بجوار صندوق الطلب: يخرج من جهة الزر (أعلى اليمين) */
+  .req-side.beside{transform-origin:calc(100% + 30px) 0;}
 </style>
 </head>
 <body>
@@ -2078,6 +2084,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=c4a3b1f6f3"></script>
+<script src="app.js?v=4f1c908b7b"></script>
 </body>
 </html>
