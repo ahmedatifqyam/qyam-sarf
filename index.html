@@ -1902,7 +1902,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .topbar .brand{flex:0 1 auto !important;}
     .topbar-right{flex:1 1 auto;min-width:0;justify-content:flex-end;}
     .tb-company{max-width:100px;}
-    body:has(.test-badge) .topbar{padding-left:74px;}   /* الأدوات لا تختفي خلف شريط «نسخة تجريبية» */
     /* النماذج: كل حقل صف كامل — اسمه يميناً بعرض ثابت والحقل يملأ الباقي، فتتساوى الحقول كلها */
     #app .row > *{flex:0 0 auto !important;width:100% !important;max-width:100% !important;align-self:stretch;box-sizing:border-box;}
     #app .row > .btn,#app .row > a.btn{width:auto !important;align-self:flex-start;}
@@ -2168,7 +2167,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #secTabs.sec-hide{display:none !important;}
   /* الهاتف: مسافة واضحة بين اسم النظام واسم الشركة فلا يتلامسان */
   @media (max-width:699px){ .topbar .brand{gap:12px !important;} .brand-co-group{padding-inline-start:2px;} .brand-name{padding-inline-end:2px;overflow:visible !important;} .brand-name-col{overflow:visible;} }
-  @media (min-width:700px){ body:has(.test-badge) .topbar{padding-left:118px !important;} }
 </style>
 </head>
 <body>
