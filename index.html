@@ -2016,7 +2016,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     /* الزر الأعلى بعرض الزرين تحته معاً: المربعان يتمددان ليملأا العرض نفسه */
     /* زرّا التعديل والحذف بحجمهما الثابت (40) في كل النظام، والزر الأعلى يصغر ليساوي عرضهما معاً (88) */
     #app .list-item > div:last-child:has(> .btn-ico):has(> :not(.btn-ico)){grid-template-columns:40px 40px !important;width:88px !important;min-width:88px !important;}
-    #app .list-item > div:last-child:has(> .btn-ico) > :not(.btn-ico){font-size:12px !important;padding:0 3px !important;letter-spacing:-.2px;white-space:normal !important;line-height:1.15;text-align:center;overflow:hidden;}
+    #app .list-item > div:last-child:has(> .btn-ico) > :not(.btn-ico){font-size:12px !important;padding:0 1px !important;letter-spacing:-.2px;white-space:nowrap !important;line-height:1.15;text-align:center;overflow:hidden;}
   }
 
   /* أزرار الحذف والتعديل في البطاقات والجداول (هاتف وسطح مكتب): مربع 40 برمز فقط — الحذف أحمر والتعديل أزرق */
@@ -2047,6 +2047,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=5b41bb3b09"></script>
+<script src="app.js?v=29f2bd576f"></script>
 </body>
 </html>

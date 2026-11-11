@@ -6770,6 +6770,11 @@ function iconActs(){
     if(!b.title) b.title = t;
     const box = b.parentElement; if(box && [...box.children].filter(x=>x.matches('.btn')).every(x=>x.classList.contains('btn-ico'))) box.classList.add('ico-box');
   });
+  // الزر بكلامه فوق التعديل والحذف: علامة ✓ تُخفى في الهاتف ليتّسع الكلام في سطر واحد (اللون الأخضر يكفي للدلالة)
+  if(isPhone()) app.querySelectorAll('.list-item > div:last-child > .btn:not(.btn-ico)').forEach(b=>{
+    if(!b.parentElement.querySelector(':scope > .btn-ico') || b.dataset.ck) return;
+    const t = b.innerHTML; if(/^\s*✓\s*/.test(t)){ b.dataset.ck = '1'; b.innerHTML = t.replace(/^\s*✓\s*/, ''); }
+  });
 }
 function pageTidy(){ try{ hideEmptyTopBars(); hideDupH2(); infoTips(); pairFields(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
