@@ -5154,6 +5154,77 @@ async function paperNotifyOff(u, oldIds){
     await pushHistory(r, {step:r.status, actor:state.user.name, userId:state.user.id, action:'إلغاء الاعتماد الورقي', note:'لـ '+u.name+' — يعتمد من النظام مباشرة|ids:'+oldIds.join(','), time:fmtDate()});
   }
 }
+// ===== إشعارات الجهاز (Web Push) =====
+const QY_VAPID_PUBLIC = 'BIJc7ESKrmePhWm7SZ1LJw92LsF6jsQiO4jSTXME9vRQ9ZFDmvBcU9CreMlT6Mqjh4C5mPWxGm31nRy47Sdq89g';
+function pushSupported(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
+function pushIsIos(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1); }
+function pushIsStandalone(){ try{ return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone===true; }catch(e){ return false; } }
+function pushKeyBytes(b64){ const p='='.repeat((4-b64.length%4)%4), s=(b64+p).replace(/-/g,'+').replace(/_/g,'/'), r=atob(s), o=new Uint8Array(r.length); for(let i=0;i<r.length;i++) o[i]=r.charCodeAt(i); return o; }
+function pushCard(){
+  setTimeout(pushPaint, 40);
+  return `<div class="card" id="pushCard">
+    <h2 style="margin:0 0 4px;font-size:15px;">إشعارات الجهاز</h2>
+    <p class="file-hint" style="margin:0 0 8px;">تصلك على هذا الجهاز إشعارات الطلبات التي تنتظر إجراءك أو تخص طلباتك، حتى والنظام مغلق. تُفعَّل لكل جهاز على حدة.</p>
+    <div id="pushBox" class="file-hint">جارٍ الفحص…</div>
+  </div>`;
+}
+async function pushPaint(){
+  const box = document.getElementById('pushBox'); if(!box) return;
+  const btn = (fn, label, cls) => `<button type="button" class="btn ${cls||'btn-primary'}" style="min-height:40px;" data-on-click="${fn}">${label}</button>`;
+  if(state.impersonatingFromAdmin){ box.innerHTML = 'لا تُفعَّل الإشعارات أثناء التصفح كمستخدم آخر — يفعّلها صاحب الحساب من جهازه.'; return; }
+  if(!pushSupported()){
+    box.innerHTML = (pushIsIos() && !pushIsStandalone())
+      ? 'على الآيفون: افتح النظام في Safari ثم اضغط «مشاركة» ← «إضافة إلى الشاشة الرئيسية»، وافتحه من الأيقونة، ثم فعّل الإشعارات من هنا.'
+      : 'هذا المتصفح لا يدعم إشعارات الجهاز. جرّب Chrome أو Edge أو Safari حديثاً.';
+    return;
+  }
+  if(Notification.permission==='denied'){ box.innerHTML = 'الإشعارات محظورة لهذا الموقع. افتح إعدادات المتصفح للموقع وغيّرها إلى «سماح»، ثم ارجع هنا.'; return; }
+  let sub = null;
+  try{ const reg = await navigator.serviceWorker.ready; sub = await reg.pushManager.getSubscription(); }catch(e){}
+  box.innerHTML = sub
+    ? `<div style="margin-bottom:8px;color:var(--green,#15803d);font-weight:700;">✅ مفعّلة على هذا الجهاز</div>${btn('pushDisable','إيقاف الإشعارات على هذا الجهاز','btn-ghost')}`
+    : `<div style="margin-bottom:8px;">غير مفعّلة على هذا الجهاز.</div>${btn('pushEnable','تفعيل الإشعارات على هذا الجهاز')}`;
+}
+async function pushEnable(){
+  if(state.impersonatingFromAdmin || !pushSupported()) return;
+  try{
+    const perm = await Notification.requestPermission();
+    if(perm!=='granted'){ showToast('لم يُسمح بالإشعارات','error'); pushPaint(); return; }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey: pushKeyBytes(QY_VAPID_PUBLIC)});
+    const j = sub.toJSON();
+    const r = await db.rpc('qy_push_subscribe', {p_endpoint:j.endpoint, p_p256dh:(j.keys||{}).p256dh, p_auth:(j.keys||{}).auth, p_ua:navigator.userAgent});
+    if(!(await dbCheck(r, 'تفعيل الإشعارات'))) return;
+    try{ await reg.showNotification('تم تفعيل الإشعارات', {body:'ستصلك إشعارات الطلبات على هذا الجهاز', icon:'icons/icon-192.png'}); }catch(e){}
+    showToast('فُعّلت الإشعارات على هذا الجهاز','success');
+  }catch(e){ showToast('تعذّر تفعيل الإشعارات: '+(e&&e.message||e),'error'); }
+  pushPaint();
+}
+async function pushDisable(){
+  try{
+    const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+    if(sub){ const ep = sub.endpoint; await sub.unsubscribe(); await db.rpc('qy_push_unsubscribe', {p_endpoint:ep}); }
+    showToast('أُوقفت الإشعارات على هذا الجهاز','success');
+  }catch(e){ showToast('تعذّر الإيقاف: '+(e&&e.message||e),'error'); }
+  pushPaint();
+}
+// فتح الطلب من رابط الإشعار (?req=…) أو من رسالة عامل الخدمة
+function pushOpenReq(id){
+  if(!id) return false;
+  const r = (state.requests||[]).find(x=>String(x.id)===String(id));
+  if(!state.user || !r) return false;
+  try{ if(r.companyId!==state.currentCompanyId && typeof switchCompany==='function') switchCompany(r.companyId); }catch(e){}
+  openRequest(r.id); return true;
+}
+(function pushBoot(){
+  try{
+    const q = new URLSearchParams(location.search).get('req'); let tries = 0;
+    const clean = () => { try{ const u = new URL(location.href); u.searchParams.delete('req'); history.replaceState(null,'',u.pathname+u.search+u.hash); }catch(e){} };
+    if(q){ const t = setInterval(()=>{ tries++; if(pushOpenReq(q)){ clearInterval(t); clean(); } else if(tries>60){ clearInterval(t); clean(); } }, 1000); }
+    if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e=>{ if(e.data && e.data.type==='qy-open') pushOpenReq(e.data.req); });
+  }catch(e){}
+})();
 function paperToggleUi(){ const on = !!(document.getElementById('paperOn')||{}).checked; [0,1,2].forEach(i=>{ const s = document.getElementById('paperProxy'+i); if(s) s.disabled = !on; }); }
 async function savePaperSettings(uid){
   const u = state.users.find(x=>x.id===uid); if(!u) return;
@@ -8080,6 +8151,8 @@ function renderAccount(app){
     </div>
 
     ${paperSettingsCard(me, false)}
+
+    ${pushCard()}
 
     <div class="card">
       <h2 style="margin:0 0 10px;font-size:15px;">التوقيع والختم</h2>
