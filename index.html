@@ -1902,7 +1902,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .topbar .brand{flex:0 1 auto !important;}
     .topbar-right{flex:1 1 auto;min-width:0;justify-content:flex-end;}
     .tb-company{max-width:100px;}
-    body:has(.test-badge) .topbar{padding-left:46px;}
+    body:has(.test-badge) .topbar{padding-left:74px;}   /* الأدوات لا تختفي خلف شريط «نسخة تجريبية» */
     /* النماذج: كل حقل صف كامل — اسمه يميناً بعرض ثابت والحقل يملأ الباقي، فتتساوى الحقول كلها */
     #app .row > *{flex:0 0 auto !important;width:100% !important;max-width:100% !important;align-self:stretch;box-sizing:border-box;}
     #app .row > .btn,#app .row > a.btn{width:auto !important;align-self:flex-start;}
@@ -2135,13 +2135,15 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .nr-known-h{grid-column:1 / -1;font-size:11.5px;color:var(--muted);line-height:1.45;}
   #app .nr-known .btn{min-width:64px;}
   #app .nr-iban-h{margin:3px 0 0;font-size:11.5px;line-height:1.45;}
-  #app .nr-adj{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;}
+  #app .nr-adj{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch;}
+  #app .nr-adj .nr-abtn{width:100% !important;min-width:0 !important;margin:0 !important;height:40px;font-size:14px;color:var(--blue);border:1.5px solid var(--blue);justify-content:center;}
   #app .nr-link{background:none;border:0;padding:4px 0;color:var(--blue);font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;}
-  #app .nr-chip{background:var(--blue-bg,#eef5fc);border:1px solid #3b82c4;color:var(--text);border-radius:16px;padding:4px 12px;font:inherit;font-size:13px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #app .nr-adj .nr-chip{background:#eef5fc;border:1.5px solid #3b82c4;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;padding:0 6px !important;line-height:37px;text-align:center;}
   #app .nr-pen{color:#3b82c4;}
   #app .nr-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
-  #app .b-net{font-size:13px;color:var(--text);}
-  #app .nr-form .add-beneficiary{margin:0;justify-self:start;}
+  #app .b-net{font-size:16px;color:var(--text);}
+  #app .b-net b{font-size:19px;}
+  #app .nr-form .add-beneficiary{margin:0;justify-self:start;font-size:17px;font-weight:700;padding:4px 0;}
   #app .nr-form .total-box{margin:4px 0 0 !important;}
   #app .nr-form .nr-actions{margin:4px 0 0 !important;}
   #app .nr-form .req-num-note{margin:0;}
@@ -2159,12 +2161,14 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .nr-ben{padding:10px 12px;}
     #app .nr-form .nr-actions{display:none !important;}   /* الإرسال والإلغاء في الشريط السفلي */
     #app .nr-known{align-self:auto;}
-    .nr-adj-ov{align-items:flex-end;}
-    .nr-adj-box{width:100%;max-width:none;border-radius:16px 16px 0 0;margin:0;}
+    /* الصندوق العائم أعلى الشاشة، فلا تغطيه لوحة الأرقام */
+    .nr-adj-ov{align-items:flex-start !important;padding-top:12px;}
+    .nr-adj-box{width:calc(100% - 20px);max-width:none;margin:0 auto;max-height:calc(100dvh - 24px);overflow:auto;}
   }
   #secTabs.sec-hide{display:none !important;}
   /* الهاتف: مسافة واضحة بين اسم النظام واسم الشركة فلا يتلامسان */
   @media (max-width:699px){ .topbar .brand{gap:12px !important;} .brand-co-group{padding-inline-start:2px;} .brand-name{padding-inline-end:2px;overflow:visible !important;} .brand-name-col{overflow:visible;} }
+  @media (min-width:700px){ body:has(.test-badge) .topbar{padding-left:118px !important;} }
 </style>
 </head>
 <body>
@@ -2185,6 +2189,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=5a87d48c1c"></script>
+<script src="app.js?v=deb2da5ce7"></script>
 </body>
 </html>

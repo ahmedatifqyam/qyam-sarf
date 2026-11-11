@@ -13609,8 +13609,8 @@ function renderNewRequest(app){
           const ded = Number(b.deduction)||0, ext = Number(b.extra)||0;
           const showNotes = !!((b.notes||'').trim() || b._showNotes);
           const tail = s => s ? String(s).replace(/\s+/g,'').slice(-4) : '';
-          const chip = (type, word, val, note) => `<button type="button" class="nr-chip" title="اضغط للتعديل" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">${word} <b>${fmtKWDHtml(val)}</b>${note ? ' — '+escH(note) : ''} <span class="nr-pen">✎</span></button>`;
-          const link = (type, txt) => `<button type="button" class="nr-link" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">+ ${txt}</button>`;
+          const chip = (type, word, val, note) => `<button type="button" class="btn btn-sm nr-abtn nr-chip" title="${escH((note ? note+' — ' : '')+'اضغط للتعديل')}" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">${word} <b>${fmtKWDHtml(val)}</b> <span class="nr-pen">✎</span></button>`;
+          const link = (type, txt) => `<button type="button" class="btn btn-ghost btn-sm nr-abtn" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">+ ${txt}</button>`;
           return `
           <div class="beneficiary-block nr-ben">
             <div class="beneficiary-block-header">مستفيد رقم ${i+1}${d.beneficiaries.length>1 ? `<span class="remove-b" data-on-click="removeBeneficiaryRow" data-on-click-args="${qa([(i)])}">إزالة ✕</span>` : ''}</div>
@@ -13647,7 +13647,7 @@ function renderNewRequest(app){
               <div class="nr-adj nr-wide">
                 ${ded>0 ? chip('deduction','خصم', ded, b.deductionNote) : link('deduction','خصم')}
                 ${ext>0 ? chip('extra','إضافي', ext, b.extraNote) : link('extra','إضافي')}
-                ${showNotes ? '' : `<button type="button" class="nr-link" data-on-click="nrShowNotes" data-on-click-args="${qa([(i)])}">+ ملاحظة</button>`}
+                ${showNotes ? '' : `<button type="button" class="btn btn-ghost btn-sm nr-abtn" data-on-click="nrShowNotes" data-on-click-args="${qa([(i)])}">+ ملاحظة</button>`}
               </div>
               <div class="nr-foot nr-wide">${attButtonHtml(i, b)}<span class="b-net"></span></div>
             </div>
