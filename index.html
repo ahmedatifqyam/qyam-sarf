@@ -1916,7 +1916,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app label:has(> input[type=checkbox]) > input,#app label:has(> input[type=radio]) > input{width:20px !important;height:20px;flex:0 0 20px;margin:0 !important;}
     #app table label:has(> input[type=checkbox]),#app .gp-body label,#app .sig-el > label{margin:0 !important;}
     /* زر انكسر كلامه: يتسع لكلامه */
-    #app .btn.btn-fit{width:auto !important;min-width:0 !important;max-width:100%;white-space:nowrap;padding:0 14px !important;height:40px !important;line-height:1.2;}
+    #app .btn.btn-fit{width:auto !important;min-width:0 !important;max-width:100%;white-space:nowrap;padding:0 2px !important;height:40px !important;line-height:1.2;}
     #app .btn.btn-fit br{display:none;}
     #app .btn.btn-fit small{display:inline !important;font-size:inherit;margin:0 4px 0 0;opacity:1;}
     /* شريط الاختيار المقسّم: سطر واحد يُمرَّر */
@@ -2016,7 +2016,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     /* الزر الأعلى بعرض الزرين تحته معاً: المربعان يتمددان ليملأا العرض نفسه */
     /* زرّا التعديل والحذف بحجمهما الثابت (40) في كل النظام، والزر الأعلى يصغر ليساوي عرضهما معاً (88) */
     #app .list-item > div:last-child:has(> .btn-ico):has(> :not(.btn-ico)){grid-template-columns:40px 40px !important;width:88px !important;min-width:88px !important;}
-    #app .list-item > div:last-child:has(> .btn-ico) > :not(.btn-ico){font-size:12px !important;padding:0 1px !important;letter-spacing:-.2px;white-space:nowrap !important;line-height:1.15;text-align:center;overflow:hidden;}
+    #app .list-item > div:last-child:has(> .btn-ico) > :not(.btn-ico){font-size:12px !important;padding:0 2px !important;letter-spacing:-.2px;white-space:nowrap !important;line-height:1.15;text-align:center;overflow:hidden;}
   }
 
   /* أزرار الحذف والتعديل في البطاقات والجداول (هاتف وسطح مكتب): مربع 40 برمز فقط — الحذف أحمر والتعديل أزرق */
@@ -2027,6 +2027,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .btn.btn-ico-del:not([disabled]):hover{background:var(--red-bg,#fdecec) !important;}
   #app .list-item > div:last-child:has(> .btn-ico){flex-direction:row !important;flex-wrap:wrap;width:auto !important;min-width:0 !important;gap:8px;align-items:center;justify-content:flex-end;}
   #app .list-item > div:last-child:has(> .btn-ico) > .btn:not(.btn-ico){width:auto !important;}
+
+  /* ===== كل الأزرار: الكلام أصغر درجة وعريض، والهامش الداخلي 4 في سطح المكتب و2 في الهاتف (11 نوفمبر) ===== */
+  .btn{font-size:calc(var(--btn-fs) - 1px);font-weight:700 !important;padding-left:4px !important;padding-right:4px !important;}
+  .btn .bl2{font-weight:600 !important;}
+  @media (max-width:699px){ .btn{padding-left:2px !important;padding-right:2px !important;} }
 </style>
 </head>
 <body>
@@ -2047,6 +2052,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=29f2bd576f"></script>
+<script src="app.js?v=5b41bb3b09"></script>
 </body>
 </html>
