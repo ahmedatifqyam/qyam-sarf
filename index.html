@@ -1712,6 +1712,32 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app.cxv td.cx-act > div{display:flex;gap:6px;flex-wrap:nowrap;justify-content:flex-start;}
   #app.cxv td.cx-act{white-space:nowrap;}
   #app.cxv .card{margin-bottom:14px;}
+  .cx-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px;}
+  .cx-stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  .cx-stat-l{font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:4px;}
+  .cx-stat-v{font-size:20px;font-weight:800;}
+  .cx-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+  .cx-stage{display:flex;align-items:center;gap:8px;}
+  .cx-pick .row{grid-template-columns:minmax(0,420px) !important;}
+  .cx-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:14px;}
+  .cx-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .cx-card:hover{border-color:var(--text);}
+  .cx-card-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;font-size:15px;}
+  .cx-card-g{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-top:10px;font-size:14px;}
+  .cx-card-g span{display:block;font-size:11.5px;color:var(--muted);font-weight:600;}
+  .cx-bar{display:grid;grid-template-columns:150px 1fr 130px;gap:10px;align-items:center;margin:8px 0;font-size:13.5px;}
+  .cx-bar-n{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cx-bar-t{position:relative;height:18px;background:#eef0f2;border-radius:9px;overflow:hidden;display:flex;align-items:center;}
+  .cx-bar-f{height:100%;border-radius:9px;min-width:2px;}
+  .cx-bar-v{text-align:left;font-weight:700;}
+  .cx-bar2{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;margin:10px 0;font-size:13px;}
+  .cx-bar2-b{display:grid;gap:4px;}
+  .cx-bar2-b .cx-bar-t{height:16px;}
+  .cx-bar2-b .cx-bar-t span{position:absolute;inset-inline-start:8px;font-size:11.5px;font-weight:700;color:#1b2733;}
+  .cx-fold > summary{cursor:pointer;font-weight:800;font-size:15px;}
+  .cx-clip{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  table.cx-ledger td,table.cx-ledger th{white-space:nowrap;}
+  @media (max-width:699px){ .cx-bar{grid-template-columns:90px 1fr 90px;} .cx-bar2{grid-template-columns:90px 1fr;} .cx-cards{grid-template-columns:1fr;} .cx-stat-v{font-size:17px;} }
   #app.cxv table th{font-size:15px !important;font-weight:800 !important;color:var(--text) !important;white-space:nowrap;}
   #app.cxv table td{font-size:13.5px;}
   #app.cxv table td b,#app.cxv table td .kwd,#app.cxv table td [class*=kwd]{font-size:inherit;}
@@ -2365,6 +2391,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=849f4319ea"></script>
+<script src="app.js?v=25a02c4f7f"></script>
 </body>
 </html>
