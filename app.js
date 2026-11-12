@@ -1048,6 +1048,7 @@ function latestServerTs(){
 }
 function getNotifSeenAt(){
   let t = null;
+  if(!state.user) return 0;
   const u = state.users.find(x=>x.id===state.user.id);
   if(u && u.notifSeenAt) t = tsOf(u.notifSeenAt);
   else { try{ const raw = localStorage.getItem(notifSeenKey()); if(raw!==null) t = Number(raw); }catch(e){} }
@@ -1060,6 +1061,7 @@ function getNotifSeenAt(){
   return t;
 }
 function persistNotifSeen(ms){
+  if(!state.user) return;
   if(state.impersonatingFromAdmin){ state._impSeenAt = Math.max(state._impSeenAt||0, ms); return; }   // لا نغيّر حالة "المقروء" لمستخدم يتصفحه الأدمن (يُعدّ مقروءاً في الجلسة فقط)
   try{ localStorage.setItem(notifSeenKey(), String(ms)); }catch(e){}
   const u = state.users.find(x=>x.id===state.user.id);
@@ -1380,6 +1382,7 @@ function notifKeysKey(){ return 'qy_seen_keys_' + (state.user ? state.user.id : 
 function notifSeenKeys(){ try{ return new Set(JSON.parse(localStorage.getItem(notifKeysKey())||'[]')); }catch(e){ return new Set(); } }
 function markNotifKeySeen(k){ if(!k) return; if(state.impersonatingFromAdmin){ if(state._freshKeys) state._freshKeys.delete(k); return; } try{ const st = notifSeenKeys(); st.add(k); localStorage.setItem(notifKeysKey(), JSON.stringify(Array.from(st).slice(-400))); }catch(e){} if(state._freshKeys) state._freshKeys.delete(k); }
 function markAllSeen(){
+  if(!state.user){ state.bellOpen = false; return; }
   // كل ما في القائمة الآن مقروء: أحدث وقت بين أحداث الخادم وأوقات الإشعارات المعروضة نفسها (ومنها عهد شركات أخرى)
   let mx = latestServerTs(); try{ (computeNotifications().items||[]).forEach(i=>{ if(i.ts>mx && i.ts<=Date.now()+86400000) mx = i.ts; markNotifKeySeen(i.key); }); }catch(e){}
   persistNotifSeen(mx);
@@ -3337,7 +3340,7 @@ function openSearchResult(reqId){
   render();
 }
 
-async function logout(){ state._loggingOut = true; assistantReset(); state.dashOwner='all'; try{ if(state.user) qyLog('logout','خروج',''); await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state._loggingOut=false; state.impersonatingFromAdmin=null; state.navPeek=false; state.navDrawer=false; state.view='login'; state._navStack=[]; state._navPrev=null; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
+async function logout(){ state._loggingOut = true; assistantReset(); state.dashOwner='all'; try{ if(state.user) qyLog('logout','خروج',''); await db.auth.signOut(); }catch(e){} clearSession(); state.user=null; state._loggingOut=false; state.impersonatingFromAdmin=null; state.bellOpen=false; state.navPeek=false; state.navDrawer=false; state.view='login'; state._navStack=[]; state._navPrev=null; const st0=document.getElementById('impStrip'); if(st0){ st0.style.display='none'; st0.innerHTML=''; } render(); }
 
 // ───────── إغلاق الدخول تلقائياً عند عدم النشاط ─────────
 // 30 دقيقة بلا نقر أو كتابة أو تمرير؛ تنبيه قبل الإغلاق بدقيقة؛ وآخر نشاط مشترك بين كل التبويبات.
@@ -5066,7 +5069,7 @@ function paperRecordOpen(reqId, action){
   qyAutoBox(ov.querySelector('.paper-rec-box'), null, paperRecordClose);
 }
 function paperRecordClose(){ const m = document.getElementById('paperRecModal'); if(m) m.remove(); }
-function paperFilePicked(input){ const f = input.files && input.files[0]; const n = document.getElementById('paperFileName'); if(n) n.textContent = f ? '📎 ' + f.name : ''; }
+function paperFilePicked(input){ if(!input || !input.files) input = document.getElementById('paperFile'); const f = input && input.files && input.files[0]; const n = document.getElementById('paperFileName'); if(n) n.textContent = f ? '📎 ' + f.name : ''; }
 async function paperRecordSave(){
   const m = document.getElementById('paperRecModal'); if(!m) return;
   const req = state.requests.find(r=>r.id===m.dataset.req); if(!req) return;
