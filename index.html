@@ -1707,7 +1707,8 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app.cxv .row.cx-item{padding:12px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:#fff;}
   #app.cxv .row.cx-item > .btn{grid-column:1 / -1;justify-self:start;}
   #app.cxv .btn{width:auto !important;min-width:110px;min-height:40px;height:40px;padding:0 18px !important;font-size:13.5px;white-space:nowrap;}
-  #app.cxv td .btn,#app.cxv .btn.btn-xs{min-width:64px;padding:0 12px !important;}
+  #app.cxv td .btn,#app.cxv .btn.btn-xs{width:var(--btn-w,70px) !important;min-width:0;padding:0 6px !important;font-size:13px;}
+  #app.cxv .btn.btn-md{width:150px !important;}
   #app.cxv td.cx-act > div{display:flex;gap:6px;flex-wrap:nowrap;justify-content:flex-start;}
   #app.cxv td.cx-act{white-space:nowrap;}
   #app.cxv .card{margin-bottom:14px;}
