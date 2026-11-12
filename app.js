@@ -2652,6 +2652,7 @@ const QI = {
   recv:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
   close:'<path d="M18 6 6 18M6 6l12 12"/>',
   clip:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 12h8M8 16h5"/>',
+  building:'<path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M16 9h3a2 2 0 0 1 2 2v10"/><path d="M9 7h3M9 11h3M9 15h3"/>',
   case:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
   cash:'<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01" stroke-width="3"/>',
   repeat:'<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
@@ -3040,7 +3041,7 @@ function navSections(){
     const pg = [];
     if(canSeeCenterBooks()){ pg.push({label:'لوحة المراكز', views:['centerBooks'], js:[["openCenterBooks",[]]]}); pg.push({label:'دفتر المركز', views:['centerBook'], js:[["openCenterBook",[]]]}); }
     if(canSeeGwImport()) pg.push({label:'استيراد البوابة', views:['gwImport'], js:[["openGwImport",[]]]});
-    out.push({key:'cbk', ico:'case', label:'المراكز', pages:pg});
+    out.push({key:'cbk', ico:'building', label:'المراكز', pages:pg});
   }
   if(canSeeClients()) out.push({key:'cli', ico:'me', label:'العملاء', pages:[{label:'العملاء', views:['clients'], js:[["openClients",[]]]}]});
   if(canSeeRecurring()) out.push({key:'rec', ico:'repeat', label:'القيود الدورية', count:recDueCount(), pages:[{label:'القيود الدورية', views:['recurring'], js:[["openRecurring",[0]]]}]});
@@ -9490,13 +9491,13 @@ const ADMIN_NAV = [
     {key:'roles', label:'الأدوار الوظيفية', kind:'tab'},
     {key:'admins', label:'مديرو النظام', kind:'tab'},
     {key:'permissions', label:'صلاحيات الصفحات', kind:'tab'},
+    {key:'centerAccess', label:'رؤية المراكز', kind:'tab'},
     {key:'jobLevels', label:'سلّم المستويات الوظيفية', tab:'المستويات الوظيفية', kind:'view'},
     {key:'impersonate', label:'تصفّح كمستخدم آخر', tab:'تصفّح كمستخدم', kind:'tab'}
   ]},
   // 3 المالية — المال: تخطيطه وصرفه وتحليله
   {gkey:'finance', tab:'المالية', cat:'المالية', items:[
-    {key:'budgetItems', label:'بنود الميزانية', tab:'البنود', kind:'tab'},
-    {key:'centerAccess', label:'رؤية المراكز', kind:'tab'}
+    {key:'budgetItems', label:'بنود الميزانية', tab:'البنود', kind:'tab'}
     // تقرير الميزانية وأرشيف الملغاة انتقلا إلى «المتابعة والتقارير» (للمالية ومدير النظام)
   ]},
   // 4 الهوية والمستندات — كيف يبدو النظام على الشاشة وعلى الورق
@@ -16399,7 +16400,7 @@ function cxStaleBannerHtml(compact){
     : 'لم تُرفع ملفات بوابة الدفع بعد.';
   return `<div class="card no-print" style="margin-bottom:12px;border:2px solid ${col};padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;">
     <div style="font-size:13.5px;line-height:1.7;color:${col};font-weight:700;">${msg}</div>
-    ${compact ? `<button class="btn btn-ghost btn-xs" style="width:auto;padding:0 14px;" data-on-click="openGwImport">رفع الملفات</button>` : ''}
+    ${compact ? `<button class="btn btn-ghost btn-sm" data-on-click="openGwImport">رفع الملفات</button>` : ''}
   </div>`;
 }
 function cxDashBanner(app){
@@ -16477,8 +16478,8 @@ function cxClientFormHtml(){
   const parents = (state.cx.clients||[]).filter(c=>c.id!==d.id);
   const opt = (arr, sel) => arr.map(x=>`<option value="${x[0]}" ${x[0]===sel?'selected':''}>${x[1]}</option>`).join('');
   const inp = (id, label, val, extra) => `<div style="--fw:260px;"><label>${label}</label><input id="${id}" type="text" value="${escH(val||'')}" ${extra||''}></div>`;
-  return `<div class="card">
-    <h2>${d.id ? 'تعديل عميل' : 'عميل جديد'}</h2>
+  return `<div class="card cx-panel">
+    <div class="cx-panel-h"><h2>${d.id ? 'تعديل عميل' : 'عميل جديد'}</h2><button class="btn btn-ghost btn-sm" data-on-click="cxCancelClient">إغلاق</button></div>
     <div class="row">
       ${inp('cxc_name','الاسم *',d.name)} ${inp('cxc_name_en','الاسم بالإنجليزية',d.name_en,'dir="ltr"')}
       <div style="--fw:200px;"><label>النوع</label><select id="cxc_kind">${opt(CX_CLIENT_KIND, d.kind)}</select></div>
@@ -16488,24 +16489,24 @@ function cxClientFormHtml(){
     <div class="row">
       ${inp('cxc_address','العنوان',d.address)} ${inp('cxc_email','البريد الإلكتروني',d.email,'dir="ltr"')} ${inp('cxc_website','الموقع الإلكتروني',d.website,'dir="ltr"')} ${inp('cxc_tax_no','الرقم الضريبي أو التجاري',d.tax_no,'dir="ltr"')}
     </div>
-    <h3 style="margin:14px 0 6px;">أرقام الهاتف</h3>
+    <h3 class="cx-h3">أرقام الهاتف</h3>
     ${(d.phones||[]).map((p,i)=>`<div class="row cx-item">
       <div style="--fw:220px;"><label>الرقم</label><input id="cxc_ph_${i}_n" type="text" dir="ltr" value="${escH(p.number||'')}"></div>
       <div style="--fw:150px;"><label>النوع</label><select id="cxc_ph_${i}_t">${opt(CX_PHONE_TYPE,p.type)}</select></div>
-      <button class="btn btn-reject btn-xs" style="width:auto;padding:0 12px;" data-on-click="cxCDelPhone" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
-    <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 14px;" data-on-click="cxCAddPhone">+ رقم هاتف</button>
-    <h3 style="margin:14px 0 6px;">جهات الاتصال</h3>
+      <button class="btn btn-reject btn-xs" data-on-click="cxCDelPhone" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
+    <button class="btn btn-ghost btn-sm" data-on-click="cxCAddPhone">+ رقم هاتف</button>
+    <h3 class="cx-h3">جهات الاتصال</h3>
     ${(d.contacts||[]).map((p,i)=>`<div class="row cx-item">
       <div style="--fw:200px;"><label>الاسم</label><input id="cxc_ct_${i}_n" type="text" value="${escH(p.name||'')}"></div>
       <div style="--fw:160px;"><label>الصفة</label><input id="cxc_ct_${i}_t" type="text" value="${escH(p.title||'')}"></div>
       <div style="--fw:170px;"><label>الهاتف</label><input id="cxc_ct_${i}_p" type="text" dir="ltr" value="${escH(p.phone||'')}"></div>
       <div style="--fw:220px;"><label>البريد</label><input id="cxc_ct_${i}_e" type="text" dir="ltr" value="${escH(p.email||'')}"></div>
-      <button class="btn btn-reject btn-xs" style="width:auto;padding:0 12px;" data-on-click="cxCDelContact" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
-    <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 14px;" data-on-click="cxCAddContact">+ جهة اتصال</button>
-    <div style="margin-top:12px;"><label>ملاحظات</label><textarea id="cxc_notes" rows="2">${escH(d.notes||'')}</textarea></div>
-    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
-      <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="cxSaveClient">حفظ</button>
-      <button class="btn btn-ghost" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="cxCancelClient">إلغاء</button>
+      <button class="btn btn-reject btn-xs" data-on-click="cxCDelContact" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
+    <button class="btn btn-ghost btn-sm" data-on-click="cxCAddContact">+ جهة اتصال</button>
+    <div style="margin-top:16px;"><label style="display:block;font-weight:700;font-size:13px;margin-bottom:6px;">ملاحظات</label><textarea id="cxc_notes" rows="2">${escH(d.notes||'')}</textarea></div>
+    <div class="cx-actions">
+      <button class="btn btn-primary btn-md" data-on-click="cxSaveClient">حفظ</button>
+      <button class="btn btn-ghost btn-sm" data-on-click="cxCancelClient">إلغاء</button>
     </div></div>`;
 }
 function renderClients(app){
@@ -16515,18 +16516,19 @@ function renderClients(app){
     const kn = (CX_CLIENT_KIND.find(k=>k[0]===c.kind)||[0,c.kind])[1];
     const ph = (c.phones||[]).map(p=>`<bdi dir="ltr">${escH(p.number)}</bdi>`).join('، ') || '—';
     const nCent = cs.filter(x=>x.clientId===c.id && x.companyId===cxCid()).length;
-    return `<tr><td style="padding-right:${10+depth*20}px;">${depth ? '↳ ' : ''}<b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="badge">موقوف</span>' : ''}</td>
-      <td>${escH(kn)}</td><td>${ph}</td><td>${(c.contacts||[]).length ? escH(c.contacts.map(x=>x.name).filter(Boolean).join('، ')) : '—'}</td><td>${nCent || '—'}</td>
+    return `<tr><td data-label="" class="cx-desc" style="padding-inline-start:${10+depth*22}px;">${depth ? '<span class="cx-meta" style="display:inline">↳ </span>' : ''}<b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="cx-badge cx-st-closed">موقوف</span>' : ''}${c.name_en?`<div class="cx-meta" dir="ltr" style="text-align:right">${escH(c.name_en)}</div>`:''}</td>
+      <td data-label="النوع"><span class="cx-badge">${escH(kn)}</span></td><td data-label="الهاتف">${ph}</td><td data-label="جهات الاتصال"><div class="cx-clip">${(c.contacts||[]).length ? escH(c.contacts.map(x=>x.name).filter(Boolean).join('، ')) : '—'}</div></td><td data-label="المراكز" class="num">${nCent || '—'}</td>
       <td class="cx-act"><div>
-        <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxNewClient" data-on-click-args="${qa([c.id])}">+ فرع</button>
-        <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxEditClient" data-on-click-args="${qa([c.id])}">تعديل</button>
-        <button class="btn btn-reject btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxDeleteClient" data-on-click-args="${qa([c.id])}">حذف</button></div></td></tr>`;
-  }).join('') || '<tr><td colspan="6" class="sub">لا يوجد عملاء بعد.</td></tr>';
+        <button class="btn btn-ghost btn-xs" data-on-click="cxNewClient" data-on-click-args="${qa([c.id])}">+ فرع</button>
+        <button class="btn btn-ghost btn-xs" data-on-click="cxEditClient" data-on-click-args="${qa([c.id])}">تعديل</button>
+        <button class="btn btn-reject btn-xs" data-on-click="cxDeleteClient" data-on-click-args="${qa([c.id])}">حذف</button></div></td></tr>`;
+  }).join('') || '<tr class="cx-empty"><td colspan="6">لا يوجد عملاء بعد.</td></tr>';
   app.innerHTML = `
     <h1>العملاء</h1>
-    <p class="sub">الجمعيات والجهات التي تتعامل معها الشركة، وفروعها تحتها. يُربط المركز بعميل أو بأحد فروعه من شاشة دفاتر المراكز.</p>
-    ${state.cx.cEditId ? cxClientFormHtml() : `<div style="margin-bottom:12px;"><button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ عميل جديد</button></div>`}
-    <div class="card"><div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>الاسم</th><th>النوع</th><th>الهاتف</th><th>جهات الاتصال</th><th>المراكز</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    <p class="sub">الجمعيات والجهات التي تتعامل معها الشركة، وفروعها تحتها. يُربط المركز بعميل من «دفتر المركز ← إعدادات المركز».</p>
+    ${state.cx.cEditId ? cxClientFormHtml() : ''}
+    <div class="card cx-panel"><div class="cx-panel-h"><div><h2>العملاء</h2><div class="file-hint">${tree.length} عميل</div></div>${state.cx.cEditId ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ عميل جديد</button>`}</div>
+    <table class="exec-table cx-tbl"><thead><tr><th>الاسم</th><th>النوع</th><th>الهاتف</th><th>جهات الاتصال</th><th class="num">المراكز</th><th style="width:240px;"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 // ===================== دفاتر المراكز =====================
@@ -16534,27 +16536,25 @@ function openCenterBooks(){ state.view='centerBooks'; render(); window.scrollTo(
 function openCenterBook(){
   state.view='centerBook';
   if(!state.cx.centerId){ const c = cxVisibleCenters()[0]; state.cx.centerId = c ? c.id : null; }
-  state.cx.ledger=[]; state.cx.payers={}; state.cx.q='';
+  cxResetLedgerView();
   render(); window.scrollTo(0,0); cxLoadBalances(); if(!state.cx.clients.length && cxIsFin()) cxLoadClients(); cxLoadLedger();
 }
+function cxResetLedgerView(){ state.cx.ledger=[]; state.cx.payers={}; state.cx.q=''; state.cx.month=''; state.cx.limit=50; state.cx.showEntry=false; state.cx.ledgerLoaded=false; }
 function cxVisibleCenters(){
   const ids = new Set((state.cx.balances||[]).map(b=>b.center_id));
   return (state.centers||[]).filter(c=>c.companyId===cxCid() && (!ids.size || ids.has(c.id))).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
 }
-function cxSelectCenter(id){ state.cx.centerId=id||null; state.cx.ledger=[]; state.cx.payers={}; state.cx.q=''; render(); cxLoadLedger(); }
+function cxSelectCenter(id){ state.cx.centerId=id||null; cxResetLedgerView(); render(); cxLoadLedger(); }
 async function cxLoadBalances(){
   const r = await db.rpc('qy_center_balances', {p_company: cxCid()});
   if(await dbCheck(r,'تحميل أرصدة المراكز')){ state.cx.balances = r.data||[]; if(state.view==='centerBooks' || state.view==='centerBook') render(); }
 }
-function cxOpenCenter(id){
-  state.view = 'centerBook'; state.cx.centerId = id; state.cx.ledger = []; state.cx.payers = {}; state.cx.q = '';
-  render(); window.scrollTo(0,0); cxLoadLedger();
-}
+function cxOpenCenter(id){ state.view = 'centerBook'; state.cx.centerId = id; cxResetLedgerView(); render(); window.scrollTo(0,0); cxLoadLedger(); }
 async function cxLoadLedger(){
   const id = state.cx.centerId; if(!id) return;
-  const r = await db.from('center_ledger').select('*').eq('center_id', id).order('entry_date', {ascending:false}).order('id', {ascending:false}).limit(1000);
+  const r = await db.from('center_ledger').select('*').eq('center_id', id).order('entry_date', {ascending:false}).order('id', {ascending:false}).limit(2000);
   if(!(await dbCheck(r,'تحميل دفتر المركز'))) return;
-  state.cx.ledger = r.data||[]; state.cx.payers = {};
+  state.cx.ledger = r.data||[]; state.cx.payers = {}; state.cx.ledgerLoaded = true;
   if(cxIsImporter() && state.cx.ledger.length){
     const ids = state.cx.ledger.filter(x=>x.source==='import').map(x=>x.id);
     for(let i=0;i<ids.length;i+=200){
@@ -16564,6 +16564,8 @@ async function cxLoadLedger(){
   }
   if(state.view==='centerBook' && state.cx.centerId===id) render();
 }
+
+// ---------- رؤية المراكز (لوحة التحكم ← المستخدمون والصلاحيات) ----------
 async function cxLoadAccess(){
   const id = state.cx.accCenter; if(!id) return;
   const r = await db.from('center_access').select('*').eq('center_id', id);
@@ -16582,15 +16584,18 @@ function renderCenterAccessPanel(){
   const cs = (state.centers||[]).filter(c=>c.companyId===cxCid()).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
   if(!state.cx.accCenter && cs.length){ state.cx.accCenter = cs[0].id; cxLoadAccess(); }
   const acc = state.cx.accessRows||[], users = cxUsersOfCompany();
-  return `<div class="card"><h2>رؤية المراكز</h2>
-    <p class="file-hint">الافتراضي: عاملو المركز والمالية والمدير التنفيذي. «يسمح» يضيف مستخدماً، و«يمنع» يحجبه عن هذا المركز.</p>
-    <div class="row"><div><label>المركز</label><select data-on-change="cxAccSelect" data-on-change-args="${qa([QA.v])}">${cs.map(c=>`<option value="${c.id}" ${c.id===state.cx.accCenter?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div></div>
-    <div style="overflow-x:auto;margin-top:12px;"><table class="exec-table"><thead><tr><th>المستخدم</th><th>الدور</th><th>الرؤية</th></tr></thead><tbody>
+  const nAllow = acc.filter(x=>x.mode==='allow').length, nDeny = acc.filter(x=>x.mode==='deny').length;
+  return `<div class="card cx-panel">
+    <div class="cx-panel-h"><div><h2>رؤية المراكز</h2><div class="file-hint">الافتراضي: عاملو المركز والمالية والمدير التنفيذي. «يسمح» يضيف مستخدماً، و«يمنع» يحجبه.</div></div>
+      <label class="cx-mini"><span>المركز</span><select data-on-change="cxAccSelect" data-on-change-args="${qa([QA.v])}">${cs.map(c=>`<option value="${c.id}" ${c.id===state.cx.accCenter?'selected':''}>${escH(c.name)}</option>`).join('')}</select></label></div>
+    <div class="cx-chips"><span class="cx-chip">يسمح: <b>${nAllow}</b></span><span class="cx-chip">يمنع: <b>${nDeny}</b></span></div>
+    <div class="cx-scroll"><table class="exec-table cx-tbl"><thead><tr><th>المستخدم</th><th>الدور</th><th>الرؤية</th></tr></thead><tbody>
     ${users.map(u=>{ const a = acc.find(x=>x.user_id===u.id); const m = a ? a.mode : '';
-      return `<tr><td>${escH(u.name)}</td><td>${escH(findRole(u.role) ? findRole(u.role).name : u.role)}</td><td><select data-on-change="cxSetAccess" data-on-change-args="${qa([u.id, QA.v])}" style="width:auto;min-width:130px;">
+      return `<tr><td><b>${escH(u.name)}</b></td><td>${escH(findRole(u.role) ? findRole(u.role).name : u.role)}</td><td><select class="cx-sel-sm cx-mode-${m||'def'}" data-on-change="cxSetAccess" data-on-change-args="${qa([u.id, QA.v])}">
         <option value="" ${m===''?'selected':''}>افتراضي</option><option value="allow" ${m==='allow'?'selected':''}>يسمح</option><option value="deny" ${m==='deny'?'selected':''}>يمنع</option></select></td></tr>`; }).join('')}
     </tbody></table></div></div>`;
 }
+
 async function cxSetStage(id, stage){
   const r = await db.rpc('qy_center_set_stage', {p_center:id, p_stage:stage});
   if(!(await dbCheck(r,'تغيير مرحلة المركز'))){ render(); return; }
@@ -16606,7 +16611,7 @@ async function cxSaveCenterSettings(){
   const r = await db.from('centers').update(row).eq('id', id);
   if(!(await dbCheck(r,'حفظ إعدادات المركز'))) return;
   c.clientId = row.client_id; c.balanceControl = row.balance_control; c.overdraftLimit = row.overdraft_limit; c.companySharePct = row.company_share_pct; c.supportSharePct = row.support_share_pct;
-  showToast('تم حفظ إعدادات المركز','success'); render();
+  showToast('تم حفظ إعدادات المركز','success'); render(); cxLoadBalances();
 }
 function cxPctFor(c, support){
   const co = cxCo();
@@ -16614,11 +16619,11 @@ function cxPctFor(c, support){
 }
 
 // ---------- إدخال حركة يدوي ----------
-function cxEntryMode(){ const el = document.getElementById('cxe_mode'); return el ? el.value : 'gross'; }
+function cxEntryToggle(){ state.cx.showEntry = !state.cx.showEntry; render(); if(state.cx.showEntry) setTimeout(()=>{ cxEntryPreview(); const el = document.getElementById('cxEntryCard'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 30); }
 function cxEntryRead(){
   const c = (state.centers||[]).find(x=>x.id===state.cx.centerId) || {};
   const g = k => (document.getElementById(k)||{}).value;
-  const kind = g('cxe_kind') || 'subscription', mode = g('cxe_mode') || 'gross';
+  const kind = g('cxe_kind') || state.cx.entryKind || 'subscription', mode = g('cxe_mode') || state.cx.entryMode || 'gross';
   const defPct = (kind==='manual' || kind==='adjust') ? 0 : cxPctFor(c, kind==='support');
   let gross = 0, fee = 0, share = 0, net = 0, pct = defPct;
   if(mode==='net'){
@@ -16635,9 +16640,14 @@ function cxEntryRead(){
 function cxEntryPreview(){
   const el = document.getElementById('cxe_prev'); if(!el) return;
   const e = cxEntryRead();
-  el.innerHTML = `المبلغ الكلي ${fmtKWDHtml(e.gross)} − رسوم البوابة ${fmtKWDHtml(e.fee)} = ${fmtKWDHtml(e.gross-e.fee)} · حصة الشركة (${cxR3(e.pct)}%) ${fmtKWDHtml(e.share)} · <b>الصافي للمركز ${fmtKWDHtml(e.net)} د.ك</b>`;
+  const cell = (l,v,strong) => `<div class="cx-calc-c${strong?' cx-calc-s':''}"><small>${l}</small><b>${v}</b></div>`;
+  el.innerHTML = cell('المبلغ الكلي', fmtKWDHtml(e.gross)) + '<i>−</i>' + cell('رسوم البوابة', fmtKWDHtml(e.fee)) + '<i>−</i>' + cell(`حصة الشركة ${cxR3(e.pct)}%`, fmtKWDHtml(e.share)) + '<i>=</i>' + cell('الصافي للمركز', fmtKWDHtml(e.net), true);
 }
-function cxEntryModeChange(){ render(); setTimeout(cxEntryPreview, 0); }
+function cxEntryModeChange(){
+  const k = document.getElementById('cxe_kind'), m = document.getElementById('cxe_mode');
+  if(k) state.cx.entryKind = k.value; if(m) state.cx.entryMode = m.value;
+  render(); setTimeout(cxEntryPreview, 0);
+}
 async function cxSaveEntry(){
   const id = state.cx.centerId; if(!id) return;
   const e = cxEntryRead(), g = k => (document.getElementById(k)||{}).value;
@@ -16647,158 +16657,199 @@ async function cxSaveEntry(){
     p_gross:e.gross, p_fee:e.fee, p_share_pct:(e.kind==='manual'||e.kind==='adjust'||e.mode==='net') ? e.pct : (String(g('cxe_pct')||'').trim()==='' ? null : cxN(g('cxe_pct'))),
     p_purpose:(g('cxe_purpose')||'').trim()||null, p_note:(g('cxe_note')||'').trim()||null});
   if(!(await dbCheck(r,'تسجيل حركة'))) return;
-  showToast('تم تسجيل الحركة','success'); await cxLoadLedger();
+  state.cx.showEntry = false;
+  showToast('تم تسجيل الحركة','success'); await cxLoadLedger(); cxLoadBalances();
 }
 async function cxSaveOpening(){
   const id = state.cx.centerId; if(!id) return;
-  const amt = cxN((document.getElementById('cxo_amt')||{}).value), date = (document.getElementById('cxo_date')||{}).value || cxToday();
-  if(!amt && amt!==0){ showToast('أدخل المبلغ','error'); return; }
-  const r = await db.rpc('qy_ledger_add', {p_center:id, p_kind:'opening', p_date:date, p_from:null, p_to:null, p_gross:amt, p_fee:0, p_share_pct:0, p_purpose:'رصيد افتتاحي', p_note:null});
+  const raw = String((document.getElementById('cxo_amt')||{}).value||'').trim(), date = (document.getElementById('cxo_date')||{}).value || cxToday();
+  if(raw===''){ showToast('أدخل المبلغ','error'); return; }
+  const r = await db.rpc('qy_ledger_add', {p_center:id, p_kind:'opening', p_date:date, p_from:null, p_to:null, p_gross:cxN(raw), p_fee:0, p_share_pct:0, p_purpose:'رصيد افتتاحي', p_note:null});
   if(!(await dbCheck(r,'تسجيل الرصيد الافتتاحي'))) return;
   showToast('تم تسجيل الرصيد الافتتاحي','success'); await cxLoadLedger(); cxLoadBalances();
 }
 async function cxVoid(id, v){
-  if(!confirm(v ? 'إلغاء هذه الحركة؟\n\nتخرج من رصيد المركز ويمكن استرجاعها.' : 'استرجاع هذه الحركة؟')) return;
+  if(!confirm(v ? 'حذف هذه الحركة؟\n\nتخرج من رصيد المركز ويمكن استرجاعها لاحقاً.' : 'استرجاع هذه الحركة إلى الرصيد؟')) return;
   const r = await db.rpc('qy_ledger_void', {p_id:id, p_void:v});
   if(!(await dbCheck(r,'تعديل حالة الحركة'))) return;
-  await cxLoadLedger();
+  await cxLoadLedger(); cxLoadBalances();
 }
-function cxSearch(v){ state.cx.q = v||''; const a = document.getElementById('cxLedgerBody'); if(a) a.innerHTML = cxLedgerRowsHtml(); }
+function cxSearch(v){ state.cx.q = v||''; state.cx.limit = 50; const a = document.getElementById('cxLedgerBody'); if(a) a.innerHTML = cxLedgerRowsHtml(); }
+function cxSetMonth(v){ state.cx.month = v||''; state.cx.limit = 50; const a = document.getElementById('cxLedgerBody'); if(a) a.innerHTML = cxLedgerRowsHtml(); }
+function cxMore(){ state.cx.limit = (state.cx.limit||50) + 100; const a = document.getElementById('cxLedgerBody'); if(a) a.innerHTML = cxLedgerRowsHtml(); }
+const CX_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function cxMonthLabel(ym){ const [y,m] = String(ym).split('-'); return (CX_MONTHS[Number(m)-1]||m) + ' ' + y; }
 
-function cxLedgerRowsHtml(){
-  const q = String(state.cx.q||'').trim().toLowerCase();
-  const imp = cxIsImporter(), fin = cxIsFin();
-  const list = (state.cx.ledger||[]).filter(x=>{
+function cxLedgerFiltered(){
+  const q = String(state.cx.q||'').trim().toLowerCase(), mo = state.cx.month||'';
+  return (state.cx.ledger||[]).filter(x=>{
+    if(mo && String(x.entry_date||'').slice(0,7)!==mo) return false;
     if(!q) return true;
     const p = state.cx.payers[x.id] || {};
-    return [x.purpose, x.note, x.agent, x.method, p.payer_name, p.payer_phone, CX_LEDGER_KIND[x.kind]].some(t=>String(t||'').toLowerCase().includes(q));
+    return [x.purpose, x.note, x.agent, x.method, x.receipt, p.payer_name, p.payer_phone, CX_LEDGER_KIND[x.kind]].some(t=>String(t||'').toLowerCase().includes(q));
   });
-  if(!list.length) return `<tr><td colspan="${imp?10:9}" class="sub">لا توجد حركات.</td></tr>`;
-  return list.map(x=>{
-    const p = state.cx.payers[x.id] || {}, st = x.voided ? 'text-decoration:line-through;opacity:.55;' : '';
-    return `<tr style="${st}"><td>${cxDate(x.entry_date)}</td><td>${escH(CX_LEDGER_KIND[x.kind]||x.kind)}${x.method ? ` <span class="file-hint">${escH(x.method)}</span>` : ''}</td>
-      <td><div class="cx-clip" title="${escH(x.purpose||'')}">${escH(x.purpose||'')}</div>${x.period_from ? ` <div class="file-hint">${cxDate(x.period_from)} ← ${cxDate(x.period_to)}</div>` : ''}${x.note ? `<div class="file-hint">${escH(x.note)}</div>` : ''}</td>
-      <td>${fmtKWDHtml(x.gross)}</td><td>${fmtKWDHtml(x.gateway_fee)}</td><td>${x.company_share==null ? '—' : fmtKWDHtml(x.company_share)}</td><td><b>${x.net==null ? '—' : fmtKWDHtml(x.net)}</b></td>
-      ${imp ? `<td>${p.payer_name ? escH(p.payer_name) : ''}${p.payer_phone ? ` <bdi dir="ltr" class="file-hint">${escH(p.payer_phone)}</bdi>` : ''}</td>` : ''}
-      <td>${x.agent ? escH(x.agent) : ''}</td>
-      <td>${fin && x.kind!=='opening' || fin && x.voided ? `<button class="btn ${x.voided?'btn-ghost':'btn-reject'} btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxVoid" data-on-click-args="${qa([x.id, !x.voided])}">${x.voided ? 'استرجاع' : 'حذف'}</button>` : ''}</td></tr>`;
+}
+function cxLedgerRowsHtml(){
+  const imp = cxIsImporter(), fin = cxIsFin(), cols = 7 + (imp?1:0) + (fin?1:0);
+  const all = cxLedgerFiltered(), lim = state.cx.limit||50, list = all.slice(0, lim);
+  if(!all.length) return `<tr class="cx-empty"><td colspan="${cols}">${state.cx.ledgerLoaded ? 'لا توجد حركات مطابقة.' : 'جارٍ التحميل…'}</td></tr>`;
+  const live = all.filter(x=>!x.voided);
+  const t = live.reduce((a,x)=>({g:a.g+Number(x.gross||0), f:a.f+Number(x.gateway_fee||0), s:a.s+Number(x.company_share||0), n:a.n+Number(x.net||0)}), {g:0,f:0,s:0,n:0});
+  const rows = list.map(x=>{
+    const p = state.cx.payers[x.id] || {};
+    const meta = [CX_LEDGER_KIND[x.kind]||x.kind, x.method, x.period_from ? `${cxDate(x.period_from)} ← ${cxDate(x.period_to)}` : ''].filter(Boolean).join(' · ');
+    const tip = [x.agent ? 'المنشئ: '+x.agent : '', x.receipt ? 'الإيصال: '+x.receipt : '', x.note ? 'ملاحظة: '+x.note : ''].filter(Boolean).join('\n');
+    return `<tr class="${x.voided?'cx-void':''}" ${tip?`title="${escH(tip)}"`:''}>
+      <td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
+      <td data-label="البيان" class="cx-desc"><div class="cx-clip">${escH(x.purpose || CX_LEDGER_KIND[x.kind] || '')}</div><div class="cx-meta">${escH(meta)}${x.voided?' · <span class="cx-tag-red">محذوفة</span>':''}</div></td>
+      ${imp ? `<td data-label="الدافع" class="cx-payer"><div class="cx-clip">${escH(p.payer_name||'—')}</div>${p.payer_phone ? `<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>` : ''}</td>` : ''}
+      <td data-label="المبلغ" class="num">${fmtKWDHtml(x.gross)}</td>
+      <td data-label="الرسوم" class="num">${fmtKWDHtml(x.gateway_fee)}</td>
+      <td data-label="حصة الشركة" class="num">${x.company_share==null ? '—' : fmtKWDHtml(x.company_share)}</td>
+      <td data-label="الصافي" class="num cx-strong">${x.net==null ? '—' : fmtKWDHtml(x.net)}</td>
+      ${fin ? `<td class="cx-act">${x.voided
+        ? `<button class="btn btn-ghost btn-xs" data-on-click="cxVoid" data-on-click-args="${qa([x.id, false])}">استرجاع</button>`
+        : `<button class="btn btn-reject btn-xs" data-on-click="cxVoid" data-on-click-args="${qa([x.id, true])}">حذف</button>`}</td>` : ''}</tr>`;
   }).join('');
+  const more = all.length > lim ? `<tr class="cx-more"><td colspan="${cols}"><button class="btn btn-ghost btn-sm" data-on-click="cxMore">عرض المزيد</button> <span class="file-hint">معروض ${list.length} من ${all.length}</span></td></tr>` : '';
+  const tot = `<tr class="cx-total"><td data-label="">المجموع</td><td data-label="">${live.length} حركة</td>${imp?'<td data-label=""></td>':''}<td data-label="المبلغ" class="num">${fmtKWDHtml(t.g)}</td><td data-label="الرسوم" class="num">${fmtKWDHtml(t.f)}</td><td data-label="حصة الشركة" class="num">${fmtKWDHtml(t.s)}</td><td data-label="الصافي" class="num">${fmtKWDHtml(t.n)}</td>${fin?'<td></td>':''}</tr>`;
+  return rows + more + tot;
 }
 
-function cxEntryFormHtml(c){
-  const mode = (cxEntryMode()==='net') ? 'net' : 'gross';
-  const f = (id, label, ph, w) => `<div style="--fw:${w||150}px;"><label>${label}</label><input id="${id}" type="text" inputmode="decimal" dir="ltr" placeholder="${ph||''}" data-on-input="cxEntryPreview"></div>`;
-  return `<div class="card"><h2>تسجيل حركة يدوية</h2>
+function cxEntryFormHtml(){
+  const kind = state.cx.entryKind || 'subscription', mode = state.cx.entryMode || 'gross';
+  const f = (id, label, ph) => `<div><label>${label}</label><input id="${id}" type="text" inputmode="decimal" dir="ltr" placeholder="${ph||'0.000'}" data-on-input="cxEntryPreview"></div>`;
+  const c = (state.centers||[]).find(x=>x.id===state.cx.centerId) || {};
+  const defPct = (kind==='manual'||kind==='adjust') ? 0 : cxPctFor(c, kind==='support');
+  return `<div class="card cx-panel" id="cxEntryCard">
+    <div class="cx-panel-h"><h2>تسجيل حركة يدوية</h2><button class="btn btn-ghost btn-sm" data-on-click="cxEntryToggle">إغلاق</button></div>
     <div class="row">
-      <div style="--fw:170px;"><label>النوع</label><select id="cxe_kind" data-on-change="cxEntryModeChange"><option value="subscription">اشتراكات</option><option value="support">دعم</option><option value="manual">إيراد يدوي</option><option value="adjust">تسوية</option></select></div>
-      <div style="--fw:200px;"><label>طريقة الإدخال</label><select id="cxe_mode" data-on-change="cxEntryModeChange"><option value="gross" ${mode==='gross'?'selected':''}>المبلغ الكلي</option><option value="net" ${mode==='net'?'selected':''}>حصة الشركة والصافي</option></select></div>
-      <div style="--fw:160px;"><label>تاريخ الدفع</label><input id="cxe_date" type="date" value="${cxToday()}"></div>
-      <div style="--fw:160px;"><label>الفترة من</label><input id="cxe_from" type="date"></div>
-      <div style="--fw:160px;"><label>إلى</label><input id="cxe_to" type="date"></div>
-    </div>
-    <div class="row">
+      <div><label>النوع</label><select id="cxe_kind" data-on-change="cxEntryModeChange">${[['subscription','اشتراكات'],['support','دعم'],['manual','إيراد يدوي'],['adjust','تسوية']].map(k=>`<option value="${k[0]}" ${k[0]===kind?'selected':''}>${k[1]}</option>`).join('')}</select></div>
+      <div><label>طريقة الإدخال</label><select id="cxe_mode" data-on-change="cxEntryModeChange"><option value="gross" ${mode==='gross'?'selected':''}>بالمبلغ الكلي</option><option value="net" ${mode==='net'?'selected':''}>بحصة الشركة والصافي</option></select></div>
+      <div><label>تاريخ الدفع</label><input id="cxe_date" type="date" value="${cxToday()}"></div>
+      <div class="cx-pair"><div><label>الفترة من</label><input id="cxe_from" type="date"></div><div><label>إلى</label><input id="cxe_to" type="date"></div></div>
       ${mode==='gross'
-        ? f('cxe_gross','المبلغ الكلي','0.000') + f('cxe_fee','رسوم البوابة (مبلغ)','0.000') + f('cxe_fee_pct','أو نسبة البوابة %','0') + f('cxe_pct','حصة الشركة %','')
-        : f('cxe_net','الصافي للمركز','0.000') + f('cxe_share_amt','حصة الشركة','0.000') + f('cxe_fee','رسوم البوابة (اختياري)','0.000')}
-      <div style="--fw:240px;"><label>الغرض</label><input id="cxe_purpose" type="text"></div>
-      <div style="--fw:240px;"><label>ملاحظة</label><input id="cxe_note" type="text"></div>
+        ? f('cxe_gross','المبلغ الكلي') + `<div class="cx-pair">${f('cxe_fee','رسوم البوابة')}${f('cxe_fee_pct','أو نسبتها %','0')}</div>` + f('cxe_pct','حصة الشركة %', `الافتراضي ${defPct}%`)
+        : f('cxe_net','الصافي للمركز') + f('cxe_share_amt','حصة الشركة') + f('cxe_fee','رسوم البوابة (اختياري)')}
+      <div><label>الغرض</label><input id="cxe_purpose" type="text" placeholder="مثال: اشتراكات أكتوبر"></div>
+      <div><label>ملاحظة</label><input id="cxe_note" type="text"></div>
     </div>
-    <div id="cxe_prev" class="file-hint" style="margin:8px 0;line-height:1.9;"></div>
-    <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="cxSaveEntry">تسجيل</button>
+    <div id="cxe_prev" class="cx-calc"></div>
+    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="cxSaveEntry">تسجيل الحركة</button><button class="btn btn-ghost btn-sm" data-on-click="cxEntryToggle">إلغاء</button></div>
   </div>`;
 }
 
+function cxStat(l, v, col, sub){ return `<div class="cx-stat"><div class="cx-stat-l">${l}</div><div class="cx-stat-v" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="cx-stat-s">${sub}</div>`:''}</div>`; }
+
 function cxCenterDetailHtml(){
   const id = state.cx.centerId, c = (state.centers||[]).find(x=>x.id===id);
-  const cs = cxVisibleCenters();
-  const selector = `<div class="card cx-pick"><div class="row"><div><label>المركز</label><select data-on-change="cxSelectCenter" data-on-change-args="${qa([QA.v])}">${cs.map(x=>`<option value="${x.id}" ${x.id===id?'selected':''}>${escH(x.name)}</option>`).join('')}</select></div></div></div>`;
-  if(!c) return selector + '<div class="card">اختر مركزاً لعرض دفتره.</div>';
+  const cs = cxVisibleCenters(), fin = cxIsFin(), adm = cxIsAdmin();
+  const picker = `<label class="cx-mini"><span>المركز</span><select data-on-change="cxSelectCenter" data-on-change-args="${qa([QA.v])}">${c?'':'<option value="">— اختر —</option>'}${cs.map(x=>`<option value="${x.id}" ${x.id===id?'selected':''}>${escH(x.name)}</option>`).join('')}</select></label>`;
+  if(!c) return `<h1>دفتر المركز</h1><div class="card cx-hero"><div class="cx-hero-t"><h2>اختر مركزاً</h2></div><div class="cx-hero-c">${picker}</div></div>`;
   const b = (state.cx.balances||[]).find(x=>x.center_id===id) || {income:0,expense:0,balance:0,pending_requests:0};
-  const fin = cxIsFin(), adm = cxIsAdmin();
   const hasOpening = (state.cx.ledger||[]).some(x=>x.kind==='opening' && !x.voided);
-  const loaded = (state.cx.ledger||[]).length>0 || state.cx.balances.length>0;
-  const bal = Number(b.balance||0), neg = bal < 0;
-  const stageSel = fin
-    ? `<select data-on-change="cxSetStage" data-on-change-args="${qa([id, QA.v])}" style="width:auto;min-width:150px;height:40px;">${CX_STAGES.map(s=>`<option value="${s[0]}" ${c.stage===s[0]?'selected':''}>${s[1]}</option>`).join('')}</select>`
-    : `<span class="badge">${escH(cxStageLabel(c.stage))}</span>`;
-  const stat = (l,v,col) => `<div class="cx-stat"><div class="cx-stat-l">${l}</div><div class="cx-stat-v" ${col?`style="color:${col}"`:''}>${v}</div></div>`;
-  return selector + `
-    <div class="card cx-head"><div><h2 style="margin:0;">${escH(c.name)}</h2><div class="file-hint">${c.clientId ? 'يتبع: '+escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}</div></div><div class="cx-stage"><span class="file-hint">المرحلة</span>${stageSel}</div></div>
-    <div class="cx-stats">
-      ${stat('الدخل الصافي', fmtKWDHtml(b.income))}${stat('المصروف المكتمل', fmtKWDHtml(b.expense))}${stat('الرصيد', fmtKWDHtml(bal), neg?'var(--red)':'')}${stat('طلبات مفتوحة', fmtKWDHtml(b.pending_requests))}
-      ${c.balanceControl ? stat('حد الصرف بالسالب', fmtKWDHtml(c.overdraftLimit)) : ''}
+  const bal = Number(b.balance||0);
+  const stage = fin
+    ? `<label class="cx-mini"><span>المرحلة</span><select data-on-change="cxSetStage" data-on-change-args="${qa([id, QA.v])}">${CX_STAGES.map(s=>`<option value="${s[0]}" ${c.stage===s[0]?'selected':''}>${s[1]}</option>`).join('')}</select></label>`
+    : `<div class="cx-mini"><span>المرحلة</span><b class="cx-badge">${escH(cxStageLabel(c.stage))}</b></div>`;
+  const months = [...new Set((state.cx.ledger||[]).map(x=>String(x.entry_date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const imp = cxIsImporter();
+  return `
+    <h1>دفتر المركز</h1>
+    <p class="sub">دخل المركز ومصروفه وحركاته. الدخل صافٍ بعد رسوم البوابة وحصة الشركة.</p>
+    <div class="card cx-hero">
+      <div class="cx-hero-t"><h2>${escH(c.name)}</h2><div class="file-hint">${c.clientId ? 'يتبع: '+escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}${c.balanceControl ? ' · ضبط الرصيد مفعّل' : ''}</div></div>
+      <div class="cx-hero-c">${picker}${stage}</div>
     </div>
-    ${fin ? cxEntryFormHtml(c) : ''}
-    <div class="card"><h2>دفتر المركز</h2>
-      <div style="margin-bottom:10px;"><input type="text" placeholder="بحث: الدافع، الهاتف، الغرض، المنشئ…" value="${escH(state.cx.q||'')}" data-on-input="cxSearch" data-on-input-args="${qa([QA.v])}"></div>
-      <div style="overflow-x:auto;"><table class="exec-table cx-ledger"><thead><tr><th>التاريخ</th><th>النوع</th><th>الغرض</th><th>المبلغ</th><th>الرسوم</th><th>حصة الشركة</th><th>الصافي</th>${cxIsImporter()?'<th>الدافع</th>':''}<th>المنشئ</th><th></th></tr></thead>
-      <tbody id="cxLedgerBody">${cxLedgerRowsHtml()}</tbody></table></div></div>
-    ${adm ? `<details class="card cx-fold"><summary>إعدادات المركز</summary>
-      <div class="row" style="margin-top:12px;">
+    <div class="cx-stats">
+      ${cxStat('الدخل الصافي', fmtKWDHtml(b.income))}${cxStat('المصروف المكتمل', fmtKWDHtml(b.expense))}
+      ${cxStat('الرصيد', fmtKWDHtml(bal), bal<0?'var(--red)':'var(--green,#16794a)', c.balanceControl ? 'حد السالب '+fmtKWDHtml(c.overdraftLimit) : '')}
+      ${cxStat('طلبات مفتوحة', fmtKWDHtml(b.pending_requests))}
+    </div>
+    ${fin && state.cx.showEntry ? cxEntryFormHtml() : ''}
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><h2>الحركات</h2>${fin && !state.cx.showEntry ? `<button class="btn btn-primary btn-md" data-on-click="cxEntryToggle">+ تسجيل حركة</button>` : ''}</div>
+      <div class="cx-tools">
+        <input type="search" class="cx-search" placeholder="بحث: ${imp?'الدافع، الهاتف، ':''}الغرض، المنشئ، الإيصال…" value="${escH(state.cx.q||'')}" data-on-input="cxSearch" data-on-input-args="${qa([QA.v])}">
+        <select class="cx-month" data-on-change="cxSetMonth" data-on-change-args="${qa([QA.v])}"><option value="">كل الأشهر</option>${months.map(m=>`<option value="${m}" ${m===state.cx.month?'selected':''}>${cxMonthLabel(m)}</option>`).join('')}</select>
+      </div>
+      <table class="exec-table cx-tbl cx-ledger"><thead><tr><th>التاريخ</th><th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num">المبلغ</th><th class="num">الرسوم</th><th class="num">حصة الشركة</th><th class="num">الصافي</th>${fin?'<th></th>':''}</tr></thead>
+      <tbody id="cxLedgerBody">${cxLedgerRowsHtml()}</tbody></table>
+    </div>
+    ${adm ? `<details class="card cx-fold"><summary><span>إعدادات المركز</span><span class="file-hint">العميل، حصة الشركة، ضبط الرصيد</span></summary>
+      <div class="row">
         <div><label>يتبع العميل</label><select id="cxs_client"><option value="">— غير مرتبط —</option>${cxClientTree().map(({c:cl,depth})=>`<option value="${cl.id}" ${cl.id===c.clientId?'selected':''}>${'— '.repeat(depth)}${escH(cl.name)}</option>`).join('')}</select></div>
         <div><label>حد الصرف بالسالب (د.ك)</label><input id="cxs_od" type="text" inputmode="decimal" dir="ltr" value="${c.overdraftLimit||0}"></div>
         <div><label>حصة الشركة من الاشتراكات %</label><input id="cxs_pct" type="text" inputmode="decimal" dir="ltr" placeholder="الافتراضي ${cxCo().gatewayCompanyPct}%" value="${c.companySharePct==null?'':c.companySharePct}"></div>
         <div><label>حصة الشركة من الدعم %</label><input id="cxs_spct" type="text" inputmode="decimal" dir="ltr" placeholder="الافتراضي ${cxCo().supportCompanyPct}%" value="${c.supportSharePct==null?'':c.supportSharePct}"></div>
       </div>
-      <label class="check-line" style="display:flex;align-items:center;gap:8px;margin:12px 0;"><input id="cxs_ctl" type="checkbox" style="width:auto;" ${c.balanceControl?'checked':''}> ضبط الرصيد: يُمنع طلب جديد يتجاوز الرصيد المتاح مع حد السالب</label>
-      <button class="btn btn-primary" data-on-click="cxSaveCenterSettings">حفظ الإعدادات</button>
-      <p class="file-hint" style="margin-top:10px;">من يرى هذا المركز: لوحة التحكم ← المالية ← رؤية المراكز.</p>
+      <label class="cx-check"><input id="cxs_ctl" type="checkbox" ${c.balanceControl?'checked':''}> ضبط الرصيد: يُمنع طلب جديد يتجاوز الرصيد المتاح مع حد السالب</label>
+      <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="cxSaveCenterSettings">حفظ الإعدادات</button></div>
+      <p class="file-hint">من يرى هذا المركز: لوحة التحكم ← المستخدمون والصلاحيات ← رؤية المراكز.</p>
     </details>` : ''}
-    ${fin && loaded && !hasOpening ? `<details class="card cx-fold"><summary>رصيد افتتاحي (يُسجَّل مرة واحدة)</summary>
-      <p class="file-hint" style="margin-top:10px;">رصيد المركز عند بدء استخدام النظام. بعد التسجيل يظهر كأول حركة في دفتر المركز ويختفي هذا القسم.</p>
+    ${fin && state.cx.ledgerLoaded && !hasOpening ? `<details class="card cx-fold"><summary><span>رصيد افتتاحي</span><span class="file-hint">يُسجَّل مرة واحدة</span></summary>
+      <p class="file-hint">رصيد المركز عند بدء استخدام النظام. بعد التسجيل يظهر أول حركة في الجدول بعنوان «رصيد افتتاحي»، ويختفي هذا القسم.</p>
       <div class="row"><div><label>المبلغ</label><input id="cxo_amt" type="text" inputmode="decimal" dir="ltr" placeholder="0.000"></div>
       <div><label>بتاريخ</label><input id="cxo_date" type="date" value="${cxToday()}"></div></div>
-      <button class="btn btn-primary" style="margin-top:12px;" data-on-click="cxSaveOpening">تسجيل الرصيد الافتتاحي</button></details>` : ''}`;
+      <div class="cx-actions"><button class="btn btn-primary btn-lg" data-on-click="cxSaveOpening">تسجيل الرصيد الافتتاحي</button></div></details>` : ''}`;
 }
-
 function renderCenterBook(app){
   if(!canSeeCenterBooks()){ state.view='dashboard'; render(); return; }
-  app.innerHTML = cxCenterDetailHtml(); setTimeout(cxEntryPreview, 0);
+  app.innerHTML = cxCenterDetailHtml(); if(state.cx.showEntry) setTimeout(cxEntryPreview, 0);
 }
 
 function renderCenterBooks(app){
   if(!canSeeCenterBooks()){ state.view='dashboard'; render(); return; }
-  const bal = state.cx.balances||[];
-  const rows = bal.map(b=>{ const c = (state.centers||[]).find(x=>x.id===b.center_id); return c ? {c, b} : null; }).filter(Boolean)
+  const rows = (state.cx.balances||[]).map(b=>{ const c = (state.centers||[]).find(x=>x.id===b.center_id); return c ? {c, b} : null; }).filter(Boolean)
     .sort((x,y)=>String(x.c.name).localeCompare(String(y.c.name),'ar'));
   const tot = rows.reduce((a,{b})=>({i:a.i+Number(b.income||0), e:a.e+Number(b.expense||0), n:a.n+Number(b.balance||0), p:a.p+Number(b.pending_requests||0)}), {i:0,e:0,n:0,p:0});
   const mx = Math.max(1, ...rows.map(({b})=>Math.abs(Number(b.balance||0))));
   const mx2 = Math.max(1, ...rows.map(({b})=>Math.max(Number(b.income||0), Number(b.expense||0))));
-  const stat = (l,v,col) => `<div class="cx-stat"><div class="cx-stat-l">${l}</div><div class="cx-stat-v" ${col?`style="color:${col}"`:''}>${v}</div></div>`;
+  const neg = rows.filter(({b})=>Number(b.balance)<0).length;
   app.innerHTML = `
     <h1>لوحة المراكز</h1>
     <p class="sub">دخل كل مركز ومصروفه ورصيده. الدخل صافٍ بعد رسوم البوابة وحصة الشركة، والمصروف من الطلبات المكتملة.</p>
-    <div class="cx-stats">${stat('الدخل الصافي', fmtKWDHtml(tot.i))}${stat('المصروف المكتمل', fmtKWDHtml(tot.e))}${stat('الرصيد', fmtKWDHtml(tot.n), tot.n<0?'var(--red)':'')}${stat('طلبات مفتوحة', fmtKWDHtml(tot.p))}</div>
-    <div class="card"><h2>مقارنة الأرصدة</h2>
-      ${rows.map(({c,b})=>{ const v = Number(b.balance||0); return `<div class="cx-bar"><div class="cx-bar-n">${escH(c.name)}</div><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.round(Math.abs(v)/mx*100)}%;background:${v<0?'var(--red)':'var(--green,#16794a)'};"></div></div><div class="cx-bar-v" ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</div></div>`; }).join('') || '<p class="sub">لا توجد مراكز.</p>'}
+    <div class="cx-stats">
+      ${cxStat('عدد المراكز', String(rows.length), '', neg ? `<span style="color:var(--red)">${neg} برصيد سالب</span>` : 'كلها برصيد موجب')}
+      ${cxStat('الدخل الصافي', fmtKWDHtml(tot.i))}${cxStat('المصروف المكتمل', fmtKWDHtml(tot.e))}
+      ${cxStat('الرصيد الإجمالي', fmtKWDHtml(tot.n), tot.n<0?'var(--red)':'var(--green,#16794a)', 'طلبات مفتوحة '+fmtKWDHtml(tot.p))}
     </div>
-    <div class="card"><h2>الدخل مقابل المصروف</h2>
-      ${rows.map(({c,b})=>`<div class="cx-bar2"><div class="cx-bar-n">${escH(c.name)}</div><div class="cx-bar2-b">
-        <div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.round(Number(b.income||0)/mx2*100)}%;background:var(--green,#16794a);"></div><span>${fmtKWDHtml(b.income)}</span></div>
-        <div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.round(Number(b.expense||0)/mx2*100)}%;background:var(--amber,#b7791f);"></div><span>${fmtKWDHtml(b.expense)}</span></div></div></div>`).join('')}
-      <div class="file-hint" style="margin-top:8px;"><span style="color:var(--green,#16794a);">■</span> دخل صافٍ &nbsp; <span style="color:var(--amber,#b7791f);">■</span> مصروف مكتمل</div>
-    </div>
+    ${rows.length ? `<div class="cx-grid2">
+      <div class="card cx-panel"><div class="cx-panel-h"><h2>مقارنة الأرصدة</h2></div>
+        ${rows.map(({c,b})=>{ const v = Number(b.balance||0); return `<div class="cx-bar"><div class="cx-bar-n">${escH(c.name)}</div><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Math.abs(v)/mx*100))}%;background:${v<0?'var(--red)':'var(--green,#16794a)'};"></div></div><div class="cx-bar-v" ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</div></div>`; }).join('')}
+      </div>
+      <div class="card cx-panel"><div class="cx-panel-h"><h2>الدخل مقابل المصروف</h2><div class="cx-legend"><span><i style="background:var(--green,#16794a)"></i>دخل صافٍ</span><span><i style="background:#c27c0e"></i>مصروف</span></div></div>
+        ${rows.map(({c,b})=>`<div class="cx-bar2"><div class="cx-bar-n">${escH(c.name)}</div><div class="cx-bar2-b">
+          <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.income||0)/mx2*100))}%;background:var(--green,#16794a);"></div></div><b class="cx-bv">${fmtKWDHtml(b.income)}</b></div>
+          <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.expense||0)/mx2*100))}%;background:#c27c0e;"></div></div><b class="cx-bv">${fmtKWDHtml(b.expense)}</b></div></div></div>`).join('')}
+      </div></div>` : ''}
     <div class="cx-cards">${rows.map(({c,b})=>{ const v = Number(b.balance||0); return `<div class="cx-card" data-on-click="cxOpenCenter" data-on-click-args="${qa([c.id])}" role="button" tabindex="0">
-      <div class="cx-card-h"><b>${escH(c.name)}</b><span class="badge">${escH(cxStageLabel(c.stage))}</span></div>
-      <div class="file-hint">${c.clientId ? escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}</div>
-      <div class="cx-card-g"><div><span>الدخل</span>${fmtKWDHtml(b.income)}</div><div><span>المصروف</span>${fmtKWDHtml(b.expense)}</div><div><span>الرصيد</span><b ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</b></div><div><span>طلبات مفتوحة</span>${fmtKWDHtml(b.pending_requests)}</div></div></div>`; }).join('')}</div>`;
+      <div class="cx-card-h"><div><b>${escH(c.name)}</b><div class="file-hint">${c.clientId ? escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}</div></div><span class="cx-badge cx-st-${escH(c.stage||'')}">${escH(cxStageLabel(c.stage))}</span></div>
+      <div class="cx-card-bal"><small>الرصيد</small><b ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</b></div>
+      <div class="cx-card-g"><div><small>الدخل</small>${fmtKWDHtml(b.income)}</div><div><small>المصروف</small>${fmtKWDHtml(b.expense)}</div><div><small>طلبات مفتوحة</small>${fmtKWDHtml(b.pending_requests)}</div></div>
+      <div class="cx-card-f">فتح الدفتر ←</div></div>`; }).join('') || '<div class="card">لا توجد مراكز متاحة لك.</div>'}</div>`;
 }
 
 // ===================== استيراد بوابة الدفع =====================
-function openGwImport(){ state.view='gwImport'; state.cx.imp = state.cx.imp || {accountId:'', stmt:null, bills:null, rows:null, info:null}; render(); window.scrollTo(0,0); gwLoad(); }
+function openGwImport(){ state.view='gwImport'; state.cx.imp = state.cx.imp || {accountId:'', stmt:null, bills:null, rows:null, info:null}; state.cx.pendSel = state.cx.pendSel || {}; render(); window.scrollTo(0,0); gwLoad(); }
 async function gwLoad(){
   const cid = cxCid();
-  const [a, b, c, d] = await Promise.all([
-    db.from('gateway_accounts').select('*').eq('company_id', cid),
+  let a = await db.from('gateway_accounts').select('*').eq('company_id', cid);
+  if(a && !a.error && !(a.data||[]).length && cxIsFin()){
+    await db.from('gateway_accounts').insert({company_id:cid, name:'Tap'});
+    a = await db.from('gateway_accounts').select('*').eq('company_id', cid);
+  }
+  const [b, c, d] = await Promise.all([
     db.from('gateway_agents').select('*').eq('company_id', cid),
     db.from('gateway_imports').select('id,company_id,account_id,kind,file_name,date_from,date_to,rows_count,uploaded_by,uploaded_at').eq('company_id', cid).order('uploaded_at', {ascending:false}).limit(60),
-    db.from('center_ledger').select('*').eq('company_id', cid).is('center_id', null).eq('voided', false).order('entry_date', {ascending:false}).limit(500)
+    db.from('center_ledger').select('*').eq('company_id', cid).is('center_id', null).eq('voided', false).order('entry_date', {ascending:false}).limit(1000)
   ]);
   state.cx.gwAccounts = (a && a.data) || []; state.cx.gwAgents = (b && b.data) || [];
   state.cx.imports = ((c && c.data) || []); state.cx.pending = (d && d.data) || [];
   const pid = state.cx.pending.map(x=>x.id); state.cx.payers = {};
   for(let i=0;i<pid.length;i+=200){ const p = await db.from('center_ledger_payers').select('*').in('ledger_id', pid.slice(i,i+200)); (p.data||[]).forEach(x=>{ state.cx.payers[x.ledger_id] = x; }); }
-  const im = state.cx.imp; if(im && !im.accountId && state.cx.gwAccounts.length) im.accountId = state.cx.gwAccounts[0].id;
+  const im = state.cx.imp; if(im && (!im.accountId || !state.cx.gwAccounts.some(x=>x.id===im.accountId)) && state.cx.gwAccounts.length) im.accountId = state.cx.gwAccounts[0].id;
+  state.cx.pendSel = {};
   if(state.view==='gwImport') render();
 }
 // محلّل CSV يدعم BOM والاقتباس
@@ -16821,43 +16872,74 @@ function gwParseCsv(text){
 // "dd/mm/yy hh:mm AM" أو "dd/mm/yyyy" => yyyy-mm-dd
 function gwDate(s){
   const m = String(s||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(!m) return null;
-  let y = m[3].length===2 ? '20'+m[3] : m[3];
+  const y = m[3].length===2 ? '20'+m[3] : m[3];
   return `${y}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
 }
-function gwFindKey(o, names){ for(const n of names){ if(n in o) return n; } return null; }
 function gwPick(kind, el){
   const f = el && el.files && el.files[0]; if(!f) return;
+  if(!/\.csv$/i.test(f.name) && !/csv|excel|text/i.test(f.type||'')){ showToast('اختر ملف CSV من بوابة الدفع','error'); el.value=''; return; }
   const rd = new FileReader();
   rd.onload = () => {
     const text = String(rd.result||''), rows = gwParseCsv(text);
     if(!rows.length){ showToast('الملف فارغ أو غير مقروء','error'); return; }
+    const isStmt = 'reference_order' in rows[0] || 'charge_id' in rows[0], isBills = 'invoice_number' in rows[0];
+    if(kind==='statement' && !isStmt){ showToast('هذا ليس كشف حساب البوابة (لا يحوي reference_order)','error'); return; }
+    if(kind==='bills' && !isBills){ showToast('هذا ليس ملف الفواتير (لا يحوي invoice_number)','error'); return; }
     const im = state.cx.imp; im[kind==='statement'?'stmt':'bills'] = {name:f.name, text, rows};
     im.rows = null; im.info = null; render();
   };
   rd.onerror = () => showToast('تعذّر قراءة الملف','error');
   rd.readAsText(f, 'utf-8');
 }
-function gwSetAccount(v){ state.cx.imp.accountId = v; }
+function gwClearFile(kind){ const im = state.cx.imp; im[kind==='statement'?'stmt':'bills'] = null; im.rows = null; im.info = null; render(); }
+function gwSetAccount(v){ state.cx.imp.accountId = v; if(state.cx.imp.rows) render(); }
 async function gwAddAccount(){
   const n = ((document.getElementById('gw_acc_name')||{}).value||'').trim(); if(!n){ showToast('أدخل اسم الحساب','error'); return; }
   const r = await db.from('gateway_accounts').insert({company_id:cxCid(), name:n});
-  if(!(await dbCheck(r,'إضافة حساب بوابة'))) return; await gwLoad();
+  if(!(await dbCheck(r,'إضافة حساب بوابة'))) return; showToast('تمت إضافة الحساب','success'); await gwLoad();
 }
-async function gwMapAgent(agent, centerId){
-  const accountId = state.cx.imp.accountId || null;
-  const old = state.cx.gwAgents.find(x=>x.agent_name===agent && (x.account_id||null)===accountId);
+// ربط الجهة بالمركز يخص الحساب المختار، وما رُبط قبل وجود الحسابات (بلا حساب) يسري على الجميع
+function gwAgentRow(agent){
+  const acc = state.cx.imp && state.cx.imp.accountId || null;
+  return state.cx.gwAgents.find(x=>x.agent_name===agent && (x.account_id||null)===acc) || state.cx.gwAgents.find(x=>x.agent_name===agent && !x.account_id) || null;
+}
+function gwAgentCenter(agent){ const m = gwAgentRow(agent); return m ? m.center_id : null; }
+async function gwSaveMapping(agent, centerId){
+  const accountId = state.cx.imp.accountId || null, old = gwAgentRow(agent);
   let r;
-  if(!centerId && old) r = await db.from('gateway_agents').delete().eq('id', old.id);
-  else if(centerId) r = await db.from('gateway_agents').upsert({company_id:cxCid(), account_id:accountId, agent_name:agent, center_id:centerId}, {onConflict:'company_id,account_id,agent_name'});
-  else return;
-  if(!(await dbCheck(r,'حفظ ربط الجهة بالمركز'))) return;
+  if(old) r = centerId ? await db.from('gateway_agents').update({center_id:centerId}).eq('id', old.id) : await db.from('gateway_agents').delete().eq('id', old.id);
+  else if(centerId) r = await db.from('gateway_agents').insert({company_id:cxCid(), account_id:accountId, agent_name:agent, center_id:centerId});
+  else return true;
+  if(!(await dbCheck(r,'حفظ ربط الجهة بالمركز'))) return false;
   const g = await db.from('gateway_agents').select('*').eq('company_id', cxCid()); state.cx.gwAgents = g.data||[];
-  if(state.cx.imp.rows) gwBuild(); else render();
+  return true;
 }
-function gwAgentCenter(agent){
-  const accountId = state.cx.imp.accountId || null;
-  const m = state.cx.gwAgents.find(x=>x.agent_name===agent && (x.account_id||null)===accountId);
-  return m ? m.center_id : null;
+// الربط من المعاينة: يحفظ الربط ويصنّف ما عُلّق سابقاً لهذه الجهة
+async function gwMapAgent(agent, centerId){
+  if(!(await gwSaveMapping(agent, centerId))) return;
+  const ids = centerId ? (state.cx.pending||[]).filter(x=>x.agent===agent).map(x=>x.id) : [];
+  if(ids.length){ const r = await db.rpc('qy_ledger_assign', {p_ids:ids, p_center:centerId}); if(await dbCheck(r,'تصنيف الحركات المعلّقة')) showToast(`رُبطت الجهة وصُنّفت ${r.data||0} حركة معلّقة`,'success'); await gwLoad(); }
+  else { showToast('تم حفظ الربط','success'); render(); }
+}
+// تصنيف كل الحركات المعلّقة لجهة واحدة (ويُحفظ الربط للرفعات القادمة)
+async function gwAssignAgent(agent, centerId){
+  if(!centerId) return;
+  if(agent && !(await gwSaveMapping(agent, centerId))) return;
+  const ids = (state.cx.pending||[]).filter(x=>(x.agent||'')===agent).map(x=>x.id);
+  if(!ids.length) return;
+  const r = await db.rpc('qy_ledger_assign', {p_ids:ids, p_center:centerId});
+  if(!(await dbCheck(r,'تصنيف الحركات'))) return;
+  showToast(`صُنّفت ${r.data||0} حركة إلى ${cxCenterName(centerId)}`,'success'); await gwLoad(); loadCxLight();
+}
+function gwPendToggle(id, on){ state.cx.pendSel = state.cx.pendSel || {}; if(on) state.cx.pendSel[id] = 1; else delete state.cx.pendSel[id]; const n = Object.keys(state.cx.pendSel).length; const el = document.getElementById('gwSelCount'); if(el) el.textContent = n; }
+function gwPendAll(on){ state.cx.pendSel = {}; if(on) (state.cx.pending||[]).filter(x=>!x.agent).forEach(x=>{ state.cx.pendSel[x.id] = 1; }); render(); }
+async function gwAssignSel(){
+  const ids = Object.keys(state.cx.pendSel||{}).map(Number), centerId = (document.getElementById('gwSelCenter')||{}).value;
+  if(!ids.length){ showToast('حدد حركة واحدة على الأقل','error'); return; }
+  if(!centerId){ showToast('اختر المركز','error'); return; }
+  const r = await db.rpc('qy_ledger_assign', {p_ids:ids, p_center:centerId});
+  if(!(await dbCheck(r,'تصنيف الحركات'))) return;
+  showToast(`صُنّفت ${r.data||0} حركة إلى ${cxCenterName(centerId)}`,'success'); await gwLoad();
 }
 function gwBuild(){
   const im = state.cx.imp;
@@ -16877,15 +16959,13 @@ function gwBuild(){
     if(!/^sale/i.test(desc)){ skipped.other++; return; }
     const gross = cxN(r.credit); if(!gross) return;
     const b = bills[String(r.reference_order||'').trim()] || null;
-    const agent = b ? (b.agent||'') : '';
     const nm = b ? [b.customer_first_name, b.customer_last_name].filter(Boolean).join(' ') : desc.replace(/^sale\s*-\s*/i,'');
     out.push({receipt:(r.receipt||r.charge_id||'').trim(), txn_date:d||cxToday(), gross:cxR3(gross), fee:cxR3(fees[r.charge_id||'']||0),
-      method:r.payment_method||(b&&b.payment_method)||'', purpose:b ? (b.description||'') : '', agent, payer_name:nm, payer_phone:b ? (b.customer_phone||'') : '', matched:!!b});
+      method:r.payment_method||(b&&b.payment_method)||'', purpose:b ? (b.description||'') : '', agent:b ? (b.agent||'') : '', payer_name:nm, payer_phone:b ? (b.customer_phone||'') : '', matched:!!b});
   });
-  const ex = new Set(); const rc = out.map(x=>x.receipt).filter(Boolean);
-  im.rows = out; im.info = {from:dFrom, to:dTo, skipped, rcDup:0, total:out.length};
-  gwCheckDup(rc).then(set => { im.rows.forEach(x=>{ x.dup = set.has(x.receipt); }); im.info.rcDup = im.rows.filter(x=>x.dup).length; if(state.view==='gwImport') render(); });
-  render();
+  im.rows = out; im.info = {from:dFrom, to:dTo, skipped, total:out.length, checking:true};
+  gwCheckDup(out.map(x=>x.receipt).filter(Boolean)).then(set => { im.rows.forEach(x=>{ x.dup = set.has(x.receipt); }); im.info.checking = false; if(state.view==='gwImport') render(); });
+  render(); setTimeout(()=>{ const el = document.getElementById('gwStep2'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 50);
 }
 async function gwCheckDup(list){
   const set = new Set();
@@ -16904,11 +16984,11 @@ function gwCalc(x){
 }
 async function gwCommit(){
   const im = state.cx.imp; if(!im.rows) return;
+  if(im.info && im.info.checking){ showToast('انتظر لحظة: يجري فحص المكرر','error'); return; }
   const rows = im.rows.filter(x=>!x.dup && x.receipt).map(x=>({receipt:x.receipt, txn_date:x.txn_date, gross:x.gross, fee:x.fee, method:x.method, purpose:x.purpose,
     agent:x.agent, payer_name:x.payer_name, payer_phone:x.payer_phone, center_id:gwRowCenter(x)||''}));
   if(!rows.length){ showToast('لا توجد حركات جديدة للاعتماد','error'); return; }
-  if(!confirm(`اعتماد ${rows.length} حركة؟\n\nالحركات غير المرتبطة بمركز تبقى معلّقة خارج الأرصدة.`)) return;
-  const dts = rows.map(x=>x.txn_date).sort();
+  if(!confirm(`اعتماد ${rows.length} حركة؟\n\nالحركات غير المرتبطة بمركز تبقى معلّقة خارج الأرصدة حتى تُصنَّف.`)) return;
   const files = [{kind:'statement', file_name:im.stmt.name, date_from:im.info.from, date_to:im.info.to, rows_count:im.stmt.rows.length, content:im.stmt.text}];
   if(im.bills){
     const bd = im.bills.rows.map(b=>gwDate(b.transaction_date)||gwDate(b.created)).filter(Boolean).sort();
@@ -16917,17 +16997,11 @@ async function gwCommit(){
   const r = await db.rpc('qy_gateway_commit', {p_company:cxCid(), p_account:im.accountId||'', p_rows:rows, p_files:files});
   if(!(await dbCheck(r,'اعتماد الاستيراد'))) return;
   const d = r.data||{};
-  showToast(`تمت إضافة ${d.inserted||0} حركة${d.duplicates?` · مكرر ${d.duplicates}`:''}${d.pending?` · معلّق ${d.pending}`:''}`,'success');
+  showToast(`أُضيفت ${d.inserted||0} حركة${d.duplicates?` · مكرر ${d.duplicates}`:''}${d.pending?` · معلّق ${d.pending}`:''}`,'success');
   state.cx.imp = {accountId:im.accountId, stmt:null, bills:null, rows:null, info:null};
   await loadCxLight(); await gwLoad();
 }
 function gwCancel(){ state.cx.imp = {accountId:state.cx.imp.accountId, stmt:null, bills:null, rows:null, info:null}; render(); }
-async function gwAssign(id, centerId){
-  if(!centerId) return;
-  const r = await db.rpc('qy_ledger_assign', {p_ids:[id], p_center:centerId});
-  if(!(await dbCheck(r,'تصنيف الحركة'))) return;
-  showToast('تم التصنيف','success'); await gwLoad();
-}
 async function gwDownload(id){
   const r = await db.rpc('qy_gateway_file', {p_id:id});
   if(!(await dbCheck(r,'تنزيل الملف'))) return;
@@ -16953,79 +17027,109 @@ async function gwSaveSettings(){
   showToast('تم الحفظ','success'); render();
 }
 
+function gwCentersOptions(sel){
+  const cs = (state.centers||[]).filter(c=>c.companyId===cxCid() && c.stage!=='closed').sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  return cs.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${escH(c.name)}</option>`).join('');
+}
+function gwDropHtml(kind, title, hint, file){
+  return `<div class="cx-drop ${file?'cx-drop-ok':''}">
+    <div class="cx-drop-ico">${qi(file?'save':'clip')}</div>
+    <div class="cx-drop-t"><b>${title}</b><span>${file ? escH(file.name)+' · '+file.rows.length+' صف' : hint}</span></div>
+    <div class="cx-drop-a">
+      <label class="btn btn-ghost btn-sm cx-file">${file?'تغيير':'اختيار ملف'}<input type="file" accept=".csv,text/csv" data-csv="1" hidden data-on-change="gwPick" data-on-change-args="${qa([kind, QA.t])}"></label>
+      ${file ? `<button class="btn btn-reject btn-xs" data-on-click="gwClearFile" data-on-click-args="${qa([kind])}">حذف</button>` : ''}
+    </div></div>`;
+}
 function gwPreviewHtml(){
   const im = state.cx.imp; if(!im.rows) return '';
-  const centers = (state.centers||[]).filter(c=>c.stage!=='closed').sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
   const agents = [...new Set(im.rows.map(x=>x.agent).filter(Boolean))].sort();
-  const noBill = im.rows.filter(x=>!x.matched).length, fresh = im.rows.filter(x=>!x.dup);
+  const noBill = im.rows.filter(x=>!x.matched).length, dups = im.rows.filter(x=>x.dup).length, fresh = im.rows.filter(x=>!x.dup);
   const unmapped = fresh.filter(x=>!gwRowCenter(x)).length;
   const sum = fresh.reduce((a,x)=>{ const k = gwCalc(x); return {g:a.g+x.gross, f:a.f+x.fee, s:a.s+(k.share||0), n:a.n+(k.net||0)}; }, {g:0,f:0,s:0,n:0});
-  // ملخص لكل مركز
   const by = {};
-  fresh.forEach(x=>{ const k = gwCalc(x), key = k.center ? k.center.id : '_'; const o = by[key] = by[key] || {name:k.center?k.center.name:'غير مصنّف (معلّق)', n:0, g:0, f:0, s:0, net:0}; o.n++; o.g+=x.gross; o.f+=x.fee; o.s+=k.share||0; o.net+=k.net||0; });
-  return `<div class="card"><h2>معاينة قبل الاعتماد</h2>
-    <p class="file-hint">الفترة: ${cxDate(im.info.from)} ← ${cxDate(im.info.to)} · عدد المبيعات ${im.info.total} · مكررة (موجودة سابقاً) ${im.rows.filter(x=>x.dup).length} · بلا فاتورة مطابقة ${noBill} · تحويلات بنكية مُتجاهَلة ${im.info.skipped.transfers}</p>
-    ${agents.length ? `<h2 style="margin-top:14px;">ربط الجهة بالمركز</h2><p class="file-hint">يُحفظ مرة واحدة ويُستخدم تلقائياً في الرفعات القادمة.</p>
-      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>الجهة (agent)</th><th>المركز</th></tr></thead><tbody>
-      ${agents.map(a=>`<tr><td>${escH(a)}</td><td><select data-on-change="gwMapAgent" data-on-change-args="${qa([a, QA.v])}" style="min-width:220px;"><option value="">— غير مصنّف —</option>${centers.map(c=>`<option value="${c.id}" ${gwAgentCenter(a)===c.id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></td></tr>`).join('')}
+  fresh.forEach(x=>{ const k = gwCalc(x), key = k.center ? k.center.id : '_'; const o = by[key] = by[key] || {name:k.center?k.center.name:'غير مصنّف (معلّق)', pend:!k.center, n:0, g:0, f:0, s:0, net:0}; o.n++; o.g+=x.gross; o.f+=x.fee; o.s+=k.share||0; o.net+=k.net||0; });
+  const chip = (l,v,red) => `<span class="cx-chip ${red?'cx-chip-red':''}">${l}: <b>${v}</b></span>`;
+  return `<div class="card cx-panel" id="gwStep2">
+    <div class="cx-panel-h"><h2><span class="cx-step">2</span> المعاينة والربط</h2><span class="file-hint">${cxDate(im.info.from)} ← ${cxDate(im.info.to)}</span></div>
+    <div class="cx-chips">${chip('مبيعات', im.info.total)}${chip('جديدة', fresh.length)}${chip('موجودة سابقاً', im.info.checking?'…':dups)}${chip('بلا فاتورة', noBill, noBill>0)}${chip('تحويلات بنكية مُتجاهَلة', im.info.skipped.transfers)}</div>
+    ${agents.length ? `<h3 class="cx-h3">ربط الجهة بالمركز <span class="file-hint">يُحفظ مرة واحدة ويُستخدم في الرفعات القادمة</span></h3>
+      <div class="cx-map">${agents.map(a=>{ const n = fresh.filter(x=>x.agent===a).length; return `<div class="cx-map-r"><div><b>${escH(a)}</b><span class="file-hint">${n} حركة</span></div><select data-on-change="gwMapAgent" data-on-change-args="${qa([a, QA.v])}"><option value="">— غير مصنّف —</option>${gwCentersOptions(gwAgentCenter(a))}</select></div>`; }).join('')}</div>` : ''}
+    <h3 class="cx-h3">الملخص حسب المركز</h3>
+    <table class="exec-table cx-tbl"><thead><tr><th>المركز</th><th class="num">العدد</th><th class="num">الإجمالي</th><th class="num">رسوم البوابة</th><th class="num">حصة الشركة</th><th class="num">الصافي للمركز</th></tr></thead><tbody>
+    ${Object.values(by).map(o=>`<tr><td data-label="المركز"><b ${o.pend?'style="color:var(--red)"':''}>${escH(o.name)}</b></td><td data-label="العدد" class="num">${o.n}</td><td data-label="الإجمالي" class="num">${fmtKWDHtml(o.g)}</td><td data-label="الرسوم" class="num">${fmtKWDHtml(o.f)}</td><td data-label="حصة الشركة" class="num">${o.pend?'—':fmtKWDHtml(o.s)}</td><td data-label="الصافي" class="num">${o.pend?'—':fmtKWDHtml(o.net)}</td></tr>`).join('')}
+    <tr class="cx-total"><td>المجموع</td><td class="num">${fresh.length}</td><td class="num">${fmtKWDHtml(sum.g)}</td><td class="num">${fmtKWDHtml(sum.f)}</td><td class="num">${fmtKWDHtml(sum.s)}</td><td class="num">${fmtKWDHtml(sum.n)}</td></tr>
+    </tbody></table>
+    ${unmapped ? `<div class="cx-note">${unmapped} حركة بلا مركز ستُحفظ <b>معلّقة</b> خارج الأرصدة حتى تُصنَّف من قسم «حركات معلّقة».</div>` : ''}
+    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwCommit">اعتماد الاستيراد</button><button class="btn btn-ghost btn-sm" data-on-click="gwCancel">إلغاء</button></div></div>`;
+}
+function gwPendingHtml(){
+  const pend = state.cx.pending||[], fin = cxIsFin();
+  if(!pend.length) return `<div class="card cx-panel"><div class="cx-panel-h"><h2>حركات معلّقة</h2><span class="cx-chip">لا يوجد</span></div><p class="file-hint">كل الحركات المستوردة مصنّفة على مراكزها.</p></div>`;
+  const groups = {};
+  pend.forEach(x=>{ const k = x.agent||''; const g = groups[k] = groups[k] || {agent:k, n:0, sum:0}; g.n++; g.sum += Number(x.gross||0); });
+  const named = Object.values(groups).filter(g=>g.agent).sort((a,b)=>b.n-a.n), none = pend.filter(x=>!x.agent);
+  const sel = state.cx.pendSel||{}, nSel = Object.keys(sel).length;
+  return `<div class="card cx-panel">
+    <div class="cx-panel-h"><div><h2>حركات معلّقة</h2><div class="file-hint">خارج أرصدة المراكز حتى تُصنَّف. المجموع ${fmtKWDHtml(pend.reduce((a,x)=>a+Number(x.gross||0),0))} في ${pend.length} حركة.</div></div></div>
+    ${named.length ? `<h3 class="cx-h3">حسب الجهة <span class="file-hint">اختيار المركز يصنّف كل حركات الجهة ويحفظ الربط</span></h3>
+      <table class="exec-table cx-tbl"><thead><tr><th>الجهة</th><th class="num">العدد</th><th class="num">المجموع</th><th>المركز</th></tr></thead><tbody>
+      ${named.map(g=>`<tr><td data-label="الجهة"><b>${escH(g.agent)}</b></td><td data-label="العدد" class="num">${g.n}</td><td data-label="المجموع" class="num">${fmtKWDHtml(g.sum)}</td>
+        <td data-label="المركز">${fin ? `<select class="cx-sel-sm" data-on-change="gwAssignAgent" data-on-change-args="${qa([g.agent, QA.v])}"><option value="">— اختر المركز —</option>${gwCentersOptions(gwAgentCenter(g.agent))}</select>` : '—'}</td></tr>`).join('')}
+      </tbody></table>` : ''}
+    ${none.length ? `<h3 class="cx-h3">بلا جهة (${none.length}) <span class="file-hint">غالباً فواتير من شهر سابق لم يُرفع ملفها</span></h3>
+      ${fin ? `<div class="cx-tools"><label class="cx-check" style="margin:0;"><input type="checkbox" data-on-change="gwPendAll" data-on-change-args="${qa([QA.c])}" ${nSel && nSel===none.length?'checked':''}> تحديد الكل</label>
+        <span class="file-hint">المحدد: <b id="gwSelCount">${nSel}</b></span>
+        <select id="gwSelCenter" class="cx-sel-sm"><option value="">— المركز —</option>${gwCentersOptions('')}</select>
+        <button class="btn btn-primary btn-sm" data-on-click="gwAssignSel">تصنيف المحدد</button></div>` : ''}
+      <div class="cx-scroll cx-scroll-y"><table class="exec-table cx-tbl"><thead><tr>${fin?'<th></th>':''}<th>التاريخ</th><th>الدافع</th><th>البيان</th><th class="num">المبلغ</th><th class="num">الرسوم</th></tr></thead><tbody>
+      ${none.map(x=>{ const p = state.cx.payers[x.id]||{}; return `<tr>${fin?`<td class="cx-cb"><input type="checkbox" ${sel[x.id]?'checked':''} data-on-change="gwPendToggle" data-on-change-args="${qa([x.id, QA.c])}"></td>`:''}<td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
+        <td data-label="الدافع"><div class="cx-clip">${escH(p.payer_name||'—')}</div>${p.payer_phone?`<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>`:''}</td>
+        <td data-label="البيان"><div class="cx-clip">${escH(x.purpose||'')}</div><div class="cx-meta">${escH(x.method||'')}</div></td><td data-label="المبلغ" class="num">${fmtKWDHtml(x.gross)}</td><td data-label="الرسوم" class="num">${fmtKWDHtml(x.gateway_fee)}</td></tr>`; }).join('')}
       </tbody></table></div>` : ''}
-    <h2 style="margin-top:14px;">الملخص حسب المركز</h2>
-    <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>المركز</th><th>العدد</th><th>الإجمالي</th><th>رسوم البوابة</th><th>حصة الشركة</th><th>الصافي للمركز</th></tr></thead><tbody>
-    ${Object.values(by).map(o=>`<tr><td>${escH(o.name)}</td><td>${o.n}</td><td>${fmtKWDHtml(o.g)}</td><td>${fmtKWDHtml(o.f)}</td><td>${fmtKWDHtml(o.s)}</td><td>${fmtKWDHtml(o.net)}</td></tr>`).join('')}
-    <tr style="font-weight:800;"><td>المجموع</td><td>${fresh.length}</td><td>${fmtKWDHtml(sum.g)}</td><td>${fmtKWDHtml(sum.f)}</td><td>${fmtKWDHtml(sum.s)}</td><td>${fmtKWDHtml(sum.n)}</td></tr>
-    </tbody></table></div>
-    ${unmapped ? `<p class="file-hint" style="color:var(--red);">${unmapped} حركة بلا مركز؛ ستُحفظ معلّقة خارج الأرصدة حتى يصنّفها المحاسب.</p>` : ''}
-    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
-      <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="gwCommit">اعتماد الاستيراد</button>
-      <button class="btn btn-ghost" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="gwCancel">إلغاء</button></div></div>`;
+  </div>`;
 }
 
 function renderGwImport(app){
   if(!canSeeGwImport()){ state.view='dashboard'; render(); return; }
   const im = state.cx.imp || (state.cx.imp = {accountId:'', stmt:null, bills:null, rows:null, info:null});
-  const fin = cxIsFin(), adm = cxIsAdmin(), co = cxCo();
-  const centers = (state.centers||[]).filter(c=>c.stage!=='closed').sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const fin = cxIsFin(), adm = cxIsAdmin(), co = cxCo(), accs = state.cx.gwAccounts||[];
   const hist = (state.cx.imports||[]).filter(x=>x.file_name);
   app.innerHTML = `
     <h1>استيراد بوابة الدفع</h1>
-    <p class="sub">ارفع كشف الحساب وملف الفواتير (CSV) من بوابة الدفع. تُطابَق المبيعات مع الفواتير، وتُراجَع قبل الاعتماد.</p>
+    <p class="sub">ارفع كشف الحساب وملف الفواتير (CSV) من بوابة الدفع، راجع المعاينة ثم اعتمد.</p>
     ${cxStaleBannerHtml(false)}
-    <div class="card"><h2>رفع الملفات</h2>
-      <div class="row">
-        <div style="--fw:220px;"><label>حساب البوابة</label><select data-on-change="gwSetAccount" data-on-change-args="${qa([QA.v])}">${(state.cx.gwAccounts||[]).map(a=>`<option value="${a.id}" ${a.id===im.accountId?'selected':''}>${escH(a.name)}</option>`).join('') || '<option value="">— لا يوجد —</option>'}</select></div>
-        ${fin ? `<div style="--fw:200px;"><label>حساب جديد</label><input id="gw_acc_name" type="text" placeholder="مثال: Tap الرئيسي"></div>
-        <div style="--fw:90px;align-self:end;"><button class="btn btn-ghost" style="width:auto;padding:0 16px;min-height:40px;" data-on-click="gwAddAccount">إضافة</button></div>` : ''}
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><h2><span class="cx-step">1</span> رفع الملفات</h2>
+        ${accs.length>1 ? `<label class="cx-mini"><span>حساب البوابة</span><select data-on-change="gwSetAccount" data-on-change-args="${qa([QA.v])}">${accs.map(a=>`<option value="${a.id}" ${a.id===im.accountId?'selected':''}>${escH(a.name)}</option>`).join('')}</select></label>` : ''}</div>
+      <div class="cx-drops">
+        ${gwDropHtml('statement', 'كشف الحساب', 'statement.csv — المبيعات والرسوم والتحويلات', im.stmt)}
+        ${gwDropHtml('bills', 'ملف الفواتير', 'bills.csv — الجهة والدافع والغرض (اختياري لكنه مهم)', im.bills)}
       </div>
-      <div class="row" style="margin-top:10px;">
-        <div style="--fw:300px;"><label>كشف الحساب (statement.csv) ${im.stmt?`<span class="file-hint">· ${escH(im.stmt.name)}</span>`:''}</label><input type="file" accept=".csv,text/csv" data-csv="1" data-on-change="gwPick" data-on-change-args="${qa(['statement', QA.t])}"></div>
-        <div style="--fw:300px;"><label>الفواتير (bills.csv) ${im.bills?`<span class="file-hint">· ${escH(im.bills.name)}</span>`:''}</label><input type="file" accept=".csv,text/csv" data-csv="1" data-on-change="gwPick" data-on-change-args="${qa(['bills', QA.t])}"></div>
-      </div>
-      <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;margin-top:10px;" data-on-click="gwBuild" ${im.stmt?'':'disabled'}>تحليل ومعاينة</button>
+      <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwBuild" ${im.stmt?'':'disabled'}>تحليل ومعاينة</button>${!im.stmt ? '<span class="file-hint">اختر كشف الحساب أولاً</span>' : ''}</div>
     </div>
     ${gwPreviewHtml()}
-    <div class="card"><h2>حركات معلّقة (بلا مركز)</h2><p class="file-hint">خارج أرصدة المراكز حتى تُصنَّف.</p>
-      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>التاريخ</th><th>المبلغ</th><th>الرسوم</th><th>الدافع</th><th>الجهة</th><th>الغرض</th><th>المركز</th></tr></thead><tbody>
-      ${(state.cx.pending||[]).map(x=>{ const p = state.cx.payers[x.id]||{};
-        return `<tr><td>${cxDate(x.entry_date)}</td><td>${fmtKWDHtml(x.gross)}</td><td>${fmtKWDHtml(x.gateway_fee)}</td><td>${escH(p.payer_name||'')}${p.payer_phone?` <bdi dir="ltr" class="file-hint">${escH(p.payer_phone)}</bdi>`:''}</td><td>${escH(x.agent||'')}</td><td>${escH(x.purpose||'')}</td>
-        <td>${fin ? `<select data-on-change="gwAssign" data-on-change-args="${qa([x.id, QA.v])}"><option value="">— اختر —</option>${centers.map(c=>`<option value="${c.id}">${escH(c.name)}</option>`).join('')}</select>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="7" class="sub">لا توجد حركات معلّقة.</td></tr>'}
-      </tbody></table></div></div>
-    <div class="card"><h2>الملفات المرفوعة</h2>
-      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>تاريخ الرفع</th><th>النوع</th><th>الملف</th><th>من</th><th>إلى</th><th>الصفوف</th><th></th></tr></thead><tbody>
-      ${hist.map(x=>`<tr><td>${cxDate(String(x.uploaded_at||'').slice(0,10))}</td><td>${x.kind==='statement'?'كشف حساب':'فواتير'}</td><td>${escH(x.file_name)}</td><td>${cxDate(x.date_from)}</td><td>${cxDate(x.date_to)}</td><td>${x.rows_count}</td>
-        <td><button class="btn btn-ghost btn-xs" style="width:auto;padding:0 12px;" data-on-click="gwDownload" data-on-click-args="${qa([x.id])}">تنزيل</button></td></tr>`).join('') || '<tr><td colspan="7" class="sub">لا توجد ملفات.</td></tr>'}
-      </tbody></table></div></div>
-    ${adm ? `<div class="card"><h2>إعدادات الاستيراد</h2>
+    ${gwPendingHtml()}
+    <div class="card cx-panel"><div class="cx-panel-h"><h2>الملفات المرفوعة</h2><span class="file-hint">تُحفظ كاملة ويمكن تنزيلها</span></div>
+      <table class="exec-table cx-tbl"><thead><tr><th>تاريخ الرفع</th><th>النوع</th><th>الملف</th><th>الفترة</th><th class="num">الصفوف</th><th></th></tr></thead><tbody>
+      ${hist.map(x=>`<tr><td data-label="تاريخ الرفع" class="cx-nowrap">${cxDate(String(x.uploaded_at||'').slice(0,10))}</td><td data-label="النوع"><span class="cx-badge">${x.kind==='statement'?'كشف حساب':'فواتير'}</span></td><td data-label="الملف"><div class="cx-clip" title="${escH(x.file_name)}">${escH(x.file_name)}</div></td>
+        <td data-label="الفترة" class="cx-nowrap">${cxDate(x.date_from)} ← ${cxDate(x.date_to)}</td><td data-label="الصفوف" class="num">${x.rows_count}</td>
+        <td class="cx-act"><button class="btn btn-ghost btn-xs" data-on-click="gwDownload" data-on-click-args="${qa([x.id])}">تنزيل</button></td></tr>`).join('') || '<tr class="cx-empty"><td colspan="6">لا توجد ملفات.</td></tr>'}
+      </tbody></table></div>
+    ${adm ? `<details class="card cx-fold"><summary><span>إعدادات الاستيراد</span><span class="file-hint">النسب الافتراضية، التنبيه، الحسابات، من يرفع</span></summary>
       <div class="row">
-        <div style="--fw:200px;"><label>حصة الشركة من الاشتراكات %</label><input id="gws_gw" type="text" inputmode="decimal" dir="ltr" value="${co.gatewayCompanyPct}"></div>
-        <div style="--fw:200px;"><label>حصة الشركة من الدعم %</label><input id="gws_sp" type="text" inputmode="decimal" dir="ltr" value="${co.supportCompanyPct}"></div>
-        <div style="--fw:200px;"><label>تنبيه التأخير (أيام)</label><input id="gws_days" type="text" inputmode="numeric" dir="ltr" value="${co.importStaleDays}"></div>
+        <div><label>حصة الشركة من الاشتراكات %</label><input id="gws_gw" type="text" inputmode="decimal" dir="ltr" value="${co.gatewayCompanyPct}"></div>
+        <div><label>حصة الشركة من الدعم %</label><input id="gws_sp" type="text" inputmode="decimal" dir="ltr" value="${co.supportCompanyPct}"></div>
+        <div><label>تنبيه التأخير بعد (أيام)</label><input id="gws_days" type="text" inputmode="numeric" dir="ltr" value="${co.importStaleDays}"></div>
       </div>
-      <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;margin:10px 0;" data-on-click="gwSaveSettings">حفظ</button>
-      <h2 style="margin-top:12px;">من يرفع الملفات</h2><p class="file-hint">المحاسب والمدير يرفعون دائماً. اختر موظفين آخرين مثل سكرتير الشركة.</p>
-      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>المستخدم</th><th>الدور</th><th>يرفع</th></tr></thead><tbody>
-      ${cxUsersOfCompany().map(u=>{ const on = (state.cx.importers||[]).some(x=>x.user_id===u.id && x.company_id===cxCid());
-        return `<tr><td>${escH(u.name)}</td><td>${escH(findRole(u.role)?findRole(u.role).name:u.role)}</td><td><input type="checkbox" style="width:auto;" ${on?'checked':''} data-on-change="gwToggleImporter" data-on-change-args="${qa([u.id, QA.c])}"></td></tr>`; }).join('')}
-      </tbody></table></div></div>` : ''}`;
+      <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwSaveSettings">حفظ</button></div>
+      <h3 class="cx-h3">حسابات البوابة <span class="file-hint">لكل حساب تاجر مستقل (مثل حساب ثانٍ لمركز) — يظهر الاختيار عند وجود أكثر من حساب</span></h3>
+      <div class="cx-chips">${accs.map(a=>`<span class="cx-chip"><b>${escH(a.name)}</b></span>`).join('') || '<span class="file-hint">لا يوجد</span>'}</div>
+      <div class="row"><div><label>حساب جديد</label><input id="gw_acc_name" type="text" placeholder="مثال: Tap — الأندلس"></div><div class="cx-row-btn"><button class="btn btn-ghost btn-sm" data-on-click="gwAddAccount">إضافة حساب</button></div></div>
+      <h3 class="cx-h3">من يرفع الملفات <span class="file-hint">المحاسب والمدير يرفعون دائماً</span></h3>
+      <table class="exec-table cx-tbl"><thead><tr><th>المستخدم</th><th>الدور</th><th>يرفع</th></tr></thead><tbody>
+      ${cxUsersOfCompany().map(u=>{ const always = ['admin','accountant','cfo'].includes(u.role); const on = always || (state.cx.importers||[]).some(x=>x.user_id===u.id && x.company_id===cxCid());
+        return `<tr><td><b>${escH(u.name)}</b></td><td>${escH(findRole(u.role)?findRole(u.role).name:u.role)}</td><td>${always ? '<span class="cx-badge">دائماً</span>' : `<label class="cx-switch"><input type="checkbox" ${on?'checked':''} data-on-change="gwToggleImporter" data-on-change-args="${qa([u.id, QA.c])}"><span></span></label>`}</td></tr>`; }).join('')}
+      </tbody></table></details>` : ''}`;
 }
 
 // ---------- مسار المبلغ في نموذج الطلب ----------

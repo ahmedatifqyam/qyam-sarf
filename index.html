@@ -1698,66 +1698,162 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .xs-shade-l::after{content:'‹';direction:ltr;unicode-bidi:isolate;position:absolute;left:2px;top:min(50%,150px);transform:translateY(-50%);
     width:22px;height:22px;border-radius:50%;background:rgba(27,39,51,.78);color:#fff;font-size:17px;line-height:21px;text-align:center;}
 
-  /* ===== العملاء + دفاتر المراكز + استيراد البوابة: ترتيب موحّد ===== */
-  #app.cxv .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;align-items:start;}
+  /* ===== العملاء + المراكز + استيراد البوابة (صفحات cxv) ===== */
+  /* النماذج: عمودان على الحاسوب، عمود واحد في الهاتف؛ الاسم فوق الحقل */
+  #app.cxv .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;align-items:end;}
   #app.cxv .row > *{flex:none;max-width:none !important;width:auto;min-width:0;}
-  #app.cxv .row > * > label{display:block;margin:0 0 6px;font-weight:700;font-size:13px;}
+  #app.cxv .row > * > label{display:block;margin:0 0 6px;font-weight:700;font-size:13px;color:var(--text);}
   #app.cxv .row input:not([type=checkbox]):not([type=file]),#app.cxv .row select{width:100% !important;max-width:100% !important;height:44px;box-sizing:border-box;}
   #app.cxv textarea{max-width:100% !important;width:100%;box-sizing:border-box;}
-  #app.cxv .row.cx-item{padding:12px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:#fff;}
+  #app.cxv .cx-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  #app.cxv .cx-pair > div > label{display:block;margin:0 0 6px;font-weight:700;font-size:13px;}
+  #app.cxv .cx-pair input{width:100% !important;max-width:100% !important;height:44px;}
+  #app.cxv .row.cx-item{padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:#fcfbf8;}
   #app.cxv .row.cx-item > .btn{grid-column:1 / -1;justify-self:start;}
-  #app.cxv .btn{width:auto !important;min-width:110px;min-height:40px;height:40px;padding:0 18px !important;font-size:13.5px;white-space:nowrap;}
-  #app.cxv td .btn,#app.cxv .btn.btn-xs{width:var(--btn-w,70px) !important;min-width:0;padding:0 6px !important;font-size:13px;}
-  #app.cxv .btn.btn-md{width:150px !important;}
-  #app.cxv td.cx-act > div{display:flex;gap:6px;flex-wrap:nowrap;justify-content:flex-start;}
+  #app.cxv .cx-row-btn{display:flex;align-items:flex-end;}
+  /* بطاقات وأقسام */
+  #app.cxv .card{margin-bottom:16px;}
+  .cx-panel-h{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+  .cx-panel-h h2{margin:0;font-size:18px;display:flex;align-items:center;gap:8px;}
+  .cx-h3{font-size:15px;font-weight:800;margin:18px 0 10px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .cx-step{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;font-size:13px;font-weight:700;}
+  .cx-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;}
+  .cx-note{margin-top:12px;padding:10px 14px;border-radius:8px;background:var(--amber-bg);color:#6b4708;font-size:13.5px;}
+  .cx-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+  .cx-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:999px;background:#f1efe8;font-size:12.5px;color:var(--text);}
+  .cx-chip-red{background:var(--red-bg);color:var(--red);}
+  .cx-badge{display:inline-block;padding:3px 10px;border-radius:999px;background:var(--blue-bg);color:var(--blue);font-size:12px;font-weight:700;white-space:nowrap;}
+  .cx-st-finance{background:var(--amber-bg);color:var(--amber);} .cx-st-closed{background:#eceae4;color:var(--muted);} .cx-st-creation{background:var(--teal-bg);color:var(--teal);} .cx-st-operation{background:var(--green-bg);color:var(--green);}
+  .cx-tag-red{color:var(--red);font-weight:700;}
+  .cx-mini{display:flex;flex-direction:column;gap:4px;margin:0;min-width:200px;}
+  .cx-mini > span{font-size:12px;font-weight:700;color:var(--muted);}
+  .cx-mini select{height:40px;width:100%;min-width:200px;}
+  .cx-check{display:flex !important;align-items:center;gap:8px;margin:14px 0 0;font-weight:600;cursor:pointer;}
+  .cx-check input{width:18px !important;height:18px;margin:0;}
+  /* الرأس المدمج: الاسم يميناً، والاختيارات يساراً */
+  .cx-hero{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;}
+  .cx-hero-t h2{margin:0;font-size:22px;}
+  .cx-hero-c{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}
+  /* بطاقات الأرقام */
+  .cx-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;}
+  .cx-stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .cx-stat-l{font-size:13px;color:var(--muted);font-weight:700;margin-bottom:6px;}
+  .cx-stat-v{font-size:22px;font-weight:800;line-height:1.2;}
+  .cx-stat-s{font-size:12px;color:var(--muted);margin-top:4px;}
+  /* الجداول: العنوان أكبر من المحتوى، والأرقام متحاذية */
+  #app.cxv table.cx-tbl,#app.cxv table.exec-table{width:100%;border-collapse:collapse;}
+  #app.cxv table th,#app table.cx-tbl th{font-size:14px !important;font-weight:800 !important;color:var(--text) !important;white-space:nowrap;background:#f6f4ef;padding:10px 10px;}
+  #app.cxv table td,#app table.cx-tbl td{font-size:13px;padding:10px 10px;vertical-align:middle;}
+  #app.cxv table .num{text-align:left;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  #app.cxv table tr.cx-total td{font-weight:800;background:#f6f4ef;border-top:2px solid var(--line);}
+  #app.cxv table tr.cx-void td{opacity:.5;text-decoration:line-through;}
+  #app.cxv table tr.cx-empty td,#app.cxv table tr.cx-more td{text-align:center;color:var(--muted);padding:16px;}
+  #app.cxv table tbody tr:hover td{background:#faf9f6;}
+  .cx-nowrap{white-space:nowrap;}
+  .cx-clip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cx-meta{font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cx-strong{font-weight:800;}
+  /* خلايا النص الطويل تنكمش وتقتطع (max-width:0) فلا يتجاوز الجدول عرض البطاقة */
+  #app.cxv table td.cx-desc{width:40%;max-width:0;}
+  #app.cxv table td.cx-payer{width:18%;max-width:0;}
+  #app.cxv table td.cx-act{width:1%;}
   #app.cxv td.cx-act{white-space:nowrap;}
-  #app.cxv .card{margin-bottom:14px;}
-  .cx-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px;}
-  .cx-stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
-  .cx-stat-l{font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:4px;}
-  .cx-stat-v{font-size:20px;font-weight:800;}
-  .cx-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
-  .cx-stage{display:flex;align-items:center;gap:8px;}
-  .cx-pick .row{grid-template-columns:minmax(0,420px) !important;}
-  .cx-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:14px;}
-  .cx-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.06);}
-  .cx-card:hover{border-color:var(--text);}
-  .cx-card-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;font-size:15px;}
-  .cx-card-g{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-top:10px;font-size:14px;}
-  .cx-card-g span{display:block;font-size:11.5px;color:var(--muted);font-weight:600;}
-  .cx-bar{display:grid;grid-template-columns:150px 1fr 130px;gap:10px;align-items:center;margin:8px 0;font-size:13.5px;}
+  #app.cxv td.cx-act > div{display:flex;gap:6px;flex-wrap:nowrap;}
+  #app.cxv td.cx-cb{width:36px;} #app.cxv td.cx-cb input{width:18px;height:18px;}
+  .cx-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+  .cx-tools .cx-search{flex:1 1 260px;height:40px;max-width:none !important;}
+  .cx-tools .cx-month,.cx-sel-sm{height:40px;width:auto !important;min-width:170px;max-width:260px !important;}
+  .cx-scroll{overflow-x:auto;} .cx-scroll-y{max-height:420px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;}
+  .cx-scroll-y thead th{position:sticky;top:0;z-index:1;}
+  .cx-mode-allow{border-color:var(--green) !important;color:var(--green);} .cx-mode-deny{border-color:var(--red) !important;color:var(--red);}
+  /* أقسام مطوية */
+  .cx-fold > summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:800;font-size:16px;}
+  .cx-fold > summary::-webkit-details-marker{display:none;}
+  .cx-fold > summary::after{content:'＋';font-size:18px;color:var(--muted);}
+  .cx-fold[open] > summary::after{content:'－';}
+  .cx-fold[open] > summary{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line);}
+  .cx-fold > summary .file-hint{font-weight:500;margin-inline-start:auto;}
+  /* حاسبة الحركة */
+  .cx-calc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:16px;padding:12px;border-radius:10px;background:#f6f4ef;}
+  .cx-calc i{font-style:normal;font-weight:800;color:var(--muted);}
+  .cx-calc-c{display:flex;flex-direction:column;padding:4px 10px;} .cx-calc-c small{font-size:11.5px;color:var(--muted);font-weight:600;} .cx-calc-c b{font-size:15px;}
+  .cx-calc-s{background:#fff;border:1px solid var(--green);border-radius:8px;} .cx-calc-s b{color:var(--green);}
+  /* صناديق الملفات */
+  .cx-drops{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .cx-drop{display:flex;align-items:center;gap:12px;padding:14px;border:2px dashed var(--line);border-radius:12px;background:#fcfbf8;}
+  .cx-drop-ok{border-style:solid;border-color:var(--green);background:var(--green-bg);}
+  .cx-drop-ico{width:40px;height:40px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 40px;border:1px solid var(--line);}
+  .cx-drop-ico .qi{width:20px;height:20px;}
+  .cx-drop-t{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;} .cx-drop-t > span{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cx-drop-a{display:flex;gap:6px;flex:0 0 auto;}
+  .cx-file{cursor:pointer;}
+  /* ربط الجهات */
+  .cx-map{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .cx-map-r{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;}
+  .cx-map-r > div{display:flex;flex-direction:column;min-width:0;} .cx-map-r select{height:40px;width:220px !important;max-width:55% !important;}
+  .cx-switch{position:relative;display:inline-block;width:42px;height:24px;} .cx-switch input{opacity:0;width:0;height:0;}
+  .cx-switch span{position:absolute;inset:0;background:#cfccc3;border-radius:24px;cursor:pointer;transition:.2s;}
+  .cx-switch span::before{content:'';position:absolute;width:18px;height:18px;top:3px;right:3px;background:#fff;border-radius:50%;transition:.2s;}
+  .cx-switch input:checked + span{background:var(--green);} .cx-switch input:checked + span::before{transform:translateX(-18px);}
+  /* لوحة المراكز */
+  .cx-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .cx-grid2 > .card{margin-bottom:16px;}
+  .cx-legend{display:flex;gap:12px;font-size:12px;color:var(--muted);} .cx-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px;}
+  .cx-bar{display:grid;grid-template-columns:130px 1fr 110px;gap:10px;align-items:center;margin:10px 0;font-size:13px;}
   .cx-bar-n{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .cx-bar-t{position:relative;height:18px;background:#eef0f2;border-radius:9px;overflow:hidden;display:flex;align-items:center;}
-  .cx-bar-f{height:100%;border-radius:9px;min-width:2px;}
-  .cx-bar-v{text-align:left;font-weight:700;}
-  .cx-bar2{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;margin:10px 0;font-size:13px;}
-  .cx-bar2-b{display:grid;gap:4px;}
-  .cx-bar2-b .cx-bar-t{height:16px;}
-  .cx-bar2-b .cx-bar-t span{position:absolute;inset-inline-start:8px;font-size:11.5px;font-weight:700;color:#1b2733;}
-  .cx-fold > summary{cursor:pointer;font-weight:800;font-size:15px;}
-  .cx-clip{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  table.cx-ledger td,table.cx-ledger th{white-space:nowrap;}
-  @media (max-width:699px){ .cx-bar{grid-template-columns:90px 1fr 90px;} .cx-bar2{grid-template-columns:90px 1fr;} .cx-cards{grid-template-columns:1fr;} .cx-stat-v{font-size:17px;} }
-  #app.cxv table th{font-size:15px !important;font-weight:800 !important;color:var(--text) !important;white-space:nowrap;}
-  #app.cxv table td{font-size:13.5px;}
-  #app.cxv table td b,#app.cxv table td .kwd,#app.cxv table td [class*=kwd]{font-size:inherit;}
+  .cx-bar-t{position:relative;height:14px;background:#efede6;border-radius:7px;overflow:hidden;}
+  .cx-bar-f{height:100%;border-radius:7px;}
+  .cx-bar-v{text-align:left;font-weight:800;white-space:nowrap;}
+  .cx-bar2{display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:center;margin:12px 0;font-size:12.5px;}
+  .cx-bar2-b{display:grid;gap:5px;} .cx-bar2-r{display:grid;grid-template-columns:1fr 100px;gap:8px;align-items:center;} .cx-bar2-r .cx-bv{text-align:left;font-weight:700;white-space:nowrap;}
+  .cx-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:16px;}
+  .cx-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:border-color .15s, box-shadow .15s;display:flex;flex-direction:column;gap:10px;}
+  .cx-card:hover{border-color:var(--ink);box-shadow:0 4px 14px rgba(0,0,0,.08);}
+  .cx-card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:15.5px;}
+  .cx-card-bal{display:flex;justify-content:space-between;align-items:baseline;padding:10px 12px;border-radius:8px;background:#f6f4ef;}
+  .cx-card-bal small{font-size:12.5px;color:var(--muted);font-weight:700;} .cx-card-bal b{font-size:20px;}
+  .cx-card-g{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:13px;font-weight:700;}
+  .cx-card-g small{display:block;font-size:11.5px;color:var(--muted);font-weight:600;}
+  .cx-card-f{font-size:12.5px;color:var(--blue);font-weight:700;text-align:left;}
+  @media (max-width:1100px){ .cx-grid2{grid-template-columns:1fr;} .cx-stats{grid-template-columns:repeat(2,minmax(0,1fr));} }
   @media (max-width:699px){
     #app.cxv .row{grid-template-columns:1fr;gap:12px;}
     #app.cxv .lf{display:block !important;margin:0 !important;}
     #app.cxv .lf > label{display:block;margin:0 0 6px !important;}
     #app.cxv .row input:not([type=checkbox]):not([type=file]),#app.cxv .row select{height:48px;font-size:15px;}
-    #app.cxv .card > .btn-primary,#app.cxv .card > div > .btn-primary{width:100% !important;}
-    #app.cxv .card > .btn-ghost{width:100% !important;}
+    #app.cxv .cx-actions .btn-primary{width:100% !important;flex:1 1 100%;}
     #app.cxv .row.cx-item > .btn{width:100% !important;justify-self:stretch;}
-    #app.cxv table.cx-cards thead{display:none;}
-    #app.cxv table.cx-cards,#app.cxv table.cx-cards tbody{display:block;}
-    #app.cxv table.cx-cards tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:12px;margin-bottom:10px;border:1px solid var(--line);border-radius:8px;background:#fff;}
-    #app.cxv table.cx-cards td{display:block;border:0;padding:0;min-width:0;}
-    #app.cxv table.cx-cards td::before{content:attr(data-label);display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:2px;}
-    #app.cxv table.cx-cards td:first-child{grid-column:1 / -1;font-size:15.5px;}
-    #app.cxv table.cx-cards td:first-child::before,#app.cxv table.cx-cards td:last-child::before{display:none;}
-    #app.cxv table.cx-cards td:last-child{grid-column:1 / -1;}
-    #app.cxv table.cx-cards td:last-child .btn{width:100% !important;}
+    .cx-hero-c,.cx-mini,.cx-mini select{width:100%;min-width:0;}
+    .cx-stat-v{font-size:18px;} .cx-stat{padding:12px;}
+    .cx-drops,.cx-map{grid-template-columns:1fr;}
+    .cx-drop{flex-wrap:wrap;} .cx-drop-t{flex:1 1 calc(100% - 60px);} .cx-drop-a{flex:1 1 100%;} .cx-drop-a .btn{flex:1 1 auto;width:auto !important;}
+    .cx-map-r{flex-direction:column;align-items:stretch;} .cx-map-r select{width:100% !important;max-width:100% !important;}
+    .cx-tools .cx-month,.cx-sel-sm{width:100% !important;max-width:100% !important;}
+    .cx-bar{grid-template-columns:90px 1fr 92px;} .cx-bar2{grid-template-columns:90px 1fr;} .cx-bar2-r{grid-template-columns:1fr 84px;}
+    .cx-cards{grid-template-columns:1fr;}
+    /* الجداول تصير بطاقات */
+    #app.cxv table.cx-tbl{table-layout:auto;}
+    #app.cxv table.cx-tbl thead{display:none;}
+    #app.cxv table.cx-tbl,#app.cxv table.cx-tbl tbody{display:block;}
+    #app.cxv table.cx-tbl tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:12px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;background:#fff;}
+    #app.cxv table.cx-tbl td{display:block;border:0;padding:0;min-width:0;width:auto !important;text-align:right !important;}
+    #app.cxv table.cx-tbl td[data-label]::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:2px;}
+    #app.cxv table.cx-tbl td[data-label=""]::before{display:none;}
+    #app.cxv table.cx-tbl td.cx-desc,#app.cxv table.cx-tbl td.cx-act,#app.cxv table.cx-tbl tr.cx-empty td,#app.cxv table.cx-tbl tr.cx-more td{grid-column:1 / -1;}
+    #app.cxv table.cx-tbl td:first-child{font-weight:700;}
+    #app.cxv table.cx-tbl td.cx-act .btn{width:100% !important;}
+    #app.cxv table.cx-tbl tr.cx-total{background:#f6f4ef;}
+    .cx-scroll-y{max-height:none;border:0;}
+    #app.cxv table td.cx-desc,#app.cxv table td.cx-payer{max-width:none;width:auto;}
+    /* بطاقة الحركة: التاريخ والصافي أعلى، ثم البيان والدافع، ثم المبالغ */
+    #app.cxv table.cx-ledger tr{grid-template-columns:repeat(3,minmax(0,1fr));}
+    #app.cxv table.cx-ledger td:nth-child(1){order:1;grid-column:span 2;}
+    #app.cxv table.cx-ledger td[data-label="الصافي"]{order:2;}
+    #app.cxv table.cx-ledger td.cx-desc{order:3;}
+    #app.cxv table.cx-ledger td.cx-payer{order:4;grid-column:1 / -1;}
+    #app.cxv table.cx-ledger td[data-label="المبلغ"]{order:5;} #app.cxv table.cx-ledger td[data-label="الرسوم"]{order:6;} #app.cxv table.cx-ledger td[data-label="حصة الشركة"]{order:7;}
+    #app.cxv table.cx-ledger td.cx-act{order:8;}
+    #app.cxv table.cx-ledger tr.cx-total td:nth-child(2){order:1;grid-column:span 2;}
   }
   /* شريط «نسخة تجريبية» على الحاسوب: أكبر ليُرى */
   @media (min-width:700px){
@@ -2391,6 +2487,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=25a02c4f7f"></script>
+<script src="app.js?v=d3a75c67e2"></script>
 </body>
 </html>
