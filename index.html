@@ -2206,6 +2206,8 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .beneficiary-block-header{padding-bottom:var(--sep) !important;margin-bottom:var(--sep) !important;}
   .top-action-bar{padding-bottom:var(--sep) !important;margin-bottom:var(--sep) !important;}
   .app-req-header{padding-bottom:var(--sep) !important;margin-bottom:var(--sep) !important;}
+  /* رقم الطلب والتاريخ دائماً عند يسار الصفحة، حتى حين ينزلان تحت العنوان في سطر مستقل على الهاتف (الصفحة RTL: الهامش الأيمن التلقائي يدفع العنصر لليسار) */
+  .app-req-header .app-req-meta{margin-right:auto;margin-left:0;text-align:left;align-items:stretch;}
   .approval-list{padding-top:var(--sep) !important;}
   .history{margin-top:var(--sep) !important;padding-top:var(--sep) !important;}
   .cus-strip-nav{margin-top:var(--sep) !important;padding-top:var(--sep) !important;}
