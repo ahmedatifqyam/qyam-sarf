@@ -105,3 +105,15 @@ begin
   return v_n;
 end $$;
 revoke all on function public.qy_push_flush() from public, anon, authenticated;
+
+-- إرسال الآن: تُفرج الإشعارات المؤجلة للطلب فور انتهاء نافذة المراجعة (بالإرسال النهائي أو انتهاء المدة)
+create or replace function public.qy_push_release() returns trigger
+language plpgsql security definer set search_path to 'public','pg_temp' as $$
+begin
+  if new.review_until is not null and new.review_until <= now() and (old.review_until is null or old.review_until > now()) then
+    update public.push_outbox set send_after = now() where request_id = new.id and sent_at is null and send_after > now();
+  end if;
+  return new;
+end $$;
+revoke all on function public.qy_push_release() from public, anon, authenticated;
+create or replace trigger qy_push_release_t after update of review_until on public.requests for each row execute function public.qy_push_release();
