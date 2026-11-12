@@ -64,7 +64,7 @@ revoke all on function public.qy_push_late() from public, anon, authenticated;
 
 create or replace function public.qy_push_set_events(p_endpoint text, p_events text[]) returns void
 language plpgsql security definer set search_path to 'public','pg_temp' as $$
-declare ok text[] := array['new','approve','reject','login_fail','structure','paid','cancel','overrun','pwreset','security','userchange','error','late'];
+declare ok text[] := array['new','approve','reject','login_fail','structure','paid','cancel','overrun','pwreset','security','userchange','error','note','late'];
 begin
   if not exists (select 1 from public.users u where u.id = public.qy_me() and u.role = 'admin') then raise exception 'للمدير فقط'; end if;
   update public.push_subscriptions set admin_events = coalesce((select array_agg(distinct e) from unnest(coalesce(p_events,'{}')) e where e = any(ok)), '{}')
