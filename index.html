@@ -1697,6 +1697,38 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .xs.xs-more + .xs-shade-r + .xs-shade-l,.xs.xs-start + .xs-shade-r{display:block;}
   .xs-shade-l::after{content:'‹';direction:ltr;unicode-bidi:isolate;position:absolute;left:2px;top:min(50%,150px);transform:translateY(-50%);
     width:22px;height:22px;border-radius:50%;background:rgba(27,39,51,.78);color:#fff;font-size:17px;line-height:21px;text-align:center;}
+
+  /* ===== العملاء + دفاتر المراكز + استيراد البوابة: ترتيب موحّد ===== */
+  #app.cxv .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;align-items:start;}
+  #app.cxv .row > *{flex:none;max-width:none !important;width:auto;min-width:0;}
+  #app.cxv .row > * > label{display:block;margin:0 0 6px;font-weight:700;font-size:13px;}
+  #app.cxv .row input:not([type=checkbox]):not([type=file]),#app.cxv .row select{width:100% !important;max-width:100% !important;height:44px;box-sizing:border-box;}
+  #app.cxv textarea{max-width:100% !important;width:100%;box-sizing:border-box;}
+  #app.cxv .row.cx-item{padding:12px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:#fff;}
+  #app.cxv .row.cx-item > .btn{grid-column:1 / -1;justify-self:start;}
+  #app.cxv .btn{width:auto !important;min-width:110px;min-height:40px;height:40px;padding:0 18px !important;font-size:13.5px;white-space:nowrap;}
+  #app.cxv td .btn,#app.cxv .btn.btn-xs{min-width:64px;padding:0 12px !important;}
+  #app.cxv td.cx-act > div{display:flex;gap:6px;flex-wrap:nowrap;justify-content:flex-start;}
+  #app.cxv td.cx-act{white-space:nowrap;}
+  #app.cxv .card{margin-bottom:14px;}
+  @media (max-width:699px){
+    #app.cxv .row{grid-template-columns:1fr;gap:12px;}
+    #app.cxv .lf{display:block !important;margin:0 !important;}
+    #app.cxv .lf > label{display:block;margin:0 0 6px !important;}
+    #app.cxv .row input:not([type=checkbox]):not([type=file]),#app.cxv .row select{height:48px;font-size:15px;}
+    #app.cxv .card > .btn-primary,#app.cxv .card > div > .btn-primary{width:100% !important;}
+    #app.cxv .card > .btn-ghost{width:100% !important;}
+    #app.cxv .row.cx-item > .btn{width:100% !important;justify-self:stretch;}
+    #app.cxv table.cx-cards thead{display:none;}
+    #app.cxv table.cx-cards,#app.cxv table.cx-cards tbody{display:block;}
+    #app.cxv table.cx-cards tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:12px;margin-bottom:10px;border:1px solid var(--line);border-radius:8px;background:#fff;}
+    #app.cxv table.cx-cards td{display:block;border:0;padding:0;min-width:0;}
+    #app.cxv table.cx-cards td::before{content:attr(data-label);display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:2px;}
+    #app.cxv table.cx-cards td:first-child{grid-column:1 / -1;font-size:15.5px;}
+    #app.cxv table.cx-cards td:first-child::before,#app.cxv table.cx-cards td:last-child::before{display:none;}
+    #app.cxv table.cx-cards td:last-child{grid-column:1 / -1;}
+    #app.cxv table.cx-cards td:last-child .btn{width:100% !important;}
+  }
   /* شريط «نسخة تجريبية» على الحاسوب: أكبر ليُرى */
   @media (min-width:700px){
     .test-badge{top:30px !important;left:-58px !important;width:240px !important;font-size:15px !important;line-height:30px !important;}
@@ -2329,6 +2361,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=b4b66be3e1"></script>
+<script src="app.js?v=849f4319ea"></script>
 </body>
 </html>

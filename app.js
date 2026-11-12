@@ -5918,6 +5918,7 @@ function uploadProblem(file){
 document.addEventListener('change', e=>{
   const t=e.target;
   if(!t || t.tagName!=='INPUT' || t.type!=='file') return;
+  if(t.hasAttribute('data-csv')) return;   // ملفات CSV لاستيراد البوابة (تُقرأ في المتصفح ولا تُرفع كمرفق)
   for(const f of (t.files||[])){
     const msg=uploadProblem(f);
     if(msg){ t.value=''; e.stopImmediatePropagation(); showToast(msg,'error'); return; }
@@ -6897,6 +6898,7 @@ function render(){
   renderDbBadge();
   const app = document.getElementById('app');
   document.body.classList.toggle('on-login', state.view==='login');
+  app.classList.toggle('cxv', ['clients','centerBooks','gwImport'].includes(state.view));
   if(state.view==='login') renderLogin(app);
   else if(state.view==='dashboard') { renderDashboard(app); cxDashBanner(app); }
   else if(state.view==='newRequest') renderNewRequest(app);
@@ -13086,7 +13088,7 @@ function renderPermissionsPanel(){
   }).join('');
   return `
     <div class="card" style="margin-top:28px;"><h2>صلاحيات الصفحات — ${escH(coName)}</h2>
-      <div class="row" style="align-items:flex-end;margin-bottom:6px;">
+      <div class="row cx-item">
         <div style="--fw:320px;"><label>الشركة التي تضبط صلاحياتها</label>
           <select data-on-change="permPickCo" data-on-change-args="${qa([QA.v])}">${state.companies.map(c=>`<option value="${escH(c.id)}" ${c.id===co?'selected':''}>${escH(c.nameAr)}</option>`).join('')}</select></div>
         ${state.companies.length>1 ? `<div><button type="button" class="btn btn-ghost btn-md" data-on-click="copyPagePermsToAll" title="يجعل صلاحيات كل الشركات مثل صلاحيات هذه الشركة">نسخ هذه الصلاحيات لكل الشركات</button></div>` : ''}
@@ -16481,13 +16483,13 @@ function cxClientFormHtml(){
       ${inp('cxc_address','العنوان',d.address)} ${inp('cxc_email','البريد الإلكتروني',d.email,'dir="ltr"')} ${inp('cxc_website','الموقع الإلكتروني',d.website,'dir="ltr"')} ${inp('cxc_tax_no','الرقم الضريبي أو التجاري',d.tax_no,'dir="ltr"')}
     </div>
     <h3 style="margin:14px 0 6px;">أرقام الهاتف</h3>
-    ${(d.phones||[]).map((p,i)=>`<div class="row" style="align-items:flex-end;margin-bottom:6px;">
+    ${(d.phones||[]).map((p,i)=>`<div class="row cx-item">
       <div style="--fw:220px;"><label>الرقم</label><input id="cxc_ph_${i}_n" type="text" dir="ltr" value="${escH(p.number||'')}"></div>
       <div style="--fw:150px;"><label>النوع</label><select id="cxc_ph_${i}_t">${opt(CX_PHONE_TYPE,p.type)}</select></div>
       <button class="btn btn-reject btn-xs" style="width:auto;padding:0 12px;" data-on-click="cxCDelPhone" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
     <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 14px;" data-on-click="cxCAddPhone">+ رقم هاتف</button>
     <h3 style="margin:14px 0 6px;">جهات الاتصال</h3>
-    ${(d.contacts||[]).map((p,i)=>`<div class="row" style="align-items:flex-end;margin-bottom:6px;">
+    ${(d.contacts||[]).map((p,i)=>`<div class="row cx-item">
       <div style="--fw:200px;"><label>الاسم</label><input id="cxc_ct_${i}_n" type="text" value="${escH(p.name||'')}"></div>
       <div style="--fw:160px;"><label>الصفة</label><input id="cxc_ct_${i}_t" type="text" value="${escH(p.title||'')}"></div>
       <div style="--fw:170px;"><label>الهاتف</label><input id="cxc_ct_${i}_p" type="text" dir="ltr" value="${escH(p.phone||'')}"></div>
@@ -16509,7 +16511,7 @@ function renderClients(app){
     const nCent = cs.filter(x=>x.clientId===c.id && x.companyId===cxCid()).length;
     return `<tr><td style="padding-right:${10+depth*20}px;">${depth ? '↳ ' : ''}<b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="badge">موقوف</span>' : ''}</td>
       <td>${escH(kn)}</td><td>${ph}</td><td>${(c.contacts||[]).length ? escH(c.contacts.map(x=>x.name).filter(Boolean).join('، ')) : '—'}</td><td>${nCent || '—'}</td>
-      <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <td class="cx-act"><div>
         <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxNewClient" data-on-click-args="${qa([c.id])}">+ فرع</button>
         <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxEditClient" data-on-click-args="${qa([c.id])}">تعديل</button>
         <button class="btn btn-reject btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxDeleteClient" data-on-click-args="${qa([c.id])}">حذف</button></div></td></tr>`;
@@ -16666,7 +16668,7 @@ function cxEntryFormHtml(c){
     </div>
     <div class="row">
       ${mode==='gross'
-        ? f('cxe_gross','المبلغ الكلي','0.000') + f('cxe_fee','رسوم البوابة (مبلغ)','0.000') + f('cxe_fee_pct','أو نسبة البوابة %','0') + f('cxe_pct','نسبة الشركة % (فارغ = الافتراضي)','')
+        ? f('cxe_gross','المبلغ الكلي','0.000') + f('cxe_fee','رسوم البوابة (مبلغ)','0.000') + f('cxe_fee_pct','أو نسبة البوابة %','0') + f('cxe_pct','حصة الشركة %','')
         : f('cxe_net','الصافي للمركز','0.000') + f('cxe_share_amt','حصة الشركة','0.000') + f('cxe_fee','رسوم البوابة (اختياري)','0.000')}
       <div style="--fw:240px;"><label>الغرض</label><input id="cxe_purpose" type="text"></div>
       <div style="--fw:240px;"><label>ملاحظة</label><input id="cxe_note" type="text"></div>
@@ -16706,8 +16708,8 @@ function cxCenterDetailHtml(){
     ${adm ? `<div class="card"><h2>إعدادات المركز</h2>
       <div class="row">
         <div style="--fw:260px;"><label>يتبع العميل</label><select id="cxs_client"><option value="">— غير مرتبط —</option>${cxClientTree().map(({c:cl,depth})=>`<option value="${cl.id}" ${cl.id===c.clientId?'selected':''}>${'— '.repeat(depth)}${escH(cl.name)}</option>`).join('')}</select></div>
-        <div style="--fw:210px;"><label>نسبة الشركة من الاشتراكات % (فارغ = الافتراضي ${cxCo().gatewayCompanyPct}%)</label><input id="cxs_pct" type="text" inputmode="decimal" dir="ltr" value="${c.companySharePct==null?'':c.companySharePct}"></div>
-        <div style="--fw:210px;"><label>نسبة الشركة من الدعم % (فارغ = الافتراضي ${cxCo().supportCompanyPct}%)</label><input id="cxs_spct" type="text" inputmode="decimal" dir="ltr" value="${c.supportSharePct==null?'':c.supportSharePct}"></div>
+        <div style="--fw:210px;"><label>حصة الشركة من الاشتراكات %</label><input id="cxs_pct" type="text" inputmode="decimal" dir="ltr" placeholder="الافتراضي ${cxCo().gatewayCompanyPct}%" value="${c.companySharePct==null?'':c.companySharePct}"></div>
+        <div style="--fw:210px;"><label>حصة الشركة من الدعم %</label><input id="cxs_spct" type="text" inputmode="decimal" dir="ltr" placeholder="الافتراضي ${cxCo().supportCompanyPct}%" value="${c.supportSharePct==null?'':c.supportSharePct}"></div>
         <div style="--fw:200px;"><label>حد الصرف بالسالب (د.ك)</label><input id="cxs_od" type="text" inputmode="decimal" dir="ltr" value="${c.overdraftLimit||0}"></div>
       </div>
       <label class="check-line" style="display:flex;align-items:center;gap:8px;margin:10px 0;"><input id="cxs_ctl" type="checkbox" style="width:auto;" ${c.balanceControl?'checked':''}> ضبط الرصيد: يُمنع طلب جديد يتجاوز الرصيد المتاح مع حد السالب</label>
@@ -16736,9 +16738,9 @@ function renderCenterBooks(app){
   app.innerHTML = `
     <h1>دفاتر المراكز</h1>
     <p class="sub">دخل كل مركز ومصروفه ورصيده. الدخل صافٍ بعد رسوم البوابة وحصة الشركة، والمصروف من الطلبات المكتملة.</p>
-    <div class="card"><div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>المركز</th><th>العميل</th><th>المرحلة</th><th>الدخل الصافي</th><th>المصروف</th><th>الرصيد</th><th>طلبات مفتوحة</th><th></th></tr></thead><tbody>
-    ${rows.map(({c,b})=>`<tr><td><b>${escH(c.name)}</b></td><td>${c.clientId ? escH(cxClientName(c.clientId)) : '—'}</td><td>${escH(cxStageLabel(c.stage))}</td>
-      <td>${fmtKWDHtml(b.income)}</td><td>${fmtKWDHtml(b.expense)}</td><td style="${Number(b.balance)<0?'color:var(--red);font-weight:800;':'font-weight:800;'}">${fmtKWDHtml(b.balance)}</td><td>${fmtKWDHtml(b.pending_requests)}</td>
+    <div class="card"><div style="overflow-x:auto;"><table class="exec-table cx-cards"><thead><tr><th>المركز</th><th>العميل</th><th>المرحلة</th><th>الدخل الصافي</th><th>المصروف</th><th>الرصيد</th><th>طلبات مفتوحة</th><th></th></tr></thead><tbody>
+    ${rows.map(({c,b})=>`<tr><td data-label="المركز"><b>${escH(c.name)}</b></td><td data-label="العميل">${c.clientId ? escH(cxClientName(c.clientId)) : '—'}</td><td data-label="المرحلة">${escH(cxStageLabel(c.stage))}</td>
+      <td data-label="الدخل الصافي">${fmtKWDHtml(b.income)}</td><td data-label="المصروف">${fmtKWDHtml(b.expense)}</td><td data-label="الرصيد" style="${Number(b.balance)<0?'color:var(--red);font-weight:800;':'font-weight:800;'}">${fmtKWDHtml(b.balance)}</td><td data-label="طلبات مفتوحة">${fmtKWDHtml(b.pending_requests)}</td>
       <td><button class="btn btn-ghost btn-xs" style="width:auto;padding:0 14px;" data-on-click="cxOpenCenter" data-on-click-args="${qa([c.id])}">فتح</button></td></tr>`).join('') || `<tr><td colspan="8" class="sub">لا توجد مراكز متاحة لك.</td></tr>`}
     ${rows.length>1 ? `<tr style="font-weight:800;"><td colspan="3">المجموع</td><td>${fmtKWDHtml(tot.i)}</td><td>${fmtKWDHtml(tot.e)}</td><td>${fmtKWDHtml(tot.n)}</td><td colspan="2"></td></tr>` : ''}
     </tbody></table></div></div>`;
@@ -16957,8 +16959,8 @@ function renderGwImport(app){
         <div style="--fw:90px;align-self:end;"><button class="btn btn-ghost" style="width:auto;padding:0 16px;min-height:40px;" data-on-click="gwAddAccount">إضافة</button></div>` : ''}
       </div>
       <div class="row" style="margin-top:10px;">
-        <div style="--fw:300px;"><label>كشف الحساب (statement.csv) ${im.stmt?`<span class="file-hint">· ${escH(im.stmt.name)}</span>`:''}</label><input type="file" accept=".csv,text/csv" data-on-change="gwPick" data-on-change-args="${qa(['statement', QA.t])}"></div>
-        <div style="--fw:300px;"><label>الفواتير (bills.csv) ${im.bills?`<span class="file-hint">· ${escH(im.bills.name)}</span>`:''}</label><input type="file" accept=".csv,text/csv" data-on-change="gwPick" data-on-change-args="${qa(['bills', QA.t])}"></div>
+        <div style="--fw:300px;"><label>كشف الحساب (statement.csv) ${im.stmt?`<span class="file-hint">· ${escH(im.stmt.name)}</span>`:''}</label><input type="file" accept=".csv,text/csv" data-csv="1" data-on-change="gwPick" data-on-change-args="${qa(['statement', QA.t])}"></div>
+        <div style="--fw:300px;"><label>الفواتير (bills.csv) ${im.bills?`<span class="file-hint">· ${escH(im.bills.name)}</span>`:''}</label><input type="file" accept=".csv,text/csv" data-csv="1" data-on-change="gwPick" data-on-change-args="${qa(['bills', QA.t])}"></div>
       </div>
       <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;margin-top:10px;" data-on-click="gwBuild" ${im.stmt?'':'disabled'}>تحليل ومعاينة</button>
     </div>
@@ -16976,9 +16978,9 @@ function renderGwImport(app){
       </tbody></table></div></div>
     ${adm ? `<div class="card"><h2>إعدادات الاستيراد</h2>
       <div class="row">
-        <div style="--fw:200px;"><label>نسبة الشركة من الاشتراكات % (افتراضي)</label><input id="gws_gw" type="text" inputmode="decimal" dir="ltr" value="${co.gatewayCompanyPct}"></div>
-        <div style="--fw:200px;"><label>نسبة الشركة من الدعم % (افتراضي)</label><input id="gws_sp" type="text" inputmode="decimal" dir="ltr" value="${co.supportCompanyPct}"></div>
-        <div style="--fw:200px;"><label>تنبيه التأخير بعد (أيام)</label><input id="gws_days" type="text" inputmode="numeric" dir="ltr" value="${co.importStaleDays}"></div>
+        <div style="--fw:200px;"><label>حصة الشركة من الاشتراكات %</label><input id="gws_gw" type="text" inputmode="decimal" dir="ltr" value="${co.gatewayCompanyPct}"></div>
+        <div style="--fw:200px;"><label>حصة الشركة من الدعم %</label><input id="gws_sp" type="text" inputmode="decimal" dir="ltr" value="${co.supportCompanyPct}"></div>
+        <div style="--fw:200px;"><label>تنبيه التأخير (أيام)</label><input id="gws_days" type="text" inputmode="numeric" dir="ltr" value="${co.importStaleDays}"></div>
       </div>
       <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;margin:10px 0;" data-on-click="gwSaveSettings">حفظ</button>
       <h2 style="margin-top:12px;">من يرفع الملفات</h2><p class="file-hint">المحاسب والمدير يرفعون دائماً. اختر موظفين آخرين مثل سكرتير الشركة.</p>
