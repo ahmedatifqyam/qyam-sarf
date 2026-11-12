@@ -576,6 +576,9 @@ function dbCompanyToState(c){
     hasCustodyNodoc: c.custody_nodoc_on!==undefined, custodyNodocOn: !!c.custody_nodoc_on, custodyNodocMode: c.custody_nodoc_mode || 'amount', custodyNodocValue: c.custody_nodoc_value==null ? null : Number(c.custody_nodoc_value),
     custodySignOn: c.custody_sign_on!==false, custodySigners: c.custody_signers || 'any',
     custodyReceiptDays: c.custody_receipt_days==null ? 3 : Number(c.custody_receipt_days),
+    hasLate: c.late_on!==undefined, lateOn: c.late_on!==false, lateFrom: c.late_from_hour==null ? 8 : Number(c.late_from_hour), lateTo: c.late_to_hour==null ? 20 : Number(c.late_to_hour),
+    lateRepeat: c.late_repeat_hours==null ? 8 : Number(c.late_repeat_hours), lateCopyDays: c.late_copy_days==null ? 3 : Number(c.late_copy_days),
+    lateMax: c.late_max_days==null ? 10 : Number(c.late_max_days), lateWeekend: c.late_weekend || 'fri_sat',
     custodyImgMin: c.custody_img_min==null ? 0 : Number(c.custody_img_min), custodyReviewMode: c.custody_review_mode || 'line', hasCustodyLines: c.custody_img_min!==undefined,
     custodyMaxAmount: c.custody_max_amount==null ? null : Number(c.custody_max_amount),     // فارغ = بلا حد
     custodyMaxTotal: c.custody_max_total==null ? null : Number(c.custody_max_total),        // فارغ = بلا حد
@@ -5221,7 +5224,7 @@ async function pushEnable(){
   }catch(e){ showToast('تعذّر تفعيل الإشعارات: '+(e&&e.message||e),'error'); }
   pushPaint();
 }
-const PUSH_EVENTS = [['new','طلب جديد'],['approve','كل اعتماد مقبول'],['reject','كل رفض'],['paid','تم صرف طلب'],['cancel','إلغاء طلب'],['overrun','تجاوز ميزانية'],['login_fail','محاولة دخول فاشلة'],['pwreset','طلب إعادة تعيين كلمة مرور'],['security','تنبيهات الأمان'],['userchange','تغيير صلاحية أو إيقاف مستخدم'],['structure','مشكلة في مسار طلب (الهيكل)'],['error','أخطاء النظام'],['note','ملحوظة جديدة في الشات']];
+const PUSH_EVENTS = [['new','طلب جديد'],['approve','كل اعتماد مقبول'],['reject','كل رفض'],['paid','تم صرف طلب'],['cancel','إلغاء طلب'],['overrun','تجاوز ميزانية'],['login_fail','محاولة دخول فاشلة'],['pwreset','طلب إعادة تعيين كلمة مرور'],['security','تنبيهات الأمان'],['userchange','تغيير صلاحية أو إيقاف مستخدم'],['structure','مشكلة في مسار طلب (الهيكل)'],['error','أخطاء النظام'],['note','ملحوظة جديدة في الشات'],['late','نسخة من تذكيرات الطلبات المتأخرة']];
 async function pushEvSave(){
   try{
     const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if(!sub) return;
@@ -11428,6 +11431,14 @@ function renderCompanyEditForm(){
             <input id="editCoCusDays" type="number" min="1" max="365" step="1" dir="ltr" value="${c.custodyDefaultDays||30}" style="direction:ltr;text-align:center;">
             <div class="file-hint" style="margin-top:3px;">موعد الإقفال المقترح في نموذج «عهدة جديدة»، ويمكن تغييره لكل عهدة.</div>
           </div>
+          ${c.hasLate ? `<div style="grid-column:1/-1;font-weight:800;margin-top:6px;">تذكيرات الطلبات المتأخرة (إشعارات الجهاز)</div>
+          <div><label>التذكيرات</label><select id="editCoLateOn"><option value="1" ${c.lateOn?'selected':''}>تعمل</option><option value="0" ${!c.lateOn?'selected':''}>متوقفة</option></select></div>
+          <div><label>لا تصل من الساعة</label><input id="editCoLateFrom" type="number" min="0" max="23" dir="ltr" value="${c.lateFrom}" style="direction:ltr;text-align:center;"></div>
+          <div><label>إلى الساعة</label><input id="editCoLateTo" type="number" min="1" max="24" dir="ltr" value="${c.lateTo}" style="direction:ltr;text-align:center;"></div>
+          <div><label>تكرار التذكير كل (ساعات)</label><input id="editCoLateRep" type="number" min="1" max="24" dir="ltr" value="${c.lateRepeat}" style="direction:ltr;text-align:center;"></div>
+          <div><label>نسخة للمالي ومنشئ الطلب بعد (أيام تأخير)</label><input id="editCoLateCopy" type="number" min="0" max="60" dir="ltr" value="${c.lateCopyDays}" style="direction:ltr;text-align:center;"></div>
+          <div><label>الحد الأقصى لأيام التذكير</label><input id="editCoLateMax" type="number" min="1" max="60" dir="ltr" value="${c.lateMax}" style="direction:ltr;text-align:center;"><div class="file-hint" style="margin-top:3px;">بعده يتوقف التذكير. الافتراضي 10.</div></div>
+          <div><label>أيام العطلة (لا تذكير فيها)</label><select id="editCoLateWe"><option value="fri_sat" ${c.lateWeekend==='fri_sat'?'selected':''}>الجمعة والسبت</option><option value="fri" ${c.lateWeekend==='fri'?'selected':''}>الجمعة فقط</option><option value="none" ${c.lateWeekend==='none'?'selected':''}>بدون عطلة</option></select></div>` : ''}
           <div>
             <label>مهلة تأكيد الاستلام (أيام)</label>
             <input id="editCoCusRcpt" type="number" min="1" max="60" step="1" dir="ltr" value="${c.custodyReceiptDays||3}" style="direction:ltr;text-align:center;">
@@ -11602,6 +11613,14 @@ async function saveCompanyEdit(){
       updates.custody_review_mode = (document.getElementById('editCoCusReview')||{}).value==='whole' ? 'whole' : 'line';
     }
   }
+  if(c.hasLate){
+    const n2 = (id,lo,hi,d) => { const v = Math.round(Number((document.getElementById(id)||{}).value)); return isFinite(v) && v>=lo && v<=hi ? v : d; };
+    updates.late_on = (document.getElementById('editCoLateOn')||{}).value!=='0';
+    updates.late_from_hour = n2('editCoLateFrom',0,23,c.lateFrom); updates.late_to_hour = n2('editCoLateTo',1,24,c.lateTo);
+    updates.late_repeat_hours = n2('editCoLateRep',1,24,c.lateRepeat); updates.late_copy_days = n2('editCoLateCopy',0,60,c.lateCopyDays);
+    updates.late_max_days = n2('editCoLateMax',1,60,c.lateMax);
+    const we = (document.getElementById('editCoLateWe')||{}).value; updates.late_weekend = ['fri_sat','fri','none'].includes(we) ? we : 'fri_sat';
+  }
   if(c.hasCustodyOver){
     const om = (document.getElementById('editCoCusOverMode')||{}).value;
     updates.custody_over_mode = ['none','percent','amount'].includes(om) ? om : 'none';
@@ -11642,6 +11661,7 @@ async function saveCompanyEdit(){
   if(c.hasCustodyLines){ c.custodyImgMin = updates.custody_img_min; c.custodyReviewMode = updates.custody_review_mode; }
   if(c.hasCustodyLimits){ c.custodyMaxAmount = updates.custody_max_amount; c.custodyMaxTotal = updates.custody_max_total; }
   if(c.hasCustodyNodoc){ c.custodyNodocOn = updates.custody_nodoc_on; c.custodyNodocMode = updates.custody_nodoc_mode; c.custodyNodocValue = updates.custody_nodoc_value; c.custodySignOn = updates.custody_sign_on; c.custodySigners = updates.custody_signers; }
+  if(c.hasLate){ c.lateOn=updates.late_on; c.lateFrom=updates.late_from_hour; c.lateTo=updates.late_to_hour; c.lateRepeat=updates.late_repeat_hours; c.lateCopyDays=updates.late_copy_days; c.lateMax=updates.late_max_days; c.lateWeekend=updates.late_weekend; }
   if(c.hasCustodyOver){ c.custodyOverMode = updates.custody_over_mode; c.custodyOverValue = updates.custody_over_value; c.custodyAlertUserId = updates.custody_alert_user_id || ''; }
   if(c.hasCustodyPath) c.custodyPathMode = updates.custody_path_mode;
   if(updates.logo_data) c.logoData = updates.logo_data;
