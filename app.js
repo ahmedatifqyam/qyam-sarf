@@ -2785,11 +2785,11 @@ async function mountAssistant(){
       },
       initialMessages: [
         'مرحباً 👋',
-        'أنا مساعد النظام. اسألني عن أي خطوة لا تعرف كيف تتمّها.',
+        'أنا مساعد النظام الذكي. اسألني عن أي خطوة لا تعرف كيف تتمّها.',
         'لإرسال ملاحظة أو اقتراح عن النظام، ابدأ رسالتك بكلمة «ملاحظة» وسأسجّلها لمدير النظام.'
       ],
       i18n: { en: {
-        title: 'مساعد النظام',
+        title: 'مساعد النظام الذكي',
         subtitle: 'اسأل عن أي شيء في النظام.',
         footer: '',
         getStarted: 'محادثة جديدة',
@@ -3039,7 +3039,7 @@ function navSections(){
   if(u.role==='admin') out.push({key:'admin', ico:'sliders', label:'لوحة التحكم', admin:true, pages:[]});
   else out.push({key:'account', ico:'account', label:'حسابي', pages:[{label:'حسابي', views:['account'], js:[["#10",[]]]}]});
   const help = [{label:'دليل المستخدم', views:['guide'], js:[["#8",[]]]}, {label:'خريطة الموقع', views:['sitemap'], js:[["#9",[]]]}];
-  if(canSeeAssistant() && ASSISTANT_WEBHOOK) help.push({label:'مساعد النظام', views:[], js:[["openAssistant",[]]]});
+  if(canSeeAssistant() && ASSISTANT_WEBHOOK) help.push({label:'مساعد النظام الذكي', views:[], js:[["openAssistant",[]]]});
   out.push({key:'help', ico:'help', label:'المساعدة', pages:help});
   out.forEach(sec=>{ sec.active = sec.admin ? inAdminArea() : sec.pages.some(pg=>pg.views.includes(v)); });
   return out;
@@ -7539,7 +7539,7 @@ function siteMapPages(){
   if(!isAdmin) P.push({g:'حسابي', ico:'👤', label:'حسابي', desc:'بياناتك وتوقيعك وكلمة مرورك.', js:[["openAccount",[]]], guide:'start', btns:[['حفظ','يحفظ التعديلات']]});
   P.push({g:'مساعدة', ico:'📖', label:'دليل المستخدم', desc:'الشرح الكامل داخل النظام.', js:[["openGuide",[]]], guide:'', btns:[]});
   P.push({g:'مساعدة', ico:'🗺️', label:'خريطة الموقع', desc:'كل صفحات النظام المتاحة لك.', js:[["openSiteMap",[]]], guide:'', btns:[]});
-  if(canSeeAssistant() && ASSISTANT_WEBHOOK) P.push({g:'مساعدة', ico:'💬', label:'مساعد النظام', desc:'اسأل عن أي خطوة، أو ابدأ رسالتك بكلمة «ملاحظة» لتصل لمدير النظام.', js:[["openAssistant",[]]], guide:'', btns:[]});
+  if(canSeeAssistant() && ASSISTANT_WEBHOOK) P.push({g:'مساعدة', ico:'💬', label:'مساعد النظام الذكي', desc:'اسأل عن أي خطوة، أو ابدأ رسالتك بكلمة «ملاحظة» لتصل لمدير النظام.', js:[["openAssistant",[]]], guide:'', btns:[]});
   if(isAdmin){
     ADMIN_NAV.forEach(gp=>gp.items.forEach(it=>{
       P.push({g:'لوحة التحكم — '+gp.cat, ico:'⚙️', label:it.label, desc:'', js:adminNavAction(it), guide:'admin', btns:[]});
