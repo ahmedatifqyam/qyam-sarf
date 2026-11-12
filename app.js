@@ -2735,6 +2735,7 @@ function placeAssistantClose(){
 }
 
 let assistantMounted = false;
+let assistantChat = null;
 // مسودة الشات: ما يكتبه المستخدم ولم يرسله يُحفظ باسمه في هذا المتصفح، فيعود له بعد الخروج والدخول
 function astDraftKey(){ return 'qy_chat_draft_' + ((state.user||{}).id||''); }
 function astDraftRestore(){
@@ -2750,7 +2751,10 @@ document.addEventListener('click', e=>{ const b = e.target.closest && e.target.c
 function assistantReset(){
   try{ Object.keys(localStorage).filter(k=>k.indexOf('n8n-chat')>=0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
   try{ Object.keys(sessionStorage).filter(k=>k.indexOf('n8n-chat')>=0).forEach(k=>sessionStorage.removeItem(k)); }catch(e){}
-  const root = document.getElementById('qyamAssistant'); if(root) root.innerHTML = '';
+  try{ if(assistantChat && assistantChat.unmount) assistantChat.unmount(); }catch(e){}
+  assistantChat = null;
+  // عقدة جديدة بدل القديمة: تسقط معها المراقبات والمستمعات فلا تتكرر عند إعادة التركيب
+  const root = document.getElementById('qyamAssistant'); if(root && root.parentNode){ const fresh = root.cloneNode(false); fresh.innerHTML=''; root.parentNode.replaceChild(fresh, root); }
   assistantMounted = false;
 }
 function canSeeAssistant(){ return !!state.user && (!ASSISTANT_ROLES || ASSISTANT_ROLES.includes(state.user.role)); }
@@ -2766,7 +2770,7 @@ async function mountAssistant(){
     }
     const { createChat } = await import(ASSISTANT_SRC);
     const co = (state.companies||[]).find(c=>c.id===state.currentCompanyId) || {};
-    createChat({
+    assistantChat = createChat({
       webhookUrl: ASSISTANT_WEBHOOK,
       webhookConfig: { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-qayam-token': ASSISTANT_TOKEN } },
       target: '#qyamAssistant',
@@ -2779,6 +2783,7 @@ async function mountAssistant(){
         app: 'qyam-sarf',
         userId: state.user.id,
         userName: state.user.name,
+        phone: state.user.phone || '',
         role: state.user.role,
         companyId: state.currentCompanyId || '',
         companyName: co.nameAr || ''
@@ -5224,7 +5229,7 @@ async function pushEnable(){
   }catch(e){ showToast('تعذّر تفعيل الإشعارات: '+(e&&e.message||e),'error'); }
   pushPaint();
 }
-const PUSH_EVENTS = [['new','طلب جديد'],['approve','كل اعتماد مقبول'],['reject','كل رفض'],['paid','تم صرف طلب'],['cancel','إلغاء طلب'],['overrun','تجاوز ميزانية'],['login_fail','محاولة دخول فاشلة'],['pwreset','طلب إعادة تعيين كلمة مرور'],['security','تنبيهات الأمان'],['userchange','تغيير صلاحية أو إيقاف مستخدم'],['structure','مشكلة في مسار طلب (الهيكل)'],['error','أخطاء النظام'],['note','ملحوظة جديدة في الشات'],['late','نسخة من تذكيرات الطلبات المتأخرة']];
+const PUSH_EVENTS = [['new','طلب جديد'],['approve','كل اعتماد مقبول'],['reject','كل رفض'],['paid','تم صرف طلب'],['cancel','إلغاء طلب'],['overrun','تجاوز ميزانية'],['login_fail','محاولة دخول فاشلة'],['pwreset','طلب إعادة تعيين كلمة مرور'],['security','تنبيهات الأمان'],['userchange','تغيير صلاحية أو إيقاف مستخدم'],['structure','مشكلة في مسار طلب (الهيكل)'],['error','أخطاء النظام'],['note','ملحوظة جديدة في الشات'],['late','نسخة من تذكيرات الطلبات المتأخرة'],['review','طلب قيد المراجعة (عند إنشائه وعند حذفه قبل الإرسال)'],['self','أبلغني حتى بما أفعله أنا']];
 async function pushEvSave(){
   try{
     const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if(!sub) return;
@@ -13806,7 +13811,7 @@ function renderDashboard(app){
 
   visibleRequests = visibleRequests.filter(r=>r.companyId===state.currentCompanyId);
   // طلب في نافذة المراجعة لا يراه إلا صاحبه — فهو بلا رقم، أي غير موجود عند غيره
-  visibleRequests = visibleRequests.filter(r=>!isUnderReview(r) || r.createdById===myId);
+  visibleRequests = visibleRequests.filter(r=>!isUnderReview(r) || r.createdById===myId || role==='admin');
 
   // مرشّح «صاحب الطلب»: الكل / طلباتي / (لمدير النظام) مستخدم بعينه
   const visAllOwners = visibleRequests.slice();
