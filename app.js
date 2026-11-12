@@ -547,7 +547,9 @@ function dbCenterToState(c){
     minSingleApprover: c.min_single_approver || 'exec', hasMinSingle: c.min_single_approver!==undefined,
     maxRequestAmount:c.max_request_amount, maxBeneficiaryAmount:c.max_beneficiary_amount,
     requireBankTransferRef: c.require_bank_transfer_ref!==false,
-    kind: c.kind||'center', scope: c.scope||'company', parentId: c.parent_id||null
+    kind: c.kind||'center', scope: c.scope||'company', parentId: c.parent_id||null,
+    clientId:c.client_id||null, stage:c.stage||'operation', balanceControl:!!c.balance_control, overdraftLimit:Number(c.overdraft_limit||0),
+    companySharePct:(c.company_share_pct==null?null:Number(c.company_share_pct)), supportSharePct:(c.support_share_pct==null?null:Number(c.support_share_pct))
   };
 }
 function dbBeneficiaryToState(b){
@@ -555,7 +557,7 @@ function dbBeneficiaryToState(b){
 }
 function dbCompanyToState(c){
   return {
-    id:c.id, nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'', brandLogo:c.brand_logo_data||'',
+    id:c.id, gatewayCompanyPct:(c.gateway_company_pct==null?5:Number(c.gateway_company_pct)), supportCompanyPct:(c.support_company_pct==null?10:Number(c.support_company_pct)), importStaleDays:(c.import_stale_days==null?7:Number(c.import_stale_days)), nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'', brandLogo:c.brand_logo_data||'',
     footerText:(c.footer_text===undefined ? null : c.footer_text), footerFontMode:c.footer_font_mode||'auto', footerFontSize:(c.footer_font_size!=null ? Number(c.footer_font_size) : 10), footerShowText:c.footer_show_text!==false, footerShowLine:c.footer_show_line!==false,
     footerTextColor:c.footer_text_color||'#111111', footerNumColor:c.footer_num_color||'#111111', footerLineColor:c.footer_line_color||'#888888', pageNumStyle:c.page_num_style||'full', footerOffset:(c.footer_offset_mm!=null ? Number(c.footer_offset_mm) : 4),
     primaryColor:c.primary_color||'#C0392B', verifyPrefix:c.verify_prefix||'', code:c.code, hqCode:c.hq_code||'HQ',
@@ -591,7 +593,7 @@ function dbCompanyToState(c){
 function mapRequestRow(r){
   return {
     id:r.id, number:r.number, reason:r.reason, detailedReason:r.detailed_reason||'', salutationText:r.salutation_text||'', referenceText:r.reference_text||'', requestNotes:r.request_notes||'', totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
-    centerId:r.center_id, companyId:r.company_id, createdBy:r.created_by, createdById:r.created_by_id, dateGreg:r.date_greg, dateHijri:r.date_hijri,
+    centerId:r.center_id, amountRoute:r.amount_route||'normal', routeCenterId:r.route_center_id||null, companyId:r.company_id, createdBy:r.created_by, createdById:r.created_by_id, dateGreg:r.date_greg, dateHijri:r.date_hijri,
     createdAtRaw:r.created_at, isRecurring: !!r.is_recurring,
     numberPrefix:r.number_prefix||null, numberSuffix:r.number_suffix||null, reviewUntil:r.review_until||null,
     verifyCode: r.verify_code||'', isCancelled: !!r.is_cancelled, cancelledAt: r.cancelled_at, cancelledById: r.cancelled_by_id, cancelReason: r.cancel_reason,
@@ -736,7 +738,7 @@ async function loadAll(){
   state.resetRequests  = d(16).map(r=>({id:r.id, phone:r.phone, userId:r.user_id, companyId:r.company_id,
     status:r.status, requestedAt:r.requested_at, handledBy:r.handled_by, handledAt:r.handled_at}));
   state.pagePerms = d(17);
-  await Promise.all([loadRecurring(), mergeUserPrivate(), loadPeopleNames(), loadMyCompanyNames(), loadCustodies(), loadAvatars()]);
+  await Promise.all([loadRecurring(), mergeUserPrivate(), loadPeopleNames(), loadMyCompanyNames(), loadCustodies(), loadAvatars(), loadCxLight()]);
   loadBudgetSums();
 }
 
@@ -2571,6 +2573,9 @@ const PAGE_CATALOG = [
   {key:'handovers', label:'الإسناد',            hint:'إسناد المعاملات لزميل عند الغياب أو الانتقال. يظهر دائماً لمن وصله إسناد'},
   {key:'budgetReport', label:'تقرير الميزانية', hint:'لكل بند: الإيراد والمصروف والمرتبط والرصيد، مع التصدير (عرض فقط). افتراضياً: المالية'},
   {key:'cancelled', label:'أرشيف الملغاة',     hint:'الطلبات الملغاة: عرضها واسترجاعها لمن يملك الاسترجاع. الحذف النهائي لمدير النظام وحده. افتراضياً: المالية'},
+  {key:'clients',   label:'العملاء',            hint:'العملاء وفروعهم وجهات الاتصال. افتراضياً: المالية'},
+  {key:'centerBooks', label:'دفاتر المراكز',    hint:'رصيد كل مركز ودخله وحركاته. من يرى أي مركز يحدده مدير النظام من شاشة المركز، وعاملو المركز يرون مركزهم فقط'},
+  {key:'gatewayImport', label:'استيراد بوابة الدفع', hint:'رفع كشف الحساب وملف الفواتير. للمالية، ومن يختاره مدير النظام من شاشة الاستيراد'},
   {key:'monitor',   label:'لوحة المتابعة',     hint:'ما يحدث في النظام: من ينتظر قراره، وما في يد المالية، وآخر الحركات (عرض فقط). افتراضياً: المالية والمدير التنفيذي'}
 ];
 const PAGE_FINANCE_ROLES = ['admin','accountant','cfo'];
@@ -2580,6 +2585,7 @@ function pageDefaultLevel(role, key){
   if(key==='newreq' || key==='editreq' || key==='analytics') return 'full';          // الوضع الحالي: الجميع
   if(key==='revenues' || key==='ledger' || key==='recurring' || key==='budgetReport' || key==='cancelled') return fin ? 'full' : 'none';
   if(key==='handovers') return role==='employee' ? 'none' : 'full';
+  if(key==='clients') return fin ? 'full' : 'none';
   if(key==='monitor') return (fin || role==='executive_manager') ? 'full' : 'none';   // المالية والمدير التنفيذي افتراضياً، ومن يُمنح من صفحة الصلاحيات
   return 'full';
 }
@@ -2605,7 +2611,7 @@ function pageLevel(key){
   return pageDefaultLevel(u.role, key);
 }
 function pageAtLeast(key, need){ return PAGE_LEVEL_RANK[pageLevel(key)] >= PAGE_LEVEL_RANK[need]; }
-const VIEW_PAGE_KEY = {newCustody:'custody', custodyList:'custody', newRequest:'newreq', newRequestChoice:'newreq', analytics:'analytics', revenues:'revenues', recurring:'recurring', ledger:'ledger', budgetReport:'budgetReport', cancelledArchive:'cancelled'};
+const VIEW_PAGE_KEY = {clients:'clients', centerBooks:'centerBooks', gwImport:'gatewayImport', newCustody:'custody', custodyList:'custody', newRequest:'newreq', newRequestChoice:'newreq', analytics:'analytics', revenues:'revenues', recurring:'recurring', ledger:'ledger', budgetReport:'budgetReport', cancelledArchive:'cancelled'};
 function viewAllowed(v){
   const u = state.user; if(!u || u.role==='admin') return true;
   if(v==='newRequest' && state.editingReqId) return pageLevel('editreq')!=='none';   // التعديل له صلاحيته الخاصة
@@ -2946,7 +2952,7 @@ function setAccountSec(i){
 // مجموعات الشريط الجانبي القابلة للفتح والإغلاق: المعاملات المالية | لوحة التحكم | المساعدة
 function inFinArea(){
   const v = state.view;
-  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody'].includes(v)) return true;
+  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','centerBooks','gwImport'].includes(v)) return true;
   return !inAdminArea() && ['ledger','analytics'].includes(v);
 }
 function inHelpArea(){ return ['guide','sitemap'].includes(state.view); }
@@ -3027,6 +3033,9 @@ function navSections(){
     out.push({key:'cus', ico:'case', label:'العهد', count:kN, pages:cpages});
   }
   if(canSeeRevenues()) out.push({key:'rev', ico:'cash', label:'الإيرادات', pages:[{label:'الإيرادات', views:['revenues'], js:[["openRevenues",[0]]]}]});
+  if(canSeeCenterBooks()) out.push({key:'cbk', ico:'case', label:'دفاتر المراكز', pages:[{label:'دفاتر المراكز', views:['centerBooks'], js:[["openCenterBooks",[]]]}]});
+  if(canSeeGwImport()) out.push({key:'gwi', ico:'cash', label:'بوابة الدفع', pages:[{label:'استيراد البوابة', views:['gwImport'], js:[["openGwImport",[]]]}]});
+  if(canSeeClients()) out.push({key:'cli', ico:'me', label:'العملاء', pages:[{label:'العملاء', views:['clients'], js:[["openClients",[]]]}]});
   if(canSeeRecurring()) out.push({key:'rec', ico:'repeat', label:'القيود الدورية', count:recDueCount(), pages:[{label:'القيود الدورية', views:['recurring'], js:[["openRecurring",[0]]]}]});
   const rep = [];
   if(canSeeMonitor()) rep.push({label:'لوحة المتابعة', views:['monitor'], js:[["openMonitor",[]]]});
@@ -3774,6 +3783,8 @@ function syncDraftFromDOM(){
   if(detailedEl) state.draft.detailedReason = detailedEl.value;
   const notesEl = document.getElementById('requestNotesInput');
   if(notesEl) state.draft.requestNotes = notesEl.value;
+  const rtEl = document.getElementById('cxRoute');
+  if(rtEl){ state.draft.amountRoute = rtEl.value; const rcEl = document.getElementById('cxRouteCenter'); state.draft.routeCenterId = rcEl ? (rcEl.value||null) : null; }
   const recEl = document.getElementById('recurringCheck');
   if(recEl) state.draft.isRecurring = recEl.checked;
   const biEl = document.getElementById('budgetItemSelect');
@@ -4545,6 +4556,7 @@ async function createNewRequest(o){
     budget_item_id: budgetItemId,
     number_prefix: req.numberPrefix, number_suffix: req.numberSuffix, review_until: req.reviewUntil,
     request_notes: requestNotes || null,
+    ...(cxRouteInsert()),
     ...(isCustody ? {request_type:'custody'} : {})
   });
   if(!(await dbCheck(reqInsert, 'إنشاء الطلب'))) return false;
@@ -5229,7 +5241,7 @@ async function pushEnable(){
   }catch(e){ showToast('تعذّر تفعيل الإشعارات: '+(e&&e.message||e),'error'); }
   pushPaint();
 }
-const PUSH_EVENTS = [['new','طلب جديد'],['approve','كل اعتماد مقبول'],['reject','كل رفض'],['paid','تم صرف طلب'],['cancel','إلغاء طلب'],['overrun','تجاوز ميزانية'],['login_fail','محاولة دخول فاشلة'],['pwreset','طلب إعادة تعيين كلمة مرور'],['security','تنبيهات الأمان'],['userchange','تغيير صلاحية أو إيقاف مستخدم'],['structure','مشكلة في مسار طلب (الهيكل)'],['error','أخطاء النظام'],['note','ملحوظة جديدة في الشات'],['late','نسخة من تذكيرات الطلبات المتأخرة'],['review','طلب قيد المراجعة (عند إنشائه وعند حذفه قبل الإرسال)'],['self','أبلغني حتى بما أفعله أنا']];
+const PUSH_EVENTS = [['new','طلب جديد'],['approve','كل اعتماد مقبول'],['reject','كل رفض'],['paid','تم صرف طلب'],['cancel','إلغاء طلب'],['overrun','تجاوز ميزانية'],['login_fail','محاولة دخول فاشلة'],['pwreset','طلب إعادة تعيين كلمة مرور'],['security','تنبيهات الأمان'],['userchange','تغيير صلاحية أو إيقاف مستخدم'],['structure','مشكلة في مسار طلب (الهيكل)'],['error','أخطاء النظام'],['note','ملحوظة جديدة في الشات'],['import_stale','تأخر رفع ملفات بوابة الدفع'],['late','نسخة من تذكيرات الطلبات المتأخرة'],['review','طلب قيد المراجعة (عند إنشائه وعند حذفه قبل الإرسال)'],['self','أبلغني حتى بما أفعله أنا']];
 async function pushEvSave(){
   try{
     const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if(!sub) return;
@@ -6883,7 +6895,7 @@ function render(){
   const app = document.getElementById('app');
   document.body.classList.toggle('on-login', state.view==='login');
   if(state.view==='login') renderLogin(app);
-  else if(state.view==='dashboard') { renderDashboard(app); }
+  else if(state.view==='dashboard') { renderDashboard(app); cxDashBanner(app); }
   else if(state.view==='newRequest') renderNewRequest(app);
   else if(state.view==='detail') renderDetail(app);
   else if(state.view==='account') renderAccount(app);
@@ -6896,6 +6908,9 @@ function render(){
   else if(state.view==='budgetReport') renderBudgetReportPage(app);
   else if(state.view==='ledger') renderLedger(app);
   else if(state.view==='revenues') renderRevenues(app);
+  else if(state.view==='clients') renderClients(app);
+  else if(state.view==='centerBooks') renderCenterBooks(app);
+  else if(state.view==='gwImport') renderGwImport(app);
   else if(state.view==='recurring') renderRecurring(app);
   else if(state.view==='guide') renderGuide(app);
   else if(state.view==='sitemap') renderSiteMap(app);
@@ -14250,6 +14265,8 @@ function renderNewRequest(app){
       </div>
       <div id="amountLimitWarning" class="nr-wide" style="display:none;background:var(--amber-bg);color:#1B2733;border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:12.5px;margin-top:10px;"></div>
 
+      ${cxRouteFieldHtml(d)}
+
       ${(desk || (d.requestNotes||'').trim() || d._showNotes) ? `<div class="nr-f nr-wide"><label>ملاحظة داخلية (لا تُطبع، يراها المعتمدون والمالية)</label>
       <textarea id="requestNotesInput" class="grow-1" rows="1" placeholder="مثال: الفاتورة الأصلية مع المحاسب">${escH(d.requestNotes||'')}</textarea></div>`
       : `<div class="nr-wide"><button type="button" class="nr-link" data-on-click="nrShowReqNotes">+ ملاحظة داخلية للمعتمدين</button></div>`}
@@ -16299,3 +16316,697 @@ try{ if('serviceWorker' in navigator && location.protocol==='https:' || location
   document.addEventListener('change',e=>{ if(e.target && e.target.type==='date') enhanceInput(e.target); },true);
   window.addEventListener('load',()=>{ run(); new MutationObserver(sched).observe(document.body,{childList:true,subtree:true,characterData:false}); setInterval(()=>{ document.querySelectorAll('input[type="date"].dtx').forEach(enhanceInput); },700); });
 })();
+
+
+
+// ===================== العملاء + دفاتر المراكز + استيراد بوابة الدفع =====================
+const CX_STAGES = [['creation','إنشاء'],['finance','إدارة مالية'],['operation','تشغيل'],['closed','إغلاق']];
+const CX_LEDGER_KIND = {opening:'رصيد افتتاحي', subscription:'اشتراكات', support:'دعم', manual:'إيراد يدوي', adjust:'تسوية'};
+const CX_CLIENT_KIND = [['association','جمعية'],['branch','فرع'],['committee','لجنة'],['company','شركة'],['individual','فرد'],['other','أخرى']];
+const CX_PHONE_TYPE = [['mobile','جوال'],['landline','أرضي'],['whatsapp','واتساب']];
+state.cx = {clients:[], gwAccounts:[], gwAgents:[], imports:[], importers:[], myAccess:[], balances:[], ledger:[], payers:{}, centerId:null,
+  cDraft:null, cEditId:null, imp:null, pending:[], q:'', accessRows:[], loaded:false};
+
+function cxIsFin(){ return !!state.user && ['admin','accountant','cfo'].includes(state.user.role); }
+function cxIsAdmin(){ return !!state.user && state.user.role==='admin'; }
+function cxCid(){ return state.currentCompanyId; }
+function cxCo(){ return (state.companies||[]).find(c=>c.id===cxCid()) || {}; }
+function cxToday(){ return new Date(Date.now()+3*3600e3).toISOString().slice(0,10); }
+function cxN(v){ const n = Number(String(v==null?'':v).replace(/[^\d.\-]/g,'')); return isFinite(n) ? n : 0; }
+function cxR3(n){ return Math.round((Number(n)||0)*1000)/1000; }
+function cxDays(a, b){ return Math.round((new Date(b+'T00:00:00Z') - new Date(a+'T00:00:00Z'))/86400000); }
+function cxDate(d){ return d ? dmyStr(d) : '—'; }
+function cxCenterName(id){ const c = (state.centers||[]).find(x=>x.id===id); return c ? c.name : '—'; }
+function cxClientName(id){ const c = (state.cx.clients||[]).find(x=>x.id===id); return c ? c.name : '—'; }
+function cxStageLabel(s){ const x = CX_STAGES.find(t=>t[0]===s); return x ? x[1] : s; }
+function cxUsersOfCompany(){
+  const cid = cxCid();
+  const linked = new Set((state.userCompanyLinks||[]).filter(l=>l.companyId===cid).map(l=>l.userId));
+  return (state.users||[]).filter(u=>u.companyId===cid || linked.has(u.id)).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+}
+
+function canSeeClients(){ return !!state.user && pageLevel('clients')!=='none'; }
+function canSeeCenterBooks(){
+  if(!state.user || pageLevel('centerBooks')==='none') return false;
+  return cxIsFin() || !!state.user.centerId || (state.cx.myAccess||[]).some(a=>a.mode==='allow');
+}
+function cxIsImporter(){
+  if(!state.user) return false;
+  if(cxIsFin()) return true;
+  return (state.cx.importers||[]).some(x=>x.company_id===cxCid() && x.user_id===state.user.id);
+}
+function canSeeGwImport(){ return !!state.user && pageLevel('gatewayImport')!=='none' && cxIsImporter(); }
+
+async function loadCxLight(){
+  if(!state.user) return;
+  try{
+    const [a, b, c] = await Promise.all([
+      db.from('center_access').select('*').eq('user_id', state.user.id),
+      db.from('gateway_import_users').select('*'),
+      db.from('gateway_imports').select('id,company_id,kind,date_to,uploaded_at').order('date_to', {ascending:false}).limit(80)
+    ]);
+    state.cx.myAccess = (a && a.data) || [];
+    state.cx.importers = (b && b.data) || [];
+    state.cx.imports = (c && c.data) || [];
+  }catch(e){ console.error('cx light', e); }
+}
+
+// ---------- تنبيه آخر رفع ----------
+function cxLastDates(){
+  const cid = cxCid(), list = (state.cx.imports||[]).filter(x=>x.company_id===cid && x.date_to);
+  const last = k => list.filter(x=>x.kind===k).map(x=>x.date_to).sort().pop() || null;
+  return {statement:last('statement'), bills:last('bills')};
+}
+function cxStaleBannerHtml(compact){
+  if(!canSeeGwImport()) return '';
+  const co = cxCo(), lim = Number(co.importStaleDays||7), d = cxLastDates(), today = cxToday();
+  const age = d.statement ? cxDays(d.statement, today) : null;
+  const red = age==null || age > lim;
+  const col = red ? 'var(--red)' : 'var(--green,#16794a)';
+  const msg = d.statement
+    ? `آخر رفع: كشف الحساب حتى <b>${cxDate(d.statement)}</b> · الفواتير حتى <b>${cxDate(d.bills)}</b>${red ? ` — مضى ${age} يوماً، ارفع ملفات أحدث` : ''}`
+    : 'لم تُرفع ملفات بوابة الدفع بعد.';
+  return `<div class="card no-print" style="margin-bottom:12px;border:2px solid ${col};padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;">
+    <div style="font-size:13.5px;line-height:1.7;color:${col};font-weight:700;">${msg}</div>
+    ${compact ? `<button class="btn btn-ghost btn-xs" style="width:auto;padding:0 14px;" data-on-click="openGwImport">رفع الملفات</button>` : ''}
+  </div>`;
+}
+function cxDashBanner(app){
+  try{
+    if(!canSeeGwImport() || !app) return;
+    const html = cxStaleBannerHtml(true); if(html) app.insertAdjacentHTML('afterbegin', html);
+  }catch(e){}
+}
+
+// ===================== العملاء =====================
+function openClients(){ state.view='clients'; state.cx.cEditId=null; state.cx.cDraft=null; render(); window.scrollTo(0,0); cxLoadClients(); }
+async function cxLoadClients(){
+  const r = await db.from('clients').select('*').eq('company_id', cxCid()).order('name');
+  if(await dbCheck(r,'تحميل العملاء')){ state.cx.clients = r.data||[]; if(state.view==='clients') render(); }
+}
+function cxClientTree(){
+  const list = state.cx.clients||[], byParent = {};
+  list.forEach(c=>{ (byParent[c.parent_id||''] = byParent[c.parent_id||''] || []).push(c); });
+  const out = [], seen = new Set();
+  const walk = (pid, depth)=>{ (byParent[pid]||[]).forEach(c=>{ if(seen.has(c.id)) return; seen.add(c.id); out.push({c, depth}); walk(c.id, depth+1); }); };
+  walk('', 0);
+  list.forEach(c=>{ if(!seen.has(c.id)){ seen.add(c.id); out.push({c, depth:0}); } });
+  return out;
+}
+function cxNewClient(parentId){
+  state.cx.cEditId = 'new';
+  state.cx.cDraft = {id:null, parent_id:parentId||'', name:'', name_en:'', kind: parentId ? 'branch' : 'association', status:'active', address:'', email:'', website:'', tax_no:'', notes:'', phones:[{number:'',type:'mobile'}], contacts:[]};
+  render(); window.scrollTo(0,0);
+}
+function cxEditClient(id){
+  const c = (state.cx.clients||[]).find(x=>x.id===id); if(!c) return;
+  state.cx.cEditId = id;
+  state.cx.cDraft = Object.assign({}, c, {parent_id:c.parent_id||'', phones:JSON.parse(JSON.stringify(c.phones||[])), contacts:JSON.parse(JSON.stringify(c.contacts||[]))});
+  render(); window.scrollTo(0,0);
+}
+function cxCancelClient(){ state.cx.cEditId=null; state.cx.cDraft=null; render(); }
+function cxCSync(){
+  const d = state.cx.cDraft; if(!d) return;
+  const g = id => { const el = document.getElementById(id); return el ? el.value : null; };
+  ['name','name_en','kind','status','address','email','website','tax_no','notes'].forEach(k=>{ const v = g('cxc_'+k); if(v!==null) d[k] = v; });
+  const p = g('cxc_parent'); if(p!==null) d.parent_id = p;
+  d.phones = (d.phones||[]).map((x,i)=>({number: g('cxc_ph_'+i+'_n') ?? x.number, type: g('cxc_ph_'+i+'_t') ?? x.type}));
+  d.contacts = (d.contacts||[]).map((x,i)=>({name: g('cxc_ct_'+i+'_n') ?? x.name, title: g('cxc_ct_'+i+'_t') ?? x.title, phone: g('cxc_ct_'+i+'_p') ?? x.phone, email: g('cxc_ct_'+i+'_e') ?? x.email}));
+}
+function cxCAddPhone(){ cxCSync(); state.cx.cDraft.phones.push({number:'',type:'mobile'}); render(); }
+function cxCDelPhone(i){ cxCSync(); state.cx.cDraft.phones.splice(i,1); render(); }
+function cxCAddContact(){ cxCSync(); state.cx.cDraft.contacts.push({name:'',title:'',phone:'',email:''}); render(); }
+function cxCDelContact(i){ cxCSync(); state.cx.cDraft.contacts.splice(i,1); render(); }
+async function cxSaveClient(){
+  cxCSync(); const d = state.cx.cDraft; if(!d) return;
+  if(!String(d.name||'').trim()){ showToast('اسم العميل مطلوب','error'); return; }
+  const row = {company_id:cxCid(), parent_id:d.parent_id||null, name:d.name.trim(), name_en:(d.name_en||'').trim()||null, kind:d.kind, status:d.status,
+    address:(d.address||'').trim()||null, email:(d.email||'').trim()||null, website:(d.website||'').trim()||null, tax_no:(d.tax_no||'').trim()||null,
+    notes:(d.notes||'').trim()||null,
+    phones:(d.phones||[]).filter(x=>String(x.number||'').trim()).map(x=>({number:String(x.number).trim(), type:x.type})),
+    contacts:(d.contacts||[]).filter(x=>String(x.name||'').trim()||String(x.phone||'').trim()).map(x=>({name:(x.name||'').trim(), title:(x.title||'').trim(), phone:(x.phone||'').trim(), email:(x.email||'').trim()}))};
+  if(d.id && d.parent_id===d.id){ showToast('لا يكون العميل تابعاً لنفسه','error'); return; }
+  let r;
+  if(d.id) r = await db.from('clients').update(row).eq('id', d.id);
+  else { row.created_by = state.user.id; r = await db.from('clients').insert(row); }
+  if(!(await dbCheck(r,'حفظ العميل'))) return;
+  showToast('تم حفظ العميل','success');
+  state.cx.cEditId=null; state.cx.cDraft=null; await cxLoadClients();
+}
+async function cxDeleteClient(id){
+  const c = (state.cx.clients||[]).find(x=>x.id===id); if(!c) return;
+  if((state.cx.clients||[]).some(x=>x.parent_id===id)){ showToast('للعميل فروع تابعة، احذفها أو انقلها أولاً','error'); return; }
+  if(!confirm('حذف العميل «'+c.name+'»؟\n\nتُفكّ المراكز المرتبطة به دون أن تُحذف.')) return;
+  const r = await db.from('clients').delete().eq('id', id);
+  if(!(await dbCheck(r,'حذف العميل'))) return;
+  showToast('تم حذف العميل','success'); await cxLoadClients();
+}
+function cxClientFormHtml(){
+  const d = state.cx.cDraft; if(!d) return '';
+  const parents = (state.cx.clients||[]).filter(c=>c.id!==d.id);
+  const opt = (arr, sel) => arr.map(x=>`<option value="${x[0]}" ${x[0]===sel?'selected':''}>${x[1]}</option>`).join('');
+  const inp = (id, label, val, extra) => `<div style="--fw:260px;"><label>${label}</label><input id="${id}" type="text" value="${escH(val||'')}" ${extra||''}></div>`;
+  return `<div class="card">
+    <h2>${d.id ? 'تعديل عميل' : 'عميل جديد'}</h2>
+    <div class="row">
+      ${inp('cxc_name','الاسم *',d.name)} ${inp('cxc_name_en','الاسم بالإنجليزية',d.name_en,'dir="ltr"')}
+      <div style="--fw:200px;"><label>النوع</label><select id="cxc_kind">${opt(CX_CLIENT_KIND, d.kind)}</select></div>
+      <div style="--fw:260px;"><label>يتبع</label><select id="cxc_parent"><option value="">— عميل رئيسي —</option>${parents.map(c=>`<option value="${c.id}" ${c.id===d.parent_id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
+      <div style="--fw:160px;"><label>الحالة</label><select id="cxc_status"><option value="active" ${d.status==='active'?'selected':''}>نشط</option><option value="inactive" ${d.status==='inactive'?'selected':''}>موقوف</option></select></div>
+    </div>
+    <div class="row">
+      ${inp('cxc_address','العنوان',d.address)} ${inp('cxc_email','البريد الإلكتروني',d.email,'dir="ltr"')} ${inp('cxc_website','الموقع الإلكتروني',d.website,'dir="ltr"')} ${inp('cxc_tax_no','الرقم الضريبي أو التجاري',d.tax_no,'dir="ltr"')}
+    </div>
+    <h3 style="margin:14px 0 6px;">أرقام الهاتف</h3>
+    ${(d.phones||[]).map((p,i)=>`<div class="row" style="align-items:flex-end;margin-bottom:6px;">
+      <div style="--fw:220px;"><label>الرقم</label><input id="cxc_ph_${i}_n" type="text" dir="ltr" value="${escH(p.number||'')}"></div>
+      <div style="--fw:150px;"><label>النوع</label><select id="cxc_ph_${i}_t">${opt(CX_PHONE_TYPE,p.type)}</select></div>
+      <button class="btn btn-reject btn-xs" style="width:auto;padding:0 12px;" data-on-click="cxCDelPhone" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
+    <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 14px;" data-on-click="cxCAddPhone">+ رقم هاتف</button>
+    <h3 style="margin:14px 0 6px;">جهات الاتصال</h3>
+    ${(d.contacts||[]).map((p,i)=>`<div class="row" style="align-items:flex-end;margin-bottom:6px;">
+      <div style="--fw:200px;"><label>الاسم</label><input id="cxc_ct_${i}_n" type="text" value="${escH(p.name||'')}"></div>
+      <div style="--fw:160px;"><label>الصفة</label><input id="cxc_ct_${i}_t" type="text" value="${escH(p.title||'')}"></div>
+      <div style="--fw:170px;"><label>الهاتف</label><input id="cxc_ct_${i}_p" type="text" dir="ltr" value="${escH(p.phone||'')}"></div>
+      <div style="--fw:220px;"><label>البريد</label><input id="cxc_ct_${i}_e" type="text" dir="ltr" value="${escH(p.email||'')}"></div>
+      <button class="btn btn-reject btn-xs" style="width:auto;padding:0 12px;" data-on-click="cxCDelContact" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
+    <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 14px;" data-on-click="cxCAddContact">+ جهة اتصال</button>
+    <div style="margin-top:12px;"><label>ملاحظات</label><textarea id="cxc_notes" rows="2">${escH(d.notes||'')}</textarea></div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="cxSaveClient">حفظ</button>
+      <button class="btn btn-ghost" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="cxCancelClient">إلغاء</button>
+    </div></div>`;
+}
+function renderClients(app){
+  if(!canSeeClients()){ state.view='dashboard'; render(); return; }
+  const tree = cxClientTree(), cs = state.centers||[];
+  const rows = tree.map(({c,depth})=>{
+    const kn = (CX_CLIENT_KIND.find(k=>k[0]===c.kind)||[0,c.kind])[1];
+    const ph = (c.phones||[]).map(p=>`<bdi dir="ltr">${escH(p.number)}</bdi>`).join('، ') || '—';
+    const nCent = cs.filter(x=>x.clientId===c.id && x.companyId===cxCid()).length;
+    return `<tr><td style="padding-right:${10+depth*20}px;">${depth ? '↳ ' : ''}<b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="badge">موقوف</span>' : ''}</td>
+      <td>${escH(kn)}</td><td>${ph}</td><td>${(c.contacts||[]).length ? escH(c.contacts.map(x=>x.name).filter(Boolean).join('، ')) : '—'}</td><td>${nCent || '—'}</td>
+      <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxNewClient" data-on-click-args="${qa([c.id])}">+ فرع</button>
+        <button class="btn btn-ghost btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxEditClient" data-on-click-args="${qa([c.id])}">تعديل</button>
+        <button class="btn btn-reject btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxDeleteClient" data-on-click-args="${qa([c.id])}">حذف</button></div></td></tr>`;
+  }).join('') || '<tr><td colspan="6" class="sub">لا يوجد عملاء بعد.</td></tr>';
+  app.innerHTML = `
+    <h1>العملاء</h1>
+    <p class="sub">الجمعيات والجهات التي تتعامل معها الشركة، وفروعها تحتها. يُربط المركز بعميل أو بأحد فروعه من شاشة دفاتر المراكز.</p>
+    ${state.cx.cEditId ? cxClientFormHtml() : `<div style="margin-bottom:12px;"><button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ عميل جديد</button></div>`}
+    <div class="card"><div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>الاسم</th><th>النوع</th><th>الهاتف</th><th>جهات الاتصال</th><th>المراكز</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+// ===================== دفاتر المراكز =====================
+function openCenterBooks(){ state.view='centerBooks'; state.cx.centerId=null; render(); window.scrollTo(0,0); cxLoadBalances(); if(!state.cx.clients.length && cxIsFin()) cxLoadClients(); }
+async function cxLoadBalances(){
+  const r = await db.rpc('qy_center_balances', {p_company: cxCid()});
+  if(await dbCheck(r,'تحميل أرصدة المراكز')){ state.cx.balances = r.data||[]; if(state.view==='centerBooks') render(); }
+}
+function cxOpenCenter(id){
+  state.cx.centerId = id; state.cx.ledger = []; state.cx.payers = {}; state.cx.q = ''; state.cx.accessRows = [];
+  render(); window.scrollTo(0,0); cxLoadLedger(); if(cxIsAdmin()) cxLoadAccess();
+}
+function cxBackToCenters(){ state.cx.centerId=null; render(); cxLoadBalances(); }
+async function cxLoadLedger(){
+  const id = state.cx.centerId; if(!id) return;
+  const r = await db.from('center_ledger').select('*').eq('center_id', id).order('entry_date', {ascending:false}).order('id', {ascending:false}).limit(1000);
+  if(!(await dbCheck(r,'تحميل دفتر المركز'))) return;
+  state.cx.ledger = r.data||[]; state.cx.payers = {};
+  if(cxIsImporter() && state.cx.ledger.length){
+    const ids = state.cx.ledger.filter(x=>x.source==='import').map(x=>x.id);
+    for(let i=0;i<ids.length;i+=200){
+      const p = await db.from('center_ledger_payers').select('*').in('ledger_id', ids.slice(i,i+200));
+      (p.data||[]).forEach(x=>{ state.cx.payers[x.ledger_id] = x; });
+    }
+  }
+  if(state.view==='centerBooks' && state.cx.centerId===id) render();
+}
+async function cxLoadAccess(){
+  const id = state.cx.centerId; if(!id) return;
+  const r = await db.from('center_access').select('*').eq('center_id', id);
+  state.cx.accessRows = r.data||[]; if(state.view==='centerBooks' && state.cx.centerId===id) render();
+}
+async function cxSetAccess(userId, mode){
+  const id = state.cx.centerId; if(!id) return;
+  let r;
+  if(!mode) r = await db.from('center_access').delete().eq('center_id', id).eq('user_id', userId);
+  else r = await db.from('center_access').upsert({center_id:id, user_id:userId, mode}, {onConflict:'center_id,user_id'});
+  if(!(await dbCheck(r,'حفظ صلاحية رؤية المركز'))) return;
+  await cxLoadAccess(); showToast('تم الحفظ','success');
+}
+async function cxSetStage(id, stage){
+  const r = await db.rpc('qy_center_set_stage', {p_center:id, p_stage:stage});
+  if(!(await dbCheck(r,'تغيير مرحلة المركز'))){ render(); return; }
+  const c = (state.centers||[]).find(x=>x.id===id); if(c) c.stage = stage;
+  showToast('تم تغيير المرحلة','success'); render();
+}
+async function cxSaveCenterSettings(){
+  const id = state.cx.centerId; const c = (state.centers||[]).find(x=>x.id===id); if(!c) return;
+  const g = k => (document.getElementById(k)||{}).value;
+  const pct = v => (String(v||'').trim()==='' ? null : cxN(v));
+  const row = {client_id: g('cxs_client')||null, balance_control: !!(document.getElementById('cxs_ctl')||{}).checked,
+    overdraft_limit: cxN(g('cxs_od')), company_share_pct: pct(g('cxs_pct')), support_share_pct: pct(g('cxs_spct'))};
+  const r = await db.from('centers').update(row).eq('id', id);
+  if(!(await dbCheck(r,'حفظ إعدادات المركز'))) return;
+  c.clientId = row.client_id; c.balanceControl = row.balance_control; c.overdraftLimit = row.overdraft_limit; c.companySharePct = row.company_share_pct; c.supportSharePct = row.support_share_pct;
+  showToast('تم حفظ إعدادات المركز','success'); render();
+}
+function cxPctFor(c, support){
+  const co = cxCo();
+  return support ? (c.supportSharePct!=null ? c.supportSharePct : co.supportCompanyPct) : (c.companySharePct!=null ? c.companySharePct : co.gatewayCompanyPct);
+}
+
+// ---------- إدخال حركة يدوي ----------
+function cxEntryMode(){ const el = document.getElementById('cxe_mode'); return el ? el.value : 'gross'; }
+function cxEntryRead(){
+  const c = (state.centers||[]).find(x=>x.id===state.cx.centerId) || {};
+  const g = k => (document.getElementById(k)||{}).value;
+  const kind = g('cxe_kind') || 'subscription', mode = g('cxe_mode') || 'gross';
+  const defPct = (kind==='manual' || kind==='adjust') ? 0 : cxPctFor(c, kind==='support');
+  let gross = 0, fee = 0, share = 0, net = 0, pct = defPct;
+  if(mode==='net'){
+    share = cxN(g('cxe_share_amt')); net = cxN(g('cxe_net')); fee = cxN(g('cxe_fee'));
+    gross = cxR3(net + share + fee); const base = gross - fee; pct = base ? share/base*100 : 0;
+  } else {
+    gross = cxN(g('cxe_gross')); fee = cxN(g('cxe_fee'));
+    const fp = cxN(g('cxe_fee_pct')); if(!fee && fp) fee = cxR3(gross*fp/100);
+    const sp = String(g('cxe_pct')||'').trim(); if(sp!=='') pct = cxN(sp);
+    share = cxR3((gross-fee)*pct/100); net = cxR3(gross-fee-share);
+  }
+  return {kind, mode, gross:cxR3(gross), fee:cxR3(fee), pct, share:cxR3(share), net:cxR3(net)};
+}
+function cxEntryPreview(){
+  const el = document.getElementById('cxe_prev'); if(!el) return;
+  const e = cxEntryRead();
+  el.innerHTML = `المبلغ الكلي ${fmtKWDHtml(e.gross)} − رسوم البوابة ${fmtKWDHtml(e.fee)} = ${fmtKWDHtml(e.gross-e.fee)} · حصة الشركة (${cxR3(e.pct)}%) ${fmtKWDHtml(e.share)} · <b>الصافي للمركز ${fmtKWDHtml(e.net)} د.ك</b>`;
+}
+function cxEntryModeChange(){ render(); setTimeout(cxEntryPreview, 0); }
+async function cxSaveEntry(){
+  const id = state.cx.centerId; if(!id) return;
+  const e = cxEntryRead(), g = k => (document.getElementById(k)||{}).value;
+  if(!e.gross && !e.net){ showToast('أدخل المبلغ','error'); return; }
+  const date = g('cxe_date') || cxToday();
+  const r = await db.rpc('qy_ledger_add', {p_center:id, p_kind:e.kind, p_date:date, p_from:g('cxe_from')||null, p_to:g('cxe_to')||null,
+    p_gross:e.gross, p_fee:e.fee, p_share_pct:(e.kind==='manual'||e.kind==='adjust'||e.mode==='net') ? e.pct : (String(g('cxe_pct')||'').trim()==='' ? null : cxN(g('cxe_pct'))),
+    p_purpose:(g('cxe_purpose')||'').trim()||null, p_note:(g('cxe_note')||'').trim()||null});
+  if(!(await dbCheck(r,'تسجيل حركة'))) return;
+  showToast('تم تسجيل الحركة','success'); await cxLoadLedger();
+}
+async function cxSaveOpening(){
+  const id = state.cx.centerId; if(!id) return;
+  const amt = cxN((document.getElementById('cxo_amt')||{}).value), date = (document.getElementById('cxo_date')||{}).value || cxToday();
+  if(!amt && amt!==0){ showToast('أدخل المبلغ','error'); return; }
+  const r = await db.rpc('qy_ledger_add', {p_center:id, p_kind:'opening', p_date:date, p_from:null, p_to:null, p_gross:amt, p_fee:0, p_share_pct:0, p_purpose:'رصيد افتتاحي', p_note:null});
+  if(!(await dbCheck(r,'تسجيل الرصيد الافتتاحي'))) return;
+  showToast('تم تسجيل الرصيد الافتتاحي','success'); await cxLoadLedger(); cxLoadBalances();
+}
+async function cxVoid(id, v){
+  if(!confirm(v ? 'إلغاء هذه الحركة؟\n\nتخرج من رصيد المركز ويمكن استرجاعها.' : 'استرجاع هذه الحركة؟')) return;
+  const r = await db.rpc('qy_ledger_void', {p_id:id, p_void:v});
+  if(!(await dbCheck(r,'تعديل حالة الحركة'))) return;
+  await cxLoadLedger();
+}
+function cxSearch(v){ state.cx.q = v||''; const a = document.getElementById('cxLedgerBody'); if(a) a.innerHTML = cxLedgerRowsHtml(); }
+
+function cxLedgerRowsHtml(){
+  const q = String(state.cx.q||'').trim().toLowerCase();
+  const imp = cxIsImporter(), fin = cxIsFin();
+  const list = (state.cx.ledger||[]).filter(x=>{
+    if(!q) return true;
+    const p = state.cx.payers[x.id] || {};
+    return [x.purpose, x.note, x.agent, x.method, p.payer_name, p.payer_phone, CX_LEDGER_KIND[x.kind]].some(t=>String(t||'').toLowerCase().includes(q));
+  });
+  if(!list.length) return `<tr><td colspan="${imp?10:9}" class="sub">لا توجد حركات.</td></tr>`;
+  return list.map(x=>{
+    const p = state.cx.payers[x.id] || {}, st = x.voided ? 'text-decoration:line-through;opacity:.55;' : '';
+    return `<tr style="${st}"><td>${cxDate(x.entry_date)}</td><td>${escH(CX_LEDGER_KIND[x.kind]||x.kind)}${x.method ? ` <span class="file-hint">${escH(x.method)}</span>` : ''}</td>
+      <td>${escH(x.purpose||'')}${x.period_from ? ` <div class="file-hint">${cxDate(x.period_from)} ← ${cxDate(x.period_to)}</div>` : ''}${x.note ? `<div class="file-hint">${escH(x.note)}</div>` : ''}</td>
+      <td>${fmtKWDHtml(x.gross)}</td><td>${fmtKWDHtml(x.gateway_fee)}</td><td>${x.company_share==null ? '—' : fmtKWDHtml(x.company_share)}</td><td><b>${x.net==null ? '—' : fmtKWDHtml(x.net)}</b></td>
+      ${imp ? `<td>${p.payer_name ? escH(p.payer_name) : ''}${p.payer_phone ? ` <bdi dir="ltr" class="file-hint">${escH(p.payer_phone)}</bdi>` : ''}</td>` : ''}
+      <td>${x.agent ? escH(x.agent) : ''}</td>
+      <td>${fin && x.kind!=='opening' || fin && x.voided ? `<button class="btn ${x.voided?'btn-ghost':'btn-reject'} btn-xs" style="width:auto;padding:0 10px;" data-on-click="cxVoid" data-on-click-args="${qa([x.id, !x.voided])}">${x.voided ? 'استرجاع' : 'حذف'}</button>` : ''}</td></tr>`;
+  }).join('');
+}
+
+function cxEntryFormHtml(c){
+  const mode = (cxEntryMode()==='net') ? 'net' : 'gross';
+  const f = (id, label, ph, w) => `<div style="--fw:${w||150}px;"><label>${label}</label><input id="${id}" type="text" inputmode="decimal" dir="ltr" placeholder="${ph||''}" data-on-input="cxEntryPreview"></div>`;
+  return `<div class="card"><h2>تسجيل حركة يدوية</h2>
+    <div class="row">
+      <div style="--fw:170px;"><label>النوع</label><select id="cxe_kind" data-on-change="cxEntryModeChange"><option value="subscription">اشتراكات</option><option value="support">دعم</option><option value="manual">إيراد يدوي</option><option value="adjust">تسوية</option></select></div>
+      <div style="--fw:200px;"><label>طريقة الإدخال</label><select id="cxe_mode" data-on-change="cxEntryModeChange"><option value="gross" ${mode==='gross'?'selected':''}>المبلغ الكلي</option><option value="net" ${mode==='net'?'selected':''}>حصة الشركة والصافي</option></select></div>
+      <div style="--fw:160px;"><label>تاريخ الدفع</label><input id="cxe_date" type="date" value="${cxToday()}"></div>
+      <div style="--fw:160px;"><label>الفترة من</label><input id="cxe_from" type="date"></div>
+      <div style="--fw:160px;"><label>إلى</label><input id="cxe_to" type="date"></div>
+    </div>
+    <div class="row">
+      ${mode==='gross'
+        ? f('cxe_gross','المبلغ الكلي','0.000') + f('cxe_fee','رسوم البوابة (مبلغ)','0.000') + f('cxe_fee_pct','أو نسبة البوابة %','0') + f('cxe_pct','نسبة الشركة % (فارغ = الافتراضي)','')
+        : f('cxe_net','الصافي للمركز','0.000') + f('cxe_share_amt','حصة الشركة','0.000') + f('cxe_fee','رسوم البوابة (اختياري)','0.000')}
+      <div style="--fw:240px;"><label>الغرض</label><input id="cxe_purpose" type="text"></div>
+      <div style="--fw:240px;"><label>ملاحظة</label><input id="cxe_note" type="text"></div>
+    </div>
+    <div id="cxe_prev" class="file-hint" style="margin:8px 0;line-height:1.9;"></div>
+    <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="cxSaveEntry">تسجيل</button>
+  </div>`;
+}
+
+function cxCenterDetailHtml(){
+  const id = state.cx.centerId, c = (state.centers||[]).find(x=>x.id===id);
+  if(!c) return '<div class="card">المركز غير موجود.</div>';
+  const b = (state.cx.balances||[]).find(x=>x.center_id===id) || {income:0,expense:0,balance:0,pending_requests:0};
+  const fin = cxIsFin(), adm = cxIsAdmin();
+  const hasOpening = (state.cx.ledger||[]).some(x=>x.kind==='opening' && !x.voided);
+  const bal = Number(b.balance||0), neg = bal < 0;
+  const stageSel = fin
+    ? `<select data-on-change="cxSetStage" data-on-change-args="${qa([id, QA.v])}" style="width:auto;min-width:150px;">${CX_STAGES.map(s=>`<option value="${s[0]}" ${c.stage===s[0]?'selected':''}>${s[1]}</option>`).join('')}</select>`
+    : `<span class="badge">${escH(cxStageLabel(c.stage))}</span>`;
+  const users = cxUsersOfCompany(), acc = state.cx.accessRows||[];
+  return `
+    <div style="margin-bottom:10px;"><button class="btn btn-ghost" style="width:auto;padding:0 18px;min-height:40px;" data-on-click="cxBackToCenters">← كل المراكز</button></div>
+    <h1>${escH(c.name)}</h1>
+    <p class="sub">${c.clientId ? 'يتبع: '+escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'} · المرحلة: ${stageSel}</p>
+    <div class="card" style="display:flex;gap:18px;flex-wrap:wrap;">
+      <div><div class="file-hint">الدخل الصافي</div><div style="font-size:20px;font-weight:800;">${fmtKWDHtml(b.income)}</div></div>
+      <div><div class="file-hint">المصروف المكتمل</div><div style="font-size:20px;font-weight:800;">${fmtKWDHtml(b.expense)}</div></div>
+      <div><div class="file-hint">الرصيد</div><div style="font-size:20px;font-weight:800;color:${neg?'var(--red)':'inherit'};">${fmtKWDHtml(bal)}</div></div>
+      <div><div class="file-hint">طلبات مفتوحة</div><div style="font-size:20px;font-weight:800;">${fmtKWDHtml(b.pending_requests)}</div></div>
+      ${c.balanceControl ? `<div><div class="file-hint">حد الصرف بالسالب</div><div style="font-size:20px;font-weight:800;">${fmtKWDHtml(c.overdraftLimit)}</div></div>` : ''}
+    </div>
+    ${fin && !hasOpening ? `<div class="card"><h2>رصيد افتتاحي</h2><p class="file-hint">رصيد المركز عند بدء استخدام النظام. يُسجَّل مرة واحدة.</p>
+      <div class="row"><div style="--fw:170px;"><label>المبلغ</label><input id="cxo_amt" type="text" inputmode="decimal" dir="ltr" placeholder="0.000"></div>
+      <div style="--fw:170px;"><label>بتاريخ</label><input id="cxo_date" type="date" value="${cxToday()}"></div></div>
+      <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;margin-top:8px;" data-on-click="cxSaveOpening">تسجيل الرصيد الافتتاحي</button></div>` : ''}
+    ${fin ? cxEntryFormHtml(c) : ''}
+    ${adm ? `<div class="card"><h2>إعدادات المركز</h2>
+      <div class="row">
+        <div style="--fw:260px;"><label>يتبع العميل</label><select id="cxs_client"><option value="">— غير مرتبط —</option>${cxClientTree().map(({c:cl,depth})=>`<option value="${cl.id}" ${cl.id===c.clientId?'selected':''}>${'— '.repeat(depth)}${escH(cl.name)}</option>`).join('')}</select></div>
+        <div style="--fw:210px;"><label>نسبة الشركة من الاشتراكات % (فارغ = الافتراضي ${cxCo().gatewayCompanyPct}%)</label><input id="cxs_pct" type="text" inputmode="decimal" dir="ltr" value="${c.companySharePct==null?'':c.companySharePct}"></div>
+        <div style="--fw:210px;"><label>نسبة الشركة من الدعم % (فارغ = الافتراضي ${cxCo().supportCompanyPct}%)</label><input id="cxs_spct" type="text" inputmode="decimal" dir="ltr" value="${c.supportSharePct==null?'':c.supportSharePct}"></div>
+        <div style="--fw:200px;"><label>حد الصرف بالسالب (د.ك)</label><input id="cxs_od" type="text" inputmode="decimal" dir="ltr" value="${c.overdraftLimit||0}"></div>
+      </div>
+      <label class="check-line" style="display:flex;align-items:center;gap:8px;margin:10px 0;"><input id="cxs_ctl" type="checkbox" style="width:auto;" ${c.balanceControl?'checked':''}> ضبط الرصيد: يُمنع طلب جديد يتجاوز الرصيد المتاح مع حد السالب</label>
+      <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="cxSaveCenterSettings">حفظ الإعدادات</button>
+    </div>
+    <div class="card"><h2>من يرى هذا المركز</h2>
+      <p class="file-hint">الافتراضي: عاملو المركز والمالية والمدير التنفيذي. «يسمح» يضيف مستخدماً، و«يمنع» يحجبه.</p>
+      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>المستخدم</th><th>الدور</th><th>الرؤية</th></tr></thead><tbody>
+      ${users.map(u=>{ const a = acc.find(x=>x.user_id===u.id); const m = a ? a.mode : '';
+        return `<tr><td>${escH(u.name)}</td><td>${escH(findRole(u.role) ? findRole(u.role).name : u.role)}</td><td><select data-on-change="cxSetAccess" data-on-change-args="${qa([u.id, QA.v])}" style="width:auto;min-width:130px;">
+          <option value="" ${m===''?'selected':''}>افتراضي</option><option value="allow" ${m==='allow'?'selected':''}>يسمح</option><option value="deny" ${m==='deny'?'selected':''}>يمنع</option></select></td></tr>`; }).join('')}
+      </tbody></table></div></div>` : ''}
+    <div class="card"><h2>دفتر المركز</h2>
+      <div style="margin-bottom:10px;"><input type="text" placeholder="بحث: الدافع، الهاتف، الغرض، المنشئ…" value="${escH(state.cx.q||'')}" data-on-input="cxSearch" data-on-input-args="${qa([QA.v])}"></div>
+      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>التاريخ</th><th>النوع</th><th>الغرض</th><th>المبلغ</th><th>الرسوم</th><th>حصة الشركة</th><th>الصافي</th>${cxIsImporter()?'<th>الدافع</th>':''}<th>المنشئ</th><th></th></tr></thead>
+      <tbody id="cxLedgerBody">${cxLedgerRowsHtml()}</tbody></table></div></div>`;
+}
+
+function renderCenterBooks(app){
+  if(!canSeeCenterBooks()){ state.view='dashboard'; render(); return; }
+  if(state.cx.centerId){ app.innerHTML = cxCenterDetailHtml(); setTimeout(cxEntryPreview, 0); return; }
+  const cid = cxCid(), bal = state.cx.balances||[];
+  const rows = bal.map(b=>{ const c = (state.centers||[]).find(x=>x.id===b.center_id); return c ? {c, b} : null; }).filter(Boolean)
+    .sort((x,y)=>String(x.c.name).localeCompare(String(y.c.name),'ar'));
+  const tot = rows.reduce((a,{b})=>({i:a.i+Number(b.income||0), e:a.e+Number(b.expense||0), n:a.n+Number(b.balance||0)}), {i:0,e:0,n:0});
+  app.innerHTML = `
+    <h1>دفاتر المراكز</h1>
+    <p class="sub">دخل كل مركز ومصروفه ورصيده. الدخل صافٍ بعد رسوم البوابة وحصة الشركة، والمصروف من الطلبات المكتملة.</p>
+    <div class="card"><div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>المركز</th><th>العميل</th><th>المرحلة</th><th>الدخل الصافي</th><th>المصروف</th><th>الرصيد</th><th>طلبات مفتوحة</th><th></th></tr></thead><tbody>
+    ${rows.map(({c,b})=>`<tr><td><b>${escH(c.name)}</b></td><td>${c.clientId ? escH(cxClientName(c.clientId)) : '—'}</td><td>${escH(cxStageLabel(c.stage))}</td>
+      <td>${fmtKWDHtml(b.income)}</td><td>${fmtKWDHtml(b.expense)}</td><td style="${Number(b.balance)<0?'color:var(--red);font-weight:800;':'font-weight:800;'}">${fmtKWDHtml(b.balance)}</td><td>${fmtKWDHtml(b.pending_requests)}</td>
+      <td><button class="btn btn-ghost btn-xs" style="width:auto;padding:0 14px;" data-on-click="cxOpenCenter" data-on-click-args="${qa([c.id])}">فتح</button></td></tr>`).join('') || `<tr><td colspan="8" class="sub">لا توجد مراكز متاحة لك.</td></tr>`}
+    ${rows.length>1 ? `<tr style="font-weight:800;"><td colspan="3">المجموع</td><td>${fmtKWDHtml(tot.i)}</td><td>${fmtKWDHtml(tot.e)}</td><td>${fmtKWDHtml(tot.n)}</td><td colspan="2"></td></tr>` : ''}
+    </tbody></table></div></div>`;
+}
+
+// ===================== استيراد بوابة الدفع =====================
+function openGwImport(){ state.view='gwImport'; state.cx.imp = state.cx.imp || {accountId:'', stmt:null, bills:null, rows:null, info:null}; render(); window.scrollTo(0,0); gwLoad(); }
+async function gwLoad(){
+  const cid = cxCid();
+  const [a, b, c, d] = await Promise.all([
+    db.from('gateway_accounts').select('*').eq('company_id', cid),
+    db.from('gateway_agents').select('*').eq('company_id', cid),
+    db.from('gateway_imports').select('id,company_id,account_id,kind,file_name,date_from,date_to,rows_count,uploaded_by,uploaded_at').eq('company_id', cid).order('uploaded_at', {ascending:false}).limit(60),
+    db.from('center_ledger').select('*').eq('company_id', cid).is('center_id', null).eq('voided', false).order('entry_date', {ascending:false}).limit(500)
+  ]);
+  state.cx.gwAccounts = (a && a.data) || []; state.cx.gwAgents = (b && b.data) || [];
+  state.cx.imports = ((c && c.data) || []); state.cx.pending = (d && d.data) || [];
+  const pid = state.cx.pending.map(x=>x.id); state.cx.payers = {};
+  for(let i=0;i<pid.length;i+=200){ const p = await db.from('center_ledger_payers').select('*').in('ledger_id', pid.slice(i,i+200)); (p.data||[]).forEach(x=>{ state.cx.payers[x.ledger_id] = x; }); }
+  const im = state.cx.imp; if(im && !im.accountId && state.cx.gwAccounts.length) im.accountId = state.cx.gwAccounts[0].id;
+  if(state.view==='gwImport') render();
+}
+// محلّل CSV يدعم BOM والاقتباس
+function gwParseCsv(text){
+  text = String(text||'').replace(/^﻿/, '');
+  const rows = []; let row = [], cur = '', q = false;
+  for(let i=0;i<text.length;i++){
+    const ch = text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=ch; }
+    else if(ch==='"') q = true;
+    else if(ch===','){ row.push(cur); cur=''; }
+    else if(ch==='\n' || ch==='\r'){ if(ch==='\r' && text[i+1]==='\n') i++; row.push(cur); cur=''; if(row.length>1 || row[0]!=='') rows.push(row); row=[]; }
+    else cur+=ch;
+  }
+  if(cur!=='' || row.length){ row.push(cur); rows.push(row); }
+  if(!rows.length) return [];
+  const h = rows[0].map(x=>String(x).trim().toLowerCase());
+  return rows.slice(1).map(r=>{ const o = {}; h.forEach((k,i)=>{ o[k] = (r[i]==null?'':String(r[i])).trim(); }); return o; });
+}
+// "dd/mm/yy hh:mm AM" أو "dd/mm/yyyy" => yyyy-mm-dd
+function gwDate(s){
+  const m = String(s||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(!m) return null;
+  let y = m[3].length===2 ? '20'+m[3] : m[3];
+  return `${y}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+}
+function gwFindKey(o, names){ for(const n of names){ if(n in o) return n; } return null; }
+function gwPick(kind, el){
+  const f = el && el.files && el.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const text = String(rd.result||''), rows = gwParseCsv(text);
+    if(!rows.length){ showToast('الملف فارغ أو غير مقروء','error'); return; }
+    const im = state.cx.imp; im[kind==='statement'?'stmt':'bills'] = {name:f.name, text, rows};
+    im.rows = null; im.info = null; render();
+  };
+  rd.onerror = () => showToast('تعذّر قراءة الملف','error');
+  rd.readAsText(f, 'utf-8');
+}
+function gwSetAccount(v){ state.cx.imp.accountId = v; }
+async function gwAddAccount(){
+  const n = ((document.getElementById('gw_acc_name')||{}).value||'').trim(); if(!n){ showToast('أدخل اسم الحساب','error'); return; }
+  const r = await db.from('gateway_accounts').insert({company_id:cxCid(), name:n});
+  if(!(await dbCheck(r,'إضافة حساب بوابة'))) return; await gwLoad();
+}
+async function gwMapAgent(agent, centerId){
+  const accountId = state.cx.imp.accountId || null;
+  const old = state.cx.gwAgents.find(x=>x.agent_name===agent && (x.account_id||null)===accountId);
+  let r;
+  if(!centerId && old) r = await db.from('gateway_agents').delete().eq('id', old.id);
+  else if(centerId) r = await db.from('gateway_agents').upsert({company_id:cxCid(), account_id:accountId, agent_name:agent, center_id:centerId}, {onConflict:'company_id,account_id,agent_name'});
+  else return;
+  if(!(await dbCheck(r,'حفظ ربط الجهة بالمركز'))) return;
+  const g = await db.from('gateway_agents').select('*').eq('company_id', cxCid()); state.cx.gwAgents = g.data||[];
+  if(state.cx.imp.rows) gwBuild(); else render();
+}
+function gwAgentCenter(agent){
+  const accountId = state.cx.imp.accountId || null;
+  const m = state.cx.gwAgents.find(x=>x.agent_name===agent && (x.account_id||null)===accountId);
+  return m ? m.center_id : null;
+}
+function gwBuild(){
+  const im = state.cx.imp;
+  if(!im.stmt){ showToast('اختر ملف كشف الحساب','error'); return; }
+  const bills = {};
+  if(im.bills) im.bills.rows.forEach(b=>{ const k = String(b.invoice_number||'').trim(); if(k) bills[k] = b; });
+  const st = im.stmt.rows, fees = {};
+  st.forEach(r=>{ if(/^fee/i.test(r.description||'')){ const k = r.charge_id||''; if(k) fees[k] = (fees[k]||0) + cxN(r.debit); } });
+  const out = [], skipped = {transfers:0, fees:0, other:0};
+  let dFrom = null, dTo = null;
+  st.forEach(r=>{
+    const d = gwDate(r.txndate) || gwDate(r.postdate);
+    if(d){ if(!dFrom || d<dFrom) dFrom = d; if(!dTo || d>dTo) dTo = d; }
+    const desc = r.description||'';
+    if(/^transfer/i.test(desc)){ skipped.transfers++; return; }
+    if(/^fee/i.test(desc)){ skipped.fees++; return; }
+    if(!/^sale/i.test(desc)){ skipped.other++; return; }
+    const gross = cxN(r.credit); if(!gross) return;
+    const b = bills[String(r.reference_order||'').trim()] || null;
+    const agent = b ? (b.agent||'') : '';
+    const nm = b ? [b.customer_first_name, b.customer_last_name].filter(Boolean).join(' ') : desc.replace(/^sale\s*-\s*/i,'');
+    out.push({receipt:(r.receipt||r.charge_id||'').trim(), txn_date:d||cxToday(), gross:cxR3(gross), fee:cxR3(fees[r.charge_id||'']||0),
+      method:r.payment_method||(b&&b.payment_method)||'', purpose:b ? (b.description||'') : '', agent, payer_name:nm, payer_phone:b ? (b.customer_phone||'') : '', matched:!!b});
+  });
+  const ex = new Set(); const rc = out.map(x=>x.receipt).filter(Boolean);
+  im.rows = out; im.info = {from:dFrom, to:dTo, skipped, rcDup:0, total:out.length};
+  gwCheckDup(rc).then(set => { im.rows.forEach(x=>{ x.dup = set.has(x.receipt); }); im.info.rcDup = im.rows.filter(x=>x.dup).length; if(state.view==='gwImport') render(); });
+  render();
+}
+async function gwCheckDup(list){
+  const set = new Set();
+  for(let i=0;i<list.length;i+=200){
+    const r = await db.from('center_ledger').select('receipt').eq('company_id', cxCid()).in('receipt', list.slice(i,i+200));
+    (r.data||[]).forEach(x=>set.add(x.receipt));
+  }
+  return set;
+}
+function gwRowCenter(x){ return x.agent ? gwAgentCenter(x.agent) : null; }
+function gwCalc(x){
+  const cid = gwRowCenter(x), c = (state.centers||[]).find(t=>t.id===cid);
+  if(!c) return {center:null, share:null, net:null, pct:null};
+  const pct = cxPctFor(c, false), share = cxR3((x.gross-x.fee)*pct/100);
+  return {center:c, pct, share, net:cxR3(x.gross-x.fee-share)};
+}
+async function gwCommit(){
+  const im = state.cx.imp; if(!im.rows) return;
+  const rows = im.rows.filter(x=>!x.dup && x.receipt).map(x=>({receipt:x.receipt, txn_date:x.txn_date, gross:x.gross, fee:x.fee, method:x.method, purpose:x.purpose,
+    agent:x.agent, payer_name:x.payer_name, payer_phone:x.payer_phone, center_id:gwRowCenter(x)||''}));
+  if(!rows.length){ showToast('لا توجد حركات جديدة للاعتماد','error'); return; }
+  if(!confirm(`اعتماد ${rows.length} حركة؟\n\nالحركات غير المرتبطة بمركز تبقى معلّقة خارج الأرصدة.`)) return;
+  const dts = rows.map(x=>x.txn_date).sort();
+  const files = [{kind:'statement', file_name:im.stmt.name, date_from:im.info.from, date_to:im.info.to, rows_count:im.stmt.rows.length, content:im.stmt.text}];
+  if(im.bills){
+    const bd = im.bills.rows.map(b=>gwDate(b.transaction_date)||gwDate(b.created)).filter(Boolean).sort();
+    files.push({kind:'bills', file_name:im.bills.name, date_from:bd[0]||null, date_to:bd[bd.length-1]||null, rows_count:im.bills.rows.length, content:im.bills.text});
+  }
+  const r = await db.rpc('qy_gateway_commit', {p_company:cxCid(), p_account:im.accountId||'', p_rows:rows, p_files:files});
+  if(!(await dbCheck(r,'اعتماد الاستيراد'))) return;
+  const d = r.data||{};
+  showToast(`تمت إضافة ${d.inserted||0} حركة${d.duplicates?` · مكرر ${d.duplicates}`:''}${d.pending?` · معلّق ${d.pending}`:''}`,'success');
+  state.cx.imp = {accountId:im.accountId, stmt:null, bills:null, rows:null, info:null};
+  await loadCxLight(); await gwLoad();
+}
+function gwCancel(){ state.cx.imp = {accountId:state.cx.imp.accountId, stmt:null, bills:null, rows:null, info:null}; render(); }
+async function gwAssign(id, centerId){
+  if(!centerId) return;
+  const r = await db.rpc('qy_ledger_assign', {p_ids:[id], p_center:centerId});
+  if(!(await dbCheck(r,'تصنيف الحركة'))) return;
+  showToast('تم التصنيف','success'); await gwLoad();
+}
+async function gwDownload(id){
+  const r = await db.rpc('qy_gateway_file', {p_id:id});
+  if(!(await dbCheck(r,'تنزيل الملف'))) return;
+  const f = Array.isArray(r.data) ? r.data[0] : r.data; if(!f){ showToast('الملف غير موجود','error'); return; }
+  const blob = new Blob(['﻿', f.content||''], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = f.file_name || 'gateway.csv';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+async function gwToggleImporter(userId, on){
+  const cid = cxCid(); let r;
+  if(on) r = await db.from('gateway_import_users').upsert({company_id:cid, user_id:userId}, {onConflict:'company_id,user_id'});
+  else r = await db.from('gateway_import_users').delete().eq('company_id', cid).eq('user_id', userId);
+  if(!(await dbCheck(r,'حفظ مستخدمي الرفع'))) return;
+  const g = await db.from('gateway_import_users').select('*'); state.cx.importers = g.data||[]; showToast('تم الحفظ','success'); render();
+}
+async function gwSaveSettings(){
+  const g = k => (document.getElementById(k)||{}).value;
+  const row = {gateway_company_pct:cxN(g('gws_gw')), support_company_pct:cxN(g('gws_sp')), import_stale_days:Math.max(1, Math.round(cxN(g('gws_days'))||7))};
+  const r = await db.from('companies').update(row).eq('id', cxCid());
+  if(!(await dbCheck(r,'حفظ إعدادات الاستيراد'))) return;
+  const co = (state.companies||[]).find(c=>c.id===cxCid());
+  if(co){ co.gatewayCompanyPct = row.gateway_company_pct; co.supportCompanyPct = row.support_company_pct; co.importStaleDays = row.import_stale_days; }
+  showToast('تم الحفظ','success'); render();
+}
+
+function gwPreviewHtml(){
+  const im = state.cx.imp; if(!im.rows) return '';
+  const centers = (state.centers||[]).filter(c=>c.stage!=='closed').sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const agents = [...new Set(im.rows.map(x=>x.agent).filter(Boolean))].sort();
+  const noBill = im.rows.filter(x=>!x.matched).length, fresh = im.rows.filter(x=>!x.dup);
+  const unmapped = fresh.filter(x=>!gwRowCenter(x)).length;
+  const sum = fresh.reduce((a,x)=>{ const k = gwCalc(x); return {g:a.g+x.gross, f:a.f+x.fee, s:a.s+(k.share||0), n:a.n+(k.net||0)}; }, {g:0,f:0,s:0,n:0});
+  // ملخص لكل مركز
+  const by = {};
+  fresh.forEach(x=>{ const k = gwCalc(x), key = k.center ? k.center.id : '_'; const o = by[key] = by[key] || {name:k.center?k.center.name:'غير مصنّف (معلّق)', n:0, g:0, f:0, s:0, net:0}; o.n++; o.g+=x.gross; o.f+=x.fee; o.s+=k.share||0; o.net+=k.net||0; });
+  return `<div class="card"><h2>معاينة قبل الاعتماد</h2>
+    <p class="file-hint">الفترة: ${cxDate(im.info.from)} ← ${cxDate(im.info.to)} · عدد المبيعات ${im.info.total} · مكررة (موجودة سابقاً) ${im.rows.filter(x=>x.dup).length} · بلا فاتورة مطابقة ${noBill} · تحويلات بنكية مُتجاهَلة ${im.info.skipped.transfers}</p>
+    ${agents.length ? `<h2 style="margin-top:14px;">ربط الجهة بالمركز</h2><p class="file-hint">يُحفظ مرة واحدة ويُستخدم تلقائياً في الرفعات القادمة.</p>
+      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>الجهة (agent)</th><th>المركز</th></tr></thead><tbody>
+      ${agents.map(a=>`<tr><td>${escH(a)}</td><td><select data-on-change="gwMapAgent" data-on-change-args="${qa([a, QA.v])}" style="min-width:220px;"><option value="">— غير مصنّف —</option>${centers.map(c=>`<option value="${c.id}" ${gwAgentCenter(a)===c.id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></td></tr>`).join('')}
+      </tbody></table></div>` : ''}
+    <h2 style="margin-top:14px;">الملخص حسب المركز</h2>
+    <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>المركز</th><th>العدد</th><th>الإجمالي</th><th>رسوم البوابة</th><th>حصة الشركة</th><th>الصافي للمركز</th></tr></thead><tbody>
+    ${Object.values(by).map(o=>`<tr><td>${escH(o.name)}</td><td>${o.n}</td><td>${fmtKWDHtml(o.g)}</td><td>${fmtKWDHtml(o.f)}</td><td>${fmtKWDHtml(o.s)}</td><td>${fmtKWDHtml(o.net)}</td></tr>`).join('')}
+    <tr style="font-weight:800;"><td>المجموع</td><td>${fresh.length}</td><td>${fmtKWDHtml(sum.g)}</td><td>${fmtKWDHtml(sum.f)}</td><td>${fmtKWDHtml(sum.s)}</td><td>${fmtKWDHtml(sum.n)}</td></tr>
+    </tbody></table></div>
+    ${unmapped ? `<p class="file-hint" style="color:var(--red);">${unmapped} حركة بلا مركز؛ ستُحفظ معلّقة خارج الأرصدة حتى يصنّفها المحاسب.</p>` : ''}
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="gwCommit">اعتماد الاستيراد</button>
+      <button class="btn btn-ghost" style="width:auto;padding:0 22px;min-height:40px;" data-on-click="gwCancel">إلغاء</button></div></div>`;
+}
+
+function renderGwImport(app){
+  if(!canSeeGwImport()){ state.view='dashboard'; render(); return; }
+  const im = state.cx.imp || (state.cx.imp = {accountId:'', stmt:null, bills:null, rows:null, info:null});
+  const fin = cxIsFin(), adm = cxIsAdmin(), co = cxCo();
+  const centers = (state.centers||[]).filter(c=>c.stage!=='closed').sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const hist = (state.cx.imports||[]).filter(x=>x.file_name);
+  app.innerHTML = `
+    <h1>استيراد بوابة الدفع</h1>
+    <p class="sub">ارفع كشف الحساب وملف الفواتير (CSV) من بوابة الدفع. تُطابَق المبيعات مع الفواتير، وتُراجَع قبل الاعتماد.</p>
+    ${cxStaleBannerHtml(false)}
+    <div class="card"><h2>رفع الملفات</h2>
+      <div class="row">
+        <div style="--fw:220px;"><label>حساب البوابة</label><select data-on-change="gwSetAccount" data-on-change-args="${qa([QA.v])}">${(state.cx.gwAccounts||[]).map(a=>`<option value="${a.id}" ${a.id===im.accountId?'selected':''}>${escH(a.name)}</option>`).join('') || '<option value="">— لا يوجد —</option>'}</select></div>
+        ${fin ? `<div style="--fw:200px;"><label>حساب جديد</label><input id="gw_acc_name" type="text" placeholder="مثال: Tap الرئيسي"></div>
+        <div style="--fw:90px;align-self:end;"><button class="btn btn-ghost" style="width:auto;padding:0 16px;min-height:40px;" data-on-click="gwAddAccount">إضافة</button></div>` : ''}
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div style="--fw:300px;"><label>كشف الحساب (statement.csv) ${im.stmt?`<span class="file-hint">· ${escH(im.stmt.name)}</span>`:''}</label><input type="file" accept=".csv,text/csv" data-on-change="gwPick" data-on-change-args="${qa(['statement', QA.t])}"></div>
+        <div style="--fw:300px;"><label>الفواتير (bills.csv) ${im.bills?`<span class="file-hint">· ${escH(im.bills.name)}</span>`:''}</label><input type="file" accept=".csv,text/csv" data-on-change="gwPick" data-on-change-args="${qa(['bills', QA.t])}"></div>
+      </div>
+      <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;margin-top:10px;" data-on-click="gwBuild" ${im.stmt?'':'disabled'}>تحليل ومعاينة</button>
+    </div>
+    ${gwPreviewHtml()}
+    <div class="card"><h2>حركات معلّقة (بلا مركز)</h2><p class="file-hint">خارج أرصدة المراكز حتى تُصنَّف.</p>
+      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>التاريخ</th><th>المبلغ</th><th>الرسوم</th><th>الدافع</th><th>الجهة</th><th>الغرض</th><th>المركز</th></tr></thead><tbody>
+      ${(state.cx.pending||[]).map(x=>{ const p = state.cx.payers[x.id]||{};
+        return `<tr><td>${cxDate(x.entry_date)}</td><td>${fmtKWDHtml(x.gross)}</td><td>${fmtKWDHtml(x.gateway_fee)}</td><td>${escH(p.payer_name||'')}${p.payer_phone?` <bdi dir="ltr" class="file-hint">${escH(p.payer_phone)}</bdi>`:''}</td><td>${escH(x.agent||'')}</td><td>${escH(x.purpose||'')}</td>
+        <td>${fin ? `<select data-on-change="gwAssign" data-on-change-args="${qa([x.id, QA.v])}"><option value="">— اختر —</option>${centers.map(c=>`<option value="${c.id}">${escH(c.name)}</option>`).join('')}</select>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="7" class="sub">لا توجد حركات معلّقة.</td></tr>'}
+      </tbody></table></div></div>
+    <div class="card"><h2>الملفات المرفوعة</h2>
+      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>تاريخ الرفع</th><th>النوع</th><th>الملف</th><th>من</th><th>إلى</th><th>الصفوف</th><th></th></tr></thead><tbody>
+      ${hist.map(x=>`<tr><td>${cxDate(String(x.uploaded_at||'').slice(0,10))}</td><td>${x.kind==='statement'?'كشف حساب':'فواتير'}</td><td>${escH(x.file_name)}</td><td>${cxDate(x.date_from)}</td><td>${cxDate(x.date_to)}</td><td>${x.rows_count}</td>
+        <td><button class="btn btn-ghost btn-xs" style="width:auto;padding:0 12px;" data-on-click="gwDownload" data-on-click-args="${qa([x.id])}">تنزيل</button></td></tr>`).join('') || '<tr><td colspan="7" class="sub">لا توجد ملفات.</td></tr>'}
+      </tbody></table></div></div>
+    ${adm ? `<div class="card"><h2>إعدادات الاستيراد</h2>
+      <div class="row">
+        <div style="--fw:200px;"><label>نسبة الشركة من الاشتراكات % (افتراضي)</label><input id="gws_gw" type="text" inputmode="decimal" dir="ltr" value="${co.gatewayCompanyPct}"></div>
+        <div style="--fw:200px;"><label>نسبة الشركة من الدعم % (افتراضي)</label><input id="gws_sp" type="text" inputmode="decimal" dir="ltr" value="${co.supportCompanyPct}"></div>
+        <div style="--fw:200px;"><label>تنبيه التأخير بعد (أيام)</label><input id="gws_days" type="text" inputmode="numeric" dir="ltr" value="${co.importStaleDays}"></div>
+      </div>
+      <button class="btn btn-primary" style="width:auto;padding:0 22px;min-height:40px;margin:10px 0;" data-on-click="gwSaveSettings">حفظ</button>
+      <h2 style="margin-top:12px;">من يرفع الملفات</h2><p class="file-hint">المحاسب والمدير يرفعون دائماً. اختر موظفين آخرين مثل سكرتير الشركة.</p>
+      <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>المستخدم</th><th>الدور</th><th>يرفع</th></tr></thead><tbody>
+      ${cxUsersOfCompany().map(u=>{ const on = (state.cx.importers||[]).some(x=>x.user_id===u.id && x.company_id===cxCid());
+        return `<tr><td>${escH(u.name)}</td><td>${escH(findRole(u.role)?findRole(u.role).name:u.role)}</td><td><input type="checkbox" style="width:auto;" ${on?'checked':''} data-on-change="gwToggleImporter" data-on-change-args="${qa([u.id, QA.c])}"></td></tr>`; }).join('')}
+      </tbody></table></div></div>` : ''}`;
+}
+
+// ---------- مسار المبلغ في نموذج الطلب ----------
+function cxRouteFieldHtml(d){
+  if(state.editingReqId) return '';
+  const route = d.amountRoute || 'normal';
+  const cs = (state.centers||[]).filter(c=>c.stage!=='closed').sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  if(!cs.length) return '';
+  return `<div class="nr-f nr-wide"><label>مسار المبلغ</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <select id="cxRoute" style="width:auto;min-width:240px;" data-on-change="cxRouteChange">
+        <option value="normal" ${route==='normal'?'selected':''}>صرف عادي (افتراضي)</option>
+        <option value="center" ${route==='center'?'selected':''}>تحويل لمركز (يصير دعماً للمركز)</option>
+        <option value="revenue" ${route==='revenue'?'selected':''}>من الإيرادات (إيراد يدوي للمركز)</option></select>
+      <select id="cxRouteCenter" style="width:auto;min-width:220px;${route==='normal'?'display:none;':''}"><option value="">— اختر المركز —</option>${cs.map(c=>`<option value="${c.id}" ${d.routeCenterId===c.id?'selected':''}>${escH(c.name)}</option>`).join('')}</select>
+    </div>
+    <div class="file-hint">عند اكتمال الصرف يُسجَّل المبلغ دخلاً في دفتر المركز المختار (الدعم بنسبة الشركة المحددة، والإيراد بلا نسبة).</div></div>`;
+}
+function cxRouteChange(){
+  const r = document.getElementById('cxRoute'), c = document.getElementById('cxRouteCenter');
+  if(c && r) c.style.display = r.value==='normal' ? 'none' : '';
+}
+function cxRouteInsert(){
+  const d = state.draft || {};
+  if(!d.amountRoute || d.amountRoute==='normal' || !d.routeCenterId) return {};
+  return {amount_route:d.amountRoute, route_center_id:d.routeCenterId};
+}
