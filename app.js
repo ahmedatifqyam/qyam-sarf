@@ -2792,7 +2792,7 @@ async function mountAssistant(){
         app: 'qyam-sarf',
         userId: state.user.id,
         userName: state.user.name,
-        phone: state.user.phone || '',
+        phone: ((state.users||[]).find(u=>u.id===state.user.id)||{}).phone || state.user.phone || '',
         role: state.user.role,
         companyId: state.currentCompanyId || '',
         companyName: co.nameAr || ''
