@@ -437,8 +437,8 @@ function deadlineSelectHtml(id, current, defaultLabel, onchange, inputWidth){
     <input type="number" id="${id}" min="1" max="365" value="${val}"
       placeholder="${ph}"
       ${onchange?qon('change', onchange):''}
-      style="text-align:center;font-size:15px;" />
-    <span style="color:var(--muted);font-size:13px;">أيام (فارغ = بدون مهلة)</span>
+      style="text-align:center;font-size:var(--fs-h3);" />
+    <span style="color:var(--muted);font-size:var(--fs-label);">أيام (فارغ = بدون مهلة)</span>
   </div>`;
 }
 
@@ -1302,7 +1302,7 @@ function renderBellPanel(){
       <span class="bell-time">${agoText(i.ts)}</span>
     </div>`).join('');
   p.innerHTML = `
-    <div class="bell-head"><span>🔔 الإشعارات</span><span style="display:flex;align-items:center;gap:10px;"><span data-on-click="toggleNotifSound" style="cursor:pointer;font-size:15px;white-space:nowrap;" title="صوت التنبيه: ${NOTIF_LEVELS[notifLevel()].name} — اضغط لتغيير المستوى (عالٍ، متوسط، منخفض، صامت)">${NOTIF_LEVELS[notifLevel()].ico} <small style="font-size:11.5px;color:var(--muted);">${NOTIF_LEVELS[notifLevel()].name}</small></span><span style="cursor:pointer;color:var(--muted);padding:0 6px;" data-on-click="toggleBell" data-on-click-args="${qa([QA.e])}">✕</span></span></div>
+    <div class="bell-head"><span>🔔 الإشعارات</span><span style="display:flex;align-items:center;gap:10px;"><span data-on-click="toggleNotifSound" style="cursor:pointer;font-size:var(--fs-h3);white-space:nowrap;" title="صوت التنبيه: ${NOTIF_LEVELS[notifLevel()].name} — اضغط لتغيير المستوى (عالٍ، متوسط، منخفض، صامت)">${NOTIF_LEVELS[notifLevel()].ico} <small style="font-size:var(--fs-hint);color:var(--muted);">${NOTIF_LEVELS[notifLevel()].name}</small></span><span style="cursor:pointer;color:var(--muted);padding:0 6px;" data-on-click="toggleBell" data-on-click-args="${qa([QA.e])}">✕</span></span></div>
     ${rows || `<div class="bell-empty">${hideRead && n.items.length ? 'لا توجد إشعارات غير مقروءة' : 'لا توجد إشعارات'}</div>`}
     <div class="bell-foot">
       <button type="button" class="btn btn-ghost btn-md" data-on-click="markAllSeen">تعليم الكل كمقروء</button>
@@ -1550,7 +1550,7 @@ function execBodyHtml(){
       </div>
       <div class="exec-card"><span class="num" style="color:var(--blue);">${fmtKWDHtml(d.thisMonth)} د.ك</span><span class="lbl">المصروف هذا الشهر<br>${deltaHtml}</span></div>
       <div class="exec-card"><span class="num" style="color:${d.budgetAlerts.length?'var(--red)':'var(--green)'};">${d.budgetAlerts.length}</span><span class="lbl">مراكز قاربت ميزانيتها (80%+)</span></div>
-      <div class="exec-card"><span class="num" style="font-size:16px;">${d.limitCount} تجاوزت الحد<br>${d.rejectedCount} مرفوضة</span><span class="lbl">تحتاج انتباهاً</span></div>
+      <div class="exec-card"><span class="num" style="font-size:var(--fs-h3);">${d.limitCount} تجاوزت الحد<br>${d.rejectedCount} مرفوضة</span><span class="lbl">تحتاج انتباهاً</span></div>
     </div>
 
     <div class="filt-bar filt-narrow no-print" style="margin:6px 0 10px;">
@@ -1565,22 +1565,22 @@ function execBodyHtml(){
     </div>
 
     <div class="card">
-      <h2 style="margin:0 0 4px;font-size:16px;">المصروف الشهري (د.ك)</h2>
-      <p class="sub" style="margin:0 0 10px;font-size:12px;">${d.topMonth ? 'أعلى شهر: <b>'+d.topMonth+'</b>. ' : ''}<span class="no-print">اضغط على عمود لعرض طلبات الشهر.</span></p>
+      <h2 style="margin:0 0 4px;font-size:var(--fs-h3);">المصروف الشهري (د.ك)</h2>
+      <p class="sub" style="margin:0 0 10px;font-size:var(--fs-hint);">${d.topMonth ? 'أعلى شهر: <b>'+d.topMonth+'</b>. ' : ''}<span class="no-print">اضغط على عمود لعرض طلبات الشهر.</span></p>
       ${execChartHtml(d.byMonth, 220, selMonth)}
       ${monthTable}
     </div>
 
     <div class="card" style="margin-top:16px;">
-      <h2 style="margin:0 0 4px;font-size:16px;">أين تنتظر الطلبات؟</h2>
-      <p class="sub" style="margin:0 0 10px;font-size:12px;">عدد الطلبات عند كل مرحلة ومتوسط انتظارها. تحمرّ المرحلة إن زاد المتوسط عن ${OVERDUE_DAYS} أيام.</p>
+      <h2 style="margin:0 0 4px;font-size:var(--fs-h3);">أين تنتظر الطلبات؟</h2>
+      <p class="sub" style="margin:0 0 10px;font-size:var(--fs-hint);">عدد الطلبات عند كل مرحلة ومتوسط انتظارها. تحمرّ المرحلة إن زاد المتوسط عن ${OVERDUE_DAYS} أيام.</p>
       ${pipeline}
     </div>
 
-    ${d.budgetAlerts.length ? `<div class="card" style="margin-top:16px;"><h2 style="margin:0 0 4px;font-size:16px;">مراكز قاربت ميزانيتها</h2>${budgets}</div>` : ''}
+    ${d.budgetAlerts.length ? `<div class="card" style="margin-top:16px;"><h2 style="margin:0 0 4px;font-size:var(--fs-h3);">مراكز قاربت ميزانيتها</h2>${budgets}</div>` : ''}
 
     <div class="card" style="margin-top:16px;">
-      <h2 style="margin:0 0 10px;font-size:16px;">حسب الجهة — ${year}</h2>
+      <h2 style="margin:0 0 10px;font-size:var(--fs-h3);">حسب الجهة — ${year}</h2>
       <table class="exec-table"><thead><tr><th>الجهة</th><th>عدد الطلبات</th><th>المصروف</th><th>النسبة</th></tr></thead><tbody>${centerRows}</tbody></table>
     </div>`;
 }
@@ -1591,7 +1591,7 @@ function renderExecTab(app){
     ${analyticsTabsHtml('exec')}
     <div style="display:none;" class="print-header">
       <h2 style="margin:0 0 4px;">اللوحة التنفيذية — ${escH(coName)}</h2>
-      <div style="font-size:12px;color:#666;">سنة ${escH(String(state.execYear || new Date().getFullYear()))} · طُبع في ${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
+      <div style="font-size:var(--fs-hint);color:#666;">سنة ${escH(String(state.execYear || new Date().getFullYear()))} · طُبع في ${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
       <hr class="qy-hr">
     </div>
     <p class="sub no-print">${escH(coName)} — اللوحة التنفيذية (الطلبات المصروفة وغير الملغاة، حسب شهر الإنشاء).</p>
@@ -1727,7 +1727,7 @@ function renderSecurityLog(app){
   } else if(tab==='errors'){
     head = '<th>الوقت</th><th>النوع</th><th>الصفحة</th><th>الرسالة</th><th>المستخدم</th><th>الجهاز</th><th>IP</th><th></th>';
     body = rows.map(r=>`<tr data-date="${r.at ? qylIso(new Date(r.at)) : ''}"><td>${secWhen(r.at)}</td><td><b>${escH(SEC_KIND_AR[r.kind]||r.kind)}</b></td><td>${escH(r.page||'—')}</td>
-      <td class="sec-msg" style="max-width:360px;word-break:break-word;">${escH(r.message||'')}${r.details?`<details><summary class="file-hint">التفاصيل</summary><pre style="white-space:pre-wrap;font-size:11px;direction:ltr;text-align:left;">${escH(r.details)}</pre></details>`:''}</td>
+      <td class="sec-msg" style="max-width:360px;word-break:break-word;">${escH(r.message||'')}${r.details?`<details><summary class="file-hint">التفاصيل</summary><pre style="white-space:pre-wrap;font-size:var(--fs-xs);direction:ltr;text-align:left;">${escH(r.details)}</pre></details>`:''}</td>
       <td>${escH(secUserName(r.user_id))}</td><td title="${escH((r.device&&r.device.ua)||'')}">${escH(qyUaShort(r.device))}</td><td dir="ltr">${escH(r.ip||'—')}</td><td>${done('qy_client_events',r.id,r)}</td></tr>`).join('');
   } else {
     head = '<th>الوقت</th><th>الحدث</th><th>الرقم المُدخَل / المستخدم</th><th>IP</th><th>الجهاز</th><th>فاشلة من نفس الجهة (24 س)</th><th></th>';
@@ -1781,9 +1781,9 @@ function renderVerifySettings(app){
       ${VERIFY_LEVELS.map(o=>`
         <label class="opt-row" style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);font-weight:600;cursor:pointer;">
           <input type="radio" name="vlevel" value="${o.v}" ${cur===o.v?'checked':''} data-on-change="#32" style="margin-top:4px;">
-          <span><b>${escH(o.label)}</b><div class="sub" style="font-size:12px;">${escH(o.desc)}</div></span>
+          <span><b>${escH(o.label)}</b><div class="sub" style="font-size:var(--fs-hint);">${escH(o.desc)}</div></span>
         </label>`).join('')}
-      <h3 style="margin:18px 0 4px;font-size:15px;">رمز الشركة في رقم التحقق</h3>
+      <h3 style="margin:18px 0 4px;font-size:var(--fs-h3);">رمز الشركة في رقم التحقق</h3>
       <p class="sub" style="margin:0 0 8px;">أول حرفين من رقم التحقق المطبوع تحت الـQR (مثل Q8 للكويت أو EG لمصر). حرفان أو رقمان بالإنجليزية. الشركة التي بلا رمز تأخذ Q8. يسري على الطلبات الجديدة فقط.</p>
       <div style="overflow-x:auto;"><table class="exec-table"><thead><tr><th>الشركة</th><th>الرمز</th><th>مثال</th></tr></thead><tbody>
       ${(state.companies||[]).map(c=>{ const v = (state.verifyPrefixDraft||{})[c.id]; const cur = (v!==undefined ? v : (c.verifyPrefix||'')); return `<tr><td>${escH(c.nameAr)}</td>
@@ -1912,7 +1912,7 @@ async function renderVerifyPage(reqId){
   const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   app.innerHTML = `<div class="spinner"></div><p class="sub" style="text-align:center;">جارٍ التحقق من الطلب...</p>`;
   const verifyFormHtml = `<form data-on-submit="#34" style="background:var(--paper);border-radius:12px;padding:14px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-      <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:6px;">تحقق من سند آخر برقم التحقق</label>
+      <label style="font-size:var(--fs-hint);font-weight:700;display:block;margin-bottom:6px;">تحقق من سند آخر برقم التحقق</label>
       <div style="display:flex;gap:8px;"><input type="text" dir="ltr" placeholder="QY-XXXX-XXXX" maxlength="20" autocomplete="off" style="flex:1;min-width:0;"><button class="btn btn-primary btn-md" type="submit" title="يبحث عن السند برقم التحقق المطبوع بجانب رمز QR">تحقق</button></div></form>`;
   if(!reqId || !String(reqId).trim()){ app.innerHTML = `<div style="max-width:500px;margin:48px auto;padding:0 12px;direction:rtl;">${verifyFormHtml}</div>`; return; }
   try{
@@ -1942,13 +1942,13 @@ async function renderVerifyPage(reqId){
     const namesOnly = r.level==6 || r.level==7;   // أسماء فقط بلا مبالغ
     const beneRowsHtml = namesOnly ? benes.map((b,i)=>`
           <tr style="background:${i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)'};">
-            <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
-            <td style="padding:6px 8px;font-size:13px;font-weight:600;">${esc(b.name)}</td>
+            <td style="padding:6px 8px;color:var(--muted);font-size:var(--fs-hint);width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
+            <td style="padding:6px 8px;font-size:var(--fs-label);font-weight:600;">${esc(b.name)}</td>
           </tr>`).join('') : benes.map((b,i)=>{
       const amount = Number(b.amount||0), ded = Number(b.deduction||0), extra = Number(b.extra||0);
       const net = amount - ded + extra;
       const bg = i%2===0 ? 'var(--paper)' : 'var(--bg,#f0f2f5)';
-      const netHtml = `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(net)}</b> <span style="font-size:10px;color:var(--muted);">د.ك</span>`;
+      const netHtml = `<b style="font-variant-numeric:tabular-nums;">${fmtAmt(net)}</b> <span style="font-size:var(--fs-xs);color:var(--muted);">د.ك</span>`;
       if(anyAdjustments){
         // عمود الحسابات بـ direction:rtl: أول عنصر في المصفوفة يظهر أقصى اليمين.
         // فالترتيب البصري من اليمين: المبلغ ← − الخصم ← + الإضافي
@@ -1959,18 +1959,18 @@ async function renderVerifyPage(reqId){
         const calcDisplay = (ded>0||extra>0) ? calcParts.join(' ') : '';
         return `
           <tr style="background:${bg};">
-            <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
-            <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
-            <td style="padding:6px 8px;font-size:12px;white-space:nowrap;text-align:center;direction:rtl;color:var(--muted);border-left:1px solid var(--line);">${calcDisplay}</td>
-            <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
+            <td style="padding:6px 8px;color:var(--muted);font-size:var(--fs-hint);width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
+            <td style="padding:6px 8px;font-size:var(--fs-label);font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
+            <td style="padding:6px 8px;font-size:var(--fs-hint);white-space:nowrap;text-align:center;direction:rtl;color:var(--muted);border-left:1px solid var(--line);">${calcDisplay}</td>
+            <td style="padding:6px 8px;font-size:var(--fs-label);white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
           </tr>`;
       } else {
         // لا توجد تعديلات: 3 أعمدة فقط (# | الاسم | الإجمالي)
         return `
           <tr style="background:${bg};">
-            <td style="padding:6px 8px;color:var(--muted);font-size:12px;width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
-            <td style="padding:6px 8px;font-size:13px;font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
-            <td style="padding:6px 8px;font-size:13px;white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
+            <td style="padding:6px 8px;color:var(--muted);font-size:var(--fs-hint);width:20px;text-align:center;border-left:1px solid var(--line);">${i+1}</td>
+            <td style="padding:6px 8px;font-size:var(--fs-label);font-weight:600;border-left:1px solid var(--line);">${esc(b.name)}</td>
+            <td style="padding:6px 8px;font-size:var(--fs-label);white-space:nowrap;text-align:right;direction:rtl;">${netHtml}</td>
           </tr>`;
       }
     }).join('');
@@ -2001,10 +2001,10 @@ async function renderVerifyPage(reqId){
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;">
           <div style="text-align:right;flex:1;">
-            <span style="font-weight:600;font-size:13px;">${esc(h.actor)}</span>
-            ${stepName ? `<span style="font-size:11px;color:var(--muted);margin-right:6px;">· ${esc(stepName)}</span>` : ''}
+            <span style="font-weight:600;font-size:var(--fs-label);">${esc(h.actor)}</span>
+            ${stepName ? `<span style="font-size:var(--fs-xs);color:var(--muted);margin-right:6px;">· ${esc(stepName)}</span>` : ''}
           </div>
-          <div style="font-size:11px;color:var(--muted);text-align:left;direction:rtl;white-space:nowrap;flex-shrink:0;">${esc(toWesternDigits(h.time||''))}</div>
+          <div style="font-size:var(--fs-xs);color:var(--muted);text-align:left;direction:rtl;white-space:nowrap;flex-shrink:0;">${esc(toWesternDigits(h.time||''))}</div>
         </div>`;
     }).join('');
 
@@ -2019,12 +2019,12 @@ async function renderVerifyPage(reqId){
       return `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;">
         <div style="text-align:right;flex:1;min-width:0;">
-          <span style="font-weight:600;color:${actionColor(h.action)};font-size:12px;">${esc(h.action)}</span>
-          ${h.actor ? `<span style="font-size:12px;"> — ${esc(h.actor)}</span>` : ''}
-          ${stepLabel ? `<span style="font-size:11px;color:var(--muted);"> · ${esc(stepLabel)}</span>` : ''}
-          ${h.note ? `<div style="font-size:10.5px;color:var(--muted);font-style:italic;margin-top:2px;">${esc(h.note)}</div>` : ''}
+          <span style="font-weight:600;color:${actionColor(h.action)};font-size:var(--fs-hint);">${esc(h.action)}</span>
+          ${h.actor ? `<span style="font-size:var(--fs-hint);"> — ${esc(h.actor)}</span>` : ''}
+          ${stepLabel ? `<span style="font-size:var(--fs-xs);color:var(--muted);"> · ${esc(stepLabel)}</span>` : ''}
+          ${h.note ? `<div style="font-size:var(--fs-xs);color:var(--muted);font-style:italic;margin-top:2px;">${esc(h.note)}</div>` : ''}
         </div>
-        <div style="font-size:11px;color:var(--muted);text-align:left;direction:rtl;white-space:nowrap;flex-shrink:0;">${esc(toWesternDigits(h.time||''))}</div>
+        <div style="font-size:var(--fs-xs);color:var(--muted);text-align:left;direction:rtl;white-space:nowrap;flex-shrink:0;">${esc(toWesternDigits(h.time||''))}</div>
       </div>`;
     }).join('');
 
@@ -2038,8 +2038,8 @@ async function renderVerifyPage(reqId){
         <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);display:flex;align-items:center;gap:14px;">
           ${company && (company.brand_logo_data || company.logo_data) ? `<img src="${escH(company.brand_logo_data || company.logo_data)}" style="height:52px;width:52px;object-fit:contain;flex-shrink:0;border-radius:8px;">` : ''}
           <div style="flex:1;min-width:0;">
-            <div style="font-size:17px;font-weight:700;line-height:1.3;">${esc(company ? company.name_ar : 'نظام الصرف')}</div>
-            <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">تحقق من صحة سند الصرف</div>
+            <div style="font-size:var(--fs-h2);font-weight:700;line-height:1.3;">${esc(company ? company.name_ar : 'نظام الصرف')}</div>
+            <div style="font-size:var(--fs-hint);color:var(--muted);margin-top:2px;">تحقق من صحة سند الصرف</div>
           </div>
         </div>
 
@@ -2047,56 +2047,56 @@ async function renderVerifyPage(reqId){
         <div style="background:var(--paper);border-radius:12px;padding:4px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
           <table style="width:100%;border-collapse:collapse;">
             <tr style="border-bottom:1px solid var(--line);">
-              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;width:90px;vertical-align:baseline;">رقم الطلب</td>
-              <td style="padding:8px 0;font-size:13px;font-weight:700;direction:ltr;text-align:right;vertical-align:baseline;">${esc(r.number)}</td>
+              <td style="padding:8px 0 8px 12px;font-size:var(--fs-hint);font-weight:700;white-space:nowrap;width:90px;vertical-align:baseline;">رقم الطلب</td>
+              <td style="padding:8px 0;font-size:var(--fs-label);font-weight:700;direction:ltr;text-align:right;vertical-align:baseline;">${esc(r.number)}</td>
             </tr>
             ${r.reason != null ? `<tr style="border-bottom:1px solid var(--line);">
-              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;vertical-align:baseline;">البيان</td>
-              <td style="padding:8px 0;font-size:13px;text-align:right;vertical-align:baseline;">${esc(r.reason)}</td>
+              <td style="padding:8px 0 8px 12px;font-size:var(--fs-hint);font-weight:700;white-space:nowrap;vertical-align:baseline;">البيان</td>
+              <td style="padding:8px 0;font-size:var(--fs-label);text-align:right;vertical-align:baseline;">${esc(r.reason)}</td>
             </tr>` : ''}
             <tr style="border-bottom:1px solid var(--line);">
-              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;vertical-align:baseline;">التاريخ</td>
-              <td style="padding:8px 0;font-size:12.5px;text-align:right;vertical-align:baseline;">${esc(dmyStr(r.date_greg||''))}${r.date_hijri?' ('+esc(r.date_hijri)+' هـ)':''}</td>
+              <td style="padding:8px 0 8px 12px;font-size:var(--fs-hint);font-weight:700;white-space:nowrap;vertical-align:baseline;">التاريخ</td>
+              <td style="padding:8px 0;font-size:var(--fs-hint);text-align:right;vertical-align:baseline;">${esc(dmyStr(r.date_greg||''))}${r.date_hijri?' ('+esc(r.date_hijri)+' هـ)':''}</td>
             </tr>
             <tr>
-              <td style="padding:8px 0 8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;vertical-align:baseline;">الحالة</td>
-              <td style="padding:8px 0;font-size:13px;font-weight:700;color:${statusColor};text-align:right;vertical-align:baseline;">${statusLabel}</td>
+              <td style="padding:8px 0 8px 12px;font-size:var(--fs-hint);font-weight:700;white-space:nowrap;vertical-align:baseline;">الحالة</td>
+              <td style="padding:8px 0;font-size:var(--fs-label);font-weight:700;color:${statusColor};text-align:right;vertical-align:baseline;">${statusLabel}</td>
             </tr>
           </table>
         </div>
 
         <!-- المستفيدون -->
         <div style="background:var(--paper);border-radius:12px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-          ${r._hasBenes ? `<div style="padding:12px 16px;font-weight:700;font-size:13.5px;border-bottom:1px solid var(--line);">المستفيدون (${benes.length})</div>
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          ${r._hasBenes ? `<div style="padding:12px 16px;font-weight:700;font-size:var(--fs-label);border-bottom:1px solid var(--line);">المستفيدون (${benes.length})</div>
+          <table style="width:100%;border-collapse:collapse;font-size:var(--fs-label);">
             <tbody>${beneRowsHtml || '<tr><td colspan="3" style="padding:12px;text-align:center;color:var(--muted);">لا يوجد مستفيدون</td></tr>'}</tbody>
           </table>` : ''}
           <!-- الإجمالي والتفقيط بنفس الخلفية الداكنة -->
           <div style="background:var(--ink,#1B2733);color:#fff;padding:12px 16px 10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-              <b style="font-size:14px;">الإجمالي الكلي</b>
-              <b style="font-size:16px;direction:ltr;font-variant-numeric:tabular-nums;">${fmtAmt(totalNet)} <span style="font-size:0.75em;font-weight:600;">د.ك</span></b>
+              <b style="font-size:var(--fs-body);">الإجمالي الكلي</b>
+              <b style="font-size:var(--fs-h3);direction:ltr;font-variant-numeric:tabular-nums;">${fmtAmt(totalNet)} <span style="font-size:0.75em;font-weight:600;">د.ك</span></b>
             </div>
-            <div style="font-size:13px;color:rgba(255,255,255,0.75);border-top:1px solid rgba(255,255,255,0.15);padding-top:7px;">${amountToArabicWords(totalNet)}</div>
+            <div style="font-size:var(--fs-label);color:rgba(255,255,255,0.75);border-top:1px solid rgba(255,255,255,0.15);padding-top:7px;">${amountToArabicWords(totalNet)}</div>
           </div>
         </div>
 
         <!-- الاعتمادات -->
         ${approvalsHtml ? `
         <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-          <div style="font-weight:700;font-size:13.5px;margin-bottom:10px;">الاعتمادات</div>
+          <div style="font-weight:700;font-size:var(--fs-label);margin-bottom:10px;">الاعتمادات</div>
           ${approvalsHtml}
         </div>` : ''}
 
         <!-- سجل الطلب الكامل -->
         ${historyHtml ? `
         <div style="background:var(--paper);border-radius:12px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-          <div style="font-weight:700;font-size:13.5px;margin-bottom:8px;">سجل الطلب</div>
+          <div style="font-weight:700;font-size:var(--fs-label);margin-bottom:8px;">سجل الطلب</div>
           ${historyHtml}
         </div>` : ''}
 
         ${verifyFormHtml}
-        <p style="margin-top:12px;font-size:11px;color:var(--muted);text-align:center;">هذه الصفحة تعرض البيانات المباشرة من قاعدة بيانات النظام، وتؤكد أن السند أصلي وغير معدَّل.</p>
+        <p style="margin-top:12px;font-size:var(--fs-xs);color:var(--muted);text-align:center;">هذه الصفحة تعرض البيانات المباشرة من قاعدة بيانات النظام، وتؤكد أن السند أصلي وغير معدَّل.</p>
       </div>`;
   }catch(e){
     console.error('خطأ بصفحة التحقق', e);
@@ -3230,12 +3230,12 @@ function renderTopbar(){
   const bn = computeNotifications();
   const bellBtn = `<button type="button" class="bell-btn" data-on-click="toggleBell" data-on-click-args="${qa([QA.e])}" title="الإشعارات" aria-label="الإشعارات"><svg class="tb-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="bell-badge${bn.badge?' on':''}" id="bellBadge">${bn.badge>99?'99+':bn.badge}</span></button>`;
   const companySwitcher = (state.myCompanyIds && state.myCompanyIds.length>1)
-    ? `<select class="tb-company" data-on-change="switchCompany" data-on-change-args="${qa([QA.v])}" style="border-radius:6px;padding:8px 10px;font-size:13px;border:1px solid #2E4356;background:#2E4356;color:#fff;">
+    ? `<select class="tb-company" data-on-change="switchCompany" data-on-change-args="${qa([QA.v])}" style="border-radius:6px;padding:8px 10px;font-size:var(--fs-label);border:1px solid #2E4356;background:#2E4356;color:#fff;">
         ${state.myCompanyIds.map(id=>{ const c = state.companies.find(x=>x.id===id); const n = id===state.currentCompanyId ? 0 : getMyPendingRequests(id).length; return `<option value="${escH(id)}" ${id===state.currentCompanyId?'selected':''}>${escH(c?c.nameAr:id)}${n ? ' ('+n+' بانتظارك)' : ''}</option>`; }).join('')}
       </select>`
     : '';
   const impersonateSwitcher = (state.user.role==='admin' && !state.impersonatingFromAdmin)
-    ? `<select class="tb-impersonate" data-on-change="#38" style="border-radius:6px;padding:8px 10px;font-size:13px;border:1px solid #2E4356;background:#2E4356;color:#fff;max-width:180px;">
+    ? `<select class="tb-impersonate" data-on-change="#38" style="border-radius:6px;padding:8px 10px;font-size:var(--fs-label);border:1px solid #2E4356;background:#2E4356;color:#fff;max-width:180px;">
         <option value="">👁 عرض كمستخدم...</option>
         ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('')}
       </select>`
@@ -3245,7 +3245,7 @@ function renderTopbar(){
       ${state.searchResults.map(r=>`
         <div class="search-result-item" data-on-click="openSearchResult" data-on-click-args="${qa([(''+(r.id))])}">
           <span style="font-weight:700;">${escH(r.number)}</span>
-          <span style="color:var(--muted);font-size:12px;">${escH(r.reason||'')}</span>
+          <span style="color:var(--muted);font-size:var(--fs-hint);">${escH(r.reason||'')}</span>
         </div>
       `).join('')}
     </div>` : '';
@@ -3401,7 +3401,7 @@ setInterval(()=>{
     if(!w){
       w = document.createElement('div'); w.id='idleWarn'; w.className='no-print'; w.dataset.keep='1';
       w.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(15,25,35,.55);display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl;';
-      w.innerHTML = '<div role="alertdialog" aria-modal="true" style="background:#fff;border-radius:14px;padding:22px 24px;max-width:380px;width:100%;text-align:right;box-shadow:0 10px 40px rgba(0,0,0,.3);"><h2 style="margin:0 0 8px;font-size:18px;">هل ما زلت هنا؟</h2><p style="margin:0 0 16px;line-height:1.7;">سيُغلق دخولك بعد <b id="idleLeft"></b> ثانية لعدم النشاط، حمايةً لبياناتك.</p><button type="button" class="btn btn-primary btn-md" data-on-click="idleStay" title="يبقيك داخل النظام">ابقَ متصلاً</button></div>';
+      w.innerHTML = '<div role="alertdialog" aria-modal="true" style="background:#fff;border-radius:14px;padding:22px 24px;max-width:380px;width:100%;text-align:right;box-shadow:0 10px 40px rgba(0,0,0,.3);"><h2 style="margin:0 0 8px;font-size:var(--fs-h2);">هل ما زلت هنا؟</h2><p style="margin:0 0 16px;line-height:1.7;">سيُغلق دخولك بعد <b id="idleLeft"></b> ثانية لعدم النشاط، حمايةً لبياناتك.</p><button type="button" class="btn btn-primary btn-md" data-on-click="idleStay" title="يبقيك داخل النظام">ابقَ متصلاً</button></div>';
       document.body.appendChild(w);
     }
     const sp = document.getElementById('idleLeft'); if(sp) sp.textContent = left;
@@ -3468,7 +3468,7 @@ async function attemptLogin(){
       if(suspendedAcc) qyLog('login_suspended', 'محاولة دخول بحساب موقوف', '', idInput);
       else qyLog('login_failed', (error && error.message) || 'بيانات غير صحيحة', '', idInput);
       if(suspendedAcc){
-        qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,460px);text-align:center;"><h2 style="margin-top:0;color:#b42318;"><span style="font-size:.7em;">⛔</span> حسابك موقوف <span style="font-size:.7em;">⛔</span></h2><p style="line-height:1.9;"><b style="font-size:18px;">🤍 شكراً لك 🤍</b><br>على ما قدّمته للشركة خلال فترة عملك معنا.<br>سنسعد بعودتك في أي وقت، وللعودة تواصل مع الإدارة لإعادة تفعيل حسابك.</p><div class="actions-row" style="justify-content:center;"><button class="btn btn-primary btn-md" data-on-click="qyBodyModalClose" data-on-click-args="${qa(["banned"])}">حسناً</button></div></div>`, 'banned');
+        qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,460px);text-align:center;"><h2 style="margin-top:0;color:#b42318;"><span style="font-size:.7em;">⛔</span> حسابك موقوف <span style="font-size:.7em;">⛔</span></h2><p style="line-height:1.9;"><b style="font-size:var(--fs-h2);">🤍 شكراً لك 🤍</b><br>على ما قدّمته للشركة خلال فترة عملك معنا.<br>سنسعد بعودتك في أي وقت، وللعودة تواصل مع الإدارة لإعادة تفعيل حسابك.</p><div class="actions-row" style="justify-content:center;"><button class="btn btn-primary btn-md" data-on-click="qyBodyModalClose" data-on-click-args="${qa(["banned"])}">حسناً</button></div></div>`, 'banned');
         return;
       }
       showToast('رقم الهاتف أو كلمة المرور غير صحيحة','error');
@@ -4027,9 +4027,9 @@ function showBudgetBalance(){
 
   // «بند غير محدد»: تحذير صريح بأن الطلب ناقص ولن يُصرف قبل إسناده لبند حقيقي
   if(itemId === UNSPECIFIED_BUDGET){
-    box.style.cssText = 'display:block;margin-top:-2px;padding:8px 11px;border-radius:8px;font-size:12.5px;'
+    box.style.cssText = 'display:block;margin-top:-2px;padding:8px 11px;border-radius:8px;font-size:var(--fs-hint);'
       + 'line-height:1.75;background:rgba(245,158,11,.1);color:#8a5a00;border:1px solid var(--amber);';
-    box.innerHTML = '<b style="font-size:13px;">⚠️ الطلب لن يكتمل بهذا الاختيار</b><br>'
+    box.innerHTML = '<b style="font-size:var(--fs-label);">⚠️ الطلب لن يكتمل بهذا الاختيار</b><br>'
       + 'سيمضي في سلسلة الاعتماد، لكن <b>الصرف سيتوقف</b> حتى يُفتح بند مناسب '
       + 'أو يُغيَّر إلى بند موجود. والمحاسب هو من يُسنده قبل إتمام الصرف.';
     return;
@@ -4040,7 +4040,7 @@ function showBudgetBalance(){
   if(bal==null){ box.style.display='none'; return; }
   const color = bal>50 ? 'var(--green)' : bal>0 ? 'var(--amber)' : 'var(--red)';
   const bg = bal>50 ? 'rgba(34,197,94,.08)' : bal>0 ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)';
-  box.style.cssText = `display:block;margin-top:-2px;padding:6px 10px;border-radius:8px;font-size:12.5px;font-weight:600;background:${bg};color:${color};border:1px solid ${color};`;
+  box.style.cssText = `display:block;margin-top:-2px;padding:6px 10px;border-radius:8px;font-size:var(--fs-hint);font-weight:600;background:${bg};color:${color};border:1px solid ${color};`;
   const f = computeBudgetItemFigures(itemId);
   const bits = [];
   if(f){
@@ -4050,7 +4050,7 @@ function showBudgetBalance(){
     if(f.pending>0)   bits.push(`قيد الطلب ${fmtKWD(f.pending,{noUnit:true})}`);
   }
   box.innerHTML = `الرصيد المتاح لطلب جديد: ${fmtKWD(bal)}`
-    + (bits.length ? `<div style="font-size:11px;opacity:.85;margin-top:2px;font-weight:600;">من إيراد ${fmtKWD(f.revenue,{noUnit:true})} — ${bits.join(' · ')}</div>` : '');
+    + (bits.length ? `<div style="font-size:var(--fs-xs);opacity:.85;margin-top:2px;font-weight:600;">من إيراد ${fmtKWD(f.revenue,{noUnit:true})} — ${bits.join(' · ')}</div>` : '');
 }
 
 // مستفيد مكرر في الطلب نفسه (بالاسم أو الآيبان): تنبيه وإطار برتقالي، دون منع — قد يتكرر ببيان مختلف
@@ -5164,7 +5164,7 @@ function paperSettingsCard(u, adminView){
       ${cands.map(x=>`<option value="${escH(x.id)}"${cur[i]===x.id?' selected':''}>${escH(x.name)} — ${escH((x.jobTitle&&x.jobTitle.trim()) || findRole(x.role).name)}${x.isGeneral ? ' · عام' : ''}</option>`).join('')}
     </select>`;
   return `<div class="card paper-card" id="paperCard">
-    <h2 style="margin:0 0 4px;font-size:15px;">الاعتماد الورقي</h2>
+    <h2 style="margin:0 0 4px;font-size:var(--fs-h3);">الاعتماد الورقي</h2>
     <p class="file-hint" style="margin:0 0 8px;">${adminView ? 'إن كان هذا الشخص لا يستخدم النظام' : 'إن كنت لا تستخدم النظام في الاعتماد'}: يوقّع على الطلب المطبوع، ويسجّل اعتماده أو رفضه في النظام أحد المسجِّلين بإرفاق الورقة الموقعة. حتى ثلاثة مسجِّلين من نفس الشركة أو من العامّين في المؤسسة.</p>
     <label class="check-line" style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-weight:700;color:var(--text);">
       <input id="paperOn" type="checkbox" style="width:auto;" ${u.paperApproval ? 'checked' : ''} data-on-change="paperToggleUi"> تفعيل الاعتماد الورقي
@@ -5204,7 +5204,7 @@ function pushKeyBytes(b64){ const p='='.repeat((4-b64.length%4)%4), s=(b64+p).re
 function pushCard(){
   setTimeout(pushPaint, 40);
   return `<div class="card" id="pushCard">
-    <h2 style="margin:0 0 4px;font-size:15px;">إشعارات الجهاز</h2>
+    <h2 style="margin:0 0 4px;font-size:var(--fs-h3);">إشعارات الجهاز</h2>
     <p class="file-hint" style="margin:0 0 8px;">تصلك على هذا الجهاز إشعارات الطلبات التي تنتظر إجراءك أو تخص طلباتك، حتى والنظام مغلق. تُفعَّل لكل جهاز على حدة.</p>
     <div id="pushBox" class="file-hint">جارٍ الفحص…</div>
   </div>`;
@@ -5726,7 +5726,7 @@ function renderAttachmentsModal(){
   const btn = (act, key, txt, cls) => `<button type="button" class="btn ${cls||'btn-ghost'} btn-xs" data-on-click="${act}" data-on-click-args="${qa([key])}">${txt}</button>`;
   const item = (key, ic, label, nm, meta, canDel, legacy) => `
     <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);">
-      <div style="font-size:22px;">${ic}</div>
+      <div style="font-size:var(--fs-h1);">${ic}</div>
       <div style="flex:1;min-width:0;">
         <div style="font-weight:700;">${escH(label)}${legacy?' <span class="file-hint">(مرفق قديم)</span>':''}</div>
         <div class="file-hint" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:right;">${escH(nm)}${meta?' · '+escH(meta):''}</div>
@@ -6546,8 +6546,8 @@ function buildBeneficiaryTable(b, i){
       </td>
       <td rowspan="${rowCount}">
         <div class="cell-right">${escH(b.statement || '—')}</div>
-        <div class="cell-left" style="font-size:10.5px;">${escH(b.civilId || '—')}</div>
-        <div class="cell-left" style="font-size:10.5px;word-break:break-all;">${escH(ibanClean || '—')}</div>
+        <div class="cell-left" style="font-size:10px;">${escH(b.civilId || '—')}</div>
+        <div class="cell-left" style="font-size:10px;word-break:break-all;">${escH(ibanClean || '—')}</div>
       </td>
       <td style="${mainBorder}"><div class="amt-signed"><span class="amt-number" dir="ltr">${fmtKWDHtml(b.amount)}</span></div></td>
       <td class="cell-right" style="${mainBorder}">${escH(b.notes || '')}</td>
@@ -7114,7 +7114,7 @@ function soundsCardHtml(){
   const sw = k=>`<label class="snd-sw"><input type="checkbox" style="width:auto;" ${toastSoundOn(k)?'checked':''} data-on-change="setToastSound" data-on-change-args="${qa([k, QA.c])}"> ${toastSoundOn(k)?'مُفعَّل':'متوقف'}</label>`;
   return `
     <div class="card flow">
-      <h2 style="margin:0 0 4px;font-size:15px;">الأصوات</h2>
+      <h2 style="margin:0 0 4px;font-size:var(--fs-h3);">الأصوات</h2>
       <p class="file-hint" style="margin:0 0 8px;">تُحفظ فوراً في هذا الجهاز، بلا زر حفظ.</p>
       ${row('صوت الإشعارات', `<select style="--fw:180px;" data-on-change="setNotifLevel" data-on-change-args="${qa([QA.v])}">${[3,2,1,0].map(v=>`<option value="${v}" ${v===lv?'selected':''}>${NOTIF_LEVELS[v].ico} ${NOTIF_LEVELS[v].name}</option>`).join('')}</select>`, ['playNotifSound', []], 'عند وصول إشعار جديد في الجرس')}
       ${row('صوت رسائل الخطأ', sw('err'), ['playToastSound', ['err', true]], 'نغمة هابطة عند ظهور رسالة خطأ (حقل ناقص أو إجراء مرفوض)')}
@@ -7594,7 +7594,7 @@ function renderSiteMap(app){
             <div class="li-main">
               <b><a href="#" style="color:var(--blue);text-decoration:underline;" ${qon('click', qhs([["#17",[]]], p.js))} title="يفتح صفحة «${escH(p.label)}»">${p.ico} ${escH(p.label)}</a></b>
               ${p.desc ? `<span class="sub">${escH(p.desc)}</span>` : ''}
-              ${p.btns.length ? `<span style="font-size:13px;">${p.btns.map(b=>`<span title="${escH(b[1])}" style="display:inline-block;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:1px 8px;margin:2px 0 2px 6px;">${escH(b[0])}</span> <small class="sub">${escH(b[1])}</small>`).join('<br>')}</span>` : ''}
+              ${p.btns.length ? `<span style="font-size:var(--fs-label);">${p.btns.map(b=>`<span title="${escH(b[1])}" style="display:inline-block;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:1px 8px;margin:2px 0 2px 6px;">${escH(b[0])}</span> <small class="sub">${escH(b[1])}</small>`).join('<br>')}</span>` : ''}
             </div>
             ${p.guide ? `<div><button class="btn btn-ghost btn-xs" data-on-click="openGuide" data-on-click-args="${qa([(''+(p.guide))])}" title="يفتح قسم هذه الصفحة في الدليل">شرح</button></div>` : ''}
           </div>`).join('')}
@@ -7729,14 +7729,14 @@ function renderAnalytics(app){
       const blocks = budgetCenters.map(c=>{
         const annualHtml = budgetBarHtml('الميزانية السنوية (' + yr + ')', c.annualBudget, centerConsumed(c.id, yr, null));
         const monthlyHtml = selMonth==='all'
-          ? (c.monthlyBudget!=null ? '<div class="sub" style="font-size:12px;margin-bottom:10px;">الميزانية الشهرية: اختر شهراً من الأعلى لعرضها.</div>' : '')
+          ? (c.monthlyBudget!=null ? '<div class="sub" style="font-size:var(--fs-hint);margin-bottom:10px;">الميزانية الشهرية: اختر شهراً من الأعلى لعرضها.</div>' : '')
           : budgetBarHtml('الميزانية الشهرية (' + monthName + ' ' + yr + ')', c.monthlyBudget, centerConsumed(c.id, yr, Number(selMonth)-1));
         return `<div style="padding:12px 0;border-top:1px solid var(--line);"><b style="display:block;margin-bottom:8px;">${escH(c.name)}</b>${monthlyHtml}${annualHtml}</div>`;
       }).join('');
       budgetCardHtml = `
         <div class="card" style="margin-top:20px;">
-          <h2 style="margin:0 0 4px;font-size:16px;">الميزانية مقابل المصروف</h2>
-          <p class="sub" style="margin:0 0 8px;font-size:12px;">تتلوّن الأشرطة بالكهرماني عند 80% من الميزانية وبالأحمر عند 100%. (الطلبات المصروفة وغير الملغاة فقط)</p>
+          <h2 style="margin:0 0 4px;font-size:var(--fs-h3);">الميزانية مقابل المصروف</h2>
+          <p class="sub" style="margin:0 0 8px;font-size:var(--fs-hint);">تتلوّن الأشرطة بالكهرماني عند 80% من الميزانية وبالأحمر عند 100%. (الطلبات المصروفة وغير الملغاة فقط)</p>
           ${blocks}
         </div>`;
     }
@@ -7877,7 +7877,7 @@ function renderHandovers(app){
     const myReqs = !fromId ? [] : state.requests.filter(r=>r.companyId===state.currentCompanyId && !r.isCancelled && r.status!=='completed' && r.status!=='rejected' && (r.approvalSteps||[]).some(s=>s.approverId===fromId && s.status==='pending'));
     const chk = new Set(f.checked||[]);
     form = `<div class="card flow" style="margin-bottom:14px;">
-      <h2 style="margin:0 0 6px;font-size:15px;">إسناد جديد</h2>
+      <h2 style="margin:0 0 6px;font-size:var(--fs-h3);">إسناد جديد</h2>
       ${onBehalf ? `<div><label>إسناد نيابةً عن <span style="color:var(--red);">*</span></label><select id="hoFrom" data-on-change="#57">
         <option value="">— اختر الموظف —</option>
         ${hoCompanyUsers([]).map(u=>`<option value="${escH(u.id)}" ${u.id===fromId?'selected':''}>${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('')}</select></div>` : ''}
@@ -7900,7 +7900,7 @@ function renderHandovers(app){
       <div class="actions-row"><button class="btn btn-primary btn-md" data-on-click="hoCreate">إرسال الإسناد</button><button class="btn btn-ghost btn-md" data-on-click="#60">إلغاء</button></div>
     </div>`;
   }
-  const sec = (title, arr, empty)=>`<h2 style="font-size:15px;margin:18px 0 6px;">${title}</h2>${arr.length ? `<div data-qyl="ho_${escH(title)}" data-qyl-title="الإسناد — ${escH(title)}" data-qyl-cols='${escH(JSON.stringify(['التاريخ','من','إلى','السبب','النطاق','الحالة']))}'>${arr.map(h=>hoCard(h)).join('')}</div>` : `<p class="sub">${empty}</p>`}`;
+  const sec = (title, arr, empty)=>`<h2 style="font-size:var(--fs-h3);margin:18px 0 6px;">${title}</h2>${arr.length ? `<div data-qyl="ho_${escH(title)}" data-qyl-title="الإسناد — ${escH(title)}" data-qyl-cols='${escH(JSON.stringify(['التاريخ','من','إلى','السبب','النطاق','الحالة']))}'>${arr.map(h=>hoCard(h)).join('')}</div>` : `<p class="sub">${empty}</p>`}`;
   app.innerHTML = `
     <h1 style="margin:0;">إسناد المعاملات</h1>
     <p class="sub">عند تركك العمل أو نقلك أو سفرك أو إجازتك: أسند معاملاتك المعلّقة لزميل يعتمدها بدلاً منك، ويظهر ذلك في سجل كل طلب («بالإنابة عن»).</p>
@@ -8155,9 +8155,9 @@ function renderPathCheckPage(app){
         <div>${pathBadgeHtml(x.st)}</div>
       </div>
       <div class="sub" style="margin:4px 0;">صاحب الطلب: ${escH(x.creator?x.creator.name:'—')} · المبلغ: ${fmtKWDHtml(x.r.totalAmount)} د.ك</div>
-      <div style="font-size:13px;margin-bottom:6px;">${escH(x.why)}</div>
-      <div style="font-size:12.5px;"><b>المحفوظ في الطلب:</b> ${savedTxt}</div>
-      <div style="font-size:12.5px;"><b>مسار الشركة الآن:</b> ${x.nowNames.length ? x.nowNames.map(escH).join(' ← ') : '—'}</div>
+      <div style="font-size:var(--fs-label);margin-bottom:6px;">${escH(x.why)}</div>
+      <div style="font-size:var(--fs-hint);"><b>المحفوظ في الطلب:</b> ${savedTxt}</div>
+      <div style="font-size:var(--fs-hint);"><b>مسار الشركة الآن:</b> ${x.nowNames.length ? x.nowNames.map(escH).join(' ← ') : '—'}</div>
       <div class="actions-row pc-actions" style="margin-top:8px;" data-on-click="#67">
         <button class="btn btn-ghost btn-xs" data-on-click="openRequest" data-on-click-args="${qa([(''+(x.r.id))])}">فتح الطلب</button>
         ${x.st==='ok' ? '' : `<button class="btn btn-ghost btn-xs" data-on-click="pathCheckRebuild" data-on-click-args="${qa([(''+(x.r.id))])}">${x.st==='skip'?'إعادة إلى القرار':'إعادة بناء المسار'}</button>`}
@@ -8184,7 +8184,7 @@ function renderAccount(app){
     <!-- الإسناد له قسمه في الشريط الجانبي؛ لا يتكرر هنا تبويباً -->
 
     <div class="card flow">
-      <h2 style="margin:0 0 4px;font-size:15px;">بياناتي</h2>
+      <h2 style="margin:0 0 4px;font-size:var(--fs-h3);">بياناتي</h2>
       ${avatarEditorHtml(me)}
       <div class="row">
         <div style="--fw:280px;"><label>الجهة التابع لها</label>
@@ -8205,7 +8205,7 @@ function renderAccount(app){
     </div>
 
     <div class="card flow">
-      <h2 style="margin:0 0 4px;font-size:15px;">بياناتي كمستفيد</h2>
+      <h2 style="margin:0 0 4px;font-size:var(--fs-h3);">بياناتي كمستفيد</h2>
       <p class="file-hint" style="margin:0 0 6px;">تُستخدم تلقائياً عند طلبات مثل الراتب، فلا تُعيد كتابتها في كل طلب.</p>
       <div class="row">
         <div><label>الاسم بالإنجليزية</label>
@@ -8234,7 +8234,7 @@ function renderAccount(app){
     ${pushCard()}
 
     <div class="card">
-      <h2 style="margin:0 0 10px;font-size:15px;">التوقيع والختم</h2>
+      <h2 style="margin:0 0 10px;font-size:var(--fs-h3);">التوقيع والختم</h2>
       ${['dept_manager','senior_manager','executive_manager','accountant','cfo'].includes(me.role) ? `
       <label>طريقة التوقيع عند الاعتماد</label>
       <select id="accSignatureMode">
@@ -8244,7 +8244,7 @@ function renderAccount(app){
       ` : ''}
 
       <label style="margin-top:18px;">صورة التوقيع (إن وُجدت)</label>
-      ${me.signatureData ? `<div class="sign-box"><img src="${escH(me.signatureData)}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:12px;color:var(--muted);">التوقيع الحالي</span></div>` : `<p class="file-hint">لا يوجد توقيع محفوظ.</p>`}
+      ${me.signatureData ? `<div class="sign-box"><img src="${escH(me.signatureData)}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:var(--fs-hint);color:var(--muted);">التوقيع الحالي</span></div>` : `<p class="file-hint">لا يوجد توقيع محفوظ.</p>`}
       <input id="accSignFile" type="file" accept="image/*">
       <div class="add-beneficiary" data-on-click="toggleSignatureCanvas">أو ارسم توقيعك بالماوس/اللمس</div>
       <div id="signCanvasWrap" style="display:none;margin-top:8px;">
@@ -8266,18 +8266,18 @@ function renderAccount(app){
         <p class="file-hint" id="canvasSignStatus"></p>
       </div>
       <label style="margin-top:14px;">صورة الختم (إن وُجد)</label>
-      ${me.stampData ? `<div class="sign-box"><img src="${escH(me.stampData)}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:12px;color:var(--muted);">الختم الحالي</span></div>` : `<p class="file-hint">لا يوجد ختم محفوظ.</p>`}
+      ${me.stampData ? `<div class="sign-box"><img src="${escH(me.stampData)}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:var(--fs-hint);color:var(--muted);">الختم الحالي</span></div>` : `<p class="file-hint">لا يوجد ختم محفوظ.</p>`}
       <input id="accStampFile" type="file" accept="image/*">
 
       <label style="margin-top:14px;">صورة الختم الثاني (اختياري — يُستخدم مثلاً لخطوة تأكيد الصرف بختم مختلف عن خطوة تم التحويل)</label>
-      ${me.stampData2 ? `<div class="sign-box"><img src="${escH(me.stampData2)}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:12px;color:var(--muted);">الختم الثاني الحالي</span></div>` : `<p class="file-hint">لا يوجد ختم ثاني محفوظ.</p>`}
+      ${me.stampData2 ? `<div class="sign-box"><img src="${escH(me.stampData2)}" style="height:40px;max-width:120px;object-fit:contain;"><span style="font-size:var(--fs-hint);color:var(--muted);">الختم الثاني الحالي</span></div>` : `<p class="file-hint">لا يوجد ختم ثاني محفوظ.</p>`}
       <input id="accStampFile2" type="file" accept="image/*">
 
     </div>
     ${pageWidthFieldHtml()}
     ${soundsCardHtml()}
     <div class="card">
-      <h2 style="margin:0 0 4px;font-size:15px;">الأمان</h2>
+      <h2 style="margin:0 0 4px;font-size:var(--fs-h3);">الأمان</h2>
       <p class="file-hint" style="margin:0 0 6px;">كلمة المرور ومهلة إغلاق الدخول وإنهاء الجلسات. يُحفظ ما تغيّره هنا بزر «حفظ» أسفل الصفحة.</p>
       <div class="row">
         <div><label>كلمة مرور جديدة (اتركها فارغة لعدم التغيير)</label>
@@ -8491,23 +8491,23 @@ function defaultSeqConfig(context, N, i, dir){
   if(context==='mini'){
     // mini: التوقيع ظاهر ويملأ الصندوق، بقية العناصر مرتّبة (title→name→sig→stamp→date→step) لكن مخفية
     return {
-      title:     {visible:false, ...q(.04,.02,.92,.18), fontSize:r1(7*k),   fontWeight:'700'},
-      name:      {visible:false, ...q(.04,.21,.92,.18), fontSize:r1(6.5*k), fontWeight:'400'},
+      title:     {visible:false, ...q(.04,.02,.92,.18), fontSize:Math.max(1,Math.floor(7*k)),   fontWeight:'700'},
+      name:      {visible:false, ...q(.04,.21,.92,.18), fontSize:Math.max(1,Math.floor(6.5*k)), fontWeight:'400'},
       signature: {visible:true,  ...q(.05,.05,.90,.90)},
       stamp:     {visible:false, ...q(.05,.50,.90,.30)},
       date:      {visible:false, ...q(.04,.82,.92,.12), fontSize:5,          fontWeight:'400'},
-      step:      {visible:false, ...q(.04,.94,.92,.05), fontSize:r1(5*k),   fontWeight:'400'}
+      step:      {visible:false, ...q(.04,.94,.92,.05), fontSize:Math.max(1,Math.floor(5*k)),   fontWeight:'400'}
     };
   }
   // ترتيب: المسمى → الاسم → التوقيع → الختم → التاريخ → اسم الخطوة
   // كل العناصر في الـ80% العلوي (0.0→0.80)، 20% سفلي فراغ
   return {
-    title:     {visible:true,  ...q(.04,.02,.92,.14), fontSize:r1(11*k), fontWeight:'700'},
-    name:      {visible:true,  ...q(.04,.17,.92,.13), fontSize:r1(9*k),  fontWeight:'400'},
+    title:     {visible:true,  ...q(.04,.02,.92,.14), fontSize:Math.max(1,Math.floor(11*k)), fontWeight:'700'},
+    name:      {visible:true,  ...q(.04,.17,.92,.13), fontSize:Math.max(1,Math.floor(9*k)),  fontWeight:'400'},
     signature: {visible:true,  ...q(.05,.31,.90,.26)},
     stamp:     {visible:true,  ...q(.05,.58,.90,.19)},
-    date:      {visible:true,  ...q(.04,.78,.92,.10), fontSize:r1(7*k),  fontWeight:'400'},
-    step:      {visible:true,  ...q(.04,.88,.92,.10), fontSize:r1(6.5*k),fontWeight:'400'}
+    date:      {visible:true,  ...q(.04,.78,.92,.10), fontSize:Math.max(1,Math.floor(7*k)),  fontWeight:'400'},
+    step:      {visible:true,  ...q(.04,.88,.92,.10), fontSize:Math.max(1,Math.floor(6.5*k)),fontWeight:'400'}
   };
 }
 // يُكمل أي عنصر ناقص (مثل «اسم الخطوة» بتكوين قديم) من الافتراضي دون المساس بما ضُبط
@@ -8579,12 +8579,12 @@ function renderSeqSignatures(req, context){
     const txt = (t, text, cls, dfltW)=>{
       const b = cfg[t]; if(!b || !b.visible || !text) return '';
       const fam = b.fontFamily ? `font-family:${b.fontFamily};` : '';
-      return `<div class="${cls}" style="${box(b)}font-size:${b.fontSize||9}px;font-weight:${b.fontWeight||dfltW};${fam}line-height:1.2;margin:0;">${escH(text)}</div>`;
+      return `<div class="${cls}" style="${box(b)}font-size:${Math.floor(b.fontSize||9)}px;font-weight:${b.fontWeight||dfltW};${fam}line-height:1.2;margin:0;">${escH(text)}</div>`;
     };
     const img = (t, src)=>{ const b = cfg[t]; return (b && b.visible && src) ? `<div style="${box(b)}"><img src="${escH(src)}" style="max-width:100%;max-height:100%;object-fit:contain;"></div>` : ''; };
     html += txt('title', title, 'sign-role-title', '700') + txt('name', sl.actor, 'sign-name', '400') + txt('step', sl.step, 'sign-step', '400')
           + img('signature', sigImg) + img('stamp', stampImg) + txt('date', toWesternDigits(sl.time)||'', 'sign-date', '400')
-          + (sl.paper ? (()=>{ const b = cfg.signature || cfg.stamp; if(!b) return ''; const fs = context==='mini' ? 7.8 : 9.6;
+          + (sl.paper ? (()=>{ const b = cfg.signature || cfg.stamp; if(!b) return ''; const fs = context==='mini' ? 7 : 9;
               return `<div style="${box(b)}"><div class="paper-stamp${sl.paperRej ? ' rej' : ''}" style="font-size:${fs}px;"><b>${sl.paperRej ? 'مرفوض ورقياً' : 'معتمد ورقياً'}</b><span>المستند الموقّع بالمرفقات</span><span>التاريخ: ${escH(toWesternDigits(sl.time)||'')}</span></div></div>`; })() : '');
   });
   if(!html) return '';
@@ -8785,7 +8785,7 @@ function renderSigDesigner(app){
         <input type="checkbox" ${cfg[t].visible?'checked':''} data-on-change="toggleSigDesignerBoxVisible" data-on-change-args="${qa([(''+(t))])}">
         ${sigDesignerBoxLabel(t)}
       </label>
-      ${isText ? `<input type="number" min="5" max="60" step="0.5" value="${cfg[t].fontSize||14}" data-on-input="setSigDesignerFontSize" data-on-input-args="${qa([(''+(t)), QA.v])}" style="width:56px;padding:4px 6px;font-size:12px;" title="حجم الخط">
+      ${isText ? `<input type="number" min="5" max="60" step="1" value="${Math.floor(cfg[t].fontSize||14)}" data-on-input="setSigDesignerFontSize" data-on-input-args="${qa([(''+(t)), QA.v])}" style="width:56px;padding:4px 6px;font-size:12px;" title="حجم الخط">
         <select data-on-change="setSigDesignerTextStyle" data-on-change-args="${qa([(''+(t)), "fontWeight", QA.v])}" style="padding:3px 4px;font-size:12px;width:auto;min-height:0;" title="وزن الخط">
           <option value="700" ${(cfg[t].fontWeight||'400')==='700'?'selected':''}>عريض</option><option value="400" ${(cfg[t].fontWeight||'400')!=='700'?'selected':''}>عادي</option></select>
         <select data-on-change="setSigDesignerTextStyle" data-on-change-args="${qa([(''+(t)), "fontFamily", QA.v])}" style="padding:3px 4px;font-size:12px;width:auto;min-height:0;max-width:150px;" title="نوع الخط">
@@ -9000,8 +9000,8 @@ function renderMonitor(app){
   const st = d.status || {}, n = k => (st[k]||{}).n||0, sm = k => Number((st[k]||{}).sum||0);
   const finKeys = ['pending_transfer_request','pending_transfer_approval','pending_disbursement'];
   const tile = (label, num, amount, color, sub) => `<div class="card tile" style="flex:1 1 160px;margin:0;border-top:4px solid ${color};">
-      <div class="sub" style="margin-bottom:4px;">${label}</div><div style="font-size:24px;font-weight:700;">${num}</div>
-      ${amount!=null ? `<div class="sub" dir="rtl">${fmtKWD(amount)}</div>` : ''}${sub ? `<div class="sub" style="font-size:12px;">${sub}</div>` : ''}</div>`;
+      <div class="sub" style="margin-bottom:4px;">${label}</div><div style="font-size:var(--fs-h1);font-weight:700;">${num}</div>
+      ${amount!=null ? `<div class="sub" dir="rtl">${fmtKWD(amount)}</div>` : ''}${sub ? `<div class="sub" style="font-size:var(--fs-hint);">${sub}</div>` : ''}</div>`;
   const t = d.today || {};
   const today = `<div class="card"><h3 style="margin-top:0;">اليوم</h3><div class="tile-row" style="display:flex;flex-wrap:wrap;gap:10px;">
       ${tile('طلبات أُنشئت', t.created||0, null, 'var(--blue)')}${tile('اعتمادات', t.approved||0, null, 'var(--green)')}
@@ -9029,7 +9029,7 @@ function renderMonitor(app){
   const waitT = `<div class="card"><h3 style="margin-top:0;">من ينتظر قراره <span class="sub">(${waiting.length}${lateN ? ' · متأخر ' + lateN : ''})</span></h3>
       ${waiting.length ? `<div style="overflow-x:auto;"><table class="app-table" data-qyl="monWait" data-qyl-title="من ينتظر قراره"><thead><tr><th>الطلب</th><th>البيان</th><th data-sum>المبلغ</th><th>المعتمِد</th><th>ينتظر منذ</th><th>المهلة</th><th></th></tr></thead><tbody>${waitRows}</tbody></table></div>`
         : '<p class="sub">لا طلبات تنتظر قراراً.</p>'}
-      <p class="sub" style="font-size:12px;margin:6px 0 0;">«متأخر» بالأيام التقويمية من بدء الخطوة؛ والإحالة التلقائية تحسب بإعداد الشركة (أيام عمل أو تقويم).</p></div>`;
+      <p class="sub" style="font-size:var(--fs-hint);margin:6px 0 0;">«متأخر» بالأيام التقويمية من بدء الخطوة؛ والإحالة التلقائية تحسب بإعداد الشركة (أيام عمل أو تقويم).</p></div>`;
   const stepName = k => ({pending_transfer_request:'طلب التحويل (المحاسب)', pending_transfer_approval:'اعتماد التحويل (المدير المالي)', pending_disbursement:'إتمام الصرف (المحاسب)'})[k] || k;
   const fin = d.finance || [];
   const finT = `<div class="card"><h3 style="margin-top:0;">في يد المالية <span class="sub">(${fin.length})</span></h3>
@@ -9041,7 +9041,7 @@ function renderMonitor(app){
       ${feed.length ? `<div style="display:flex;flex-direction:column;gap:2px;">${feed.map(e=>`<div class="mon-feed" data-on-click="openRequest" data-on-click-args="${qa([e.req])}">
           <div class="mf1"><span><b>${escH(e.actor||'')}</b> ${escH(e.action||'')}</span><span class="mf-amt" dir="rtl">${fmtKWD(Number(e.amount||0))}</span></div>
           <div class="mf2"><span>${escH(e.number || 'قيد المراجعة')} · ${escH(e.reason||'')}</span><span title="${escH(monitorWhen(e.at))}">${escH(monitorAgo(e.at))}</span></div>
-          ${e.note ? `<div class="sub" style="font-size:12px;">${escH(e.note)}</div>` : ''}</div>`).join('')}</div>`
+          ${e.note ? `<div class="sub" style="font-size:var(--fs-hint);">${escH(e.note)}</div>` : ''}</div>`).join('')}</div>`
         : '<p class="sub">لا حركات في هذه المدة.</p>'}</div>`;
   app.innerHTML = head + sec + today + totals + waitT + finT + feedT;
 }
@@ -9174,14 +9174,14 @@ function renderLedger(app){
       <td style="padding:7px 10px;white-space:nowrap;${SEPL}">${fmtDateDMY(t.date)}</td>
       <td style="padding:7px 10px;${SEPL}">
         ${escH(t.description)}
-        ${isRev ? '<span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:10px;display:inline;padding:1px 6px;">قيد عاكس</span>' : ''}
-        ${rev   ? '<span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:10px;display:inline;padding:1px 6px;">مُعاد</span>' : ''}
-        ${t.refundOfId ? '<span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:10px;display:inline;padding:1px 6px;">استرداد</span>' : ''}
-        ${t.note ? `<div style="font-size:11px;color:var(--muted);">${escH(t.note)}</div>` : ''}
+        ${isRev ? '<span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:var(--fs-xs);display:inline;padding:1px 6px;">قيد عاكس</span>' : ''}
+        ${rev   ? '<span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:var(--fs-xs);display:inline;padding:1px 6px;">مُعاد</span>' : ''}
+        ${t.refundOfId ? '<span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:var(--fs-xs);display:inline;padding:1px 6px;">استرداد</span>' : ''}
+        ${t.note ? `<div style="font-size:var(--fs-xs);color:var(--muted);">${escH(t.note)}</div>` : ''}
       </td>
-      <td style="padding:7px 10px;font-size:12px;${SEPL}">${item ? escH(item.name) : '—'}</td>
-      <td style="padding:7px 10px;font-size:12px;${SEPL}">${escH(t.beneficiary||'—')}</td>
-      <td style="padding:7px 10px;font-size:12px;white-space:nowrap;color:var(--muted);${SEPL}">${LEDGER_SOURCE_LABELS[t.sourceType]||t.sourceType}</td>
+      <td style="padding:7px 10px;font-size:var(--fs-hint);${SEPL}">${item ? escH(item.name) : '—'}</td>
+      <td style="padding:7px 10px;font-size:var(--fs-hint);${SEPL}">${escH(t.beneficiary||'—')}</td>
+      <td style="padding:7px 10px;font-size:var(--fs-hint);white-space:nowrap;color:var(--muted);${SEPL}">${LEDGER_SOURCE_LABELS[t.sourceType]||t.sourceType}</td>
       <td style="padding:7px 10px;text-align:right;direction:rtl;white-space:nowrap;color:var(--green);${SEPL}">${t.direction==='in'?fmtKWDHtml(t.amount):'—'}</td>
       <td style="padding:7px 10px;text-align:right;direction:rtl;white-space:nowrap;color:var(--red);${SEPL}">${t.direction==='out'?fmtKWDHtml(t.amount):'—'}</td>
       <td style="padding:7px 10px;text-align:right;direction:rtl;white-space:nowrap;font-weight:700;${SEPL}">${fmtKWDHtml(t._bal)}</td>
@@ -9191,7 +9191,7 @@ function renderLedger(app){
 
   const s = state.ledgerSort;
   const th = (k,l,sum)=>`<th ${sum?'data-sum':''} style="padding:9px 10px;text-align:right;font-weight:600;cursor:pointer;white-space:nowrap;" data-on-click="ledgerSortBy" data-on-click-args="${qa([(''+(k))])}" title="ترتيب حسب ${l}">${l}${s.key===k ? (s.dir==='asc'?' ▲':' ▼') : ''}</th>`;
-  const fin = (k, ph, extra)=>`<input type="text" autocomplete="off" value="${escH(f[k]||'')}" placeholder="${ph}" ${extra||''} style="width:100%;min-width:0;max-width:180px;font-size:12px;padding:4px 6px;" data-on-input="#72" data-on-input-args="${qa([(''+(k))])}" data-on-change="render" data-on-keydown="#73">`;
+  const fin = (k, ph, extra)=>`<input type="text" autocomplete="off" value="${escH(f[k]||'')}" placeholder="${ph}" ${extra||''} style="width:100%;min-width:0;max-width:180px;font-size:var(--fs-hint);padding:4px 6px;" data-on-input="#72" data-on-input-args="${qa([(''+(k))])}" data-on-change="render" data-on-keydown="#73">`;
   const describe = k => {
     const v = f[k];
     const shown = k==='dir' ? (v==='in'?'دخول':'خروج') : k==='cItem' ? ((items.find(b=>b.id===v)||{}).name||'') : k==='cSrc' ? (LEDGER_SOURCE_LABELS[v]||v) : v;
@@ -9227,18 +9227,18 @@ function renderLedger(app){
 
     <div class="lg-tot" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;">
       <div class="card" style="padding:14px;text-align:center;border-top:3px solid var(--green);">
-        <div style="font-size:13px;font-weight:700;color:#6b7280;margin-bottom:6px;">إجمالي الدخول</div>
-        <div style="font-size:19px;font-weight:900;color:var(--green);">${fmtKWDHtml(totalIn)}</div></div>
+        <div style="font-size:var(--fs-label);font-weight:700;color:#6b7280;margin-bottom:6px;">إجمالي الدخول</div>
+        <div style="font-size:var(--fs-h2);font-weight:900;color:var(--green);">${fmtKWDHtml(totalIn)}</div></div>
       <div class="card" style="padding:14px;text-align:center;border-top:3px solid var(--red);">
-        <div style="font-size:13px;font-weight:700;color:#6b7280;margin-bottom:6px;">إجمالي الخروج</div>
-        <div style="font-size:19px;font-weight:900;color:var(--red);">${fmtKWDHtml(totalOut)}</div></div>
+        <div style="font-size:var(--fs-label);font-weight:700;color:#6b7280;margin-bottom:6px;">إجمالي الخروج</div>
+        <div style="font-size:var(--fs-h2);font-weight:900;color:var(--red);">${fmtKWDHtml(totalOut)}</div></div>
       <div class="card" style="padding:14px;text-align:center;border-top:3px solid var(--blue);">
-        <div style="font-size:13px;font-weight:700;color:#6b7280;margin-bottom:6px;">الصافي</div>
-        <div style="font-size:19px;font-weight:900;color:var(--blue);">${fmtKWDHtml(totalIn-totalOut)}</div></div>
+        <div style="font-size:var(--fs-label);font-weight:700;color:#6b7280;margin-bottom:6px;">الصافي</div>
+        <div style="font-size:var(--fs-h2);font-weight:900;color:var(--blue);">${fmtKWDHtml(totalIn-totalOut)}</div></div>
     </div>
 
     <div class="card" style="padding:0;overflow:auto;">
-      <table class="ledger-tbl" data-qyl="ledger" data-qyl-ext="ledgerQylPeriod" data-qyl-title="دفتر الحركات" style="width:100%;border-collapse:collapse;font-size:13px;direction:rtl;">
+      <table class="ledger-tbl" data-qyl="ledger" data-qyl-ext="ledgerQylPeriod" data-qyl-title="دفتر الحركات" style="width:100%;border-collapse:collapse;font-size:var(--fs-label);direction:rtl;">
         <colgroup>
           <!-- أعمدة ثابتة العرض لا تتسع مع الصفحة (والمحتوى بلا التفاف فلا ينقطع المبلغ)، والمساحة الزائدة كلها للبيان والبند والمستفيد -->
           <col style="width:92px;"><col><col><col><col style="width:96px;">
@@ -9252,9 +9252,9 @@ function renderLedger(app){
         <tr class="no-print" style="background:var(--paper);">
           <th style="padding:5px 6px;">${fin('cDate','09-2026')}</th>
           <th style="padding:5px 6px;">${fin('cDesc','بحث في البيان')}</th>
-          <th style="padding:5px 6px;"><select style="width:100%;min-width:0;max-width:180px;font-size:12px;padding:4px 6px;" data-on-change="setLedgerFilter" data-on-change-args="${qa(["cItem", QA.v])}">${itemOpts}</select></th>
+          <th style="padding:5px 6px;"><select style="width:100%;min-width:0;max-width:180px;font-size:var(--fs-hint);padding:4px 6px;" data-on-change="setLedgerFilter" data-on-change-args="${qa(["cItem", QA.v])}">${itemOpts}</select></th>
           <th style="padding:5px 6px;">${fin('cBene','بحث')}</th>
-          <th style="padding:5px 6px;"><select style="width:100%;min-width:0;max-width:180px;font-size:12px;padding:4px 6px;" data-on-change="setLedgerFilter" data-on-change-args="${qa(["cSrc", QA.v])}">${srcOpts}</select></th>
+          <th style="padding:5px 6px;"><select style="width:100%;min-width:0;max-width:180px;font-size:var(--fs-hint);padding:4px 6px;" data-on-change="setLedgerFilter" data-on-change-args="${qa(["cSrc", QA.v])}">${srcOpts}</select></th>
           <th style="padding:5px 6px;">${fin('cIn','من مبلغ','dir="ltr" inputmode="decimal"')}</th>
           <th style="padding:5px 6px;">${fin('cOut','من مبلغ','dir="ltr" inputmode="decimal"')}</th>
           <th style="padding:5px 6px;"></th><th></th>
@@ -9326,7 +9326,7 @@ function askModal(opts){
     askModalClose();
     state._ask = {opts, resolve};
     const fields = (opts.fields||[]).map(x=>{
-      const hint = x.hint ? `<div class="sub" style="font-size:12px;margin:2px 0 8px;">${x.hint}</div>` : '';
+      const hint = x.hint ? `<div class="sub" style="font-size:var(--fs-hint);margin:2px 0 8px;">${x.hint}</div>` : '';
       const ctl = x.type==='textarea'
         ? `<textarea id="ask_${x.id}" rows="${x.rows||3}" autocomplete="off">${escH(x.value||'')}</textarea>`
         : x.type==='select'
@@ -9342,7 +9342,7 @@ function askModal(opts){
           <h2>${opts.title||''}</h2>
           ${opts.text ? `<p class="sub" style="margin-bottom:12px;">${opts.text}</p>` : ''}
           ${fields}
-          <div id="askErr" style="color:var(--red);font-size:13px;min-height:18px;margin:6px 0;"></div>
+          <div id="askErr" style="color:var(--red);font-size:var(--fs-label);min-height:18px;margin:6px 0;"></div>
           <div class="actions-row">
             <button class="btn ${opts.danger?'btn-reject':'btn-primary'} btn-md" data-on-click="askModalDone" data-on-click-args="${qa([true])}">${opts.confirm||'تأكيد'}</button>
             <button class="btn btn-ghost btn-sm" data-on-click="askModalDone" data-on-click-args="${qa([false])}">إلغاء</button>
@@ -9470,7 +9470,7 @@ function renderCancelledArchive(app){
         <div class="li-main">
           <b>${escH(r.number)}</b>
           <span class="sub" style="display:block;">${escH(r.reason)} — ${fmtKWDHtml(r.totalAmount)} د.ك</span>
-          <span class="sub" style="display:block;font-size:11.5px;">أُبطل بواسطة ${escH(canceller ? canceller.name : '—')} بتاريخ ${dateStr}</span>
+          <span class="sub" style="display:block;font-size:var(--fs-hint);">أُبطل بواسطة ${escH(canceller ? canceller.name : '—')} بتاريخ ${dateStr}</span>
         </div>
         <div class="actions-row eq-btns" style="margin:0;">
           <button class="btn btn-ghost btn-sm" data-on-click="openRequest" data-on-click-args="${qa([(''+(r.id))])}">عرض</button>
@@ -9789,7 +9789,7 @@ function renderAdmin(app){
       </div>
       <div class="row">
         <div style="flex:0 0 auto;align-self:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-weight:600;margin:0 0 6px;"><input type="checkbox" id="newUserGeneral" style="width:auto;" data-on-change="onNewUserOrgToggle"> 🌐 ينتمي لإدارة المؤسسة</label>
-          <p class="sub" style="margin:0 0 4px;font-size:12px;">المدير العام، المالي، المحاسب العام...</p></div>
+          <p class="sub" style="margin:0 0 4px;font-size:var(--fs-hint);">المدير العام، المالي، المحاسب العام...</p></div>
       </div>
       <div id="newUserCompanyRow" class="row" style="display:flex;">
         <div><label>الشركة</label><select id="newUserCompanySelect"><option value="">— اختر شركة —</option>${state.companies.map(c=>`<option value="${c.id}" ${c.id===state.currentCompanyId?"selected":""}>${escH(c.nameAr)}</option>`).join("")}</select></div>
@@ -9823,7 +9823,7 @@ function renderAdmin(app){
       </div>
     `).join('')}
     ${(()=>{ const sus = state.users.filter(u=>u.role!=='admin' && u.isSuspended && userHasCompany(u, state.currentCompanyId));
-      return sus.length ? `<details style="margin-top:18px;" ${state.editingUserId && sus.some(x=>x.id===state.editingUserId)?'open':''}><summary style="cursor:pointer;font-weight:700;font-size:15px;">🚪 الموقوفون / تركوا العمل (${sus.length})</summary>
+      return sus.length ? `<details style="margin-top:18px;" ${state.editingUserId && sus.some(x=>x.id===state.editingUserId)?'open':''}><summary style="cursor:pointer;font-weight:700;font-size:var(--fs-h3);">🚪 الموقوفون / تركوا العمل (${sus.length})</summary>
         ${sus.map(u=>`<div class="list-item" style="opacity:.85;"><div class="li-main"><b>${escH(u.name)}</b>
           <span>${escH(findRole(u.role).name)} · هاتف: ${escH(u.phone)} · أُوقف ${u.suspendedAt ? fmtDateDMY(u.suspendedAt) : ''}${u.suspendedNote ? ' — '+escH(u.suspendedNote) : ''}</span></div>
           <div style="display:flex;gap:10px;"><button class="btn btn-ghost btn-xs" data-on-click="editUser" data-on-click-args="${qa([(''+(u.id))])}">عرض</button>
@@ -9968,7 +9968,7 @@ function renderBudgetItemsTab(){
         <div class="eq-btns" style="display:flex;gap:8px;align-items:center;">
           <button class="btn btn-ghost btn-sm" data-on-click="#82" data-on-click-args="${qa([(''+(b.id))])}">تعديل</button>
           ${b.is_protected
-            ? `<span title="بند ثابت في النظام — يُعطَّل من التعديل ولا يُحذف" style="font-size:11px;color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:3px 9px;white-space:nowrap;">🔒 بند ثابت</span>`
+            ? `<span title="بند ثابت في النظام — يُعطَّل من التعديل ولا يُحذف" style="font-size:var(--fs-xs);color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:3px 9px;white-space:nowrap;">🔒 بند ثابت</span>`
             : `<button class="btn btn-reject btn-sm" data-on-click="deleteBudgetItem" data-on-click-args="${qa([(''+(b.id))])}">حذف</button>`}
         </div>
       </div>`;
@@ -10169,7 +10169,7 @@ function renderBudgetReportTab(){
 
   // خلية رقم
   function numCell(val, color, big){
-    const sz = big?'font-size:14px;':'';
+    const sz = big?'font-size:var(--fs-body);':'';
     const fw = big?'font-weight:900;':'font-weight:600;';
     const v = val===0 ? `<span style="color:var(--muted);">—</span>` : fmtKWD(val,{noUnit:true});
     return `<td style="padding:7px 12px;text-align:right;color:${color};${sz}${fw}${SEP}" title="${fmtKWDPlain(val)}">${v}</td>`;
@@ -10191,7 +10191,7 @@ function renderBudgetReportTab(){
   // خلية رصيد — فاصل متقطع على اليمين (بين الاستهلاك والرصيد)
   function balCell(bal, big){
     const c = bal>0?'var(--green)':bal<0?'var(--red)':'var(--muted)';
-    const sz = big?'font-size:15px;':'font-size:13px;';
+    const sz = big?'font-size:var(--fs-h3);':'font-size:var(--fs-label);';
     return `<td style="padding:7px 12px;text-align:right;${BAR_SEP}" title="${fmtKWDPlain(bal)}">
       <span style="${sz}font-weight:${big?'900':'800'};color:${c};white-space:nowrap;">${fmtKWD(bal,{noUnit:true})}</span>
     </td>`;
@@ -10211,17 +10211,17 @@ function renderBudgetReportTab(){
       const pct = own.net>0?Math.min(100,Math.round((own.spent+own.committed+own.pending)/own.net*100)):0;
       const barC = pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
       const toggleBtn = hc
-        ? `<button data-on-click="budgetReportToggle" data-on-click-args="${qa([(''+(b.id))])}" style="background:none;border:none;cursor:pointer;padding:0 3px;font-size:12px;color:var(--blue);line-height:1;" title="${isCollapsed?'فتح':'طي'}">${isCollapsed?'▶':'▼'}</button>`
+        ? `<button data-on-click="budgetReportToggle" data-on-click-args="${qa([(''+(b.id))])}" style="background:none;border:none;cursor:pointer;padding:0 3px;font-size:var(--fs-hint);color:var(--blue);line-height:1;" title="${isCollapsed?'فتح':'طي'}">${isCollapsed?'▶':'▼'}</button>`
         : `<span style="display:inline-block;width:18px;"></span>`;
-      const indent = depth>0 ? `<span style="color:var(--muted);font-size:11px;margin-left:2px;">└</span> ` : '';
+      const indent = depth>0 ? `<span style="color:var(--muted);font-size:var(--fs-xs);margin-left:2px;">└</span> ` : '';
       const rowBg = depth===0 ? 'var(--paper)' : '#fff';
       const fw = depth===0 ? 'font-weight:700;' : '';
       return `<tr class="bri-row" style="background:${rowBg};border-bottom:1px solid var(--line);">
         <td style="padding:7px 10px;padding-right:${pad}px;white-space:nowrap;${fw}${SEP}">
           ${toggleBtn}${indent}${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
-          ${!b.is_active?'<span style="font-size:10px;color:var(--red);"> (غير نشط)</span>':''}
+          ${!b.is_active?'<span style="font-size:var(--fs-xs);color:var(--red);"> (غير نشط)</span>':''}
         </td>
-        <td style="padding:7px 10px;text-align:center;font-size:13px;color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
+        <td style="padding:7px 10px;text-align:center;font-size:var(--fs-label);color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
         ${numCell(own.rev,'var(--green)',false)}
         ${numCell(own.profit,'var(--amber)',false)}
         ${numCell(own.spent,'var(--red)',false)}
@@ -10240,12 +10240,12 @@ function renderBudgetReportTab(){
     const pct = own.net>0?Math.min(100,Math.round((own.spent+own.committed+own.pending)/own.net*100)):0;
     const barC = pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
     const namePart = isSelfRow
-      ? `<span style="color:var(--muted);margin-left:4px;">·</span> <span style="font-style:italic;color:var(--muted);">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)} <span style="font-size:10px;opacity:.8;">(الخاص)</span></span>`
-      : `<span style="color:var(--muted);font-size:11px;margin-left:2px;">└</span> ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${!b.is_active?'<span style="font-size:10px;color:var(--red);"> (غير نشط)</span>':''}`;
+      ? `<span style="color:var(--muted);margin-left:4px;">·</span> <span style="font-style:italic;color:var(--muted);">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)} <span style="font-size:var(--fs-xs);opacity:.8;">(الخاص)</span></span>`
+      : `<span style="color:var(--muted);font-size:var(--fs-xs);margin-left:2px;">└</span> ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${!b.is_active?'<span style="font-size:var(--fs-xs);color:var(--red);"> (غير نشط)</span>':''}`;
     const rowBg = '#fff';
     return `<tr class="bri-row" style="background:${rowBg};border-bottom:1px solid var(--line);">
       <td style="padding:${isSelfRow?'5':'6'}px 10px;padding-right:${pad}px;white-space:nowrap;font-size:${isSelfRow?'12':'13'}px;${SEP}">${namePart}</td>
-      <td style="padding:6px 10px;text-align:center;font-size:13px;color:var(--muted);${SEP}">${isSelfRow?'':BUDGET_TYPE_LABELS[b.type]||b.type}</td>
+      <td style="padding:6px 10px;text-align:center;font-size:var(--fs-label);color:var(--muted);${SEP}">${isSelfRow?'':BUDGET_TYPE_LABELS[b.type]||b.type}</td>
       ${numCell(own.rev,'var(--green)',false)}
       ${numCell(own.profit,'var(--amber)',false)}
       ${numCell(own.spent,'var(--red)',false)}
@@ -10269,14 +10269,14 @@ function renderBudgetReportTab(){
       if(!hc){
         const pct = own.net>0?Math.min(100,Math.round((own.spent+own.committed+own.pending)/own.net*100)):0;
         const barC = pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
-        const indent = depth>0 ? `<span style="color:var(--muted);font-size:11px;margin-left:2px;">└</span> ` : '';
+        const indent = depth>0 ? `<span style="color:var(--muted);font-size:var(--fs-xs);margin-left:2px;">└</span> ` : '';
         const simpleBg = depth===0 ? 'var(--paper)' : '#fff';
         return `<tr class="bri-row" style="background:${simpleBg};border-bottom:1px solid var(--line);">
           <td style="padding:7px 10px;padding-right:${pad}px;white-space:nowrap;${SEP}">
             <span style="display:inline-block;width:18px;"></span>${indent}${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
-            ${!b.is_active?'<span style="font-size:10px;color:var(--red);"> (غير نشط)</span>':''}
+            ${!b.is_active?'<span style="font-size:var(--fs-xs);color:var(--red);"> (غير نشط)</span>':''}
           </td>
-          <td style="padding:7px 10px;text-align:center;font-size:13px;color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
+          <td style="padding:7px 10px;text-align:center;font-size:var(--fs-label);color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
           ${numCell(own.rev,'var(--green)',false)}
           ${numCell(own.profit,'var(--amber)',false)}
           ${numCell(own.spent,'var(--red)',false)}
@@ -10292,17 +10292,17 @@ function renderBudgetReportTab(){
       const totPct = tot.net>0?Math.min(100,Math.round((tot.spent+tot.committed+tot.pending)/tot.net*100)):0;
       const totBarC = totPct>=100?'var(--red)':totPct>=80?'var(--amber)':'var(--green)';
       const totBalC = tot.bal>0?'var(--green)':tot.bal<0?'var(--red)':'var(--muted)';
-      const toggleBtn = `<button data-on-click="budgetReportToggle" data-on-click-args="${qa([(''+(b.id))])}" style="background:none;border:none;cursor:pointer;padding:0 3px;font-size:13px;color:var(--blue);line-height:1;font-weight:900;" title="${isCollapsed?'فتح':'طي'}">${isCollapsed?'▶':'▼'}</button>`;
+      const toggleBtn = `<button data-on-click="budgetReportToggle" data-on-click-args="${qa([(''+(b.id))])}" style="background:none;border:none;cursor:pointer;padding:0 3px;font-size:var(--fs-label);color:var(--blue);line-height:1;font-weight:900;" title="${isCollapsed?'فتح':'طي'}">${isCollapsed?'▶':'▼'}</button>`;
 
       if(depth===0){
         // ── صف إجمالي الجذر ──
         const rootRow = `<tr class="bri-row" style="background:var(--paper);border-top:2px solid var(--blue);border-bottom:1px solid var(--line);">
-          <td style="padding:9px 10px;padding-right:${pad}px;white-space:nowrap;font-weight:900;font-size:14px;${SEP}">
+          <td style="padding:9px 10px;padding-right:${pad}px;white-space:nowrap;font-weight:900;font-size:var(--fs-body);${SEP}">
             ${toggleBtn} ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
-            ${!b.is_active?'<span style="font-size:10px;color:var(--red);"> (غير نشط)</span>':''}
-            <span style="font-size:10px;font-weight:600;color:var(--blue);margin-right:8px;background:rgba(59,130,246,.1);padding:1px 7px;border-radius:4px;">إجمالي مع الفروع</span>
+            ${!b.is_active?'<span style="font-size:var(--fs-xs);color:var(--red);"> (غير نشط)</span>':''}
+            <span style="font-size:var(--fs-xs);font-weight:600;color:var(--blue);margin-right:8px;background:rgba(59,130,246,.1);padding:1px 7px;border-radius:4px;">إجمالي مع الفروع</span>
           </td>
-          <td style="padding:9px 10px;text-align:center;font-size:14px;color:var(--muted);font-weight:600;${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
+          <td style="padding:9px 10px;text-align:center;font-size:var(--fs-body);color:var(--muted);font-weight:600;${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
           ${numCell(tot.rev,'var(--green)',true)}
           ${numCell(tot.profit,'var(--amber)',true)}
           ${numCell(tot.spent,'var(--red)',true)}
@@ -10322,11 +10322,11 @@ function renderBudgetReportTab(){
         const midRow = `<tr class="bri-row" style="background:#fff;border-bottom:1px solid var(--line);">
           <td style="padding:7px 10px;padding-right:${pad}px;white-space:nowrap;font-weight:700;${SEP}">
             ${toggleBtn}
-            <span style="color:var(--muted);font-size:11px;margin-left:2px;">└</span>
+            <span style="color:var(--muted);font-size:var(--fs-xs);margin-left:2px;">└</span>
             ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
-            ${!b.is_active?'<span style="font-size:10px;color:var(--red);"> (غير نشط)</span>':''}
+            ${!b.is_active?'<span style="font-size:var(--fs-xs);color:var(--red);"> (غير نشط)</span>':''}
           </td>
-          <td style="padding:7px 10px;text-align:center;font-size:13px;color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
+          <td style="padding:7px 10px;text-align:center;font-size:var(--fs-label);color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
           ${numCell(own.rev,'var(--green)',false)}
           ${numCell(own.profit,'var(--amber)',false)}
           ${numCell(own.spent,'var(--red)',false)}
@@ -10350,35 +10350,35 @@ function renderBudgetReportTab(){
     <!-- رأس الطباعة (يظهر فقط عند الطباعة) -->
     <div style="display:none;" class="print-header">
       <h2 style="margin:0 0 4px;">تقرير الميزانية — القيم الكويتية</h2>
-      <div style="font-size:12px;color:#666;">${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
+      <div style="font-size:var(--fs-hint);color:#666;">${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
       <hr class="qy-hr">
     </div>
 
     <!-- بطاقات الإجمالي — أولاً -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;" class="summary-cards">
       <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid var(--green);">
-        <div style="font-size:16px;font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">إجمالي الإيرادات</div>
-        <div style="font-size:22px;font-weight:900;color:var(--green);white-space:nowrap;">${fmtKWD(totalRev,{noUnit:true})} <span style="font-size:13px;font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
+        <div style="font-size:var(--fs-h3);font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">إجمالي الإيرادات</div>
+        <div style="font-size:var(--fs-h1);font-weight:900;color:var(--green);white-space:nowrap;">${fmtKWD(totalRev,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
       </div>
       <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid var(--amber);">
-        <div style="font-size:16px;font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">إجمالي الأرباح</div>
-        <div style="font-size:22px;font-weight:900;color:var(--amber);white-space:nowrap;">${fmtKWD(totalProfit,{noUnit:true})} <span style="font-size:13px;font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
+        <div style="font-size:var(--fs-h3);font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">إجمالي الأرباح</div>
+        <div style="font-size:var(--fs-h1);font-weight:900;color:var(--amber);white-space:nowrap;">${fmtKWD(totalProfit,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
       </div>
       <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid var(--red);">
-        <div style="font-size:16px;font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">المصروف فعلاً</div>
-        <div style="font-size:22px;font-weight:900;color:var(--red);white-space:nowrap;">${fmtKWD(totalSpent,{noUnit:true})} <span style="font-size:13px;font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
+        <div style="font-size:var(--fs-h3);font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">المصروف فعلاً</div>
+        <div style="font-size:var(--fs-h1);font-weight:900;color:var(--red);white-space:nowrap;">${fmtKWD(totalSpent,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
       </div>
       <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid ${totalBal>0?'var(--green)':'var(--red)'};">
-        <div style="font-size:16px;font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">المتاح لطلب جديد</div>
-        <div style="font-size:22px;font-weight:900;color:${totalBal>0?'var(--green)':'var(--red)'};white-space:nowrap;">${fmtKWD(totalBal,{noUnit:true})} <span style="font-size:13px;font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
+        <div style="font-size:var(--fs-h3);font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">المتاح لطلب جديد</div>
+        <div style="font-size:var(--fs-h1);font-weight:900;color:${totalBal>0?'var(--green)':'var(--red)'};white-space:nowrap;">${fmtKWD(totalBal,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
       </div>
     </div>
 
     <!-- شريط الاستهلاك الكلي — ثانياً -->
     ${totalNet>0?`<div class="card" style="padding:10px 16px;margin-bottom:14px;">
       <div class="rep-use-h" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <span style="font-size:13px;font-weight:700;">معدل الاستهلاك الكلي</span>
-        <span style="font-size:14px;font-weight:800;color:${totalBarColor};">${pctTotal}% &nbsp;·&nbsp; <span style="font-weight:600;font-size:12px;color:var(--muted);">المستهلك ${fmtKWDPlain(totalSpent+totalCommitted+totalPending)} من أصل ${fmtKWDPlain(totalNet)} — مصروف ${fmtKWDPlain(totalSpent)} · مرتبط ${fmtKWDPlain(totalCommitted)} · قيد الطلب ${fmtKWDPlain(totalPending)}</span></span>
+        <span style="font-size:var(--fs-label);font-weight:700;">معدل الاستهلاك الكلي</span>
+        <span style="font-size:var(--fs-body);font-weight:800;color:${totalBarColor};">${pctTotal}% &nbsp;·&nbsp; <span style="font-weight:600;font-size:var(--fs-hint);color:var(--muted);">المستهلك ${fmtKWDPlain(totalSpent+totalCommitted+totalPending)} من أصل ${fmtKWDPlain(totalNet)} — مصروف ${fmtKWDPlain(totalSpent)} · مرتبط ${fmtKWDPlain(totalCommitted)} · قيد الطلب ${fmtKWDPlain(totalPending)}</span></span>
       </div>
       <div style="background:var(--line);border-radius:999px;height:10px;overflow:hidden;">
         <div style="height:100%;width:${pctTotal}%;background:${totalBarColor};border-radius:999px;"></div>
@@ -10400,7 +10400,7 @@ function renderBudgetReportTab(){
 
     <!-- جدول البنود — تسعة أعمدة تحتاج 966 بكسل: يُمرَّر أفقياً ولا يُقتطع -->
     <div class="card" style="padding:0;overflow-x:auto;overflow-y:hidden;">
-      <table style="width:100%;border-collapse:collapse;font-size:13px;direction:rtl;">
+      <table style="width:100%;border-collapse:collapse;font-size:var(--fs-label);direction:rtl;">
         <thead>
           <tr style="background:var(--ink);color:#fff;">
             <th style="padding:10px 12px;text-align:right;font-weight:600;border-right:1px solid rgba(255,255,255,0.15);">البند</th>
@@ -10421,16 +10421,16 @@ function renderBudgetReportTab(){
         </tbody>
         <tfoot>
           <tr style="background:var(--ink);color:#fff;font-weight:800;">
-            <td style="padding:10px 12px;font-size:14px;color:#fff;border-right:1px solid rgba(255,255,255,0.15);" colspan="2">الإجمالي الكلي</td>
-            <td style="padding:10px 12px;text-align:right;color:#6ee7a0;font-size:14px;font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${fmtKWD(totalRev,{noUnit:true})}</td>
-            <td style="padding:10px 12px;text-align:right;color:#fcd34d;font-size:14px;font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${totalProfit>0?fmtKWD(totalProfit,{noUnit:true}):'—'}</td>
-            <td style="padding:10px 12px;text-align:right;color:#fca5a5;font-size:14px;font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${fmtKWD(totalSpent,{noUnit:true})}</td>
-            <td style="padding:10px 12px;text-align:right;color:#fcd34d;font-size:14px;font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${totalCommitted>0?fmtKWD(totalCommitted,{noUnit:true}):'—'}</td>
-            <td style="padding:10px 12px;text-align:right;color:rgba(255,255,255,0.65);font-size:14px;font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${totalPending>0?fmtKWD(totalPending,{noUnit:true}):'—'}</td>
+            <td style="padding:10px 12px;font-size:var(--fs-body);color:#fff;border-right:1px solid rgba(255,255,255,0.15);" colspan="2">الإجمالي الكلي</td>
+            <td style="padding:10px 12px;text-align:right;color:#6ee7a0;font-size:var(--fs-body);font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${fmtKWD(totalRev,{noUnit:true})}</td>
+            <td style="padding:10px 12px;text-align:right;color:#fcd34d;font-size:var(--fs-body);font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${totalProfit>0?fmtKWD(totalProfit,{noUnit:true}):'—'}</td>
+            <td style="padding:10px 12px;text-align:right;color:#fca5a5;font-size:var(--fs-body);font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${fmtKWD(totalSpent,{noUnit:true})}</td>
+            <td style="padding:10px 12px;text-align:right;color:#fcd34d;font-size:var(--fs-body);font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${totalCommitted>0?fmtKWD(totalCommitted,{noUnit:true}):'—'}</td>
+            <td style="padding:10px 12px;text-align:right;color:rgba(255,255,255,0.65);font-size:var(--fs-body);font-weight:900;border-right:1px solid rgba(255,255,255,0.15);">${totalPending>0?fmtKWD(totalPending,{noUnit:true}):'—'}</td>
             <td style="padding:10px 8px;text-align:center;color:${pctTotal>=100?'#fca5a5':pctTotal>=80?'#fcd34d':'#6ee7a0'};font-weight:800;border-right:1px solid rgba(255,255,255,0.15);">${pctTotal}%</td>
             <td style="padding:10px 12px;text-align:right;border-right:1px solid rgba(255,255,255,0.15);">
-              <span style="font-size:16px;font-weight:900;color:${totalBal>0?'#6ee7a0':totalBal<0?'#fca5a5':'rgba(255,255,255,0.5)'};">${fmtKWD(totalBal,{noUnit:true})}</span>
-              <span style="font-size:10px;color:rgba(255,255,255,0.5);margin-right:3px;">${currencySymbol}</span>
+              <span style="font-size:var(--fs-h3);font-weight:900;color:${totalBal>0?'#6ee7a0':totalBal<0?'#fca5a5':'rgba(255,255,255,0.5)'};">${fmtKWD(totalBal,{noUnit:true})}</span>
+              <span style="font-size:var(--fs-xs);color:rgba(255,255,255,0.5);margin-right:3px;">${currencySymbol}</span>
             </td>
           </tr>
         </tfoot>
@@ -10756,7 +10756,7 @@ function recReviewRow(o, preChecked){
       <div class="rec-r1">${canPost ? `<input type="checkbox" class="recChk" data-id="${o.id}" ${preChecked?'checked':''} data-on-change="recUpdateSelCount">` : ''}
         <b>${escH(t.name||'—')}</b><span class="rec-amt">${amountCell}${t.amount_mode==='variable'?' <small>(متغيّر)</small>':''}</span></div>
       <span>${t.direction==='in'?'إيراد':'صرف'} · البند: ${escH(item.name||'—')} · ${fmtDateDMY(o.due_date)} · ${when}</span>
-      ${o.note ? `<span class="sub" style="font-size:12px;">${escH(o.note)}</span>` : ''}
+      ${o.note ? `<span class="sub" style="font-size:var(--fs-hint);">${escH(o.note)}</span>` : ''}
     </div>
     ${canPost ? `<div style="display:flex;gap:10px;"><button class="btn btn-ghost btn-xs" data-on-click="skipRecurringOcc" data-on-click-args="${qa([(''+(o.id))])}" title="يلغي هذا الاستحقاق وحده: لا يدخل الدفتر، ويبقى القالب يعمل في الاستحقاقات التالية. تجده في تبويب «المتخطّى» ويمكنك استعادته.">تخطي</button></div>` : ''}
   </div>`;
@@ -10930,7 +10930,7 @@ function recTemplateCard(t){
       <span>${t.direction==='in'?'إيراد':'صرف'}${t.category?' · '+escH(t.category):''} · البند: ${escH(item.name||'—')}</span>
       <span>${fmtKWDHtml(t.amount)}${t.amount_mode==='variable'?' <small>(مبلغ متغيّر — مقترح)</small>':''} · ${recFreqText(t)} · ${recEndText(t)}</span>
       <span style="${stCls}"><b>${REC_STATUS[t.status]||t.status}</b>${[by, t.auto_post?'ترحيل تلقائي':'', next?'الاستحقاق القادم '+fmtDateDMY(next.due_date):''].filter(Boolean).map(x=>' · '+x).join('')}</span>
-      ${self ? '<span style="color:#b45309;font-size:12.5px;">⚠ ملحوظة: أنشأه واعتمده الشخص نفسه</span>' : ''}
+      ${self ? '<span style="color:#b45309;font-size:var(--fs-hint);">⚠ ملحوظة: أنشأه واعتمده الشخص نفسه</span>' : ''}
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">${acts.join('')}</div>
     ${open ? `<div style="flex-basis:100%;">${recDetailsHtml(t)}</div>` : ''}
@@ -11572,7 +11572,7 @@ function renderCompanyEditForm(){
               </select></div>
             <div style="max-width:200px;"><label>ينتهي التفويض في (اختياري)</label><input id="editCoCfoUntil" type="date" value="${escH(c.cfoDelegateUntil||'')}"></div>
           </div>
-          <p class="sub" style="margin:4px 0 0;font-size:12px;">المدير المالي يبقى قادراً على الاعتماد أثناء التفويض. بعد تاريخ الانتهاء يعود الاعتماد للمدير المالي وحده تلقائياً. يظهر على المستند «بالتفويض».</p>
+          <p class="sub" style="margin:4px 0 0;font-size:var(--fs-hint);">المدير المالي يبقى قادراً على الاعتماد أثناء التفويض. بعد تاريخ الانتهاء يعود الاعتماد للمدير المالي وحده تلقائياً. يظهر على المستند «بالتفويض».</p>
         </div>
         <div id="cfoDelegationConfirmBox" style="display:${(c.cfoDelegationMode==='delegate_self')?'block':'none'};margin-top:8px;">
           <label style="display:flex;align-items:flex-start;gap:6px;font-weight:600;">
@@ -11748,25 +11748,25 @@ function renderCenterEditForm(){
       <label>الحد الأدنى المالي (د.ك) — الطلبات بهذا المبلغ أو أقل تتخطى الأدوار المحدّدة أدناه تلقائياً</label>
       <input id="editCenterMinThreshold" type="number" step="0.001" min="0" value="${c.minThreshold??''}" placeholder="اتركه فارغاً لتعطيل هذي الخاصية">
       <div style="margin-top:8px;display:flex;gap:18px;flex-wrap:wrap;">
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-label);">
           <input type="checkbox" id="editCenterSkipDept" ${c.skipDeptManager?'checked':''}> تخطي مدير الإدارة
         </label>
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-label);">
           <input type="checkbox" id="editCenterSkipSenior" ${c.skipSeniorManager?'checked':''}> تخطي المدير الأعلى
         </label>
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-label);">
           <input type="checkbox" id="editCenterSkipExec" ${c.skipExecutiveManager?'checked':''}> تخطي المدير التنفيذي
         </label>
       </div>
       ${c.hasMinSingle ? `<div style="margin-top:8px;">
-        <label style="font-size:13px;">المعتمِد الوحيد قبل المالية إذا حذف التخطّي كل المعتمدين</label>
+        <label style="font-size:var(--fs-label);">المعتمِد الوحيد قبل المالية إذا حذف التخطّي كل المعتمدين</label>
         <select id="editCenterMinSingle" style="--fw:280px;">
           ${[['exec','المدير التنفيذي (الافتراضي)'],['direct','المدير المباشر'],['senior','المدير العام']].map(([v,l])=>`<option value="${v}" ${(c.minSingleApprover||'exec')===v?'selected':''}>${l}</option>`).join('')}
         </select>
         <div class="file-hint" style="margin-top:3px;">لا يصل طلب للمالية قبل اعتماد واحد على الأقل. إن لم يكن في مسار الطلب من يحمل هذا الدور، يبقى أول معتمِد فيه.</div>
       </div>` : ''}
 
-      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;margin-top:14px;">
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-label);margin-top:14px;">
         <input type="checkbox" id="editCenterRequireTransferRef" ${c.requireBankTransferRef?'checked':''}> يطلب من المحاسب تسجيل رقم/مرجع التحويل البنكي قبل الاعتماد
       </label>
 
@@ -12191,9 +12191,9 @@ function treeRow(opts){
     <div class="tree-row" style="padding:2px 4px;padding-right:${opts.indent}px;line-height:1.5;${canToggle?'cursor:pointer;':''}"
       ${canToggle ? `data-tnode="${opts.toggleId}" data-on-click="toggleTreeNode" data-on-click-args="${qa([(''+(opts.toggleId)), (opts.dflt?1:0)])}"` : ''}>
       ${canToggle ? treeToggleHtml(opts.toggleId, opts.dflt) : '<span style="display:inline-block;width:16px;"></span>'}
-      <span style="font-size:15px;">${opts.icon}</span>
-      <span style="font-weight:600;font-size:14.5px;white-space:nowrap;">${opts.label}</span>
-      ${opts.sub ? `<span class="sub" style="font-size:12.5px;margin-right:4px;">${opts.sub}</span>` : ''}
+      <span style="font-size:var(--fs-h3);">${opts.icon}</span>
+      <span style="font-weight:600;font-size:var(--fs-body);white-space:nowrap;">${opts.label}</span>
+      ${opts.sub ? `<span class="sub" style="font-size:var(--fs-hint);margin-right:4px;">${opts.sub}</span>` : ''}
     </div>`;
 }
 
@@ -12238,20 +12238,20 @@ async function renderOrgTree(app){
   const warnIssues = issues.map(x=>({company:x.company, issues:x.issues.filter(i=>i.level==='warn')})).filter(x=>x.issues.length);
   const criticalHtml = criticalIssues.length ? criticalIssues.map(x=>`
     <div style="margin-bottom:8px;">
-      <b style="font-size:13px;">${escH(x.company.nameAr)}:</b>
-      ${x.issues.map(i=>`<div style="font-size:12.5px;color:var(--red);padding-right:14px;">⛔ ${highlightIssueText(i.text)}</div>`).join('')}
-    </div>`).join('') : `<div style="font-size:13px;color:var(--green);">✓ لا توجد أخطاء حرجة في الهيكل</div>`;
+      <b style="font-size:var(--fs-label);">${escH(x.company.nameAr)}:</b>
+      ${x.issues.map(i=>`<div style="font-size:var(--fs-hint);color:var(--red);padding-right:14px;">⛔ ${highlightIssueText(i.text)}</div>`).join('')}
+    </div>`).join('') : `<div style="font-size:var(--fs-label);color:var(--green);">✓ لا توجد أخطاء حرجة في الهيكل</div>`;
   const warnHtml = warnIssues.length ? warnIssues.map(x=>`
     <div style="margin-bottom:8px;">
-      <b style="font-size:13px;">${escH(x.company.nameAr)}:</b>
-      ${x.issues.map(i=>`<div style="font-size:12.5px;color:var(--amber);padding-right:14px;">⚠️ ${highlightIssueText(i.text)}</div>`).join('')}
-    </div>`).join('') : `<div style="font-size:13px;color:var(--green);">✓ لا توجد ملاحظات هيكلية</div>`;
+      <b style="font-size:var(--fs-label);">${escH(x.company.nameAr)}:</b>
+      ${x.issues.map(i=>`<div style="font-size:var(--fs-hint);color:var(--amber);padding-right:14px;">⚠️ ${highlightIssueText(i.text)}</div>`).join('')}
+    </div>`).join('') : `<div style="font-size:var(--fs-label);color:var(--green);">✓ لا توجد ملاحظات هيكلية</div>`;
   const issuesHtml = `
     <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:12px;">
-      <button type="button" id="structureTabErrors" data-on-click="#94" class="active" style="background:none;border:none;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink);">
+      <button type="button" id="structureTabErrors" data-on-click="#94" class="active" style="background:none;border:none;padding:6px 14px;font-size:var(--fs-label);font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink);">
         ⛔ أخطاء${criticalIssues.length ? ` (${criticalIssues.reduce((s,x)=>s+x.issues.length,0)})` : ''}
       </button>
-      <button type="button" id="structureTabWarns" data-on-click="#95" style="background:none;border:none;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--muted);">
+      <button type="button" id="structureTabWarns" data-on-click="#95" style="background:none;border:none;padding:6px 14px;font-size:var(--fs-label);font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--muted);">
         ⚠️ ملاحظات${warnIssues.length ? ` (${warnIssues.reduce((s,x)=>s+x.issues.length,0)})` : ''}
       </button>
     </div>
@@ -12278,12 +12278,12 @@ async function renderOrgTree(app){
       <div style="page-break-inside:avoid;">
         <div style="padding:2px 4px;padding-right:${indent}px;line-height:1.5;">
           <span data-tnode="${pid}" data-on-click="toggleTreeNode" data-on-click-args="${qa([(''+(pid)), false])}" style="cursor:pointer;display:inline-block;width:16px;text-align:center;color:var(--muted);">${popen?'▼':'◀'}</span>
-          <span style="cursor:pointer;color:var(--blue);font-size:14.5px;font-weight:600;white-space:nowrap;" data-on-click="goEditUser" data-on-click-args="${qa([(''+(u.id))])}">👤 ${escH(u.name)}</span>
-          ${tag ? `<span class="badge" style="background:#fdf1dc;color:#7a4a00;font-size:10.5px;">${escH(tag)}</span>` : ''}
-          ${(u.requestApproverId || u.nextApproverId || u.noRequestApprover || u.noNextApprover) ? `<span class="badge" style="background:var(--blue-bg);color:var(--blue);font-size:10px;">مسار معتمَد مخصَّص</span>` : ''}
+          <span style="cursor:pointer;color:var(--blue);font-size:var(--fs-body);font-weight:600;white-space:nowrap;" data-on-click="goEditUser" data-on-click-args="${qa([(''+(u.id))])}">👤 ${escH(u.name)}</span>
+          ${tag ? `<span class="badge" style="background:#fdf1dc;color:#7a4a00;font-size:var(--fs-xs);">${escH(tag)}</span>` : ''}
+          ${(u.requestApproverId || u.nextApproverId || u.noRequestApprover || u.noNextApprover) ? `<span class="badge" style="background:var(--blue-bg);color:var(--blue);font-size:var(--fs-xs);">مسار معتمَد مخصَّص</span>` : ''}
         </div>
         ${popen ? `
-        <div class="sub" style="font-size:12px;font-weight:700;padding-right:${detailIndent}px;padding-bottom:2px;margin-bottom:0;">
+        <div class="sub" style="font-size:var(--fs-hint);font-weight:700;padding-right:${detailIndent}px;padding-bottom:2px;margin-bottom:0;">
           <span style="display:inline-block;min-width:95px;">${escH(findRole(u.role).name)}</span>
           <span style="display:inline-block;min-width:135px;">${jobTitleHtml}</span>
           <span style="display:inline-block;min-width:110px;cursor:pointer;text-decoration:underline dotted;" data-on-click="#97" data-on-click-args="${qa([(''+(u.id))])}">مستوى: ${escH(levelLabel(u))}</span>
@@ -12304,7 +12304,7 @@ async function renderOrgTree(app){
     return `
       ${treeRow({icon:iconOpen||t.icon, label:`<span class="org-editable" data-kind="center" data-id="${c.id}" data-on-click="#96" style="cursor:pointer;text-decoration:underline dotted;">${escH(c.name)}</span>`,
                  sub:`(${escH(t.name)} — ${staff.length} موظف${kids.length ? ' — '+kids.length+' وحدة تابعة' : ''})`, toggleId:id, dflt:false, indent, hasChildren:true})}
-      ${open ? ((staff.length ? renderPeople(staff, indent+22, c.companyId, personRow) : (kids.length ? '' : `<div class="sub" style="font-size:12px;padding-right:${indent+22}px;margin-bottom:0;">لا يوجد موظفون بعد</div>`))
+      ${open ? ((staff.length ? renderPeople(staff, indent+22, c.companyId, personRow) : (kids.length ? '' : `<div class="sub" style="font-size:var(--fs-hint);padding-right:${indent+22}px;margin-bottom:0;">لا يوجد موظفون بعد</div>`))
                 + kids.sort(_byName).map(k=>unitBlock(k, indent+22, '', depth+1)).join('')) : ''}
     `;
   }
@@ -12320,7 +12320,7 @@ async function renderOrgTree(app){
                  toggleId:coId, dflt:true, indent:8, hasChildren:true})}
       ${open ? `
         ${treeRow({icon:'🧑‍💼', label:'إدارة الشركة', sub:`(${leadership.length})`, toggleId:leadId, dflt:true, indent:30, hasChildren:leadership.length>0})}
-        ${leadership.length && treeOpen(leadId,true) ? renderPeople(leadership, 52, co.id, personRow) : (leadership.length ? '' : `<div class="sub" style="font-size:12px;padding-right:52px;margin-bottom:0;">لا يوجد بعد</div>`)}
+        ${leadership.length && treeOpen(leadId,true) ? renderPeople(leadership, 52, co.id, personRow) : (leadership.length ? '' : `<div class="sub" style="font-size:var(--fs-hint);padding-right:52px;margin-bottom:0;">لا يوجد بعد</div>`)}
         ${unitsOrdered(co.id).filter(x=>x.depth===0).map(x=>unitBlock(x.unit,30,'')).join('')}
       ` : ''}
     `;
@@ -12354,18 +12354,18 @@ async function renderOrgTree(app){
     <div class="org-tree-page">${treeHtml}</div>`;
   const checkPanel = `
     <div class="card no-print" style="margin-bottom:16px;">
-      <h2 style="margin:0 0 10px;font-size:15px;">فحص الهيكل</h2>
+      <h2 style="margin:0 0 10px;font-size:var(--fs-h3);">فحص الهيكل</h2>
       ${issuesHtml}
     </div>
     <div class="card no-print" style="margin-bottom:16px;">
-      <h2 style="margin:0 0 6px;font-size:15px;">فحص مسارات الطلبات</h2>
+      <h2 style="margin:0 0 6px;font-size:var(--fs-h3);">فحص مسارات الطلبات</h2>
       <p class="sub" style="margin:0 0 10px;">بعد تغيير مدير مباشر أو وحدة أو هيكل: يقارن مسار كل طلب مفتوح بمسار الشركة الآن، ويبيّن الطلبات التي صار مسارها قديماً أو معطّلاً.</p>
       <div class="actions-row"><button type="button" class="btn btn-ghost btn-md" data-on-click="openPathCheck">فحص المسارات</button></div>
     </div>`;
   const pathPanel = `
     <div class="card no-print" style="margin-bottom:16px;">
-      <h2 style="margin:0 0 10px;font-size:15px;">معاينة مسار اعتماد طلب</h2>
-      <p class="sub" style="margin:0 0 10px;font-size:12px;">حسب حقلي "من يعتمد طلبه" و"من يعتمد ما اعتمده" لكل مستخدم، وهي نفس القاعدة التي يستخدمها محرك الاعتماد.</p>
+      <h2 style="margin:0 0 10px;font-size:var(--fs-h3);">معاينة مسار اعتماد طلب</h2>
+      <p class="sub" style="margin:0 0 10px;font-size:var(--fs-hint);">حسب حقلي "من يعتمد طلبه" و"من يعتمد ما اعتمده" لكل مستخدم، وهي نفس القاعدة التي يستخدمها محرك الاعتماد.</p>
       <div class="row" style="align-items:flex-end;">
         <div><label>الموظف</label><select id="pathPreviewUser">${previewUserOptions}</select></div>
         <button type="button" class="btn btn-ghost btn-md" data-on-click="showPathPreview">معاينة المسار</button>
@@ -12380,8 +12380,8 @@ async function renderOrgTree(app){
     </div>
     <div class="org-tree-print-head">
       <h1 style="margin:0 0 4px;">الهيكل التنظيمي</h1>
-      <div class="print-only" style="margin:0 0 2px;font-size:22px;font-weight:700;">الهيكل التنظيمي</div>
-      <div class="print-only sub" style="margin:0 0 6px;font-size:12px;">${escH(org?org.name:'')} — طُبعت بتاريخ ${escH(fmtDate())}</div>
+      <div class="print-only" style="margin:0 0 2px;font-size:var(--fs-h1);font-weight:700;">الهيكل التنظيمي</div>
+      <div class="print-only sub" style="margin:0 0 6px;font-size:var(--fs-hint);">${escH(org?org.name:'')} — طُبعت بتاريخ ${escH(fmtDate())}</div>
     </div>
     ${otab==='check' ? checkPanel : otab==='path' ? pathPanel : treePanel}
   `);
@@ -12395,8 +12395,8 @@ function showPathPreview(){
   if(!host) return;
   const names = chain.map(u=>(isPaperApprover(u.id) ? '📄 ' : '')+escH(u.name)+' ('+escH(findRole(u.role).name)+')'+(isPaperApprover(u.id) ? ' — ورقي' : ''));
   host.innerHTML = `
-    ${names.length ? `<div style="font-size:13.5px;">${names.join(' <span style="color:var(--muted);">←</span> ')}</div>` : (((state.users.find(u=>u.id===sel.value)||{}).directToTransfer) ? '<div class="sub">لا معتمِد فوقه — هذا المستخدم في أعلى السلسلة («الانتقال المباشر»)، فيُحسب إنشاؤه الطلب اعتماداً له ثم ينتقل للمحاسب.</div>' : '<div class="sub" style="color:var(--red);">⛔ لا يوجد معتمِد لهذا المستخدم — لا يمكنه رفع طلب حتى يُحدَّد له معتمِد.</div>')}
-    ${error ? `<div style="color:var(--red);font-size:12.5px;margin-top:6px;">⛔ ${escH(error)}</div>` : ''}
+    ${names.length ? `<div style="font-size:var(--fs-label);">${names.join(' <span style="color:var(--muted);">←</span> ')}</div>` : (((state.users.find(u=>u.id===sel.value)||{}).directToTransfer) ? '<div class="sub">لا معتمِد فوقه — هذا المستخدم في أعلى السلسلة («الانتقال المباشر»)، فيُحسب إنشاؤه الطلب اعتماداً له ثم ينتقل للمحاسب.</div>' : '<div class="sub" style="color:var(--red);">⛔ لا يوجد معتمِد لهذا المستخدم — لا يمكنه رفع طلب حتى يُحدَّد له معتمِد.</div>')}
+    ${error ? `<div style="color:var(--red);font-size:var(--fs-hint);margin-top:6px;">⛔ ${escH(error)}</div>` : ''}
   `;
 }
 
@@ -12415,11 +12415,11 @@ const BRAND_SPECS = {
   letterhead:{label:'ترويسة الشركة (ورقة A4 كاملة للمستندات المطبوعة)', w:1654, h:2339, hint:'هي صورة <b>ورقة A4 كاملة</b> (210×297 مم) تُمدَّد خلف الصفحة كلها، فاحفظ نسبتها 1 : 1.414. المقاس المناسب 1240×1754 بكسل (150 dpi) حتى 1654×2339 (200 dpi). يُفضَّل PNG بخلفية شفافة، وأبقِ منتصف الصفحة فارغاً لنص الطلب (يترك النظام نحو 33 مم من الأعلى و50 مم من الأسفل).'},
   centerLh:  {label:'ترويسة المركز/الإدارة (ورقة A4 كاملة)', w:1654, h:2339, hint:'نفس مقاس ترويسة الشركة: ورقة A4 كاملة بنسبة 1 : 1.414 (مثلاً 1240×1754 بكسل). إن لم تُرفع ترويسة للمركز تُستخدم ترويسة الشركة.'}
 };
-function brandHintHtml(kind){ const sp = BRAND_SPECS[kind]; return `<div class="sub" style="font-size:12px;margin:2px 0 6px;color:var(--blue);">ℹ️ ${sp.hint} الصور الأكبر تُصغَّر تلقائياً لتناسب المكان.</div>`; }
+function brandHintHtml(kind){ const sp = BRAND_SPECS[kind]; return `<div class="sub" style="font-size:var(--fs-hint);margin:2px 0 6px;color:var(--blue);">ℹ️ ${sp.hint} الصور الأكبر تُصغَّر تلقائياً لتناسب المكان.</div>`; }
 function brandImgBlock(kind, id, current){
   return `
     <div class="brand-img-block">
-      <div class="brand-preview">${current ? `<img src="${escH(current)}" alt="">` : '<span class="sub" style="font-size:12px;">لا توجد صورة</span>'}</div>
+      <div class="brand-preview">${current ? `<img src="${escH(current)}" alt="">` : '<span class="sub" style="font-size:var(--fs-hint);">لا توجد صورة</span>'}</div>
       <div class="brand-btns">
         <label class="btn btn-ghost btn-sm file-btn">${current ? 'تغيير الصورة' : 'اختيار صورة'}<input type="file" accept="image/*" hidden data-on-change="brandUpload" data-on-change-args="${qa([(''+(kind)), (''+(id||'')), QA.t])}"></label>
         ${current ? `<button type="button" class="btn btn-ghost btn-sm" data-on-click="brandRemove" data-on-click-args="${qa([(''+(kind)), (''+(id||''))])}">حذف الصورة</button>` : ''}
@@ -12436,7 +12436,7 @@ const PAGE_NUM_STYLES = {
   none:  {label:'بدون ترقيم',  fmt:()=>''}
 };
 const DEFAULT_FOOTER_TEXT = 'الكويت، المرقاب، قطعة 1 - شارع 62 - الوزان - قسيمة 15 - برج بيت التمويل، الدور 4 - وحدة رقم 2 - هاتف: \u2066+96599162467\u2069 — \u2066www.qyamkw.com\u2069 — \u2066info@qyamkw.com\u2069 — \u2066QyamTraining\u2069';
-const FOOTER_MAX_CHARS = 300, FOOTER_AUTO_START = 10, FOOTER_AUTO_MIN = 8, FOOTER_MANUAL_MIN = 6.5, FOOTER_MANUAL_MAX = 12;
+const FOOTER_MAX_CHARS = 300, FOOTER_AUTO_START = 10, FOOTER_AUTO_MIN = 8, FOOTER_MANUAL_MIN = 6, FOOTER_MANUAL_MAX = 12;
 function safeColor(v, dflt){ return /^#[0-9a-fA-F]{6}$/.test(v||'') ? v : dflt; }
 // نص التذييل: المحفوظ إن وُجد (حتى لو فارغ = بلا نص)، وإلا بيانات الاتصال الافتراضية للشركات التي تستخدم الترويسة الافتراضية فقط
 function companyFooterText(co, center){
@@ -12458,7 +12458,7 @@ function printFooterSpec(req){
     numStyle: PAGE_NUM_STYLES[co.pageNumStyle] ? co.pageNumStyle : 'full',
     offset: Math.min(30, Math.max(2, Number(co.footerOffset!=null ? co.footerOffset : 4) || 4)),
     fontMode: co.footerFontMode==='manual' ? 'manual' : 'auto',
-    fontSize: Math.min(FOOTER_MANUAL_MAX, Math.max(FOOTER_MANUAL_MIN, Number(co.footerFontSize!=null ? co.footerFontSize : FOOTER_AUTO_START) || FOOTER_AUTO_START))
+    fontSize: Math.floor(Math.min(FOOTER_MANUAL_MAX, Math.max(FOOTER_MANUAL_MIN, Number(co.footerFontSize!=null ? co.footerFontSize : FOOTER_AUTO_START) || FOOTER_AUTO_START)))
   };
 }
 function footerHtml(spec, n, total, prefix){
@@ -12492,7 +12492,7 @@ if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ try{ 
 function largestOneLineSize(t){
   const keep = t.style.fontSize;
   let found = null;
-  for(let sz = FOOTER_MANUAL_MAX; sz >= FOOTER_MANUAL_MIN - 0.001; sz -= 0.5){
+  for(let sz = FOOTER_MANUAL_MAX; sz >= FOOTER_MANUAL_MIN - 0.001; sz -= 1){
     t.style.fontSize = sz+'px';
     if(footerLines(t)===1){ found = sz; break; }
   }
@@ -12521,7 +12521,7 @@ function footerFormSpec(){
     textColor: g('pfTextColor').value, numColor: g('pfNumColor').value, lineColor: g('pfLineColor').value, numStyle: g('pfNumStyle').value,
     offset: Math.min(30, Math.max(2, parseFloat(g('pfOffset').value) || 4)),
     fontMode: g('pfFontMode').value==='manual' ? 'manual' : 'auto',
-    fontSize: Math.min(FOOTER_MANUAL_MAX, Math.max(FOOTER_MANUAL_MIN, parseFloat(g('pfFontSize').value) || FOOTER_AUTO_START))
+    fontSize: Math.floor(Math.min(FOOTER_MANUAL_MAX, Math.max(FOOTER_MANUAL_MIN, parseFloat(g('pfFontSize').value) || FOOTER_AUTO_START)))
   };
 }
 function pfScale(box, wrap){
@@ -12616,7 +12616,7 @@ function renderPrintSetupPanel(){
   const unitHtml = !uc
     ? `<div class="card" style="background:var(--paper);margin-top:12px;"><b>الإدارة العامة والطلبات المباشرة</b><p class="sub" style="margin:6px 0 0;">تستخدم ترويسة الشركة وتذييلها كما في البطاقتين أعلاه. لا إعدادات إضافية هنا.${centers.length ? '' : ' (لا توجد مراكز أو إدارات بهذي الشركة بعد؛ تُضاف من لوحة التحكم ← المراكز.)'}</p></div>`
     : `<div class="card" style="background:var(--paper);margin-top:12px;">
-        <div class="row" style="align-items:center;justify-content:space-between;"><b style="font-size:16px;">${unitType(uc.kind).icon} ${escH(unitPathName(uc))}</b><span>${unitBadges(uc)}</span></div>
+        <div class="row" style="align-items:center;justify-content:space-between;"><b style="font-size:var(--fs-h3);">${unitType(uc.kind).icon} ${escH(unitPathName(uc))}</b><span>${unitBadges(uc)}</span></div>
         <label style="margin-top:10px;">ترويسة ${escH(unitType(uc.kind).name)}</label>
         ${brandHintHtml('centerLh')}
         ${brandImgBlock('centerLh', uc.id, uc.letterheadData)}
@@ -12638,7 +12638,7 @@ function renderPrintSetupPanel(){
       <label>${escH(BRAND_SPECS.letterhead.label)}</label>
       ${brandHintHtml('letterhead')}
       ${brandImgBlock('letterhead', co.id||'', co.logoData)}
-      ${co.logoData ? '' : '<p class="sub" style="margin:8px 0 0;font-size:12.5px;">تستخدم هذي الشركة الترويسة الافتراضية (بدون بيانات تواصل أسفلها). بيانات التواصل تُكتب في التذييل أدناه.</p>'}
+      ${co.logoData ? '' : '<p class="sub" style="margin:8px 0 0;font-size:var(--fs-hint);">تستخدم هذي الشركة الترويسة الافتراضية (بدون بيانات تواصل أسفلها). بيانات التواصل تُكتب في التذييل أدناه.</p>'}
     </div>
     <div class="card" style="margin-top:20px;">
       <h2 style="margin:0 0 4px;">نصوص خطاب طلب الصرف</h2>
@@ -12654,17 +12654,17 @@ function renderPrintSetupPanel(){
       <p class="sub" style="margin:0 0 10px;">يظهر النص بالمنتصف: سطر واحد، وينزل لسطرين تلقائياً إن طال (أو بكسر سطر يدوي بزر Enter). رقم الصفحة يساراً وخط أفقي رفيع ملاصق لهما. يظهر على كل الصفحات بما فيها المرفقات.</p>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600;"><input type="checkbox" id="pfShowText" ${chk(co.footerShowText!==false)} data-on-change="updateFooterPreview"> إظهار نص التذييل</label>
       <textarea id="pfText" rows="2" maxlength="${FOOTER_MAX_CHARS}" placeholder="مثال: شركة القيم — الكويت، حولي، شارع ... — هاتف 2222 0000 — info@example.com" data-on-input="updateFooterPreview" style="min-height:64px;">${escH(curText)}</textarea>
-      <div class="sub" style="font-size:12px;margin:2px 0 8px;">لا حد صارم لطول السطر؛ الحد الأقصى للنص ${FOOTER_MAX_CHARS} حرفاً <span id="pfCount" style="float:left;">0/${FOOTER_MAX_CHARS}</span></div>
+      <div class="sub" style="font-size:var(--fs-hint);margin:2px 0 8px;">لا حد صارم لطول السطر؛ الحد الأقصى للنص ${FOOTER_MAX_CHARS} حرفاً <span id="pfCount" style="float:left;">0/${FOOTER_MAX_CHARS}</span></div>
       <div class="row">
         <div><label>حجم الخط</label>
           <select id="pfFontMode" data-on-change="updateFooterPreview">
             <option value="auto" ${co.footerFontMode!=='manual'?'selected':''}>تلقائي (10، ويصغر حتى 8 إن زاد عن سطرين)</option>
             <option value="manual" ${co.footerFontMode==='manual'?'selected':''}>يدوي</option>
           </select></div>
-        <div style="max-width:150px;"><label>الحجم (6.5 – 12)</label><input id="pfFontSize" type="number" min="${FOOTER_MANUAL_MIN}" max="${FOOTER_MANUAL_MAX}" step="0.5" value="${Number(co.footerFontSize!=null?co.footerFontSize:10)}" ${co.footerFontMode==='manual'?'':'disabled'} data-on-input="updateFooterPreview"></div>
+        <div style="max-width:150px;"><label>الحجم (6 – 12)</label><input id="pfFontSize" type="number" min="${FOOTER_MANUAL_MIN}" max="${FOOTER_MANUAL_MAX}" step="1" value="${Math.floor(Number(co.footerFontSize!=null?co.footerFontSize:10))}" ${co.footerFontMode==='manual'?'':'disabled'} data-on-input="updateFooterPreview"></div>
         <div style="flex:0 0 auto;align-self:flex-end;"><button type="button" class="btn btn-ghost btn-md" data-on-click="footerFitOneLine">اجعله بسطر واحد</button></div>
       </div>
-      <div id="pfTip" class="sub" style="font-size:12.5px;min-height:20px;margin:2px 0 8px;"></div>
+      <div id="pfTip" class="sub" style="font-size:var(--fs-hint);min-height:20px;margin:2px 0 8px;"></div>
       <div class="row">
         <div><label>نمط ترقيم الصفحات</label>
           <select id="pfNumStyle" data-on-change="updateFooterPreview">
@@ -12679,7 +12679,7 @@ function renderPrintSetupPanel(){
       </div>
       <div class="row">
         <div style="max-width:260px;"><label>المسافة من حافة الورقة السفلية (مم)</label><input id="pfOffset" type="number" min="2" max="30" step="0.5" value="${Number(co.footerOffset!=null?co.footerOffset:4)}" data-on-input="updateFooterPreview"></div>
-        <div class="sub" style="align-self:flex-end;font-size:12px;">إن كانت الترويسة تحمل بيانات بأسفلها فارفع المسافة لتجنّب التداخل (المعاينة أدناه تعرض ترويستك الفعلية).</div>
+        <div class="sub" style="align-self:flex-end;font-size:var(--fs-hint);">إن كانت الترويسة تحمل بيانات بأسفلها فارفع المسافة لتجنّب التداخل (المعاينة أدناه تعرض ترويستك الفعلية).</div>
       </div>
       <label style="margin-top:6px;">معاينة حيّة لأسفل الورقة (آخر 34 مم من الصفحة)</label>
       <div class="pf-wrap" id="pfWrap"><div class="pf-demo" id="pfPreview"></div></div>
@@ -12728,7 +12728,7 @@ function renderBrandingPanel(){
       <label style="margin-top:14px;">${escH(BRAND_SPECS.coLogo.label)}</label>
       ${brandHintHtml('coLogo')}
       ${brandImgBlock('coLogo', co?co.id:'', co?co.brandLogo:'')}
-      <p class="sub" style="margin:12px 0 0;font-size:12.5px;">ترويسة المستندات المطبوعة وتذييلها انتقلا إلى صفحة <a href="#" data-on-click="#104">الطباعة والمستندات ← الترويسة والتذييل</a>.</p>
+      <p class="sub" style="margin:12px 0 0;font-size:var(--fs-hint);">ترويسة المستندات المطبوعة وتذييلها انتقلا إلى صفحة <a href="#" data-on-click="#104">الطباعة والمستندات ← الترويسة والتذييل</a>.</p>
     </div>`;
 }
 // يصغّر الصورة تلقائياً لتناسب المكان (يحافظ على النسبة)، ويبقي الشفافية للـPNG
@@ -13117,10 +13117,10 @@ function renderPermissionsPanel(){
         ${state.companies.length>1 ? `<div><button type="button" class="btn btn-ghost btn-md" data-on-click="copyPagePermsToAll" title="يجعل صلاحيات كل الشركات مثل صلاحيات هذه الشركة">نسخ هذه الصلاحيات لكل الشركات</button></div>` : ''}
       </div>
       <p class="sub">لكل دور في الشركة الحالية: هل يرى الصفحة، وماذا يفعل فيها. الخيار «افتراضي» هو الوضع المعمول به الآن. مدير النظام يرى كل شيء دائماً. لوحة التحكم لا تظهر لغير مدير النظام مهما كانت الصلاحية.</p>
-      <p class="sub" style="font-size:12.5px;">ملاحظة: هذه الصلاحيات تتحكم في ظهور الصفحات والأزرار. أما البيانات المالية نفسها فتحميها قاعدة البيانات للأدوار المالية فقط، فمنح صفحة مالية لدور غير مالي لا يكشف له بيانات لا يملك حق قراءتها.</p>
+      <p class="sub" style="font-size:var(--fs-hint);">ملاحظة: هذه الصلاحيات تتحكم في ظهور الصفحات والأزرار. أما البيانات المالية نفسها فتحميها قاعدة البيانات للأدوار المالية فقط، فمنح صفحة مالية لدور غير مالي لا يكشف له بيانات لا يملك حق قراءتها.</p>
       <div class="row" style="align-items:flex-end;margin:10px 0 6px;"><div style="--fw:320px;"><label>الدور</label>${roleSel}</div></div>
       <div class="perm-grid">${rowsHtml}</div>
-      <p class="sub" style="font-size:12px;margin:8px 0 0;">الإطار البرتقالي = مختلف عن الافتراضي. تغييراتك على كل الأدوار تُحفظ معاً بزر «حفظ الصلاحيات».</p>
+      <p class="sub" style="font-size:var(--fs-hint);margin:8px 0 0;">الإطار البرتقالي = مختلف عن الافتراضي. تغييراتك على كل الأدوار تُحفظ معاً بزر «حفظ الصلاحيات».</p>
       <div id="permSaveBar" class="actions-row">
         <button class="btn btn-primary btn-md" data-perm-btn ${dirty?'':'disabled'} data-on-click="savePagePerms" title="يحفظ التغييرات بعد تأكيد كلمة مرورك">حفظ الصلاحيات</button>
         <button class="btn btn-ghost btn-md" data-perm-btn ${dirty?'':'disabled'} data-on-click="permReset" title="يتجاهل التغييرات غير المحفوظة">تراجع</button>
@@ -13209,7 +13209,7 @@ function renderRolesPanel(){
     <h2 style="margin-top:20px;">الأدوار الوظيفية (${state.customRoles.length})</h2>
     ${jobRows}
     <div class="card flow" style="margin-top:26px;">
-      <h2 style="margin:0 0 4px;font-size:15px;">مهلة إغلاق الدخول التلقائي (السقف لكل دور)</h2>
+      <h2 style="margin:0 0 4px;font-size:var(--fs-h3);">مهلة إغلاق الدخول التلقائي (السقف لكل دور)</h2>
       <p class="file-hint" style="margin:0 0 6px;">أطول مدة بلا نشاط يستطيع صاحب الدور أن يضبطها لنفسه من «حسابي ← الأمان» (من ${IDLE_MIN_MIN} إلى 1440 دقيقة). اترك الحقل فارغاً ليأخذ السقف الافتراضي أدناه. مثال: اجعل من يعتمد الصرف 30 دقيقة.</p>
       <div class="row">
         <div style="--fw:280px;"><label>السقف الافتراضي لكل الأدوار</label>
@@ -13403,7 +13403,7 @@ function renderUserEditForm(){
         </div>
       </div>
       <div class="card" style="background:var(--paper);margin:6px 0 0;">
-        <p class="sub" style="margin:0 0 8px;font-size:12px;">مسار اعتماد الطلب: يحدد مسار طلباته ومن يعتمد بعده فعلياً. الافتراضي لكل حقل: المدير المباشر، ويمكنك اختيار «لا أحد» لإنهاء المسار عند هذا الشخص.</p>
+        <p class="sub" style="margin:0 0 8px;font-size:var(--fs-hint);">مسار اعتماد الطلب: يحدد مسار طلباته ومن يعتمد بعده فعلياً. الافتراضي لكل حقل: المدير المباشر، ويمكنك اختيار «لا أحد» لإنهاء المسار عند هذا الشخص.</p>
         <div class="row">
           <div><label>من يعتمد طلبه (لو أنشأ هو طلباً)</label>
             <select id="editUserRequestApprover">
@@ -13425,7 +13425,7 @@ function renderUserEditForm(){
             <input type="checkbox" id="editUserDirect" ${u.directToTransfer?'checked':''} style="width:auto;">
             في أعلى السلسلة: يُحسب إنشاؤه الطلب اعتماداً له (الانتقال المباشر إلى التحويل)
           </label>
-          <p class="sub" style="margin:6px 0 0;font-size:12px;">مطفأة افتراضياً، وتُفعَّل لقمة الهرم. حين لا يكون فوقه معتمِد يُسجَّل لطلبه «اعتمد بإنشائه الطلب» باسمه، ويظهر توقيعه وختمه في الموضع الثاني من الورقة، ثم ينتقل للمحاسب. بدونها لا يُرسل طلب مساره فارغ.</p>
+          <p class="sub" style="margin:6px 0 0;font-size:var(--fs-hint);">مطفأة افتراضياً، وتُفعَّل لقمة الهرم. حين لا يكون فوقه معتمِد يُسجَّل لطلبه «اعتمد بإنشائه الطلب» باسمه، ويظهر توقيعه وختمه في الموضع الثاني من الورقة، ثم ينتقل للمحاسب. بدونها لا يُرسل طلب مساره فارغ.</p>
         </div>
       </div>
       ${(() => {
@@ -13434,7 +13434,7 @@ function renderUserEditForm(){
         const modeName = {manager:'مديره المباشر', next:'من يعتمد بعده', user:'شخص محدد'}[coU.defaultEscalateMode||'manager'];
         return `
         <div class="card" style="background:var(--paper);margin:10px 0 0;">
-          <p class="sub" style="margin:0 0 8px;font-size:12px;">⏱ مهلة الاعتماد: إن تأخر هذا الشخص عن الاعتماد تُحال خطوته تلقائياً (يبقى هو قادراً على الاعتماد، والأسبق منهما يحسم). تُحسب بأيام ${coU.deadlineDayMode==='calendar'?'تقويمية':'عمل (بدون الجمعة والسبت)'} حسب إعداد الشركة.</p>
+          <p class="sub" style="margin:0 0 8px;font-size:var(--fs-hint);">⏱ مهلة الاعتماد: إن تأخر هذا الشخص عن الاعتماد تُحال خطوته تلقائياً (يبقى هو قادراً على الاعتماد، والأسبق منهما يحسم). تُحسب بأيام ${coU.deadlineDayMode==='calendar'?'تقويمية':'عمل (بدون الجمعة والسبت)'} حسب إعداد الشركة.</p>
           <div class="row">
             <div style="flex:0 0 100%;max-width:100%;"><label>مهلة الاعتماد</label>${deadlineSelectHtml('editUserDeadline', u.approvalDeadlineDays, 'افتراضي الشركة ('+dflt+')')}</div>
             <div><label>عند انتهائها يُحال إلى</label>
@@ -13461,7 +13461,7 @@ function renderUserEditForm(){
             <input type="checkbox" id="editUserGeneral" ${u.isGeneral?'checked':''} data-on-change="toggleGeneralAccess" style="width:auto;">
             🌐 مستخدم عام على مستوى المؤسسة (يصل لكل الشركات الحالية والمستقبلية)
           </label>
-          <p class="sub" style="margin:6px 0 8px;font-size:12px;">أو حدّد شركات بعينها يعمل بها، مع مديره المباشر في كل شركة. شركته الأساسية: <b>${escH((state.companies.find(c=>c.id===u.companyId)||{}).nameAr||'—')}</b>.</p>
+          <p class="sub" style="margin:6px 0 8px;font-size:var(--fs-hint);">أو حدّد شركات بعينها يعمل بها، مع مديره المباشر في كل شركة. شركته الأساسية: <b>${escH((state.companies.find(c=>c.id===u.companyId)||{}).nameAr||'—')}</b>.</p>
           ${others.map(co=>{
             const linked = (state.userCompanyLinks||[]).some(l=>l.userId===u.id && l.companyId===co.id);
             const ucm = (state.userCompanyManagers||[]).find(x=>x.userId===u.id && x.companyId===co.id);
@@ -13703,7 +13703,7 @@ function renderLogin(app){
             <button class="btn btn-primary btn-md" style="width:100%;" data-on-click="attemptLogin">دخول</button>
           </div>
           <div style="margin-top:10px;text-align:center;">
-            <a href="#" data-on-click="#110" style="font-size:13px;color:var(--blue);text-decoration:underline;cursor:pointer;">نسيت كلمة المرور؟</a>
+            <a href="#" data-on-click="#110" style="font-size:var(--fs-label);color:var(--blue);text-decoration:underline;cursor:pointer;">نسيت كلمة المرور؟</a>
           </div>
           ${devSwitcherHtml()}
         </div>
@@ -13756,9 +13756,9 @@ function resetRequestsBannerHtml(){
     const u = (state.users||[]).find(x=>x.id===r.userId);
     const when = r.requestedAt ? fmtStamp(r.requestedAt) : '';
     return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid rgba(245,158,11,.3);">
-      <b style="font-size:13px;">${escH(u ? u.name : 'مستخدم غير معروف')}</b>
-      <span style="font-size:12px;color:#8a5a00;" dir="ltr">${escH(r.phone)}</span>
-      <span style="font-size:11.5px;color:#8a5a00;opacity:.8;">${escH(when)}</span>
+      <b style="font-size:var(--fs-label);">${escH(u ? u.name : 'مستخدم غير معروف')}</b>
+      <span style="font-size:var(--fs-hint);color:#8a5a00;" dir="ltr">${escH(r.phone)}</span>
+      <span style="font-size:var(--fs-hint);color:#8a5a00;opacity:.8;">${escH(when)}</span>
       <span class="rev-actions" style="margin-right:auto;display:flex;gap:6px;">
         ${u ? `<button class="btn btn-primary btn-xs" data-on-click="#111" data-on-click-args="${qa([(''+(u.id))])}">فتح الحساب</button>` : ''}
         <button class="btn btn-ghost btn-xs" data-on-click="closeResetRequest" data-on-click-args="${qa([(''+(r.id)), "dismissed"])}">إهمال</button>
@@ -13766,8 +13766,8 @@ function resetRequestsBannerHtml(){
     </div>`;
   }).join('');
   return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
-    <div style="font-weight:700;font-size:13px;color:#8a5a00;">🔑 طلبات إعادة تعيين كلمة المرور (${list.length})</div>
-    <div style="font-size:12.5px;color:#8a5a00;line-height:1.7;margin-top:3px;">
+    <div style="font-weight:700;font-size:var(--fs-label);color:#8a5a00;">🔑 طلبات إعادة تعيين كلمة المرور (${list.length})</div>
+    <div style="font-size:var(--fs-hint);color:#8a5a00;line-height:1.7;margin-top:3px;">
       افتح حساب الطالب واكتب كلمة مرور جديدة، ويُغلق طلبه تلقائياً. ثم أبلغه بها.
     </div>
     ${rows}
@@ -13797,11 +13797,11 @@ function devSwitcherHtml(){
     </div>`;
   return `
     <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--line);">
-      <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px;">
+      <div style="font-size:var(--fs-hint);font-weight:700;color:var(--amber);margin-bottom:8px;">
         ⚙ تبديل سريع — وضع التجربة فقط
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${list.map(u=>`<button class="btn btn-ghost" style="width:auto;min-height:40px;padding:0 10px;font-size:12px;border-width:1px;box-shadow:none;"
+        ${list.map(u=>`<button class="btn btn-ghost" style="width:auto;min-height:40px;padding:0 10px;font-size:var(--fs-hint);border-width:1px;box-shadow:none;"
            data-on-click="devLoginAs" data-on-click-args="${qa([qs(u.phone)])}" title="${escH((findRole(u.role)||{}).name||u.role)}">${escH(u.name)}</button>`).join('')}
       </div>
       <div class="file-hint" style="margin-top:8px;">كلمة المرور الموحّدة للتجربة: ${DEV_TEST_PASSWORD} — حسابا مدير النظام يُكتبان يدوياً.</div>
@@ -13986,16 +13986,16 @@ function renderDashboard(app){
             const subNoteClass = iAlreadyApproved ? 'note-approved' : 'note-waiting';
             return `
             <div class="req-card" data-on-click="openRequest" data-on-click-args="${qa([(''+(r.id))])}" style="${r.limitExceeded ? 'border:3px solid var(--red);' : ''}${reqStripStyle(r)}">
-              <span data-label="رقم الطلب" class="req-field-value req-field-wrap" style="font-weight:700;">${r.number || `<span style="color:var(--amber);font-size:12px;">⏳ قيد المراجعة${reviewSecondsLeft(r)>0 ? ` <span data-countdown="${r.id}" dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(reviewSecondsLeft(r))}</span>` : ''}</span>`}</span>
+              <span data-label="رقم الطلب" class="req-field-value req-field-wrap" style="font-weight:700;">${r.number || `<span style="color:var(--amber);font-size:var(--fs-hint);">⏳ قيد المراجعة${reviewSecondsLeft(r)>0 ? ` <span data-countdown="${r.id}" dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(reviewSecondsLeft(r))}</span>` : ''}</span>`}</span>
               <span data-label="الموضوع" class="req-field-value req-field-wrap"${r.isCancelled ? ' style="text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px;color:var(--muted);"' : ''}>${escH(r.reason)}${r.requestType==='custody' ? ' <span class="custody-tag">💼 عهدة</span>' : ''}${r.limitExceeded ? ' <span class="limit-tag">⚠ تجاوز السقف</span>' : ''}</span>
-              <span data-label="تاريخ الطلب" class="req-field-value">${r.dateGreg ? `<div>${dmyStr(r.dateGreg)}</div><div style="font-size:11px;color:var(--muted);">${createdTimePart}</div>` : '—'}</span>
-              <span data-label="تاريخ الصرف" class="req-field-value">${paidEntry ? `<div>${paidDatePart}</div><div style="font-size:11px;color:var(--muted);">${paidTimePart}</div>` : '—'}</span>
+              <span data-label="تاريخ الطلب" class="req-field-value">${r.dateGreg ? `<div>${dmyStr(r.dateGreg)}</div><div style="font-size:var(--fs-xs);color:var(--muted);">${createdTimePart}</div>` : '—'}</span>
+              <span data-label="تاريخ الصرف" class="req-field-value">${paidEntry ? `<div>${paidDatePart}</div><div style="font-size:var(--fs-xs);color:var(--muted);">${paidTimePart}</div>` : '—'}</span>
               <span data-label="المستفيدون" class="req-field-value" style="padding-right:22px;">${r.beneficiaries.length}</span>
               <span data-label="المبلغ" class="req-field-value" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(r.totalAmount)} د.ك</span>
               <span data-label="الحالة">
                 ${isUnderReview(r)
                   ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);" title="لم يُرسل نهائياً بعد — لا يراه المعتمدون">قيد المراجعة</span>`
-                  : statusBadge(r.status, r.isCancelled, myTurn, !subNoteText, myTurn && isOverdueFor(r, state.user.id))}${r.fastTracked ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:10.5px;" title="تخطّى بعض خطوات الاعتماد لأن المبلغ ضمن الحد الأدنى">⚡ حد أدنى</span>` : ''}${(isUnspecifiedBudget(r.budgetItemId) && !r.isCancelled && r.status!=='rejected' && r.status!=='completed') ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:10.5px;" title="الصرف متوقف حتى يُسنَد الطلب إلى بند ميزانية">⚠ بند غير محدد</span>` : ''}
+                  : statusBadge(r.status, r.isCancelled, myTurn, !subNoteText, myTurn && isOverdueFor(r, state.user.id))}${r.fastTracked ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:var(--fs-xs);" title="تخطّى بعض خطوات الاعتماد لأن المبلغ ضمن الحد الأدنى">⚡ حد أدنى</span>` : ''}${(isUnspecifiedBudget(r.budgetItemId) && !r.isCancelled && r.status!=='rejected' && r.status!=='completed') ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:var(--fs-xs);" title="الصرف متوقف حتى يُسنَد الطلب إلى بند ميزانية">⚠ بند غير محدد</span>` : ''}
                 ${subNoteText ? `<span class="badge sub-status-note ${subNoteClass}">${subNoteText}</span>` : ''}
                 ${reqPaperBadge(r)}
                 ${(()=>{ const hf = handedFromNames(r); return hf.length ? `<span class="badge handed-badge" title="أُسند إليك قرار ${escH(hf.join('، '))} في هذا الطلب">🤝 مُسنَد إليك من ${escH(hf.join('، '))}</span>` : ''; })()}
@@ -14052,7 +14052,7 @@ function renderDashboard(app){
       <div class="stat-card" style="cursor:pointer;${statusFilter==='all'?'border-color:var(--ink);':''}" data-on-click="#116"><span class="stat-num">${totalCount}</span><span class="stat-label">إجمالي الطلبات</span></div>
       <div class="stat-card" style="cursor:pointer;${statusFilter==='completed'?'border-color:var(--green);':''}" data-on-click="#119"><span class="stat-num" style="color:var(--green);">${paidCount}</span><span class="stat-label">معتمدة ومصروفة</span></div>
       <div class="stat-card" style="cursor:pointer;${statusFilter==='pending'?'border-color:var(--amber);':''}" data-on-click="#120"><span class="stat-num" style="color:var(--amber);">${pendingCount}</span><span class="stat-label">قيد الانتظار</span></div>
-      <div class="stat-card" style="cursor:pointer;${statusFilter==='completed'?'border-color:var(--blue);':''}" data-on-click="#119"><span class="stat-num" style="color:var(--blue);font-size:16px;">${fmtKWDHtml(paidSum)} د.ك</span><span class="stat-label">إجمالي المصروف</span></div>
+      <div class="stat-card" style="cursor:pointer;${statusFilter==='completed'?'border-color:var(--blue);':''}" data-on-click="#119"><span class="stat-num" style="color:var(--blue);font-size:var(--fs-h3);">${fmtKWDHtml(paidSum)} د.ك</span><span class="stat-label">إجمالي المصروف</span></div>
     </div>
   `;
 
@@ -14107,7 +14107,7 @@ function renderOldCoPanel(){
       const pd = pe ? toWesternDigits(pe.time).split(' ')[0].replace(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,(m,d,mo,y)=>dmyJoin(d.padStart(2,'0'),mo.padStart(2,'0'),y)) : '';
       return `<div class="req-card" data-on-click="openRequest" data-on-click-args="${qa([(''+(r.id))])}" style="${reqStripStyle(r)}">
         <span data-label="رقم الطلب" class="req-field-value req-field-wrap" style="font-weight:700;">${escH(r.number||'قيد المراجعة')}</span>
-        <span data-label="الموضوع" class="req-field-value req-field-wrap"${r.isCancelled?' style="text-decoration:line-through;text-decoration-color:var(--red);color:var(--muted);"':''}>${escH(r.reason||'')}${r.requestType==='custody' ? ' <span class="custody-tag">💼 عهدة</span>' : ''}<div style="font-size:11px;color:var(--muted);">${escH(coName(r.companyId))}</div></span>
+        <span data-label="الموضوع" class="req-field-value req-field-wrap"${r.isCancelled?' style="text-decoration:line-through;text-decoration-color:var(--red);color:var(--muted);"':''}>${escH(r.reason||'')}${r.requestType==='custody' ? ' <span class="custody-tag">💼 عهدة</span>' : ''}<div style="font-size:var(--fs-xs);color:var(--muted);">${escH(coName(r.companyId))}</div></span>
         <span data-label="تاريخ الطلب" class="req-field-value">${r.dateGreg ? dmyStr(r.dateGreg) : '—'}</span>
         <span data-label="تاريخ الصرف" class="req-field-value">${pd||'—'}</span>
         <span data-label="المستفيدون" class="req-field-value" style="padding-right:22px;">${(r.beneficiaries||[]).length}</span>
@@ -14285,13 +14285,13 @@ function renderNewRequest(app){
 
       <div class="total-box nr-wide" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:nowrap;">
         <div style="flex-shrink:0;">
-          <div style="font-size:19px;font-weight:700;">الإجمالي</div>
-          <div style="font-size:11px;font-weight:600;color:#B8C0CC;margin-top:2px;">(يُحسب تلقائياً)</div>
+          <div style="font-size:var(--fs-h2);font-weight:700;">الإجمالي</div>
+          <div style="font-size:var(--fs-xs);font-weight:600;color:#B8C0CC;margin-top:2px;">(يُحسب تلقائياً)</div>
         </div>
-        <span id="totalPreviewWords" style="flex:1;text-align:center;font-size:12px;font-weight:600;color:#D8DEE6;overflow:hidden;"></span>
-        <b id="totalPreview" style="font-size:24px;flex-shrink:0;">0.000 د.ك</b>
+        <span id="totalPreviewWords" style="flex:1;text-align:center;font-size:var(--fs-hint);font-weight:600;color:#D8DEE6;overflow:hidden;"></span>
+        <b id="totalPreview" style="font-size:var(--fs-h1);flex-shrink:0;">0.000 د.ك</b>
       </div>
-      <div id="amountLimitWarning" class="nr-wide" style="display:none;background:var(--amber-bg);color:#1B2733;border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:12.5px;margin-top:10px;"></div>
+      <div id="amountLimitWarning" class="nr-wide" style="display:none;background:var(--amber-bg);color:#1B2733;border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:var(--fs-hint);margin-top:10px;"></div>
 
       ${cxRouteFieldHtml(d)}
 
@@ -14309,8 +14309,8 @@ function renderNewRequest(app){
     <div class="sticky-submit-bar no-print">
       ${qyBackBtn()}
       <button type="button" class="btn btn-ghost btn-md" title="إضافة مستفيد" style="flex:0 0 auto;" data-on-click="addBeneficiaryRow">+ إضافة مستفيد</button>
-      <button id="amountLimitBadge" type="button" data-on-click="scrollToAmountWarning" title="اضغط لعرض تفاصيل التحذير" style="display:none;background:var(--amber-bg);color:#1B2733;border:2px solid var(--amber);border-radius:24px;padding:9px 18px;font-size:15px;font-weight:700;white-space:nowrap;align-items:center;gap:8px;cursor:pointer;">
-        <span style="font-size:22px;line-height:1;">⚠️</span> تجاوز الحد
+      <button id="amountLimitBadge" type="button" data-on-click="scrollToAmountWarning" title="اضغط لعرض تفاصيل التحذير" style="display:none;background:var(--amber-bg);color:#1B2733;border:2px solid var(--amber);border-radius:24px;padding:9px 18px;font-size:var(--fs-h3);font-weight:700;white-space:nowrap;align-items:center;gap:8px;cursor:pointer;">
+        <span style="font-size:var(--fs-h1);line-height:1;">⚠️</span> تجاوز الحد
       </button>
       <button class="btn btn-primary submit-draft-trigger btn-md" ${canSend?'':`disabled title="${noSendTip}"`} data-on-click="submitDraft">${state.editingReqId ? 'حفظ التعديلات' : 'إرسال للاعتماد'}</button>
       <button class="btn btn-ghost btn-md" ${qon('click', state.editingReqId ? [["#25",[]]] : [["discardDraftAndCancel",[]]])}>إلغاء</button>
@@ -14382,7 +14382,7 @@ function renderAppRequestView(req){
       <td rowspan="${rowCount}">
         <div class="cell-right">${escH(b.statement || '—')}</div>
         <div class="cell-left" style="font-size:11px;">${escH(b.civilId || '—')}</div>
-        <div class="cell-left" style="font-size:10.5px;word-break:break-all;">${escH(ibanClean || '—')}</div>
+        <div class="cell-left" style="font-size:10px;word-break:break-all;">${escH(ibanClean || '—')}</div>
       </td>
       <td style="${mainBorder}"><div class="amt-signed"><span class="amt-number" dir="ltr">${fmtKWDHtml(b.amount)}</span></div></td>
       <td class="cell-right" style="${mainBorder}">${escH(b.notes || '')}</td>
@@ -14415,7 +14415,7 @@ function renderAppRequestView(req){
       if(!mine){
         return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
           <div style="font-weight:700;font-size:13px;color:#8a5a00;">⏳ طلب قيد المراجعة — لم يُرسل نهائياً بعد</div>
-          <div style="font-size:12.5px;color:#8a5a00;line-height:1.75;margin-top:4px;">لم يأخذ رقماً، ولا يدخل سلسلة الاعتماد حتى ينتهي صاحبه من مراجعته.</div>
+          <div style="font-size:12px;color:#8a5a00;line-height:1.75;margin-top:4px;">لم يأخذ رقماً، ولا يدخل سلسلة الاعتماد حتى ينتهي صاحبه من مراجعته.</div>
         </div>`;
       }
       const expired = secs<=0;
@@ -14424,7 +14424,7 @@ function renderAppRequestView(req){
           ${expired ? '⏳ انتهت المدة — يُمنح الرقم الآن…'
                     : `⏳ راجع طلبك قبل الإرسال النهائي — تبقّى <span data-countdown="${req.id}" dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(secs)}</span>`}
         </div>
-        <div style="font-size:12.5px;color:#8a5a00;line-height:1.75;margin-top:4px;">
+        <div style="font-size:12px;color:#8a5a00;line-height:1.75;margin-top:4px;">
           الطلب محفوظ بلا رقم ولم يره المعتمدون بعد. وما دامت المدة قائمة يمكنك تعديله أو حذفه،
           فإن انقضت أخذ رقمه ومضى في سلسلة الاعتماد.
         </div>
@@ -14445,7 +14445,7 @@ function renderAppRequestView(req){
           .map(b=>`<option value="${b.id}">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)} (الرصيد: ${fmtKWDPlain(computeBudgetItemBalance(b.id)||0)})</option>`).join('');
         return `<div class="unspec-box" style="padding:12px 14px;background:#f5f0fe;border:1.5px solid #7c3aed;border-radius:8px;margin-bottom:12px;">
           <div style="font-weight:700;font-size:13px;color:#5b21b6;">⚠️ بند غير محدد — الطلب غير مكتمل</div>
-          <div style="font-size:12.5px;color:#5b21b6;line-height:1.75;margin-top:4px;">
+          <div style="font-size:12px;color:#5b21b6;line-height:1.75;margin-top:4px;">
             يمضي الطلب في سلسلة الاعتماد، لكن <b>الصرف لن يتم</b> حتى يُسنَد إلى بند ميزانية.
             افتح بنداً مناسباً من لوحة التحكم إن لم يوجد، ثم اختره هنا.
           </div>
@@ -14518,7 +14518,7 @@ function budgetBarHtml(label, budget, consumed){
   const over = remaining < 0;
   return `
     <div style="margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;gap:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:var(--fs-hint);margin-bottom:4px;gap:8px;">
         <span><b>${label}</b> — المستهلك: ${fmtKWD(consumed,{noUnit:true})} د.ك من ${fmtKWD(budget,{noUnit:true})} د.ك (${Math.round(pct)}%)</span>
         <span style="color:${over?'var(--red)':'var(--muted)'};font-weight:600;white-space:nowrap;">${over?'تجاوز بمقدار '+fmtKWD(Math.abs(remaining)):'المتبقي: '+fmtKWD(remaining)}</span>
       </div>
@@ -14544,7 +14544,7 @@ function renderBudgetFloat(req){
     const mC = centerConsumed(u.id, year, month), aC = centerConsumed(u.id, year, null);
     [budgetPct(u.monthlyBudget, mC), budgetPct(u.annualBudget, aC)].forEach(x=>{ if(x!=null) pcts.push(x); });
     return budgetBarHtml('الميزانية الشهرية'+who+' ('+monthLabel+')'+sfx, u.monthlyBudget, mC) + budgetBarHtml('الميزانية السنوية'+who+' ('+year+')'+sfx, u.annualBudget, aC)
-      + (hasKids && (u.monthlyBudget!=null||u.annualBudget!=null) ? `<div class="sub" style="font-size:11.5px;margin:-4px 0 8px;">منها الوحدة وحدها: شهرياً ${fmtKWD(centerConsumed(u.id, year, month, true),{noUnit:true})} د.ك · سنوياً ${fmtKWD(centerConsumed(u.id, year, null, true),{noUnit:true})} د.ك</div>` : '');
+      + (hasKids && (u.monthlyBudget!=null||u.annualBudget!=null) ? `<div class="sub" style="font-size:var(--fs-hint);margin:-4px 0 8px;">منها الوحدة وحدها: شهرياً ${fmtKWD(centerConsumed(u.id, year, month, true),{noUnit:true})} د.ك · سنوياً ${fmtKWD(centerConsumed(u.id, year, null, true),{noUnit:true})} د.ك</div>` : '');
   }).join('');
   const annualHtml = '';
   const worst = Math.max(...pcts);
@@ -14553,8 +14553,8 @@ function renderBudgetFloat(req){
     <div class="budget-fab no-print">
       <div class="budget-panel" id="budgetPanel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <b style="font-size:14px;">ميزانية مركز "${escH(center.name)}"</b>
-          <span style="cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;" data-on-click="#126">✕</span>
+          <b style="font-size:var(--fs-body);">ميزانية مركز "${escH(center.name)}"</b>
+          <span style="cursor:pointer;color:var(--muted);font-size:var(--fs-h3);padding:0 4px;" data-on-click="#126">✕</span>
         </div>
         ${monthlyHtml}
         ${annualHtml}
@@ -15074,7 +15074,7 @@ function custodyLinesTableHtml(kc){
     return `<tr${es==='rejected' ? ' style="background:#FDECEC;"' : (es==='draft' && reviewing ? ' class="cus-unreviewed" title="لم تراجعه بعد"' : '')}>
       <td class="num" data-l="#">${i+1}</td>
       <td data-l="النوع">${l.kind==='expense' ? 'مصروف' : 'مقبوض'}</td>
-      <td data-l="الوصف"><div>${escH(l.description)}${l.noDoc ? ` <span class="nodoc-tag" title="${escH(l.noDocReason)}">بلا سند</span>` : ''}</div>${l.reviewNote && es==='rejected' ? `<div style="color:var(--red);font-size:12px;">${escH(l.reviewNote)}</div>` : ''}</td>
+      <td data-l="الوصف"><div>${escH(l.description)}${l.noDoc ? ` <span class="nodoc-tag" title="${escH(l.noDocReason)}">بلا سند</span>` : ''}</div>${l.reviewNote && es==='rejected' ? `<div style="color:var(--red);font-size:var(--fs-hint);">${escH(l.reviewNote)}</div>` : ''}</td>
       <td data-l="رقم الفاتورة">${l.invoiceNo ? escH(l.invoiceNo) : '<span class="file-hint">—</span>'}</td>
       <td data-l="التاريخ">${l.lineDate ? fmtDateDMY(l.lineDate) : ''}</td>
       ${l.kind==='expense' ? `<td data-l="صرف" class="cus-out"><span>${fmtKWDHtml(l.amount)}</span></td><td class="cus-empty"></td>` : `<td class="cus-empty"></td><td data-l="قبض" class="cus-in"><span>${fmtKWDHtml(l.amount)}</span></td>`}
@@ -15113,7 +15113,7 @@ function custodyStageActHtml(kc){
     const opts = B>0 ? [['return_cash','إرجاع الباقي نقداً للشركة'],['carry','تعليقه باسمه للقرار (استرجاع نقدي أو يدخل عهدته التالية)']]
                : B<0 ? [['pay_diff','صرف الفرق لصاحب العهدة'],['carry_debt','تعليق المستحق له للقرار (صرف أو يُضاف لعهدته التالية)']] : [];
     return `<div class="card cus-line-form no-print">
-      <h2 style="margin:0 0 6px;font-size:16px;">قرار المحاسب</h2>
+      <h2 style="margin:0 0 6px;font-size:var(--fs-h3);">قرار المحاسب</h2>
       <p class="sub" style="margin:0 0 8px;">${mode==='line' ? 'ارفض ما يحتاج تصحيحاً فقط (يُقبل الباقي باعتمادك)، ثم اعتمد الإقفال أو أرجعها للتصحيح.' : 'إعداد الشركة: تُقبل العهدة كلها أو تُرجَع.'} الباقي: <b>${cusAmtHtml(B)} د.ك</b>.</p>
       ${opts.length ? `<label>معالجة الباقي *</label><select id="cusAction" style="--fw:380px;"><option value="">— اختر معالجة الباقي —</option>${opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>` : ''}
       <label>ملاحظة (للإرجاع)</label><input id="cusAcctNote" type="text" maxlength="300" style="--fw:580px;">
@@ -15294,7 +15294,7 @@ function cusDocsHtml(kc){
   const dr = (editable && !l) ? cusDraftGet(kc.id) : {};
   if(editable){
     left = `<div class="cus-doc-fields">
-      <h2 style="margin:0 0 8px;font-size:16px;">${l ? 'تعديل السند '+(d.idx+1) : 'سند جديد'}</h2>
+      <h2 style="margin:0 0 8px;font-size:var(--fs-h3);">${l ? 'تعديل السند '+(d.idx+1) : 'سند جديد'}</h2>
       ${l && l.status==='rejected' && l.reviewNote ? `<div class="note-box" style="background:#FDECEC;color:var(--red);">ملاحظة المراجِع: ${escH(l.reviewNote)}</div>` : ''}
       <label>صور السند ${l && l.hasImage ? '(محفوظة — أضف أو احذف)' : '*'}</label>
       <div class="cus-pick no-print" id="cusPickBox" tabindex="-1">
@@ -15557,7 +15557,7 @@ function cusLineFormHtml(kc){
   const mine = (state.custodies||[]).filter(k=>k.holderId===kc.holderId && k.companyId===kc.companyId && ['open','returned'].includes(k.status));
   const imgRule = f.kind==='receipt' ? 'صورة السند إلزامية للمقبوض.' : (co.custodyImgMin>0 ? `صورة السند إلزامية إذا كان المبلغ ${fmtKWDPlain(co.custodyImgMin)} فأكثر.` : 'صورة السند إلزامية.');
   return `<div class="card cus-line-form no-print">
-    <h2 style="margin:0 0 8px;font-size:16px;">${l ? 'تعديل' : 'إضافة'} ${f.kind==='expense' ? 'مصروف' : 'مقبوض'}</h2>
+    <h2 style="margin:0 0 8px;font-size:var(--fs-h3);">${l ? 'تعديل' : 'إضافة'} ${f.kind==='expense' ? 'مصروف' : 'مقبوض'}</h2>
     ${!l && mine.length>1 ? `<label>العهدة</label><select id="cusLineCus" style="--fw:380px;">${mine.map(k=>`<option value="${k.id}" ${k.id===kc.id?'selected':''}>${escH(k.purpose || 'عهدة')} — ${fmtKWDPlain(k.amount)}</option>`).join('')}</select><div class="file-hint">لديك أكثر من عهدة مفتوحة: اختر العهدة التي يُسجَّل عليها، ويُحسب على بندها.</div>` : ''}
     <div class="row">
       <div><label>المبلغ (د.ك) *</label><input id="cusLineAmt" type="number" min="0.001" step="0.001" dir="ltr" style="--fw:180px;direction:ltr;text-align:center;" value="${l ? l.amount : ''}"></div>
@@ -15662,7 +15662,7 @@ function cusCloseFormHtml(kc){
   const users = state.users.filter(u=>u.id!==kc.holderId && !u.isSuspended && userHasCompany(u, kc.companyId)).sort((a,b)=>a.name.localeCompare(b.name,'ar'));
   const {B} = custodySums(kc);
   return `<div class="card cus-line-form no-print" id="cusCloseCard">
-    <h2 style="margin:0 0 8px;font-size:16px;">طلب إقفال العهدة</h2>
+    <h2 style="margin:0 0 8px;font-size:var(--fs-h3);">طلب إقفال العهدة</h2>
     <div class="why-line" style="color:var(--red);margin:0 0 8px;">المطلوب منك: اختر المراجِع من القائمة أدناه ثم اضغط «إرسال طلب الإقفال».</div>
     <p class="sub" style="margin:0 0 8px;">المتبقي الآن <b>${cusAmtHtml(B)} د.ك</b> (${custodyLinesOf(kc).length} سطر). بعد الطلب لا تُعدَّل السطور حتى تعود إليك إن رُفض شيء منها.</p>
     <label>المراجِع قبل المحاسب *</label>
@@ -15708,7 +15708,7 @@ function cusOverLimitCardHtml(k){
       <div class="cus-lim-why"><label>سبب التعديل *</label><input id="cusLimWhy" type="text" style="--fw:100%;" placeholder="مثال: عهدة ضيافة تحتاج هامشاً أكبر"></div>
     </div>
     <div class="actions-row no-bar" style="margin-top:8px;"><button type="button" class="btn btn-primary btn-md" data-on-click="cusLimSave" data-on-click-args="${qa([k.id])}">حفظ حد الصرف</button></div></div>` : '<div class="file-hint">تعديل الحد لمدير النظام فقط.</div>';
-  return `<div class="card cus-limit-card"><h2 class="cus-lim-h" style="margin:0 0 6px;font-size:16px;">حد الصرف فوق العهدة</h2><div>الحد الحالي: <b>${escH(e.txt)}</b> <span class="file-hint">(${e.own?'مخصّص لهذه العهدة':'من إعداد الشركة'})</span></div>${form}</div>`;
+  return `<div class="card cus-limit-card"><h2 class="cus-lim-h" style="margin:0 0 6px;font-size:var(--fs-h3);">حد الصرف فوق العهدة</h2><div>الحد الحالي: <b>${escH(e.txt)}</b> <span class="file-hint">(${e.own?'مخصّص لهذه العهدة':'من إعداد الشركة'})</span></div>${form}</div>`;
 }
 function cusLimToggle(){ const m=(document.getElementById('cusLimMode')||{}).value, b=document.getElementById('cusLimValBox'); if(b) b.hidden = !['percent','amount'].includes(m); }
 async function cusLimSave(id){
@@ -16060,8 +16060,8 @@ function renderDetail(app){
   const creatorName = req.createdBy || (creatorUser && creatorUser.name) || '';
   const creatorTime = (req.history&&req.history[0]&&req.history[0].time) || '';
   const creatorStepHtml = `<div class="step done" style="min-width:80px;">
-    ${avSrc(req.createdById) ? `<div class="dot dot-av" style="background:var(--primary,#1a56db);"><img src="${escH(avSrc(req.createdById))}" alt=""></div>` : `<div class="dot" style="background:var(--primary,#1a56db);font-size:9px;width:26px;height:26px;line-height:26px;">✎</div>`}
-    <p style="font-size:10px;color:var(--muted,#888);">منشئ الطلب</p>
+    ${avSrc(req.createdById) ? `<div class="dot dot-av" style="background:var(--primary,#1a56db);"><img src="${escH(avSrc(req.createdById))}" alt=""></div>` : `<div class="dot" style="background:var(--primary,#1a56db);font-size:var(--fs-xs);width:26px;height:26px;line-height:26px;">✎</div>`}
+    <p style="font-size:var(--fs-xs);color:var(--muted,#888);">منشئ الطلب</p>
     <span class="step-approver">${escH(creatorName)}</span>
     <span class="step-approve-time">${escH(creatorTime)}</span>
   </div>`;
@@ -16165,16 +16165,16 @@ function renderDetail(app){
       return `<tr><td>${i+1}</td><td>${escH(u ? u.name+' — '+findRole(u.role).name : s.approverId)}</td></tr>`;
     }).join('') || (freshBuild.error ? `<tr><td colspan="2">⛔ ${escH(freshBuild.error)}</td></tr>` : '<tr><td colspan="2">لا يوجد مسار محسوب من "من يعتمد طلبه" الحالي — يذهب مباشرة للذيل التنفيذي</td></tr>');
     debugPanelHtml = `
-      <div class="note-box no-print" style="font-size:12px;">
+      <div class="note-box no-print" style="font-size:var(--fs-hint);">
         <b>لوحة تشخيص (أدمن فقط)</b><br>
         حالة الطلب الحالية: <b>${escH(STEP_LABELS[req.status] || ({pending_decision:'قيد اعتماد القرار',rejected:'مرفوض',completed:'تم الصرف'}[req.status]) || req.status)}</b> — منشئ الطلب: ${escH(req.createdBy)}<br><br>
         <b>مسار الاعتماد المحفوظ فعلياً في قاعدة البيانات:</b>
-        <table style="width:100%;font-size:11px;border-collapse:collapse;margin-top:4px;">
+        <table style="width:100%;font-size:var(--fs-xs);border-collapse:collapse;margin-top:4px;">
           <tr style="font-weight:700;"><td>الترتيب</td><td>المعتمد</td><td>الحالة</td></tr>
           ${stepsRows}
         </table>
         <br><b>المسار الذي كان سيُبنى الآن لو أُعيد البناء (حسب مدير المنشئ الحالي):</b>
-        <table style="width:100%;font-size:11px;border-collapse:collapse;margin-top:4px;">
+        <table style="width:100%;font-size:var(--fs-xs);border-collapse:collapse;margin-top:4px;">
           <tr style="font-weight:700;"><td>الترتيب</td><td>المعتمد</td></tr>
           ${freshRows}
         </table>
@@ -16420,7 +16420,7 @@ function cxStaleBannerHtml(compact){
     ? `آخر رفع: كشف الحساب حتى <b>${cxDate(d.statement)}</b> · الفواتير حتى <b>${cxDate(d.bills)}</b>${red ? ` — مضى ${age} يوماً، ارفع ملفات أحدث` : ''}`
     : 'لم تُرفع ملفات بوابة الدفع بعد.';
   return `<div class="card no-print" style="margin-bottom:12px;border:2px solid ${col};padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;">
-    <div style="font-size:13.5px;line-height:1.7;color:${col};font-weight:700;">${msg}</div>
+    <div style="font-size:var(--fs-label);line-height:1.7;color:${col};font-weight:700;">${msg}</div>
     ${compact ? `<button class="btn btn-ghost btn-sm" data-on-click="openGwImport">رفع الملفات</button>` : ''}
   </div>`;
 }
@@ -16524,7 +16524,7 @@ function cxClientFormHtml(){
       <div style="--fw:220px;"><label>البريد</label><input id="cxc_ct_${i}_e" type="text" dir="ltr" value="${escH(p.email||'')}"></div>
       <button class="btn btn-reject btn-xs" data-on-click="cxCDelContact" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
     <button class="btn btn-ghost btn-sm" data-on-click="cxCAddContact">+ جهة اتصال</button>
-    <div style="margin-top:16px;"><label style="display:block;font-weight:700;font-size:13px;margin-bottom:6px;">ملاحظات</label><textarea id="cxc_notes" rows="2">${escH(d.notes||'')}</textarea></div>
+    <div style="margin-top:16px;"><label style="display:block;font-weight:700;font-size:var(--fs-label);margin-bottom:6px;">ملاحظات</label><textarea id="cxc_notes" rows="2">${escH(d.notes||'')}</textarea></div>
     <div class="cx-actions">
       <button class="btn btn-primary btn-md" data-on-click="cxSaveClient">حفظ</button>
       <button class="btn btn-ghost btn-sm" data-on-click="cxCancelClient">إلغاء</button>
