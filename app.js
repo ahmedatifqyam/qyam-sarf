@@ -1,6 +1,11 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.6.2', APP_VERSION_DATE = '2026-11-13';
+const APP_VERSION = '1.7.0', APP_VERSION_DATE = '2026-11-13';
+// ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
+const APP_WORK = {hours:132, since:'2026-09-07', days:46, updates:363};
+function appWorkBase(){ const v = Number((state.appSettings||{}).work_hours_base); return isFinite(v) && v>0 ? v : 0; }
+function appWorkTotal(){ return Math.round(appWorkBase() + APP_WORK.hours); }
+function appWorkTip(){ return `≈ ${appWorkTotal()} ساعة عمل: ${appWorkBase()} تقديرك لما قبل السجل وخارجه + ${APP_WORK.hours} من سجل التحديثات (منذ ${APP_WORK.since.split('-').reverse().join('-')}، ${APP_WORK.days} يوم عمل، ${APP_WORK.updates} تحديثاً)`; }
 function appVersionText(){ return 'الإصدار ' + APP_VERSION + ' · ' + APP_VERSION_DATE.split('-').reverse().join('-'); }
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 
@@ -917,8 +922,8 @@ function renderDbBadge(){
   if(!el){ el = document.createElement('button'); el.id = 'dbBadge'; el.type='button'; el.className='db-badge no-print'; document.body.appendChild(el); }
   el.onclick = adm ? copyDbRef : null; el.classList.toggle('db-badge-ver', !adm);
   const ref = dbProjectRef(); const short = ref.length>14 ? ref.slice(0,9)+'…'+ref.slice(-3) : ref;
-  el.title = adm ? 'مشروع قاعدة البيانات الذي يتصل به التطبيق: '+ref+' — اضغط للنسخ\n'+appVersionText() : appVersionText();
-  el.innerHTML = (adm ? `<span class="db-l1"><span class="db-dot ${window._dbLastOk?'ok':'bad'}"></span><span class="db-ref">🗄 ${escH(short)}</span></span>` : '') + `<span class="db-ver">${escH(appVersionText())}</span>`;
+  el.title = adm ? 'مشروع قاعدة البيانات الذي يتصل به التطبيق: '+ref+' — اضغط للنسخ\n'+appVersionText()+'\n'+appWorkTip() : appVersionText();
+  el.innerHTML = (adm ? `<span class="db-l1"><span class="db-dot ${window._dbLastOk?'ok':'bad'}"></span><span class="db-ref">🗄 ${escH(short)}</span></span>` : '') + `<span class="db-ver">${escH(appVersionText())}</span>` + (adm ? `<span class="db-ver">≈ ${appWorkTotal()} ساعة عمل</span>` : '');
 }
 function renderBrand(){
   const box = document.getElementById('brandBox'); if(!box) return;
@@ -3142,7 +3147,7 @@ function renderAppNavInner(){
   nav.innerHTML = `
     <div class="nav-head"><button type="button" class="nav-toggle" ${qon('click', mode==='drawer'?[["closeNavDrawer",[]]]:[["toggleNav",[]]])} title="${mode==='drawer'?'إغلاق':'طيّ/فتح القائمة'}">${mode==='drawer'?'✕':'☰'}</button><span class="nav-title">القائمة</span></div>
     <nav class="nav-list">${navTopItems().map(itemHtml).join('')}</nav>
-    <div class="nav-foot"><div class="nav-user${state.view==='account'?' on':''}" role="button" tabindex="0" title="حسابي — ${escH(state.user.name)} · ${escH(findRole(state.user.role).name)}" ${qon('click', navClick([["#10",[]]]))} data-on-keydown="#35"><div class="nav-avatar">${avSrc(state.user.id) ? `<img src="${escH(avSrc(state.user.id))}" alt="">` : escH((state.user.name||'?').trim().charAt(0))}</div><div class="nav-uinfo"><div class="nav-uname">${escH(state.user.name)}</div><div class="nav-urole">${escH(findRole(state.user.role).name)}</div></div></div><button type="button" class="nav-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج" ${qon('click', navClick([["logout",[]]]))}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>خروج</span></button></div>${mode==='drawer' ? `<div class="nav-ver">${escH(appVersionText())}</div>` : ''}`;
+    <div class="nav-foot"><div class="nav-user${state.view==='account'?' on':''}" role="button" tabindex="0" title="حسابي — ${escH(state.user.name)} · ${escH(findRole(state.user.role).name)}" ${qon('click', navClick([["#10",[]]]))} data-on-keydown="#35"><div class="nav-avatar">${avSrc(state.user.id) ? `<img src="${escH(avSrc(state.user.id))}" alt="">` : escH((state.user.name||'?').trim().charAt(0))}</div><div class="nav-uinfo"><div class="nav-uname">${escH(state.user.name)}</div><div class="nav-urole">${escH(findRole(state.user.role).name)}</div></div></div><button type="button" class="nav-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج" ${qon('click', navClick([["logout",[]]]))}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>خروج</span></button></div>${mode==='drawer' ? `<div class="nav-ver">${escH(appVersionText())}${state.user.role==='admin' ? ` · ≈ ${appWorkTotal()} ساعة عمل` : ''}</div>` : ''}`;
 }
 let _navResizeT=null;
 window.addEventListener('resize', ()=>{ clearTimeout(_navResizeT); _navResizeT=setTimeout(()=>{ if(state.navDrawer && window.innerWidth>=700) state.navDrawer=false; renderAppNav(); },80); });
@@ -12729,6 +12734,12 @@ function renderBrandingPanel(){
         <input type="checkbox" style="width:auto;" ${showAvatars() ? 'checked' : ''} data-on-change="setShowAvatars" data-on-change-args="${qa([QA.c])}" title="يُحفظ فوراً لكل المستخدمين">
         إظهار صور المستخدمين
       </label>
+      <h3 class="uf-h">الإصدار وساعات العمل</h3>
+      <div class="uf-flex">
+        <div class="f-sm"><label for="workBase">ساعات قبل السجل</label><input id="workBase" type="text" inputmode="numeric" dir="ltr" value="${appWorkBase()||''}" placeholder="0"></div>
+        <button type="button" class="btn btn-primary btn-md" data-on-click="saveWorkBase">حفظ</button>
+      </div>
+      <p class="file-hint" style="margin:6px 0 0;">${escH(appVersionText())} · ${escH(appWorkTip())}. يظهر لمدير النظام فقط أسفل الشاشة.</p>
       <p class="file-hint" style="margin:2px 0 0;">في الشريط الجانبي وقائمة المستخدمين ومسار الطلب. يُحفظ فوراً لكل المستخدمين؛ إطفاؤه يخفي الصور ولا يحذفها.</p>
       <label style="margin-top:14px;">${escH(BRAND_SPECS.sysLogo.label)}</label>
       ${brandHintHtml('sysLogo')}
@@ -12806,6 +12817,13 @@ async function brandUpload(kind, id, input){
 }
 async function brandRemove(kind, id){
   if(await brandSave(kind, id, '')){ showToast('تم حذف الصورة','success'); render(); }
+}
+async function saveWorkBase(){
+  const v = Math.max(0, Math.round(Number(String((document.getElementById('workBase')||{}).value||'0').replace(/[^\d.]/g,'')) || 0));
+  const r = await db.from('app_settings').upsert({key:'work_hours_base', value:String(v)});
+  if(!(await dbCheck(r, 'حفظ ساعات العمل'))) return;
+  state.appSettings = state.appSettings||{}; state.appSettings.work_hours_base = String(v);
+  showToast('تم الحفظ: ≈ '+appWorkTotal()+' ساعة عمل','success'); render(); renderDbBadge();
 }
 async function saveSystemName(){
   const v = (document.getElementById('brandSysName').value||'').trim();
