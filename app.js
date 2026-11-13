@@ -1,16 +1,16 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.9.0', APP_VERSION_DATE = '2026-11-14';
+const APP_VERSION = '1.9.1', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:136, since:'2026-09-07', days:46, updates:370};
+const APP_WORK = {hours:350, base:350, extra:0.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
 function isOwner(){ return isOwnerUser(state.user) || isOwnerUser((state.users||[]).find(x=>state.user && x.id===state.user.id)); }
-function appWorkBase(){ const v = Number((state.appSettings||{}).work_hours_base); return isFinite(v) && v>0 ? v : 0; }
+function appWorkBase(){ const v = Number((state.appSettings||{}).work_hours_base); return isFinite(v) ? v : 0; }
 function appWorkTotal(){ return Math.round(appWorkBase() + APP_WORK.hours); }
-function appWorkTip(){ return `≈ ${appWorkTotal()} ساعة عمل: ${appWorkBase()} مقاسة من المحادثات (عدا ما يتداخل مع السجل) + ${APP_WORK.hours} من سجل التحديثات (منذ ${APP_WORK.since.split('-').reverse().join('-')}، ${APP_WORK.days} يوم عمل، ${APP_WORK.updates} تحديثاً)`; }
+function appWorkTip(){ const adj = appWorkBase(); return `≈ ${appWorkTotal()} ساعة عمل منذ ${String(APP_WORK.since||'').split('-').reverse().join('-')}: ${APP_WORK.base} حتى ${String(APP_WORK.at||'').split('-').reverse().join('-')} + ${APP_WORK.extra} بعده (وقت المحادثات + 25% للتجربة)${adj ? ` + ${adj} تعديل يدوي` : ''}`; }
 function appVersionText(){ return 'الإصدار ' + APP_VERSION + ' · ' + APP_VERSION_DATE.split('-').reverse().join('-'); }
 
 // ═════════════ أوامر الواجهة بلا كود مضمَّن (سياسة أمان المحتوى) ═════════════
@@ -12744,7 +12744,7 @@ function renderBrandingPanel(){
       </label>
       ${isOwner() ? `<h3 class="uf-h">الإصدار وساعات العمل</h3>
       <div class="uf-flex">
-        <div class="f-sm"><label for="workBase">ساعات المحادثات</label><input id="workBase" type="text" inputmode="numeric" dir="ltr" value="${appWorkBase()||''}" placeholder="0"></div>
+        <div class="f-sm"><label for="workBase">تعديل يدوي (ساعات)</label><input id="workBase" type="text" inputmode="numeric" dir="ltr" value="${appWorkBase()||''}" placeholder="0"></div>
         <button type="button" class="btn btn-primary btn-md" data-on-click="saveWorkBase">حفظ</button>
       </div>
       <p class="file-hint" style="margin:6px 0 0;">${escH(appVersionText())} · ${escH(appWorkTip())}. يظهر لك وحدك أسفل الشاشة.</p>` : ''}
@@ -12827,7 +12827,7 @@ async function brandRemove(kind, id){
   if(await brandSave(kind, id, '')){ showToast('تم حذف الصورة','success'); render(); }
 }
 async function saveWorkBase(){
-  const v = Math.max(0, Math.round(Number(String((document.getElementById('workBase')||{}).value||'0').replace(/[^\d.]/g,'')) || 0));
+  const v = Math.round(Number(String((document.getElementById('workBase')||{}).value||'0').replace(/[^\d.-]/g,'')) || 0);
   const r = await db.from('app_settings').upsert({key:'work_hours_base', value:String(v)});
   if(!(await dbCheck(r, 'حفظ ساعات العمل'))) return;
   state.appSettings = state.appSettings||{}; state.appSettings.work_hours_base = String(v);
