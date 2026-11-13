@@ -1,6 +1,6 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.6.1', APP_VERSION_DATE = '2026-11-13';
+const APP_VERSION = '1.6.2', APP_VERSION_DATE = '2026-11-13';
 function appVersionText(){ return 'الإصدار ' + APP_VERSION + ' · ' + APP_VERSION_DATE.split('-').reverse().join('-'); }
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 
@@ -16579,7 +16579,7 @@ function renderClients(app){
     const ct = (c.contacts||[]).filter(x=>x.name).map(x=>`<div class="cx-ln"><b>${escH(x.name)}</b>${x.title?` <small>${escH(x.title)}</small>`:''}</div>`).join('') || '—';
     const nCent = cs.filter(x=>x.clientId===c.id && x.companyId===cxCid()).length;
     return `<tr><td data-label="" class="cx-cname" style="padding-inline-start:${10+depth*22}px;">${depth ? '<span class="cx-meta" style="display:inline">↳ </span>' : ''}<b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="cx-badge cx-st-closed">موقوف</span>' : ''}${c.name_en?`<div class="cx-meta" dir="ltr" style="text-align:right">${escH(c.name_en)}</div>`:''}</td>
-      <td data-label="النوع"><span class="cx-badge">${escH(kn)}</span></td><td data-label="الهاتف" class="cx-cphone">${ph}</td><td data-label="جهات الاتصال" class="cx-cct">${ct}</td><td data-label="المراكز" class="num">${nCent || '—'}</td>
+      <td data-label="النوع" class="cx-nowrap">${escH(kn)}</td><td data-label="الهاتف" class="cx-cphone">${ph}</td><td data-label="جهات الاتصال" class="cx-cct">${ct}</td><td data-label="المراكز" class="num">${nCent || '—'}</td>
       <td class="cx-act"><div>
         <button class="btn btn-ghost btn-xs" data-on-click="cxNewClient" data-on-click-args="${qa([c.id])}">+ فرع</button>
         <button class="btn btn-ghost btn-xs" data-on-click="cxEditClient" data-on-click-args="${qa([c.id])}">تعديل</button>
@@ -17471,7 +17471,7 @@ function renderGwImport(app){
     ${gwPendingHtml()}
     <div class="card cx-panel"><div class="cx-panel-h"><h2>الملفات المرفوعة</h2><span class="file-hint">تُحفظ كاملة ويمكن تنزيلها</span></div>
       <table class="exec-table cx-tbl" data-qyl="gwFiles" data-qyl-title="ملفات بوابة الدفع المرفوعة"><thead><tr><th>تاريخ الرفع</th><th>النوع</th><th>الملف</th><th>الفترة</th><th class="num">الصفوف</th><th></th></tr></thead><tbody>
-      ${hist.map(x=>`<tr data-date="${escH(String(x.uploaded_at||'').slice(0,10))}"><td data-label="تاريخ الرفع" class="cx-nowrap">${cxDate(String(x.uploaded_at||'').slice(0,10))}</td><td data-label="النوع"><span class="cx-badge">${x.kind==='statement'?'كشف حساب':'فواتير'}</span></td><td data-label="الملف" class="cx-fname"><bdi dir="ltr">${escH(x.file_name)}</bdi></td>
+      ${hist.map(x=>`<tr data-date="${escH(String(x.uploaded_at||'').slice(0,10))}"><td data-label="تاريخ الرفع" class="cx-nowrap">${cxDate(String(x.uploaded_at||'').slice(0,10))}</td><td data-label="النوع" class="cx-nowrap">${x.kind==='statement'?'كشف حساب':'فواتير'}</td><td data-label="الملف" class="cx-fname"><bdi dir="ltr">${escH(x.file_name)}</bdi></td>
         <td data-label="الفترة" class="cx-nowrap cx-period"><div><small>من</small> ${cxDate(x.date_from)}</div><div><small>إلى</small> ${cxDate(x.date_to)}</div></td><td data-label="الصفوف" class="num">${x.rows_count}</td>
         <td class="cx-act"><button class="btn btn-ghost btn-xs" data-on-click="gwDownload" data-on-click-args="${qa([x.id])}">تنزيل</button></td></tr>`).join('') || '<tr class="cx-empty"><td colspan="6">لا توجد ملفات.</td></tr>'}
       </tbody></table></div>
