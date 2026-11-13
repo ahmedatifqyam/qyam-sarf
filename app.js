@@ -16498,30 +16498,30 @@ function cxClientFormHtml(){
   const d = state.cx.cDraft; if(!d) return '';
   const parents = (state.cx.clients||[]).filter(c=>c.id!==d.id);
   const opt = (arr, sel) => arr.map(x=>`<option value="${x[0]}" ${x[0]===sel?'selected':''}>${x[1]}</option>`).join('');
-  const inp = (id, label, val, extra) => `<div style="--fw:260px;"><label>${label}</label><input id="${id}" type="text" value="${escH(val||'')}" ${extra||''}></div>`;
+  const inp = (id, label, val, extra, sz) => `<div class="${sz||''}"><label>${label}</label><input id="${id}" type="text" value="${escH(val||'')}" ${extra||''}></div>`;
   return `<div class="card cx-panel">
     <div class="cx-panel-h"><h2>${d.id ? 'تعديل عميل' : 'عميل جديد'}</h2><button class="btn btn-ghost btn-sm" data-on-click="cxCancelClient">إغلاق</button></div>
     <div class="row">
       ${inp('cxc_name','الاسم *',d.name)} ${inp('cxc_name_en','الاسم بالإنجليزية',d.name_en,'dir="ltr"')}
-      <div style="--fw:200px;"><label>النوع</label><select id="cxc_kind">${opt(CX_CLIENT_KIND, d.kind)}</select></div>
-      <div style="--fw:260px;"><label>يتبع</label><select id="cxc_parent"><option value="">— عميل رئيسي —</option>${parents.map(c=>`<option value="${c.id}" ${c.id===d.parent_id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
-      <div style="--fw:160px;"><label>الحالة</label><select id="cxc_status"><option value="active" ${d.status==='active'?'selected':''}>نشط</option><option value="inactive" ${d.status==='inactive'?'selected':''}>موقوف</option></select></div>
+      <div class="f-md"><label>النوع</label><select id="cxc_kind">${opt(CX_CLIENT_KIND, d.kind)}</select></div>
+      <div class="f-lg"><label>يتبع</label><select id="cxc_parent"><option value="">— عميل رئيسي —</option>${parents.map(c=>`<option value="${c.id}" ${c.id===d.parent_id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
+      <div class="f-sm"><label>الحالة</label><select id="cxc_status"><option value="active" ${d.status==='active'?'selected':''}>نشط</option><option value="inactive" ${d.status==='inactive'?'selected':''}>موقوف</option></select></div>
     </div>
     <div class="row">
       ${inp('cxc_address','العنوان',d.address)} ${inp('cxc_email','البريد الإلكتروني',d.email,'dir="ltr"')} ${inp('cxc_website','الموقع الإلكتروني',d.website,'dir="ltr"')} ${inp('cxc_tax_no','الرقم الضريبي أو التجاري',d.tax_no,'dir="ltr"')}
     </div>
     <h3 class="cx-h3">أرقام الهاتف</h3>
     ${(d.phones||[]).map((p,i)=>`<div class="row cx-item">
-      <div style="--fw:220px;"><label>الرقم</label><input id="cxc_ph_${i}_n" type="text" dir="ltr" value="${escH(p.number||'')}"></div>
-      <div style="--fw:150px;"><label>النوع</label><select id="cxc_ph_${i}_t">${opt(CX_PHONE_TYPE,p.type)}</select></div>
+      <div class="f-md"><label>الرقم</label><input id="cxc_ph_${i}_n" type="text" dir="ltr" value="${escH(p.number||'')}"></div>
+      <div class="f-sm"><label>النوع</label><select id="cxc_ph_${i}_t">${opt(CX_PHONE_TYPE,p.type)}</select></div>
       <button class="btn btn-reject btn-xs" data-on-click="cxCDelPhone" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
     <button class="btn btn-ghost btn-sm" data-on-click="cxCAddPhone">+ رقم هاتف</button>
     <h3 class="cx-h3">جهات الاتصال</h3>
     ${(d.contacts||[]).map((p,i)=>`<div class="row cx-item">
-      <div style="--fw:200px;"><label>الاسم</label><input id="cxc_ct_${i}_n" type="text" value="${escH(p.name||'')}"></div>
-      <div style="--fw:160px;"><label>الصفة</label><input id="cxc_ct_${i}_t" type="text" value="${escH(p.title||'')}"></div>
-      <div style="--fw:170px;"><label>الهاتف</label><input id="cxc_ct_${i}_p" type="text" dir="ltr" value="${escH(p.phone||'')}"></div>
-      <div style="--fw:220px;"><label>البريد</label><input id="cxc_ct_${i}_e" type="text" dir="ltr" value="${escH(p.email||'')}"></div>
+      <div><label>الاسم</label><input id="cxc_ct_${i}_n" type="text" value="${escH(p.name||'')}"></div>
+      <div class="f-lg"><label>الصفة</label><input id="cxc_ct_${i}_t" type="text" value="${escH(p.title||'')}"></div>
+      <div class="f-md"><label>الهاتف</label><input id="cxc_ct_${i}_p" type="text" dir="ltr" value="${escH(p.phone||'')}"></div>
+      <div class="f-lg"><label>البريد</label><input id="cxc_ct_${i}_e" type="text" dir="ltr" value="${escH(p.email||'')}"></div>
       <button class="btn btn-reject btn-xs" data-on-click="cxCDelContact" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
     <button class="btn btn-ghost btn-sm" data-on-click="cxCAddContact">+ جهة اتصال</button>
     <div style="margin-top:16px;"><label style="display:block;font-weight:700;font-size:var(--fs-label);margin-bottom:6px;">ملاحظات</label><textarea id="cxc_notes" rows="2">${escH(d.notes||'')}</textarea></div>
@@ -16716,7 +16716,7 @@ function cxLedgerRowsHtml(){
     return `<tr class="${x.voided?'cx-void':''}" data-date="${escH(String(x.entry_date||'').slice(0,10))}" ${x.voided?'data-nosum':''} ${tip?`title="${escH(tip)}"`:''}>
       <td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
       <td data-label="البيان" class="cx-desc"><div class="cx-clip">${escH(x.purpose || CX_LEDGER_KIND[x.kind] || '')}</div><div class="cx-meta">${escH(meta)}${x.voided?' · <span class="cx-tag-red">محذوفة</span>':''}</div></td>
-      ${imp ? `<td data-label="الدافع" class="cx-payer"><div class="cx-clip">${escH(p.payer_name||'—')}</div>${p.payer_phone ? `<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>` : ''}</td>` : ''}
+      ${imp ? `<td data-label="الدافع" class="cx-payer"><div class="cx-clip" dir="auto">${escH(p.payer_name||'—')}</div>${p.payer_phone ? `<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>` : ''}</td>` : ''}
       <td data-label="المبلغ" class="num">${fmtKWDHtml(x.gross)}</td>
       <td data-label="الرسوم" class="num">${fmtKWDHtml(x.gateway_fee)}</td>
       <td data-label="حصة الشركة" class="num">${x.company_share==null ? '—' : fmtKWDHtml(x.company_share)}</td>
@@ -16729,19 +16729,25 @@ function cxLedgerRowsHtml(){
 
 function cxEntryFormHtml(){
   const kind = state.cx.entryKind || 'subscription', mode = state.cx.entryMode || 'gross';
-  const f = (id, label, ph, rtl) => `<div><label>${label}</label><input id="${id}" type="text" inputmode="decimal" ${rtl?'':'dir="ltr"'} placeholder="${ph||'0.000'}" data-on-input="cxEntryPreview"></div>`;
+  // كل حقل بحجم ما يُكتب فيه: f-xs نسبة (3 خانات) · f-sm رسوم · f-md مبلغ وتاريخ (150) · f-lg قائمة نصية
+  const f = (id, label, sz, ph, rtl) => `<div class="${sz}"><label>${label}</label><input id="${id}" type="text" inputmode="decimal" ${rtl?'':'dir="ltr"'} placeholder="${ph||'0.000'}" data-on-input="cxEntryPreview"></div>`;
   const c = (state.centers||[]).find(x=>x.id===state.cx.centerId) || {};
   const defPct = (kind==='manual'||kind==='adjust') ? 0 : cxPctFor(c, kind==='support');
   return `<div class="card cx-panel" id="cxEntryCard">
     <div class="cx-panel-h"><h2>تسجيل حركة يدوية</h2><button class="btn btn-ghost btn-sm" data-on-click="cxEntryToggle">إغلاق</button></div>
     <div class="row">
-      <div><label>النوع</label><select id="cxe_kind" data-on-change="cxEntryModeChange">${[['subscription','اشتراكات'],['support','دعم'],['manual','إيراد يدوي'],['adjust','تسوية']].map(k=>`<option value="${k[0]}" ${k[0]===kind?'selected':''}>${k[1]}</option>`).join('')}</select></div>
-      <div><label>طريقة الإدخال</label><select id="cxe_mode" data-on-change="cxEntryModeChange"><option value="gross" ${mode==='gross'?'selected':''}>بالمبلغ الكلي</option><option value="net" ${mode==='net'?'selected':''}>بحصة الشركة والصافي</option></select></div>
-      <div><label>تاريخ الدفع</label><input id="cxe_date" type="date" value="${cxToday()}"></div>
-      <div class="cx-pair"><div><label>الفترة من</label><input id="cxe_from" type="date"></div><div><label>إلى</label><input id="cxe_to" type="date"></div></div>
+      <div class="f-md"><label>النوع</label><select id="cxe_kind" data-on-change="cxEntryModeChange">${[['subscription','اشتراكات'],['support','دعم'],['manual','إيراد يدوي'],['adjust','تسوية']].map(k=>`<option value="${k[0]}" ${k[0]===kind?'selected':''}>${k[1]}</option>`).join('')}</select></div>
+      <div class="f-lg"><label>طريقة الإدخال</label><select id="cxe_mode" data-on-change="cxEntryModeChange"><option value="gross" ${mode==='gross'?'selected':''}>بالمبلغ الكلي</option><option value="net" ${mode==='net'?'selected':''}>بحصة الشركة والصافي</option></select></div>
+      <div class="f-md"><label>تاريخ الدفع</label><input id="cxe_date" type="date" value="${cxToday()}"></div>
+    </div>
+    <div class="row">
+      <div class="f-md"><label>الفترة من</label><input id="cxe_from" type="date"></div>
+      <div class="f-md"><label>إلى</label><input id="cxe_to" type="date"></div>
       ${mode==='gross'
-        ? f('cxe_gross','المبلغ الكلي') + `<div class="cx-pair">${f('cxe_fee','رسوم البوابة')}${f('cxe_fee_pct','أو نسبتها %','0')}</div>` + f('cxe_pct','حصة الشركة %', `الافتراضي: ⁦${defPct}%⁩`, true)
-        : f('cxe_net','الصافي للمركز') + f('cxe_share_amt','حصة الشركة') + f('cxe_fee','رسوم البوابة (اختياري)')}
+        ? f('cxe_gross','المبلغ الكلي','f-md') + f('cxe_fee','رسوم البوابة','f-sm') + f('cxe_fee_pct','أو نسبتها %','f-xs','0') + f('cxe_pct','حصة الشركة %','f-xs', `⁦${defPct}⁩`)
+        : f('cxe_net','الصافي للمركز','f-md') + f('cxe_share_amt','حصة الشركة','f-sm') + f('cxe_fee','رسوم البوابة','f-sm')}
+    </div>
+    <div class="row">
       <div><label>الغرض</label><input id="cxe_purpose" type="text" placeholder="مثال: اشتراكات أكتوبر"></div>
       <div><label>ملاحظة</label><input id="cxe_note" type="text"></div>
     </div>
@@ -16787,9 +16793,9 @@ function cxCenterDetailHtml(){
     ${adm ? `<details class="card cx-fold"><summary><span>إعدادات المركز</span><span class="file-hint">العميل، حصة الشركة، ضبط الرصيد</span></summary>
       <div class="row">
         <div><label>يتبع العميل</label><select id="cxs_client"><option value="">— غير مرتبط —</option>${cxClientTree().map(({c:cl,depth})=>`<option value="${cl.id}" ${cl.id===c.clientId?'selected':''}>${'— '.repeat(depth)}${escH(cl.name)}</option>`).join('')}</select></div>
-        <div><label>حد الصرف بالسالب (د.ك)</label><input id="cxs_od" type="text" inputmode="decimal" dir="ltr" value="${c.overdraftLimit||0}"></div>
-        <div><label>حصة الشركة من الاشتراكات %</label><input id="cxs_pct" type="text" inputmode="decimal" placeholder="الافتراضي: ⁦${cxCo().gatewayCompanyPct}%⁩" value="${c.companySharePct==null?'':c.companySharePct}"></div>
-        <div><label>حصة الشركة من الدعم %</label><input id="cxs_spct" type="text" inputmode="decimal" placeholder="الافتراضي: ⁦${cxCo().supportCompanyPct}%⁩" value="${c.supportSharePct==null?'':c.supportSharePct}"></div>
+        <div class="f-md"><label>حد الصرف بالسالب (د.ك)</label><input id="cxs_od" type="text" inputmode="decimal" dir="ltr" value="${c.overdraftLimit||0}"></div>
+        <div class="f-xs"><label>حصة الاشتراكات %</label><input id="cxs_pct" type="text" inputmode="decimal" placeholder="⁦${cxCo().gatewayCompanyPct}⁩" value="${c.companySharePct==null?'':c.companySharePct}"></div>
+        <div class="f-xs"><label>حصة الدعم %</label><input id="cxs_spct" type="text" inputmode="decimal" placeholder="⁦${cxCo().supportCompanyPct}⁩" value="${c.supportSharePct==null?'':c.supportSharePct}"></div>
       </div>
       <label class="cx-check"><input id="cxs_ctl" type="checkbox" ${c.balanceControl?'checked':''}> ضبط الرصيد: يُمنع طلب جديد يتجاوز الرصيد المتاح مع حد السالب</label>
       <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="cxSaveCenterSettings">حفظ الإعدادات</button></div>
@@ -16797,8 +16803,8 @@ function cxCenterDetailHtml(){
     </details>` : ''}
     ${fin && state.cx.ledgerLoaded && !hasOpening ? `<details class="card cx-fold"><summary><span>رصيد افتتاحي</span><span class="file-hint">يُسجَّل مرة واحدة</span></summary>
       <p class="file-hint">رصيد المركز عند بدء استخدام النظام. بعد التسجيل يظهر أول حركة في الجدول بعنوان «رصيد افتتاحي»، ويختفي هذا القسم.</p>
-      <div class="row"><div><label>المبلغ</label><input id="cxo_amt" type="text" inputmode="decimal" dir="ltr" placeholder="0.000"></div>
-      <div><label>بتاريخ</label><input id="cxo_date" type="date" value="${cxToday()}"></div></div>
+      <div class="row"><div class="f-md"><label>المبلغ</label><input id="cxo_amt" type="text" inputmode="decimal" dir="ltr" placeholder="0.000"></div>
+      <div class="f-md"><label>بتاريخ</label><input id="cxo_date" type="date" value="${cxToday()}"></div></div>
       <div class="cx-actions"><button class="btn btn-primary btn-lg" data-on-click="cxSaveOpening">تسجيل الرصيد الافتتاحي</button></div></details>` : ''}`;
 }
 function renderCenterBook(app){
@@ -16993,16 +16999,17 @@ function gwMappingHtml(){
     </tbody></table>
     <h3 class="cx-h3">إضافة ربط</h3>
     <div class="row">
-      <div><label>اسم الجهة كما في Tap</label><input id="gwm_name" type="text" dir="auto" list="gwm_sugg" placeholder="مثال: Garah Alaly"><datalist id="gwm_sugg">${sugg.map(a=>`<option value="${escH(a)}">`).join('')}</datalist></div>
-      <div><label>المركز</label><select id="gwm_center"><option value="">— اختر المركز —</option>${gwCentersOptions('')}</select></div>
+      <div class="f-lg"><label>اسم الجهة كما في Tap</label><input id="gwm_name" type="text" dir="auto" list="gwm_sugg" placeholder="مثال: Garah Alaly"><datalist id="gwm_sugg">${sugg.map(a=>`<option value="${escH(a)}">`).join('')}</datalist></div>
+      <div class="f-lg"><label>المركز</label><select id="gwm_center"><option value="">— اختر المركز —</option>${gwCentersOptions('')}</select></div>
     </div>
     <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwMapAdd">إضافة الربط</button>${sugg.length?`<span class="file-hint">جهات في المعلّقة بلا ربط: ${sugg.map(escH).join('، ')}</span>`:''}</div>
   </details>`;
 }
 function gwPendToggle(id, on){ state.cx.pendSel = state.cx.pendSel || {}; if(on) state.cx.pendSel[id] = 1; else delete state.cx.pendSel[id]; const n = Object.keys(state.cx.pendSel).length; const el = document.getElementById('gwSelCount'); if(el) el.textContent = n; }
+function gwBulkCenter(v){ state.cx.bulkCenter = v||''; }
 function gwPendAll(on){ state.cx.pendSel = {}; if(on) (state.cx.pending||[]).filter(x=>!x.agent).forEach(x=>{ state.cx.pendSel[x.id] = 1; }); render(); }
 async function gwAssignSel(){
-  const ids = Object.keys(state.cx.pendSel||{}).map(Number), centerId = (document.getElementById('gwSelCenter')||{}).value;
+  const ids = Object.keys(state.cx.pendSel||{}).map(Number), centerId = (document.getElementById('gwSelCenter')||{}).value || state.cx.bulkCenter;
   if(!ids.length){ showToast('حدد حركة واحدة على الأقل','error'); return; }
   if(!centerId){ showToast('اختر المركز','error'); return; }
   const r = await db.rpc('qy_ledger_assign', {p_ids:ids, p_center:centerId});
@@ -17109,7 +17116,8 @@ function gwDropHtml(kind, title, hint, file){
     </div></div>`;
 }
 function gwPreviewHtml(){
-  const im = state.cx.imp; if(!im.rows) return '';
+  const im = state.cx.imp;
+  if(!im.rows) return `<div class="card cx-panel cx-step-off"><div class="cx-panel-h"><h2><span class="cx-step">2</span> المعاينة والربط</h2><span class="file-hint">تظهر بعد «تحليل ومعاينة»</span></div></div>`;
   const agents = [...new Set(im.rows.map(x=>x.agent).filter(Boolean))].sort();
   const noBill = im.rows.filter(x=>!x.matched).length, dups = im.rows.filter(x=>x.dup).length, fresh = im.rows.filter(x=>!x.dup);
   const unmapped = fresh.filter(x=>!gwRowCenter(x)).length;
@@ -17127,8 +17135,7 @@ function gwPreviewHtml(){
     ${Object.values(by).map(o=>`<tr><td data-label="المركز"><b ${o.pend?'style="color:var(--red)"':''}>${escH(o.name)}</b></td><td data-label="العدد" class="num">${o.n}</td><td data-label="الإجمالي" class="num">${fmtKWDHtml(o.g)}</td><td data-label="الرسوم" class="num">${fmtKWDHtml(o.f)}</td><td data-label="حصة الشركة" class="num">${o.pend?'—':fmtKWDHtml(o.s)}</td><td data-label="الصافي" class="num">${o.pend?'—':fmtKWDHtml(o.net)}</td></tr>`).join('')}
     <tr class="cx-total"><td>المجموع</td><td class="num">${fresh.length}</td><td class="num">${fmtKWDHtml(sum.g)}</td><td class="num">${fmtKWDHtml(sum.f)}</td><td class="num">${fmtKWDHtml(sum.s)}</td><td class="num">${fmtKWDHtml(sum.n)}</td></tr>
     </tbody></table>
-    ${unmapped ? `<div class="cx-note">${unmapped} حركة بلا مركز ستُحفظ <b>معلّقة</b> خارج الأرصدة حتى تُصنَّف من قسم «حركات معلّقة».</div>` : ''}
-    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwCommit">اعتماد الاستيراد</button><button class="btn btn-ghost btn-sm" data-on-click="gwCancel">إلغاء</button></div></div>`;
+    ${unmapped ? `<div class="cx-note">${unmapped} حركة بلا مركز ستُحفظ <b>معلّقة</b> خارج الأرصدة حتى تُصنَّف من قسم «حركات معلّقة».</div>` : ''}</div>`;
 }
 function gwPendingHtml(){
   const pend = state.cx.pending||[], fin = cxIsFin();
@@ -17145,14 +17152,13 @@ function gwPendingHtml(){
         <td data-label="المركز">${fin ? `<select class="cx-sel-sm" data-on-change="gwAssignAgent" data-on-change-args="${qa([g.agent, QA.v])}"><option value="">— اختر المركز —</option>${gwCentersOptions(gwAgentCenter(g.agent))}</select>` : '—'}</td></tr>`).join('')}
       </tbody></table>` : ''}
     ${none.length ? `<h3 class="cx-h3">بلا جهة (${none.length}) <span class="file-hint">غالباً فواتير من شهر سابق لم يُرفع ملفها</span></h3>
-      ${fin ? `<div class="cx-tools"><label class="cx-check" style="margin:0;"><input type="checkbox" data-on-change="gwPendAll" data-on-change-args="${qa([QA.c])}" ${nSel && nSel===none.length?'checked':''}> تحديد الكل</label>
-        <span class="file-hint">المحدد: <b id="gwSelCount">${nSel}</b></span>
-        <select id="gwSelCenter" class="cx-sel-sm"><option value="">— المركز —</option>${gwCentersOptions('')}</select>
-        <button class="btn btn-primary btn-sm" data-on-click="gwAssignSel">تصنيف المحدد</button></div>` : ''}
-      <table class="exec-table cx-tbl" data-qyl="gwPendNone" data-qyl-title="الحركات المعلّقة بلا جهة"><thead><tr>${fin?'<th></th>':''}<th>التاريخ</th><th>الدافع</th><th>البيان</th><th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th></tr></thead><tbody>
+      ${fin ? `<template id="gwBulkTpl"><span class="file-hint">المحدد: <b id="gwSelCount">${nSel}</b></span>
+        <select id="gwSelCenter" class="f-in-lg" data-on-change="gwBulkCenter" data-on-change-args="${qa([QA.v])}"><option value="">— المركز —</option>${gwCentersOptions(state.cx.bulkCenter||'')}</select>
+        <button class="btn btn-primary btn-md" data-on-click="gwAssignSel">تصنيف المحدد</button></template>` : ''}
+      <table class="exec-table cx-tbl" data-qyl="gwPendNone" ${fin?'data-qyl-bulk="gwBulkTpl"':''} data-qyl-title="الحركات المعلّقة بلا جهة"><thead><tr>${fin?`<th class="cx-cb" title="تحديد الكل"><input type="checkbox" data-on-change="gwPendAll" data-on-change-args="${qa([QA.c])}" ${nSel && nSel===none.length?'checked':''}></th>`:''}<th>التاريخ</th><th>الدافع</th><th>البيان</th><th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th></tr></thead><tbody>
       ${none.map(x=>{ const p = state.cx.payers[x.id]||{}; return `<tr data-date="${escH(String(x.entry_date||'').slice(0,10))}">${fin?`<td class="cx-cb"><input type="checkbox" ${sel[x.id]?'checked':''} data-on-change="gwPendToggle" data-on-change-args="${qa([x.id, QA.c])}"></td>`:''}<td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
-        <td data-label="الدافع"><div class="cx-clip">${escH(p.payer_name||'—')}</div>${p.payer_phone?`<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>`:''}</td>
-        <td data-label="البيان"><div class="cx-clip">${escH(x.purpose||'')}</div><div class="cx-meta">${escH(x.method||'')}</div></td><td data-label="المبلغ" class="num">${fmtKWDHtml(x.gross)}</td><td data-label="الرسوم" class="num">${fmtKWDHtml(x.gateway_fee)}</td></tr>`; }).join('')}
+        <td data-label="الدافع" class="cx-name"><div dir="auto">${escH(p.payer_name||'—')}</div>${p.payer_phone?`<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>`:''}</td>
+        <td data-label="البيان">${x.purpose ? `<div>${escH(x.purpose)}</div>` : ''}<div class="cx-meta">${escH(x.method||'')}</div></td><td data-label="المبلغ" class="num">${fmtKWDHtml(x.gross)}</td><td data-label="الرسوم" class="num">${fmtKWDHtml(x.gateway_fee)}</td></tr>`; }).join('')}
       </tbody></table>` : ''}
   </div>`;
 }
@@ -17171,11 +17177,14 @@ function renderGwImport(app){
         ${accs.length>1 ? `<label class="cx-mini"><span>حساب البوابة</span><select data-on-change="gwSetAccount" data-on-change-args="${qa([QA.v])}">${accs.map(a=>`<option value="${a.id}" ${a.id===im.accountId?'selected':''}>${escH(a.name)}</option>`).join('')}</select></label>` : ''}</div>
       <div class="cx-drops">
         ${gwDropHtml('statement', 'كشف الحساب', 'statement.csv — المبيعات والرسوم والتحويلات', im.stmt)}
-        ${gwDropHtml('bills', 'ملف الفواتير', 'bills.csv — الجهة والدافع والغرض (اختياري لكنه مهم)', im.bills)}
+        ${gwDropHtml('bills', 'ملف الفواتير', 'bills.csv — الجهة والدافع والغرض', im.bills)}
       </div>
+      <p class="file-hint cx-drop-note">كشف الحساب إلزامي (منه المبالغ والرسوم). ملف الفواتير يحدد الجهة والغرض والدافع؛ بدونه تُحفظ كل الدفعات معلّقة بلا مركز حتى تُصنَّف.</p>
       <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwBuild" ${im.stmt?'':'disabled'}>تحليل ومعاينة</button>${!im.stmt ? '<span class="file-hint">اختر كشف الحساب أولاً</span>' : ''}</div>
     </div>
     ${gwPreviewHtml()}
+    <div class="card cx-panel ${im.rows?'':'cx-step-off'}"><div class="cx-panel-h"><h2><span class="cx-step">3</span> الاعتماد</h2>
+      <div class="cx-ph-tools"><button class="btn btn-ghost btn-sm" data-on-click="gwCancel" ${im.rows||im.stmt||im.bills?'':'disabled'}>إلغاء</button><button class="btn btn-primary btn-md" data-on-click="gwCommit" ${im.rows?'':'disabled'}>اعتماد الاستيراد</button></div></div></div>
     ${gwPendingHtml()}
     <div class="card cx-panel"><div class="cx-panel-h"><h2>الملفات المرفوعة</h2><span class="file-hint">تُحفظ كاملة ويمكن تنزيلها</span></div>
       <table class="exec-table cx-tbl" data-qyl="gwFiles" data-qyl-title="ملفات بوابة الدفع المرفوعة"><thead><tr><th>تاريخ الرفع</th><th>النوع</th><th>الملف</th><th>الفترة</th><th class="num">الصفوف</th><th></th></tr></thead><tbody>
@@ -17186,14 +17195,14 @@ function renderGwImport(app){
     ${gwMappingHtml()}
     ${adm ? `<details class="card cx-fold"><summary><span>إعدادات الاستيراد</span><span class="file-hint">النسب الافتراضية، التنبيه، الحسابات، من يرفع</span></summary>
       <div class="row">
-        <div><label>حصة الشركة من الاشتراكات %</label><input id="gws_gw" type="text" inputmode="decimal" dir="ltr" value="${co.gatewayCompanyPct}"></div>
-        <div><label>حصة الشركة من الدعم %</label><input id="gws_sp" type="text" inputmode="decimal" dir="ltr" value="${co.supportCompanyPct}"></div>
-        <div><label>تنبيه التأخير بعد (أيام)</label><input id="gws_days" type="text" inputmode="numeric" dir="ltr" value="${co.importStaleDays}"></div>
+        <div class="f-xs"><label>حصة الاشتراكات %</label><input id="gws_gw" type="text" inputmode="decimal" dir="ltr" value="${co.gatewayCompanyPct}"></div>
+        <div class="f-xs"><label>حصة الدعم %</label><input id="gws_sp" type="text" inputmode="decimal" dir="ltr" value="${co.supportCompanyPct}"></div>
+        <div class="f-xs"><label>تنبيه التأخير (أيام)</label><input id="gws_days" type="text" inputmode="numeric" dir="ltr" value="${co.importStaleDays}"></div>
       </div>
       <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwSaveSettings">حفظ</button></div>
       <h3 class="cx-h3">حسابات البوابة <span class="file-hint">لكل حساب تاجر مستقل (مثل حساب ثانٍ لمركز) — يظهر الاختيار عند وجود أكثر من حساب</span></h3>
       <div class="cx-chips">${accs.map(a=>`<span class="cx-chip"><b>${escH(a.name)}</b></span>`).join('') || '<span class="file-hint">لا يوجد</span>'}</div>
-      <div class="row"><div><label>حساب جديد</label><input id="gw_acc_name" type="text" placeholder="مثال: Tap — الأندلس"></div><div class="cx-row-btn"><button class="btn btn-ghost btn-sm" data-on-click="gwAddAccount">إضافة حساب</button></div></div>
+      <div class="row"><div class="f-lg"><label>حساب جديد</label><input id="gw_acc_name" type="text" placeholder="مثال: Tap — الأندلس"></div><div class="cx-row-btn"><button class="btn btn-ghost btn-md" data-on-click="gwAddAccount">إضافة حساب</button></div></div>
       <h3 class="cx-h3">من يرفع الملفات <span class="file-hint">المحاسب والمدير يرفعون دائماً</span></h3>
       <table class="exec-table cx-tbl" data-qyl="gwImporters" data-qyl-title="من يرفع ملفات البوابة"><thead><tr><th>المستخدم</th><th>الدور</th><th data-noexport>يرفع</th></tr></thead><tbody>
       ${cxUsersOfCompany().map(u=>{ const always = ['admin','accountant','cfo'].includes(u.role); const on = always || (state.cx.importers||[]).some(x=>x.user_id===u.id && x.company_id===cxCid());
@@ -17207,7 +17216,7 @@ function renderGwImport(app){
 // والأعمدة التي تُجمع: <th data-sum>. الصفوف المستثناة: class="qyl-skip"، وصف لا يدخل المجموع: data-nosum.
 // القوائم (غير الجداول): <div data-qyl=".." data-qyl-cols='["..",..]' data-qyl-sum="المبلغ"> وعناصرها data-qyl-i data-date data-amt data-qyl-row='[..]'.
 // فلتر تديره الصفحة نفسها: data-qyl-ext="اسم دالة" تُستدعى بـ(من، إلى) فيبقى للعنصر الترقيم والمجاميع.
-const QYL_PER = [['all','كل الفترات'],['week','آخر أسبوع'],['month','آخر شهر'],['m3','آخر 3 أشهر'],['m6','آخر 6 أشهر'],['ytd','هذه السنة'],['lastyear','السنة الماضية'],['range','من تاريخ إلى تاريخ']];
+const QYL_PER = [['all','كل الفترات'],['week','آخر أسبوع'],['month','آخر شهر'],['m3','آخر 3 أشهر'],['m6','آخر 6 أشهر'],['ytd','هذه السنة'],['lastyear','السنة الماضية'],['range','من – إلى']];
 const QYL_SIZES = [5,10,20,50,100];
 function qylIso(d){ return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
 function qylToday(){ return qylIso(new Date()); }
@@ -17278,10 +17287,11 @@ function qylApply(el, force){
   const idOf = i => i ? (i._qylId || (i._qylId = (window._qylSeq = (window._qylSeq||0) + 1))) : 0;   // بصمة الصفوف: صفوف جديدة = إعادة بناء المجاميع
   const sig = [s.per, s.from, s.to, s.size, s.page, items.length, n, hasDate, canExp, big, idOf(items[0]), idOf(items[items.length-1]), idOf(inP[0])].join('|');
   const oldBar = [...par.children].find(x=>x.getAttribute('data-qyl-bar')===key), oldFoot = [...par.children].find(x=>x.getAttribute('data-qyl-foot')===key);
-  if(!force && el._qylSig===sig && (oldBar || !(hasDate||big||canExp)) && oldFoot) return;
+  if(!force && el._qylSig===sig && (oldBar || !(hasDate||big)) && oldFoot) return;
   el._qylSig = sig;
   if(oldBar) oldBar.remove(); if(oldFoot) oldFoot.remove();
   if(!hasDate && !big && !canExp) return;
+  const hasBar = hasDate || big;   // «تصدير» لا يأخذ سطراً وحده: بلا فترة ولا عدد ينتقل إلى سطر الإجمالي
   // شريط الأدوات: الفترة · العرض · تصدير
   const per = s.per;
   const pick = per==='range' ? `<input type="date" class="qyl-in qyl-date" value="${s.from||''}" title="من تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'from',QA.v])}"><span class="qyl-sep">إلى</span><input type="date" class="qyl-in qyl-date" value="${s.to||''}" title="إلى تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'to',QA.v])}">` : '';
@@ -17289,18 +17299,22 @@ function qylApply(el, force){
   bar.innerHTML = `${hasDate ? `<div class="qyl-g"><span class="qyl-l">الفترة</span><select class="qyl-in qyl-per" data-on-change="qylSet" data-on-change-args="${qa([key,'per',QA.v])}">${QYL_PER.map(p=>`<option value="${p[0]}" ${p[0]===per?'selected':''}>${p[1]}</option>`).join('')}</select>${pick}</div>` : ''}
     ${big ? `<div class="qyl-g"><span class="qyl-l">العرض</span><select class="qyl-in qyl-size" data-on-change="qylSet" data-on-change-args="${qa([key,'size',QA.v])}">${QYL_SIZES.map(z=>`<option value="${z}" ${z===s.size?'selected':''}>${z}</option>`).join('')}</select></div>` : ''}
     ${canExp ? `<div class="qyl-g qyl-exp">${qyExportBtn('qyl:'+key)}</div>` : ''}`;
-  par.insertBefore(bar, anchor);
+  if(hasBar) par.insertBefore(bar, anchor);
   // التذييل: التنقل + مجموع المعروض + إجمالي الفترة
   const cols = qylSumCols(el), sumShown = qylSums(el, cols, shown), sumAll = qylSums(el, cols, inP);
-  const sumLine = (lab, cnt, arr, cls) => `<div class="qyl-sum ${cls}"><div class="qyl-sc qyl-sc-h">${lab}</div><div class="qyl-sc"><small>العدد</small><b>${cnt}</b></div>${arr.map(x=>`<div class="qyl-sc"><small>${escH(x.label)}</small><b>${fmtKWDHtml(x.v)}</b></div>`).join('')}</div>`;
+  const expCell = (!hasBar && canExp) ? `<div class="qyl-sc qyl-sc-exp">${qyExportBtn('qyl:'+key)}</div>` : '';
+  const sumLine = (lab, cnt, arr, cls, exp) => `<div class="qyl-sum ${cls}"><div class="qyl-sc qyl-sc-h">${lab}</div><div class="qyl-sc qyl-sc-n"><small>العدد</small><b>${cnt}</b></div>${arr.map(x=>`<div class="qyl-sc"><small>${escH(x.label)}</small><b>${fmtKWDHtml(x.v)}</b></div>`).join('')}${exp||''}</div>`;
   const foot = document.createElement('div'); foot.className = 'qyl-foot no-print'; foot.setAttribute('data-qyl-foot', key);
-  foot.innerHTML = `${n > s.size ? `<div class="qyl-nav">
+  const bulkTpl = el.getAttribute('data-qyl-bulk') && document.getElementById(el.getAttribute('data-qyl-bulk'));
+  const bulk = bulkTpl ? `<div class="qyl-bulk">${bulkTpl.innerHTML}</div>` : '';
+  const pager = n > s.size ? `<div class="qyl-pager">
       <button type="button" class="btn btn-ghost btn-sm qyl-pg" data-no-ico data-on-click="qylPage" data-on-click-args="${qa([key,-1])}" ${s.page<=0?'disabled':''}>→ السابق</button>
       <span class="qyl-pos"><b>${n ? a+1 : 0}–${b}</b> من <b>${n}</b></span>
-      <button type="button" class="btn btn-ghost btn-sm qyl-pg" data-no-ico data-on-click="qylPage" data-on-click-args="${qa([key,1])}" ${s.page>=pages-1?'disabled':''}>التالي ←</button></div>` : ''}
-    ${!n ? `<div class="qyl-sum"><div class="qyl-sc qyl-sc-h">لا توجد سجلات في ${escH(rg.label||'هذا العرض')}</div></div>`
+      <button type="button" class="btn btn-ghost btn-sm qyl-pg" data-no-ico data-on-click="qylPage" data-on-click-args="${qa([key,1])}" ${s.page>=pages-1?'disabled':''}>التالي ←</button></div>` : '';
+  foot.innerHTML = `${pager || bulk ? `<div class="qyl-nav${bulk ? ' qyl-nav-bulk' : ''}">${pager}${bulk}</div>` : ''}
+    ${!n ? `<div class="qyl-sum"><div class="qyl-sc qyl-sc-h">لا توجد سجلات في ${escH(rg.label||'هذا العرض')}</div>${expCell}</div>`
       : n > shown.length ? sumLine('المعروض', shown.length, sumShown, '') : ''}
-    ${n ? sumLine(hasDate ? 'إجمالي ' + rg.label : 'الإجمالي', n, sumAll, 'qyl-sum-all') : ''}`;
+    ${n ? sumLine(hasDate ? 'إجمالي ' + rg.label : 'الإجمالي', n, sumAll, 'qyl-sum-all', expCell) : ''}`;
   if(anchor.nextSibling) par.insertBefore(foot, anchor.nextSibling); else par.appendChild(foot);
 }
 function qylSet(key, field, v){
