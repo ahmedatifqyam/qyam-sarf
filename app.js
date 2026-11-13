@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.8.0', APP_VERSION_DATE = '2026-11-13';
+const APP_VERSION = '1.8.1', APP_VERSION_DATE = '2026-11-13';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:134, since:'2026-09-07', days:46, updates:368};
+const APP_WORK = {hours:135, since:'2026-09-07', days:46, updates:369};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -16462,8 +16462,9 @@ function cxStaleBannerHtml(compact){
   const msg = d.statement
     ? `آخر رفع: كشف الحساب حتى <b>${cxDate(d.statement)}</b> · الفواتير حتى <b>${cxDate(d.bills)}</b>${red ? ` — مضى ${age} يوماً، ارفع ملفات أحدث` : ''}`
     : 'لم تُرفع ملفات بوابة الدفع بعد.';
-  return `<div class="card no-print" style="margin-bottom:12px;border:2px solid ${col};padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;">
-    <div style="font-size:var(--fs-label);line-height:1.7;color:${col};font-weight:700;">${msg}</div>
+  const gaps = gwGaps();
+  return `<div class="card no-print" style="margin-bottom:12px;border:2px solid ${gaps.length?'var(--red)':col};padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;">
+    <div style="font-size:var(--fs-label);line-height:1.7;color:${col};font-weight:700;">${msg}${gaps.length ? `<div style="color:var(--red)">أيام لم يُرفع كشفها: ${gwGapsText(gaps)}</div>` : ''}</div>
     ${compact ? `<button class="btn btn-ghost btn-sm" data-on-click="openGwImport">رفع الملفات</button>` : ''}
   </div>`;
 }
@@ -17334,6 +17335,28 @@ async function gwAssignSel(){
   if(!(await dbCheck(r,'تصنيف الحركات'))) return;
   showToast(`صُنّفت ${r.data||0} حركة إلى ${cxCenterName(centerId)}`,'success'); await gwLoad();
 }
+// فترة الكشف من اسم الملف: «FROM 01.11.2026 TO 12.11.2026» (هي الفترة المصدَّرة فعلاً، ولو خلت أيام من الحركات)
+function gwNameRange(name){
+  const m = String(name||'').match(/FROM\s+(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})\s+TO\s+(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/i);
+  if(!m) return null; const z = (d,mo,y) => `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  return {from:z(m[1],m[2],m[3]), to:z(m[4],m[5],m[6])};
+}
+function gwAddDay(d, n){ const t = new Date(d+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); }
+// الفجوات: أيام لم يغطها أي كشف منذ اليوم التالي لآخر رصيد افتتاحي (أو أول كشف) حتى آخر يوم مغطى
+function gwGaps(extra){
+  const rs = (state.cx.imports||[]).filter(x=>x.kind==='statement' && x.date_from && x.date_to).map(x=>({from:String(x.date_from).slice(0,10), to:String(x.date_to).slice(0,10)}));
+  if(extra && extra.from && extra.to) rs.push(extra);
+  if(!rs.length) return [];
+  const lk = gwLockDate(); let start = lk ? gwAddDay(lk, 1) : rs.map(r=>r.from).sort()[0]; const end = rs.map(r=>r.to).sort().pop();
+  const gaps = []; let cur = null;
+  for(let d = start; d <= end; d = gwAddDay(d, 1)){
+    const cov = rs.some(r=>r.from<=d && d<=r.to);
+    if(!cov){ if(cur && cur.to===gwAddDay(d,-1)) cur.to = d; else gaps.push(cur = {from:d, to:d}); }
+  }
+  return gaps;
+}
+function gwGapsText(g){ return g.map(x=>x.from===x.to ? cxDate(x.from) : `${cxDate(x.from)} ← ${cxDate(x.to)}`).join('، '); }
+function gwSetRange(which, v){ const im = state.cx.imp; if(!im || !im.info || !v) return; im.info[which] = v; if(im.info.from > im.info.to){ showToast('«من» بعد «إلى»','error'); } render(); }
 // رقم الطلب في الكشف = رقم الفاتورة، ومنه تاريخ إنشائها: خانتان ثم YYYYMMDD
 function gwRefDate(ref){ const m = String(ref||'').trim().match(/^\d{2}(20\d{2})(\d{2})(\d{2})\d+$/); return m ? `${m[1]}-${m[2]}-${m[3]}` : ''; }
 // القفل: آخر رصيد افتتاحي في الشركة، ولكل مركز تاريخه
@@ -17368,7 +17391,8 @@ function gwBuild(){
   });
   // قفل ما قبل الرصيد الافتتاحي: بتاريخ مركزها المربوط، وغير المربوطة بآخر رصيد افتتاحي في الشركة
   out.forEach(x=>{ const lk = gwLockDate(gwRowCenter(x)); x.locked = !!(lk && x.txn_date <= lk); });
-  im.rows = out; im.info = {from:dFrom, to:dTo, skipped, total:out.length, checking:true, rematch:gwRematchRows()};
+  const nr = gwNameRange(im.stmt.name);
+  im.rows = out; im.info = {from:nr ? nr.from : dFrom, to:nr ? nr.to : dTo, rangeSrc:nr ? 'name' : 'rows', skipped, total:out.length, checking:true, rematch:gwRematchRows()};
   gwCheckDup(out.map(x=>x.receipt).filter(Boolean)).then(set => { im.rows.forEach(x=>{ x.dup = set.has(x.receipt); }); im.info.checking = false; if(state.view==='gwImport') render(); });
   render(); setTimeout(()=>{ const el = document.getElementById('gwStep2'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 50);
 }
@@ -17403,6 +17427,7 @@ async function gwCommit(){
   const rows = im.rows.filter(x=>!x.dup && !x.locked && x.receipt).map(x=>({receipt:x.receipt, order_ref:x.order_ref||'', txn_date:x.txn_date, gross:x.gross, fee:x.fee, method:x.method, purpose:x.purpose,
     agent:x.agent, payer_name:x.payer_name, payer_phone:x.payer_phone, center_id:gwRowCenter(x)||''}));
   const nRe = (im.info.rematch||[]).length;
+  if(im.stmt && (!im.info.from || !im.info.to || im.info.from > im.info.to)){ showToast('صحّح فترة الكشف (من – إلى) قبل الاعتماد','error'); return; }
   if(!rows.length && !im.info.billsOnly && !nRe){ showToast('لا توجد حركات جديدة للاعتماد','error'); return; }
   if(!confirm(im.info.billsOnly ? `حفظ ملف الفواتير${nRe ? ` وتعبئة جهة ${nRe} حركة معلّقة` : ''}؟\n\nلا يضيف ملف الفواتير أي مبلغ.` : `اعتماد ${rows.length} حركة؟\n\nالحركات غير المرتبطة بمركز تبقى معلّقة خارج الأرصدة حتى تُصنَّف.`)) return;
   const files = im.stmt ? [{kind:'statement', file_name:im.stmt.name, date_from:im.info.from, date_to:im.info.to, rows_count:im.stmt.rows.length, content:im.stmt.text}] : [];
@@ -17478,7 +17503,11 @@ function gwPreviewHtml(){
   const by = {};
   fresh.forEach(x=>{ const k = gwCalc(x), key = k.center ? k.center.id : '_'; const o = by[key] = by[key] || {name:k.center?k.center.name:'غير مصنّف (معلّق)', pend:!k.center, n:0, g:0, f:0, s:0, net:0}; o.n++; o.g+=x.gross; o.f+=x.fee; o.s+=k.share||0; o.net+=k.net||0; });
   return `<div class="card cx-panel" id="gwStep2">
-    <div class="cx-panel-h"><h2><span class="cx-step">2</span> المعاينة والربط</h2><span class="file-hint">${cxDate(im.info.from)} ← ${cxDate(im.info.to)}</span></div>
+    <div class="cx-panel-h"><h2><span class="cx-step">2</span> المعاينة والربط</h2>
+      <div class="cx-ph-tools cx-range"><span class="file-hint">فترة الكشف${im.info.rangeSrc==='name' ? ' (من اسم الملف)' : ' (من الحركات — صحّحها إن صدّرت فترة أطول)'}</span>
+        <label class="cx-mini cx-mini-md"><span>من</span><input type="date" value="${escH(im.info.from||'')}" data-on-change="gwSetRange" data-on-change-args="${qa(['from', QA.v])}"></label>
+        <label class="cx-mini cx-mini-md"><span>إلى</span><input type="date" value="${escH(im.info.to||'')}" data-on-change="gwSetRange" data-on-change-args="${qa(['to', QA.v])}"></label></div></div>
+    ${(()=>{ const g = gwGaps({from:im.info.from, to:im.info.to}); return g.length ? `<div class="cx-note cx-note-red">بعد اعتماد هذا الكشف تبقى أيام لم يُرفع كشفها: <b>${gwGapsText(g)}</b>. ارفع كشفاً يغطيها.</div>` : ''; })()}
     <div class="cx-chips">${chip('مبيعات', im.info.total)}${chip('جديدة', fresh.length)}${chip('موجودة سابقاً', im.info.checking?'…':dups)}${chip('بلا فاتورة', noBill, noBill>0)}${locked.length ? chip('قبل الرصيد الافتتاحي (مستبعدة)', locked.length, true) : ''}${chip('تحويلات بنكية مُتجاهَلة', im.info.skipped.transfers)}</div>
     ${locked.length ? `<div class="cx-note">${locked.length} حركة بمجموع ${fmtKWDHtml(locked.reduce((a,x)=>a+x.gross,0))} تاريخها في يوم الرصيد الافتتاحي أو قبله، فتُستبعد ولا تدخل الأرصدة.</div>` : ''}
     ${reHtml}
