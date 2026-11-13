@@ -1744,7 +1744,7 @@ function renderSecurityLog(app){
     <div class="card">
       ${L && L.err ? `<p style="color:#b91c1c;margin:0 0 10px;">${escH(L.err)}</p>` : ''}
       <div class="row" style="align-items:end;">
-        <div style="--fw:280px;"><label>بحث</label><input type="text" value="${escH(state.secQ||'')}" placeholder="اسم، رقم طلب، IP، رسالة…" data-on-input="#28" data-secq></div>
+        <div style="--fw:280px;"><label>بحث</label><input type="search" class="qy-search" value="${escH(state.secQ||'')}" placeholder="اسم، رقم طلب، IP، رسالة…" data-on-input="#28" data-secq></div>
         <div style="--fw:280px;"><label>النوع</label><select data-on-change="#29"><option value="">الكل</option>${kinds.map(k=>`<option value="${escH(k)}" ${state.secKind===k?'selected':''}>${escH(SEC_KIND_AR[k]||k)}</option>`).join('')}</select></div>
         <div style="--fw:280px;"><label style="display:flex;gap:6px;align-items:center;font-weight:600;"><input type="checkbox" ${state.secShowDone?'checked':''} data-on-change="#30"> إظهار ما تمت مراجعته</label></div>
       </div>
@@ -2652,6 +2652,8 @@ const QI = {
   recv:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
   close:'<path d="M18 6 6 18M6 6l12 12"/>',
   clip:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 12h8M8 16h5"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
   building:'<path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M16 9h3a2 2 0 0 1 2 2v10"/><path d="M9 7h3M9 11h3M9 15h3"/>',
   case:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
   cash:'<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01" stroke-width="3"/>',
@@ -3268,7 +3270,7 @@ function renderTopbar(){
     </div>
     <div class="search-float" id="searchFloat">
       <div class="search-box">
-        <input id="searchInput" type="text" placeholder="ابحث عن صفحة أو طلب (رقم، عنوان، مستفيد)" data-on-input="updateSearchDrop" data-on-focus="updateSearchDrop" data-on-blur="#39" data-on-keydown="#40">
+        <input id="searchInput" type="search" class="qy-search" placeholder="ابحث عن صفحة أو طلب (رقم، عنوان، مستفيد)" data-on-input="updateSearchDrop" data-on-focus="updateSearchDrop" data-on-blur="#39" data-on-keydown="#40">
         <button data-on-click="doSearch">بحث</button>
       </div>
       <div class="search-drop" id="searchDrop" style="display:none;"></div>
@@ -7641,6 +7643,11 @@ function renderGlobalFloatingBarInner(buttons){
   `;
 }
 
+function exportAnalyticsData(){
+  const rows = state._analyticsRows || [], meta = state._analyticsMeta || {};
+  return {title:'التقرير المالي حسب الجهة', period:[meta.selMonth && meta.selMonth!=='all' ? 'شهر '+meta.selMonth : '', meta.selYear ? 'سنة '+meta.selYear : ''].filter(Boolean).join(' · '),
+    head:['الجهة','عدد الطلبات المصروفة','إجمالي المصروف (د.ك)'], body: rows.map(r=>[r.name, Number(r.count)||0, Number(r.total)||0]), numIdx:new Set([2])};
+}
 function exportAnalyticsCSV(){
   const rows = state._analyticsRows || [];
   const meta = state._analyticsMeta || {};
@@ -7750,8 +7757,8 @@ function renderAnalytics(app){
           ${months.map(m=>`<option value="${m.v}" ${m.v==selMonth?'selected':''}>${m.n}</option>`).join('')}
         </select>
       </div>
-      <div style="flex:0 0 auto;max-width:none;" data-bar-actions data-bar-key="export_csv">
-        <button class="btn btn-ghost btn-md" data-on-click="exportAnalyticsCSV" title="ينزّل جدول هذه الصفحة ملفاً يُفتح في Excel">تصدير Excel (CSV)</button>
+      <div style="flex:0 0 auto;max-width:none;">
+        ${qyExportBtn('exportAnalyticsData')}
       </div>
     </div>
 
@@ -9209,7 +9216,7 @@ function renderLedger(app){
           <option value="out"${f.dir==='out'?' selected':''}>خروج</option>
         </select></div>
       <div><label>بحث</label>
-        <input type="text" name="qz-ledger-search" autocomplete="off" readonly data-on-focus="#74" placeholder="البيان أو المستفيد" value="${escH(f.q||'')}" data-on-input="#75" data-on-change="render"></div>
+        <input type="search" class="qy-search" name="qz-ledger-search" autocomplete="off" readonly data-on-focus="#74" placeholder="البيان أو المستفيد" value="${escH(f.q||'')}" data-on-input="#75" data-on-change="render"></div>
       <div class="lg-filter-btns" style="display:flex;gap:6px;align-items:flex-end;">
       <button class="btn btn-ghost btn-sm" data-on-click="ledgerClearFilters" title="يمسح كل مرشّحات الدفتر الحالية">مسح الترشيح</button>
       <button class="btn btn-ghost btn-sm ledger-def-btn" data-on-click="ledgerToggleDefault" title="${isDef ? 'الترشيح والترتيب الحاليان هما الافتراضي: اضغط لإلغائه فيدخل الدفتر دون ترشيح' : hasDef ? 'يستبدل الوضع الافتراضي المحفوظ بالترشيح والترتيب الحاليين' : 'يحفظ الترشيح والترتيب الحاليين ليُطبَّقا تلقائياً كل مرة تدخل فيها الدفتر'}">${isDef ? '✓ إلغاء الافتراضي' : 'اجعله افتراضياً'}</button>
@@ -9654,7 +9661,7 @@ function adminNavIsActive(item){
 }
 function buildAdminSidebar(){
   return `
-    <input id="adminNavSearch" type="text" placeholder="ابحث بالأقسام..." data-on-input="filterAdminNav" data-on-input-args="${qa([QA.v])}" style="margin-bottom:12px;">
+    <input id="adminNavSearch" type="search" class="qy-search" placeholder="ابحث بالأقسام..." data-on-input="filterAdminNav" data-on-input-args="${qa([QA.v])}" style="margin-bottom:12px;">
     <div id="adminNavList">
       ${ADMIN_NAV.map(group=>`
         <div class="admin-nav-group" data-nav-group>
@@ -10066,6 +10073,14 @@ function budgetReportExpandAll(){
   render();
 }
 
+function exportBudgetData(){
+  const allItems = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId);
+  const flat = (parentId, depth) => allItems.filter(b=>b.parent_id===(parentId||null)).flatMap(b=>{
+    const hc = allItems.some(x=>x.parent_id===b.id), own = computeBudgetItemStats(b.id,false), tot = hc ? computeBudgetItemStats(b.id,true) : own;
+    return [['  '.repeat(depth) + (b.name||''), BUDGET_TYPE_LABELS[b.type]||b.type, own.rev, own.profit, own.spent, own.bal, hc ? tot.rev : '', hc ? tot.spent : '', hc ? tot.bal : '', b.is_active!==false ? 'نشط' : 'غير نشط'], ...flat(b.id, depth+1)];
+  });
+  return {title:'تقرير الميزانية', period:'', head:['البند','النوع','إيراداته','أرباحه','مصروفه','رصيده','إيرادات مجمّعة','مصروف مجمّع','رصيد مجمّع','الحالة'], body: flat(null,0), numIdx:new Set([2,3,4,5,6,7,8]), noTotal:true};
+}
 function exportBudgetReportCSV(){
   const allItems = (state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId);
   function flatRows(parentId, depth){
@@ -10380,7 +10395,7 @@ function renderBudgetReportTab(){
       <!-- 4 فراغ يدفع التصدير لأقصى اليسار -->
       <div class="rep-spacer"></div>
       <!-- 5 تصدير + طباعة — أقصى اليسار -->
-      <button class="btn btn-ghost" data-on-click="exportBudgetReportCSV">📥 Excel</button>
+      ${qyExportBtn('exportBudgetData')}
     </div>
 
     <!-- جدول البنود — تسعة أعمدة تحتاج 966 بكسل: يُمرَّر أفقياً ولا يُقتطع -->
@@ -16763,10 +16778,9 @@ function cxCenterDetailHtml(){
     </div>
     ${fin && state.cx.showEntry ? cxEntryFormHtml() : ''}
     <div class="card cx-panel">
-      <div class="cx-panel-h"><h2>الحركات</h2>${fin && !state.cx.showEntry ? `<button class="btn btn-primary btn-md" data-on-click="cxEntryToggle">+ تسجيل حركة</button>` : ''}</div>
-      <div class="cx-tools">
-        <input type="search" class="cx-search" placeholder="بحث: ${imp?'الدافع، الهاتف، ':''}الغرض، المنشئ، الإيصال…" value="${escH(state.cx.q||'')}" data-on-input="cxSearch" data-on-input-args="${qa([QA.v])}">
-      </div>
+      <div class="cx-panel-h"><h2>الحركات</h2><div class="cx-ph-tools">
+        <input type="search" class="qy-search" placeholder="بحث: ${imp?'الدافع، الهاتف، ':''}الغرض، الإيصال…" value="${escH(state.cx.q||'')}" data-on-input="cxSearch" data-on-input-args="${qa([QA.v])}">
+        ${fin && !state.cx.showEntry ? `<button class="btn btn-primary btn-md" data-on-click="cxEntryToggle">+ تسجيل حركة</button>` : ''}</div></div>
       <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" data-qyl-title="دفتر ${escH(c.name)}"><thead><tr><th>التاريخ</th><th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin?'<th></th>':''}</tr></thead>
       <tbody id="cxLedgerBody">${cxLedgerRowsHtml()}</tbody></table>
     </div>
@@ -17188,14 +17202,13 @@ function renderGwImport(app){
 }
 
 // ===================== qyl: عرض موحّد لكل قوائم النظام =====================
-// فلتر الفترة + عدد المعروض + التنقل بالأسهم + مجموع المعروض ومجموع الفترة + تصدير Excel وPDF وCSV.
+// فلتر الفترة + عدد المعروض + التنقل بالأسهم + مجموع المعروض ومجموع الفترة + زر «تصدير» واحد بقائمة (Excel وPDF وCSV).
 // الاستعمال: <table data-qyl="مفتاح" data-qyl-title="عنوان التصدير"> وصفوف tbody تحمل data-date="YYYY-MM-DD" (اختياري)،
 // والأعمدة التي تُجمع: <th data-sum>. الصفوف المستثناة: class="qyl-skip"، وصف لا يدخل المجموع: data-nosum.
 // القوائم (غير الجداول): <div data-qyl=".." data-qyl-cols='["..",..]' data-qyl-sum="المبلغ"> وعناصرها data-qyl-i data-date data-amt data-qyl-row='[..]'.
 // فلتر تديره الصفحة نفسها: data-qyl-ext="اسم دالة" تُستدعى بـ(من، إلى) فيبقى للعنصر الترقيم والمجاميع.
-const QYL_PER = [['all','كل الفترات'],['week','آخر أسبوع'],['month','شهر'],['m3','آخر 3 أشهر'],['m6','آخر 6 أشهر'],['year','سنة'],['range','من تاريخ إلى تاريخ']];
-const QYL_SIZES = [5,10,20,50];
-const QYL_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const QYL_PER = [['all','كل الفترات'],['week','آخر أسبوع'],['month','آخر شهر'],['m3','آخر 3 أشهر'],['m6','آخر 6 أشهر'],['ytd','هذه السنة'],['lastyear','السنة الماضية'],['range','من تاريخ إلى تاريخ']];
+const QYL_SIZES = [5,10,20,50,100];
 function qylIso(d){ return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
 function qylToday(){ return qylIso(new Date()); }
 function qylSt(key){
@@ -17203,22 +17216,23 @@ function qylSt(key){
   let s = state.qyl[key];
   if(!s){
     let size = 5; try{ const v = Number(localStorage.getItem('qyl_size_'+key)); if(QYL_SIZES.includes(v)) size = v; }catch(e){}
-    s = state.qyl[key] = {per:'all', month:'', year:'', from:'', to:'', size, page:0};
+    s = state.qyl[key] = {per:'all', from:'', to:'', size, page:0};
   }
+  if(!QYL_PER.some(p=>p[0]===s.per)) s.per = 'all';
   return s;
 }
 function qylRange(s){
-  const t = new Date(), today = qylIso(t);
-  const back = (m, d) => { const x = new Date(t); if(m) x.setMonth(x.getMonth()-m); if(d) x.setDate(x.getDate()-d); x.setDate(x.getDate()+ (m?1:0)); return qylIso(x); };
+  const t = new Date(), today = qylIso(t), y = t.getFullYear();
+  const back = (m, d) => { const x = new Date(t); if(m){ x.setMonth(x.getMonth()-m); x.setDate(x.getDate()+1); } if(d) x.setDate(x.getDate()-d); return qylIso(x); };
   switch(s.per){
-    case 'week':  return {from: back(0,6), to: today, label:'آخر أسبوع'};
-    case 'm3':    return {from: back(3,0), to: today, label:'آخر 3 أشهر'};
-    case 'm6':    return {from: back(6,0), to: today, label:'آخر 6 أشهر'};
-    case 'month': { const m = s.month || today.slice(0,7); const [y,mm] = m.split('-').map(Number); const last = new Date(y, mm, 0).getDate();
-      return {from: m+'-01', to: m+'-'+String(last).padStart(2,'0'), label: (QYL_MONTHS[mm-1]||mm)+' '+y}; }
-    case 'year':  { const y = s.year || today.slice(0,4); return {from: y+'-01-01', to: y+'-12-31', label:'سنة '+y}; }
-    case 'range': return {from: s.from||'', to: s.to||'', label: (s.from||s.to) ? `من ${s.from?dmyStr(s.from):'البداية'} إلى ${s.to?dmyStr(s.to):'اليوم'}` : 'كل الفترات'};
-    default:      return {from:'', to:'', label:'كل الفترات'};
+    case 'week':     return {from: back(0,6), to: today, label:'آخر أسبوع'};
+    case 'month':    return {from: back(1,0), to: today, label:'آخر شهر'};
+    case 'm3':       return {from: back(3,0), to: today, label:'آخر 3 أشهر'};
+    case 'm6':       return {from: back(6,0), to: today, label:'آخر 6 أشهر'};
+    case 'ytd':      return {from: y+'-01-01', to: today, label:'سنة '+y};
+    case 'lastyear': return {from: (y-1)+'-01-01', to: (y-1)+'-12-31', label:'سنة '+(y-1)};
+    case 'range':    return {from: s.from||'', to: s.to||'', label: (s.from||s.to) ? `من ${s.from?dmyStr(s.from):'البداية'} إلى ${s.to?dmyStr(s.to):'اليوم'}` : 'كل الفترات'};
+    default:         return {from:'', to:'', label:'كل الفترات'};
   }
 }
 function qylEls(key){ return [...document.querySelectorAll('[data-qyl]')].filter(e=>e.getAttribute('data-qyl')===key); }
@@ -17235,51 +17249,56 @@ function qylSumCols(el){
 function qylSums(el, cols, rows){
   return cols.map(c=>({label:c.label, v: Math.round(rows.filter(r=>!r.hasAttribute('data-nosum')).reduce((a,r)=>a + (c.i<0 ? qylNum(r.getAttribute('data-amt')) : qylNum(r.cells[c.i] && r.cells[c.i].textContent)), 0)*1000)/1000}));
 }
-function qylYears(items){
-  const ys = new Set(items.map(i=>String(i.getAttribute('data-date')||'').slice(0,4)).filter(y=>/^\d{4}$/.test(y))); ys.add(qylToday().slice(0,4));
-  return [...ys].sort().reverse();
-}
 function qylAnchor(el){
   let a = el;
   for(let k=0;k<2;k++){ const p = a.parentElement; if(p && p.children.length===1 && !p.classList.contains('card') && p.id!=='app') a = p; else break; }
   return a;
 }
-function qylEnhance(root){ (root||document).querySelectorAll('[data-qyl]').forEach(el=>{ try{ qylApply(el); }catch(e){ console.error('qyl', e); } }); }
-function qylApply(el){
-  const key = el.getAttribute('data-qyl'), s = qylSt(key), ext = el.getAttribute('data-qyl-ext');
-  const items = qylItems(el), isTbl = el.tagName==='TABLE';
+function qylInPeriod(el, items, s){
+  const ext = el.getAttribute('data-qyl-ext');
   const hasDate = !!ext || items.some(i=>i.hasAttribute('data-date'));
   const rg = hasDate ? qylRange(s) : {from:'', to:'', label:''};
   const inP = (hasDate && !ext) ? items.filter(i=>{ const d = String(i.getAttribute('data-date')||''); return (!rg.from || d>=rg.from) && (!rg.to || d<=rg.to); }) : items;
+  return {hasDate, rg, inP};
+}
+function qylEnhance(root){ (root||document).querySelectorAll('[data-qyl]').forEach(el=>{ try{ qylApply(el); }catch(e){ console.error('qyl', e); } }); }
+// لا يُعاد بناء الشريط والتذييل إلا إذا تغيّر ما يخصهما فعلاً؛ وإلا تبقى العناصر نفسها (فلا يهتز زر تحت الفأرة ولا يُغلق تقويم مفتوح)
+function qylApply(el, force){
+  const key = el.getAttribute('data-qyl'), s = qylSt(key);
+  const items = qylItems(el), isTbl = el.tagName==='TABLE';
+  const {hasDate, rg, inP} = qylInPeriod(el, items, s);
   const n = inP.length, pages = Math.max(1, Math.ceil(n/s.size));
   if(s.page>=pages) s.page = pages-1; if(s.page<0) s.page = 0;
   const a = s.page*s.size, b = Math.min(n, a+s.size), shown = inP.slice(a,b);
-  items.forEach(i=>{ i.style.display = 'none'; }); shown.forEach(i=>{ i.style.display = ''; });
+  const showSet = new Set(shown);
+  items.forEach(i=>{ const v = showSet.has(i) ? '' : 'none'; if(i.style.display!==v) i.style.display = v; });
   const anchor = qylAnchor(el), par = anchor.parentElement; if(!par) return;
-  par.querySelectorAll(':scope > [data-qyl-bar], :scope > [data-qyl-foot]').forEach(x=>{ if(x.getAttribute('data-qyl-bar')===key || x.getAttribute('data-qyl-foot')===key) x.remove(); });
   const canExp = isTbl || el.hasAttribute('data-qyl-cols');
   const big = items.length > QYL_SIZES[0];
+  const idOf = i => i ? (i._qylId || (i._qylId = (window._qylSeq = (window._qylSeq||0) + 1))) : 0;   // بصمة الصفوف: صفوف جديدة = إعادة بناء المجاميع
+  const sig = [s.per, s.from, s.to, s.size, s.page, items.length, n, hasDate, canExp, big, idOf(items[0]), idOf(items[items.length-1]), idOf(inP[0])].join('|');
+  const oldBar = [...par.children].find(x=>x.getAttribute('data-qyl-bar')===key), oldFoot = [...par.children].find(x=>x.getAttribute('data-qyl-foot')===key);
+  if(!force && el._qylSig===sig && (oldBar || !(hasDate||big||canExp)) && oldFoot) return;
+  el._qylSig = sig;
+  if(oldBar) oldBar.remove(); if(oldFoot) oldFoot.remove();
   if(!hasDate && !big && !canExp) return;
-  // شريط الأدوات
-  const per = s.per, k = qa([key]);
-  let pick = '';
-  if(per==='month') pick = `<input type="month" class="qyl-in" value="${s.month || qylToday().slice(0,7)}" data-on-change="qylSet" data-on-change-args="${qa([key,'month',QA.v])}">`;
-  else if(per==='year') pick = `<select class="qyl-in" data-on-change="qylSet" data-on-change-args="${qa([key,'year',QA.v])}">${qylYears(items).map(y=>`<option value="${y}" ${y===(s.year||qylToday().slice(0,4))?'selected':''}>${y}</option>`).join('')}</select>`;
-  else if(per==='range') pick = `<input type="date" class="qyl-in" value="${s.from||''}" title="من" data-on-change="qylSet" data-on-change-args="${qa([key,'from',QA.v])}"><span class="qyl-sep">إلى</span><input type="date" class="qyl-in" value="${s.to||''}" title="إلى" data-on-change="qylSet" data-on-change-args="${qa([key,'to',QA.v])}">`;
+  // شريط الأدوات: الفترة · العرض · تصدير
+  const per = s.per;
+  const pick = per==='range' ? `<input type="date" class="qyl-in qyl-date" value="${s.from||''}" title="من تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'from',QA.v])}"><span class="qyl-sep">إلى</span><input type="date" class="qyl-in qyl-date" value="${s.to||''}" title="إلى تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'to',QA.v])}">` : '';
   const bar = document.createElement('div'); bar.className = 'qyl-bar no-print'; bar.setAttribute('data-qyl-bar', key);
-  bar.innerHTML = `${hasDate ? `<div class="qyl-g"><span class="qyl-l">الفترة</span><select class="qyl-in" data-on-change="qylSet" data-on-change-args="${qa([key,'per',QA.v])}">${QYL_PER.map(p=>`<option value="${p[0]}" ${p[0]===per?'selected':''}>${p[1]}</option>`).join('')}</select>${pick}</div>` : ''}
+  bar.innerHTML = `${hasDate ? `<div class="qyl-g"><span class="qyl-l">الفترة</span><select class="qyl-in qyl-per" data-on-change="qylSet" data-on-change-args="${qa([key,'per',QA.v])}">${QYL_PER.map(p=>`<option value="${p[0]}" ${p[0]===per?'selected':''}>${p[1]}</option>`).join('')}</select>${pick}</div>` : ''}
     ${big ? `<div class="qyl-g"><span class="qyl-l">العرض</span><select class="qyl-in qyl-size" data-on-change="qylSet" data-on-change-args="${qa([key,'size',QA.v])}">${QYL_SIZES.map(z=>`<option value="${z}" ${z===s.size?'selected':''}>${z}</option>`).join('')}</select></div>` : ''}
-    ${canExp ? `<div class="qyl-g qyl-exp"><span class="qyl-l">تصدير</span><button type="button" class="btn btn-ghost btn-xs" data-on-click="qylExport" data-on-click-args="${qa([key,'xlsx'])}">Excel</button><button type="button" class="btn btn-ghost btn-xs" data-on-click="qylExport" data-on-click-args="${qa([key,'pdf'])}">PDF</button><button type="button" class="btn btn-ghost btn-xs" data-on-click="qylExport" data-on-click-args="${qa([key,'csv'])}">CSV</button></div>` : ''}`;
+    ${canExp ? `<div class="qyl-g qyl-exp">${qyExportBtn('qyl:'+key)}</div>` : ''}`;
   par.insertBefore(bar, anchor);
-  // التذييل: التنقل + مجموع المعروض + مجموع الفترة
+  // التذييل: التنقل + مجموع المعروض + إجمالي الفترة
   const cols = qylSumCols(el), sumShown = qylSums(el, cols, shown), sumAll = qylSums(el, cols, inP);
-  const sumLine = (lab, cnt, arr, cls) => `<div class="qyl-sum ${cls}"><span class="qyl-sl">${lab}</span><span class="qyl-chip"><b>${cnt}</b> سجل</span>${arr.map(x=>`<span class="qyl-chip">${escH(x.label)}: <b>${fmtKWDHtml(x.v)}</b></span>`).join('')}</div>`;
+  const sumLine = (lab, cnt, arr, cls) => `<div class="qyl-sum ${cls}"><div class="qyl-sc qyl-sc-h">${lab}</div><div class="qyl-sc"><small>العدد</small><b>${cnt}</b></div>${arr.map(x=>`<div class="qyl-sc"><small>${escH(x.label)}</small><b>${fmtKWDHtml(x.v)}</b></div>`).join('')}</div>`;
   const foot = document.createElement('div'); foot.className = 'qyl-foot no-print'; foot.setAttribute('data-qyl-foot', key);
   foot.innerHTML = `${n > s.size ? `<div class="qyl-nav">
-      <button type="button" class="btn btn-ghost btn-sm" data-on-click="qylPage" data-on-click-args="${qa([key,-1])}" ${s.page<=0?'disabled':''}>→ السابق</button>
+      <button type="button" class="btn btn-ghost btn-sm qyl-pg" data-no-ico data-on-click="qylPage" data-on-click-args="${qa([key,-1])}" ${s.page<=0?'disabled':''}>→ السابق</button>
       <span class="qyl-pos"><b>${n ? a+1 : 0}–${b}</b> من <b>${n}</b></span>
-      <button type="button" class="btn btn-ghost btn-sm" data-on-click="qylPage" data-on-click-args="${qa([key,1])}" ${s.page>=pages-1?'disabled':''}>التالي ←</button></div>` : ''}
-    ${!n ? `<div class="qyl-sum"><span class="qyl-sl">لا توجد سجلات في ${escH(rg.label||'هذا العرض')}.</span></div>`
+      <button type="button" class="btn btn-ghost btn-sm qyl-pg" data-no-ico data-on-click="qylPage" data-on-click-args="${qa([key,1])}" ${s.page>=pages-1?'disabled':''}>التالي ←</button></div>` : ''}
+    ${!n ? `<div class="qyl-sum"><div class="qyl-sc qyl-sc-h">لا توجد سجلات في ${escH(rg.label||'هذا العرض')}</div></div>`
       : n > shown.length ? sumLine('المعروض', shown.length, sumShown, '') : ''}
     ${n ? sumLine(hasDate ? 'إجمالي ' + rg.label : 'الإجمالي', n, sumAll, 'qyl-sum-all') : ''}`;
   if(anchor.nextSibling) par.insertBefore(foot, anchor.nextSibling); else par.appendChild(foot);
@@ -17288,34 +17307,54 @@ function qylSet(key, field, v){
   const s = qylSt(key);
   if(field==='size'){ s.size = Number(v)||5; try{ localStorage.setItem('qyl_size_'+key, s.size); }catch(e){} }
   else s[field] = v;
-  if(field==='per'){
-    // الشهر والسنة الافتراضيان: أحدث ما فيه بيانات
-    const el0 = qylEls(key)[0], ds = el0 ? qylItems(el0).map(i=>String(i.getAttribute('data-date')||'')).filter(Boolean).sort() : [];
-    const last = ds.length ? ds[ds.length-1] : qylToday();
-    if(v==='month' && !s.month) s.month = last.slice(0,7);
-    if(v==='year' && !s.year) s.year = last.slice(0,4);
-  }
   s.page = 0;
   const els = qylEls(key);
   const ext = els[0] && els[0].getAttribute('data-qyl-ext');
-  if(ext && field!=='size' && typeof window[ext]==='function'){ const r = qylRange(s); window[ext](r.from, r.to); return; }
-  els.forEach(qylApply);
+  if(ext && field!=='size' && typeof window[ext]==='function'){
+    if(field==='per' && v==='range' && !s.from && !s.to){ els.forEach(e=>qylApply(e, true)); return; }   // «من–إلى» تُفتح للاختيار أولاً
+    const r = qylRange(s); window[ext](r.from, r.to); return;
+  }
+  els.forEach(e=>qylApply(e, true));
 }
-function qylPage(key, d){ const s = qylSt(key); s.page += Number(d)||0; qylEls(key).forEach(qylApply); const el = qylEls(key)[0]; if(el){ const bar = el.closest('.card') || el; const r = bar.getBoundingClientRect(); if(r.top < 60) window.scrollBy({top:r.top-80, behavior:'smooth'}); } }
+// التنقل يُبقي الصفحة في مكانها: الأسهم تبقى تحت الفأرة حتى لو تغيّر طول الجدول
+function qylPage(key, d){
+  const s = qylSt(key), els = qylEls(key), el = els[0]; if(!el) return;
+  const footOf = () => { const p = qylAnchor(el).parentElement; return p && [...p.children].find(x=>x.getAttribute('data-qyl-foot')===key); };
+  const f0 = footOf(), y0 = f0 ? f0.getBoundingClientRect().top : null;
+  s.page += Number(d)||0; els.forEach(e=>qylApply(e, true));
+  const f1 = footOf(); if(f1 && y0!==null){ const dy = f1.getBoundingClientRect().top - y0; if(Math.abs(dy) > 1) window.scrollBy({top:dy, left:0, behavior:'instant'}); }
+}
+
+// ---------- زر «تصدير» الموحّد: قائمة بالأنواع المتاحة ----------
+const QY_EXP_TYPES = {xlsx:'Excel', pdf:'PDF', csv:'CSV'};
+function qyExportBtn(src, types){
+  const t = (types||['xlsx','pdf','csv']).filter(x=>QY_EXP_TYPES[x]);
+  return `<div class="qy-exp"><button type="button" class="btn btn-ghost btn-sm qy-exp-btn" data-no-ico data-on-click="qyExpToggle" data-on-click-args="${qa([QA.t])}">${qi('download','qi-btn')}تصدير ▾</button>
+    <div class="qy-exp-menu" hidden>${t.map(x=>`<button type="button" data-no-ico data-on-click="qyExport" data-on-click-args="${qa([src, x])}">${QY_EXP_TYPES[x]}</button>`).join('')}</div></div>`;
+}
+function qyExpClose(except){ document.querySelectorAll('.qy-exp-menu:not([hidden])').forEach(m=>{ if(m!==except) m.hidden = true; }); }
+function qyExpToggle(btn){ const m = btn && btn.parentElement && btn.parentElement.querySelector('.qy-exp-menu'); if(!m) return; qyExpClose(m); m.hidden = !m.hidden; }
+document.addEventListener('click', e=>{ if(!(e.target.closest && e.target.closest('.qy-exp'))) qyExpClose(); }, true);
+async function qyExport(src, fmt){
+  qyExpClose();
+  let d = null;
+  if(String(src).startsWith('qyl:')) d = qylData(String(src).slice(4));
+  else if(typeof window[src]==='function') d = window[src]();
+  if(!d){ showToast('لا يوجد ما يُصدَّر','error'); return; }
+  return qyExportData(fmt, d);
+}
 // نص الخلية للتصدير: عناصر الكتلة تُفصل بـ « — »
 function qylCellText(c){
   if(c.hasAttribute('data-x')) return c.getAttribute('data-x');
   const t = c.cloneNode(true); t.querySelectorAll('button,select,input,.no-export,svg').forEach(x=>x.remove());
   t.querySelectorAll('div,p,br,li').forEach(x=>x.insertAdjacentText('beforebegin',' — '));
-  return t.textContent.replace(/[\u200e\u200f\u2066-\u2069\u061c]/g,'').replace(/\s+/g,' ').replace(/^(\s*—\s*)+|(\s*—\s*)+$/g,'').replace(/(\s*—\s*){2,}/g,' — ').trim();
+  return t.textContent.replace(/[‎‏⁦-⁩؜]/g,'').replace(/\s+/g,' ').replace(/^(\s*—\s*)+|(\s*—\s*)+$/g,'').replace(/(\s*—\s*){2,}/g,' — ').trim();
 }
+function qyCompanyName(){ const co = (state.companies||[]).find(c=>c.id===state.currentCompanyId); return co ? (co.nameAr||co.name||'') : ''; }
 function qylData(key){
   const el = qylEls(key)[0]; if(!el) return null;
-  const s = qylSt(key), ext = el.getAttribute('data-qyl-ext'), items = qylItems(el);
-  const hasDate = !!ext || items.some(i=>i.hasAttribute('data-date'));
-  const rg = hasDate ? qylRange(s) : {from:'',to:'',label:''};
-  const rows = (hasDate && !ext) ? items.filter(i=>{ const d = String(i.getAttribute('data-date')||''); return (!rg.from || d>=rg.from) && (!rg.to || d<=rg.to); }) : items;
-  let head = [], body = [], numIdx = new Set();
+  const s = qylSt(key), items = qylItems(el), {hasDate, rg, inP:rows} = qylInPeriod(el, items, s);
+  let head = [], body = [], numIdx = new Set(), nosum = rows.map(r=>r.hasAttribute('data-nosum'));
   if(el.tagName==='TABLE'){
     const hr = el.tHead && el.tHead.rows[0]; const keep = [];
     [...(hr ? hr.cells : [])].forEach((c,i)=>{ const t = c.textContent.trim(); if(t && !c.hasAttribute('data-noexport')){ keep.push(i); head.push(t); if(c.hasAttribute('data-sum') || c.classList.contains('num')) numIdx.add(head.length-1); } });
@@ -17325,36 +17364,37 @@ function qylData(key){
     const sumLab = el.getAttribute('data-qyl-sum'); head.forEach((h,j)=>{ if(h===sumLab) numIdx.add(j); });
     body = rows.map(r=>{ let a = []; try{ a = JSON.parse(r.getAttribute('data-qyl-row')||'[]'); }catch(e){} return a.map((v,j)=>numIdx.has(j) ? qylNum(v) : v); });
   }
-  const tot = head.map((h,j)=>numIdx.has(j) ? Math.round(rows.filter(r=>!r.hasAttribute('data-nosum')).reduce((a,r,ri)=>a + (typeof body[ri][j]==='number' ? body[ri][j] : 0),0)*1000)/1000 : '');
   const card = el.closest('.card'); const h2 = card && card.querySelector('h2');
   const title = el.getAttribute('data-qyl-title') || (h2 ? h2.textContent.trim() : '') || document.title;
-  const co = (state.companies||[]).find(c=>c.id===state.currentCompanyId);
-  return {title, period: hasDate ? rg.label : '', head, body, tot, numIdx, company: co ? (co.nameAr||co.name||'') : ''};
+  return {title, period: hasDate ? rg.label : '', head, body, numIdx, nosum, company: qyCompanyName()};
 }
-function qylFileName(d){ return (d.title + (d.period ? ' - ' + d.period : '')).replace(/[\u200e\u200f\u2066-\u2069\u061c]/g,'').replace(/[\\/:*?"<>|]+/g,' ').trim() || 'تصدير'; }
+function qylFileName(d){ return (d.title + (d.period ? ' - ' + d.period : '')).replace(/[‎‏⁦-⁩؜]/g,'').replace(/[\\/:*?"<>|]+/g,' ').trim() || 'تصدير'; }
 async function qylLoadXlsx(){
   if(window.XLSX) return window.XLSX;
   await new Promise((ok, ko)=>{ const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
   return window.XLSX;
 }
-async function qylExport(key, fmt){
-  const d = qylData(key); if(!d){ showToast('لا يوجد جدول للتصدير','error'); return; }
-  if(!d.body.length){ showToast('لا توجد سجلات في الفترة المختارة','error'); return; }
-  const hasTot = d.tot.some(v=>v!=='');
-  const totRow = hasTot ? d.head.map((h,j)=> j===0 ? 'المجموع' : d.tot[j]) : null;
+// كاتب واحد لكل التصدير في النظام: d = {title, period, company, head:[..], body:[[..]], numIdx:Set, nosum:[bool]}
+async function qyExportData(fmt, d){
+  if(!d.body || !d.body.length){ showToast('لا توجد سجلات في الفترة المختارة','error'); return; }
+  const numIdx = d.numIdx || new Set(), nosum = d.nosum || [];
+  const tot = d.head.map((h,j)=>numIdx.has(j) ? Math.round(d.body.reduce((a,r,ri)=>a + (!nosum[ri] && typeof r[j]==='number' ? r[j] : 0),0)*1000)/1000 : '');
+  const totRow = d.noTotal ? null : (tot.some(v=>v!=='') ? d.head.map((h,j)=> j===0 ? 'المجموع' : tot[j]) : null);
+  const company = d.company==null ? qyCompanyName() : d.company;
   if(fmt==='csv'){
     const q = v => { const t = String(v==null?'':v); return /[",\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t; };
-    const lines = [[d.title], d.period ? ['الفترة: '+d.period] : [], [], d.head, ...d.body.map(r=>r.map(v=>typeof v==='number' ? v.toFixed(3) : v)), ...(totRow ? [totRow.map(v=>typeof v==='number' ? v.toFixed(3) : v)] : [])].filter(r=>r);
+    const nf = (v,j) => typeof v==='number' && numIdx.has(j) ? v.toFixed(3) : v;
+    const lines = [[d.title], [company + (d.period ? ' · الفترة: '+d.period : '')], [], d.head, ...d.body.map(r=>r.map(nf)), ...(totRow ? [totRow.map(nf)] : [])];
     const blob = new Blob(['﻿' + lines.map(r=>r.map(q).join(',')).join('\r\n')], {type:'text/csv;charset=utf-8'});
     return qylDownload(blob, qylFileName(d)+'.csv');
   }
   if(fmt==='xlsx'){
     let X; try{ X = await qylLoadXlsx(); }catch(e){ showToast('تعذّر تحميل أداة Excel، جرّب CSV','error'); return; }
-    const aoa = [[d.title], [d.company + (d.period ? ' · الفترة: ' + d.period : '')], [], d.head, ...d.body, ...(totRow ? [totRow] : [])];
+    const aoa = [[d.title], [company + (d.period ? ' · الفترة: ' + d.period : '')], [], d.head, ...d.body, ...(totRow ? [totRow] : [])];
     const ws = X.utils.aoa_to_sheet(aoa);
     const r0 = 3, nRows = d.body.length + (totRow ? 1 : 0);
-    for(let r=r0+1; r<=r0+nRows; r++) d.numIdx.forEach(j=>{ const c = ws[X.utils.encode_cell({r, c:j})]; if(c && c.t==='n') c.z = '#,##0.000'; });
-    ws['!cols'] = d.head.map((h,j)=>({wch: Math.min(60, Math.max(String(h).length+2, ...d.body.slice(0,200).map(r=>String(r[j]==null?'':r[j]).length+2), d.numIdx.has(j)?14:8))}));
+    for(let r=r0+1; r<=r0+nRows; r++) numIdx.forEach(j=>{ const c = ws[X.utils.encode_cell({r, c:j})]; if(c && c.t==='n') c.z = '#,##0.000'; });
+    ws['!cols'] = d.head.map((h,j)=>({wch: Math.min(60, Math.max(String(h).length+2, ...d.body.slice(0,200).map(r=>String(r[j]==null?'':r[j]).length+2), numIdx.has(j)?14:8))}));
     ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:Math.max(0,d.head.length-1)}}, {s:{r:1,c:0}, e:{r:1,c:Math.max(0,d.head.length-1)}}];
     const wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
     X.utils.book_append_sheet(wb, ws, 'البيانات');
@@ -17364,8 +17404,8 @@ async function qylExport(key, fmt){
   // PDF: صفحة طباعة من اليمين لليسار، والفلس أصغر من الرقم الصحيح
   let box = document.getElementById('qylPrintSheet'); if(box) box.remove();
   box = document.createElement('div'); box.id = 'qylPrintSheet'; box.dir = 'rtl';
-  const cell = (v,j) => d.numIdx.has(j) ? `<td class="qp-n">${v===''||v==null ? '' : fmtKWDHtml(v)}</td>` : `<td>${escH(String(v==null?'':v))}</td>`;
-  box.innerHTML = `<h1>${escH(d.title)}</h1><div class="qp-sub">${escH(d.company)}${d.period ? ' · الفترة: '+escH(d.period) : ''} · طُبع ${dmyStr(qylToday())} · ${d.body.length} سجل</div>
+  const cell = (v,j) => numIdx.has(j) ? `<td class="qp-n">${v===''||v==null ? '' : fmtKWDHtml(v)}</td>` : `<td>${escH(String(v==null?'':v))}</td>`;
+  box.innerHTML = `<h1>${escH(d.title)}</h1><div class="qp-sub">${escH(company)}${d.period ? ' · الفترة: '+escH(d.period) : ''} · طُبع ${dmyStr(qylToday())} · ${d.body.length} سجل</div>
     <table><thead><tr>${d.head.map(h=>`<th>${escH(h)}</th>`).join('')}</tr></thead><tbody>${d.body.map(r=>`<tr>${r.map(cell).join('')}</tr>`).join('')}</tbody>
     ${totRow ? `<tfoot><tr>${totRow.map((v,j)=> j===0 ? '<td><b>المجموع</b></td>' : cell(v,j)).join('')}</tr></tfoot>` : ''}</table>`;
   document.body.appendChild(box); document.body.classList.add('printing-qyl');
