@@ -1761,6 +1761,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .cx-icard-g{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-label);font-weight:700;} .cx-icard-g small{display:block;font-size:var(--fs-xs);color:var(--muted);font-weight:600;}
   .cx-bud{display:flex;flex-direction:column;gap:4px;margin-top:auto;} .cx-bud-l{display:flex;justify-content:space-between;font-size:var(--fs-xs);color:var(--muted);font-weight:700;} .cx-bud .cx-bar-t{height:8px;}
   .cx-card-items{display:flex;gap:6px;flex-wrap:wrap;}
+  .cx-files-note{display:grid;gap:6px;margin-top:12px;padding:10px 14px;border-radius:10px;background:#f6f4ef;border:1px solid var(--line);}
+  .cx-files-note > div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;font-size:var(--fs-hint);line-height:1.6;}
+  .cx-files-note b{font-size:var(--fs-label);} .cx-files-note span{color:var(--text);}
+  #app table td.cx-agent{width:16%;}
+  @media (max-width:699px){ .cx-files-note > div{grid-template-columns:minmax(0,1fr);gap:0;} }
   /* نموذج العميل: أقسام متوازنة ومكرّرات بصف واحد */
   .cx-cf-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:22px;padding-top:14px;border-top:1px solid var(--line);}
   .cx-rep{min-width:0;display:flex;flex-direction:column;gap:8px;}
@@ -2671,6 +2676,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=625b27675d"></script>
+<script src="app.js?v=f4dc2243ff"></script>
 </body>
 </html>
