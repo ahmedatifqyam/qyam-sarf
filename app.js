@@ -1,13 +1,13 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
 const APP_VERSION = '1.7.0', APP_VERSION_DATE = '2026-11-13';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:132, since:'2026-09-07', days:46, updates:363};
+const APP_WORK = {hours:132, since:'2026-09-07', days:46, updates:365};
 function appWorkBase(){ const v = Number((state.appSettings||{}).work_hours_base); return isFinite(v) && v>0 ? v : 0; }
 function appWorkTotal(){ return Math.round(appWorkBase() + APP_WORK.hours); }
 function appWorkTip(){ return `≈ ${appWorkTotal()} ساعة عمل: ${appWorkBase()} تقديرك لما قبل السجل وخارجه + ${APP_WORK.hours} من سجل التحديثات (منذ ${APP_WORK.since.split('-').reverse().join('-')}، ${APP_WORK.days} يوم عمل، ${APP_WORK.updates} تحديثاً)`; }
 function appVersionText(){ return 'الإصدار ' + APP_VERSION + ' · ' + APP_VERSION_DATE.split('-').reverse().join('-'); }
-const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 
 // ═════════════ أوامر الواجهة بلا كود مضمَّن (سياسة أمان المحتوى) ═════════════
 // لا يُكتب onclick ولا أخواته في أي وسم: سياسة الأمان تمنع تشغيل أي كود داخل الصفحة.
