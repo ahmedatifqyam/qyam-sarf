@@ -16931,6 +16931,65 @@ async function gwAssignAgent(agent, centerId){
   if(!(await dbCheck(r,'تصنيف الحركات'))) return;
   showToast(`صُنّفت ${r.data||0} حركة إلى ${cxCenterName(centerId)}`,'success'); await gwLoad(); loadCxLight();
 }
+// إدارة ربط الجهات بالمراكز (قسم مستقل في صفحة الاستيراد)
+async function gwAssignPendingOf(agent, centerId){
+  const ids = centerId ? (state.cx.pending||[]).filter(x=>(x.agent||'')===agent).map(x=>x.id) : [];
+  if(!ids.length) return 0;
+  const r = await db.rpc('qy_ledger_assign', {p_ids:ids, p_center:centerId});
+  return (await dbCheck(r,'تصنيف الحركات المعلّقة')) ? (r.data||0) : 0;
+}
+async function gwMapEdit(id, centerId){
+  state.cx.mapOpen = true;
+  const m = state.cx.gwAgents.find(x=>x.id===id); if(!m || !centerId) return;
+  const r = await db.from('gateway_agents').update({center_id:centerId}).eq('id', id);
+  if(!(await dbCheck(r,'تعديل الربط'))) return;
+  const n = await gwAssignPendingOf(m.agent_name, centerId);
+  showToast(n ? `تم التعديل وصُنّفت ${n} حركة معلّقة` : 'تم تعديل الربط','success'); await gwLoad();
+}
+async function gwMapDel(id){
+  state.cx.mapOpen = true;
+  const m = state.cx.gwAgents.find(x=>x.id===id); if(!m) return;
+  if(!confirm(`حذف ربط «${m.agent_name}»؟\n\nالحركات المسجلة سابقاً تبقى في مراكزها، والرفعات القادمة لهذه الجهة تصير معلّقة حتى تُربط من جديد.`)) return;
+  const r = await db.from('gateway_agents').delete().eq('id', id);
+  if(!(await dbCheck(r,'حذف الربط'))) return;
+  showToast('تم حذف الربط','success'); await gwLoad();
+}
+async function gwMapAdd(){
+  state.cx.mapOpen = true;
+  const name = String((document.getElementById('gwm_name')||{}).value||'').replace(/\s+/g,' ').trim();
+  const centerId = (document.getElementById('gwm_center')||{}).value;
+  if(!name){ showToast('اكتب اسم الجهة كما يظهر في Tap','error'); return; }
+  if(!centerId){ showToast('اختر المركز','error'); return; }
+  const norm = t => String(t||'').replace(/\s+/g,' ').trim().toLowerCase();
+  const exact = (state.cx.pending||[]).map(x=>x.agent).concat(state.cx.gwAgents.map(x=>x.agent_name)).find(a=>a && norm(a)===norm(name)) || name;
+  if(state.cx.gwAgents.some(x=>norm(x.agent_name)===norm(name) && (x.account_id||null)===(state.cx.imp.accountId||null))){ showToast('هذه الجهة مربوطة سابقاً؛ عدّل مركزها من الجدول','error'); return; }
+  const r = await db.from('gateway_agents').insert({company_id:cxCid(), account_id:state.cx.imp.accountId||null, agent_name:exact, center_id:centerId});
+  if(!(await dbCheck(r,'إضافة الربط'))) return;
+  const n = await gwAssignPendingOf(exact, centerId);
+  showToast(n ? `أُضيف الربط وصُنّفت ${n} حركة معلّقة` : 'أُضيف الربط','success'); await gwLoad();
+}
+function gwMappingHtml(){
+  const accs = state.cx.gwAccounts||[], acc = state.cx.imp && state.cx.imp.accountId || null;
+  const list = (state.cx.gwAgents||[]).filter(x=>!x.account_id || x.account_id===acc).sort((a,b)=>String(a.agent_name).localeCompare(String(b.agent_name)));
+  const mapped = new Set(list.map(x=>String(x.agent_name).replace(/\s+/g,' ').trim().toLowerCase()));
+  const sugg = [...new Set((state.cx.pending||[]).map(x=>x.agent).filter(a=>a && !mapped.has(String(a).replace(/\s+/g,' ').trim().toLowerCase())))];
+  const cnt = {}; (state.cx.pending||[]).forEach(x=>{ if(x.agent) cnt[x.agent] = (cnt[x.agent]||0)+1; });
+  return `<details class="card cx-fold" ${state.cx.mapOpen?'open':''}><summary><span>ربط الجهات بالمراكز</span><span class="file-hint">${list.length} جهة مربوطة${sugg.length?` · ${sugg.length} غير مربوطة`:''}</span></summary>
+    <p class="file-hint">الجهة هي مستخدم Tap الذي أنشأ الفاتورة (حقل agent في ملف الفواتير). كل فاتورة أنشأها يذهب دخلها إلى المركز المربوط به تلقائياً. أي تعديل هنا يسري على الرفعات القادمة، ويصنّف المعلّق من حركات هذه الجهة.</p>
+    <table class="exec-table cx-tbl"><thead><tr><th>الجهة في Tap</th><th>المركز</th>${accs.length>1?'<th>الحساب</th>':''}<th></th></tr></thead><tbody>
+    ${list.map(m=>`<tr><td data-label=""><b>${escH(m.agent_name)}</b>${cnt[m.agent_name]?`<div class="cx-meta">${cnt[m.agent_name]} حركة معلّقة</div>`:''}</td>
+      <td data-label="المركز"><select class="cx-sel-sm" data-on-change="gwMapEdit" data-on-change-args="${qa([m.id, QA.v])}">${gwCentersOptions(m.center_id)}</select></td>
+      ${accs.length>1?`<td data-label="الحساب">${m.account_id ? escH((accs.find(a=>a.id===m.account_id)||{}).name||'') : 'كل الحسابات'}</td>`:''}
+      <td class="cx-act"><button class="btn btn-reject btn-xs" data-on-click="gwMapDel" data-on-click-args="${qa([m.id])}">حذف</button></td></tr>`).join('') || `<tr class="cx-empty"><td colspan="${accs.length>1?4:3}">لا توجد جهات مربوطة بعد.</td></tr>`}
+    </tbody></table>
+    <h3 class="cx-h3">إضافة ربط</h3>
+    <div class="row">
+      <div><label>اسم الجهة كما في Tap</label><input id="gwm_name" type="text" dir="auto" list="gwm_sugg" placeholder="مثال: Garah Alaly"><datalist id="gwm_sugg">${sugg.map(a=>`<option value="${escH(a)}">`).join('')}</datalist></div>
+      <div><label>المركز</label><select id="gwm_center"><option value="">— اختر المركز —</option>${gwCentersOptions('')}</select></div>
+    </div>
+    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwMapAdd">إضافة الربط</button>${sugg.length?`<span class="file-hint">جهات في المعلّقة بلا ربط: ${sugg.map(escH).join('، ')}</span>`:''}</div>
+  </details>`;
+}
 function gwPendToggle(id, on){ state.cx.pendSel = state.cx.pendSel || {}; if(on) state.cx.pendSel[id] = 1; else delete state.cx.pendSel[id]; const n = Object.keys(state.cx.pendSel).length; const el = document.getElementById('gwSelCount'); if(el) el.textContent = n; }
 function gwPendAll(on){ state.cx.pendSel = {}; if(on) (state.cx.pending||[]).filter(x=>!x.agent).forEach(x=>{ state.cx.pendSel[x.id] = 1; }); render(); }
 async function gwAssignSel(){
@@ -17115,6 +17174,7 @@ function renderGwImport(app){
         <td data-label="الفترة" class="cx-nowrap">${cxDate(x.date_from)} ← ${cxDate(x.date_to)}</td><td data-label="الصفوف" class="num">${x.rows_count}</td>
         <td class="cx-act"><button class="btn btn-ghost btn-xs" data-on-click="gwDownload" data-on-click-args="${qa([x.id])}">تنزيل</button></td></tr>`).join('') || '<tr class="cx-empty"><td colspan="6">لا توجد ملفات.</td></tr>'}
       </tbody></table></div>
+    ${gwMappingHtml()}
     ${adm ? `<details class="card cx-fold"><summary><span>إعدادات الاستيراد</span><span class="file-hint">النسب الافتراضية، التنبيه، الحسابات، من يرفع</span></summary>
       <div class="row">
         <div><label>حصة الشركة من الاشتراكات %</label><input id="gws_gw" type="text" inputmode="decimal" dir="ltr" value="${co.gatewayCompanyPct}"></div>
