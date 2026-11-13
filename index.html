@@ -1859,6 +1859,41 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app.cxv table.cx-ledger td.cx-act{order:8;}
     #app.cxv table.cx-ledger tr.cx-total td:nth-child(2){order:1;grid-column:span 2;}
   }
+
+  /* ===== qyl: شريط الفترة/العرض/التصدير وتذييل التنقل والمجاميع — موحّد في كل القوائم ===== */
+  .qyl-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#faf9f6;}
+  .qyl-g{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .qyl-l{font-size:12.5px;font-weight:800;color:var(--muted);}
+  .qyl-bar .qyl-in{height:36px !important;min-height:36px;width:auto !important;min-width:0;max-width:none !important;padding:0 10px;font-size:13px;border-radius:8px;}
+  .qyl-bar select.qyl-in{min-width:120px;} .qyl-bar .qyl-size{min-width:70px;}
+  .qyl-bar input[type=date].qyl-in,.qyl-bar input[type=month].qyl-in{min-width:150px;}
+  .qyl-sep{font-size:12.5px;color:var(--muted);}
+  .qyl-exp{margin-inline-start:auto;} .qyl-exp .btn{width:auto !important;min-width:64px;height:36px;padding:0 12px !important;}
+  .qyl-foot{margin:10px 0 0;display:flex;flex-direction:column;gap:8px;}
+  .qyl-nav{display:flex;align-items:center;justify-content:center;gap:14px;}
+  .qyl-nav .btn{width:auto !important;min-width:105px;}
+  .qyl-pos{font-size:13.5px;}
+  .qyl-sum{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:8px 12px;border-radius:8px;background:#f6f4ef;font-size:13px;}
+  .qyl-sum-all{background:var(--blue-bg);}
+  .qyl-sl{font-weight:800;margin-inline-end:4px;}
+  .qyl-chip{display:inline-flex;align-items:baseline;gap:4px;padding:2px 10px;border-radius:999px;background:#fff;border:1px solid var(--line);white-space:nowrap;}
+  #qylPrintSheet{display:none;}
+  @media print{
+    body.printing-qyl > *:not(#qylPrintSheet){display:none !important;}
+    body.printing-qyl #qylPrintSheet{display:block !important;color:#000;background:#fff;font-size:12px;direction:rtl;text-align:right;}
+    #qylPrintSheet h1{font-size:18px;margin:0 0 4px;} #qylPrintSheet .qp-sub{color:#444;margin-bottom:10px;}
+    #qylPrintSheet table{width:100%;border-collapse:collapse;}
+    #qylPrintSheet th,#qylPrintSheet td{border:1px solid #999;padding:4px 6px;text-align:right;vertical-align:top;}
+    #qylPrintSheet th{background:#eee;font-size:12.5px;}
+    #qylPrintSheet .qp-n{white-space:nowrap;text-align:left;}
+    #qylPrintSheet tfoot td{font-weight:700;background:#f3f3f3;}
+    #qylPrintSheet thead{display:table-header-group;}
+  }
+  @media (max-width:699px){
+    .qyl-bar{padding:8px;} .qyl-g{width:100%;} .qyl-bar select.qyl-in,.qyl-bar input.qyl-in{flex:1 1 auto;}
+    .qyl-exp{margin:0;} .qyl-exp .btn{flex:1 1 0;}
+    .qyl-nav .btn{min-width:0;flex:1 1 0;}
+  }
   /* شريط «نسخة تجريبية» على الحاسوب: أكبر ليُرى */
   @media (min-width:700px){
     .test-badge{top:30px !important;left:-58px !important;width:240px !important;font-size:15px !important;line-height:30px !important;}
@@ -2491,6 +2526,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=f6b42b5f25"></script>
+<script src="app.js?v=a6282b2a6d"></script>
 </body>
 </html>
