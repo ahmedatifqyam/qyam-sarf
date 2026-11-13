@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.9.2', APP_VERSION_DATE = '2026-11-14';
+const APP_VERSION = '1.9.3', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.2, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:350, base:350, extra:0.3, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -16432,7 +16432,7 @@ function cxUsersOfCompany(){
 function canSeeClients(){ return !!state.user && pageLevel('clients')!=='none'; }
 function canSeeCenterBooks(){
   if(!state.user || pageLevel('centerBooks')==='none') return false;
-  return cxIsFin() || !!state.user.centerId || (state.cx.myAccess||[]).some(a=>a.mode==='allow');
+  return cxIsFin() || !!cxMyCenterId() || (state.cx.myAccess||[]).some(a=>a.mode==='allow');
 }
 function cxIsImporter(){
   if(!state.user) return false;
@@ -16648,7 +16648,9 @@ function cxSubIds(rootId){ const vis = cxBalSet(); return unitDescendantIds(root
 function cxIsBookUnit(u){ return u.kind==='center' || unitAncestorIds(u.id).some(x=>{ const p = cxUnit(x); return p && p.kind==='center'; }); }
 // ---------- موظف المركز: من وحدته «مركز» أو تحت مركز، وليس من المالية أو الإدارة ----------
 function cxIsBookUnitId(id){ const u = cxUnit(id); return !!u && cxIsBookUnit(u); }
-function cxStaffUnitId(){ const u = state.user; if(!u || !u.centerId || ['admin','accountant','cfo','executive_manager'].includes(u.role)) return null; return cxIsBookUnitId(u.centerId) ? u.centerId : null; }
+// وحدة المستخدم من سجله في قائمة المستخدمين (state.user لا يحمل وحدته)، فيعمل أيضاً في «عرض كمستخدم»
+function cxMyCenterId(){ if(!state.user) return null; const me = (state.users||[]).find(x=>x.id===state.user.id); return (me && me.centerId) || state.user.centerId || null; }
+function cxStaffUnitId(){ const u = state.user, cid = cxMyCenterId(); if(!u || !cid || ['admin','accountant','cfo','executive_manager'].includes(u.role)) return null; return cxIsBookUnitId(cid) ? cid : null; }
 function isCenterStaff(){ return !!cxStaffUnitId(); }
 // طلب يُصرف من رصيد مركز (لا من ميزانية الشركة)
 function isCenterReq(req){ return !!req && (req.amountRoute||'normal')==='normal' && !!req.centerId && cxIsBookUnitId(req.centerId) && (isUnspecifiedBudget(req.budgetItemId)); }
