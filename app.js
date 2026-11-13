@@ -548,7 +548,7 @@ function dbCenterToState(c){
     maxRequestAmount:c.max_request_amount, maxBeneficiaryAmount:c.max_beneficiary_amount,
     requireBankTransferRef: c.require_bank_transfer_ref!==false,
     kind: c.kind||'center', scope: c.scope||'company', parentId: c.parent_id||null,
-    clientId:c.client_id||null, description:c.description||'', stage:cxStageNorm(c.stage), prePay:!!c.pre_pay, continuous:!!c.continuous, periodFrom:c.period_from||'', periodTo:c.period_to||'', itemBudget:(c.item_budget==null?null:Number(c.item_budget)), transferUserIds:Array.isArray(c.transfer_user_ids)?c.transfer_user_ids:[], balanceControl:!!c.balance_control, overdraftLimit:Number(c.overdraft_limit||0),
+    clientId:c.client_id||null, description:c.description||'', stage:cxStageNorm(c.stage), prePay:!!c.pre_pay, continuous:!!c.continuous, periodFrom:c.period_from||'', periodTo:c.period_to||'', itemBudget:(c.item_budget==null?null:Number(c.item_budget)), transferUserIds:Array.isArray(c.transfer_user_ids)?c.transfer_user_ids:[], stageNote:c.stage_note||'', stageBy:c.stage_by||'', stageAt:c.stage_at||'', balanceControl:!!c.balance_control, overdraftLimit:Number(c.overdraft_limit||0),
     companySharePct:(c.company_share_pct==null?null:Number(c.company_share_pct)), supportSharePct:(c.support_share_pct==null?null:Number(c.support_share_pct))
   };
 }
@@ -16364,8 +16364,8 @@ try{ if('serviceWorker' in navigator && location.protocol==='https:' || location
 
 // ===================== العملاء + دفاتر المراكز + استيراد بوابة الدفع =====================
 // الحالة (بدل المرحلة): محتمل ← مفتوح ← شغال ← مغلق — للمركز وبنوده
-const CX_STAGES = [['potential','محتمل'],['open','مفتوح'],['active','شغال'],['closed','مغلق']];
-const CX_STAGE_HINT = {potential:'للمالية فقط، ولا تُنشأ له طلبات', open:'معتمد ولم يُدفع بعد', active:'يعمل بعد الدفع', closed:'لا طلبات جديدة، ودفتره للاطلاع'};
+const CX_STAGES = [['potential','محتمل'],['open','مفتوح'],['active','شغال'],['suspended','متوقف'],['closed','مغلق']];
+const CX_STAGE_HINT = {potential:'للمالية فقط، ولا تُنشأ له طلبات', open:'معتمد ولم يُدفع بعد', active:'يعمل بعد الدفع', suspended:'إغلاق مؤقت: لا طلبات جديدة والصرف مجمّد، والدخل والترحيل مستمران', closed:'إغلاق تام: لا طلبات ولا دخل، ودفتره للاطلاع'};
 function cxStageNorm(s){ return ({creation:'potential', finance:'active', operation:'active'})[s] || s || 'active'; }
 const CX_LEDGER_KIND = {opening:'رصيد افتتاحي', subscription:'اشتراكات', support:'دعم', manual:'إيراد يدوي', adjust:'تسوية', transfer:'ترحيل'};
 const CX_CLIENT_KIND = [['association','جمعية'],['branch','فرع'],['committee','لجنة'],['company','شركة'],['individual','فرد'],['other','أخرى']];
@@ -16511,33 +16511,55 @@ function cxClientFormHtml(){
   const d = state.cx.cDraft; if(!d) return '';
   const parents = (state.cx.clients||[]).filter(c=>c.id!==d.id);
   const opt = (arr, sel) => arr.map(x=>`<option value="${x[0]}" ${x[0]===sel?'selected':''}>${x[1]}</option>`).join('');
-  const inp = (id, label, val, extra, sz) => `<div class="${sz||''}"><label>${label}</label><input id="${id}" type="text" value="${escH(val||'')}" ${extra||''}></div>`;
-  return `<div class="card cx-panel">
+  const inp = (id, label, val, extra, cls) => `<div class="${cls||''}"><label for="${id}">${label}</label><input id="${id}" type="text" value="${escH(val||'')}" ${extra||''}></div>`;
+  const phones = d.phones||[], contacts = d.contacts||[];
+  const del = (fn, i) => `<button class="btn btn-reject btn-xs" data-on-click="${fn}" data-on-click-args="${qa([i])}" title="حذف">حذف</button>`;
+  return `<div class="card cx-panel cx-cform">
     <div class="cx-panel-h"><h2>${d.id ? 'تعديل عميل' : 'عميل جديد'}</h2><button class="btn btn-ghost btn-sm" data-on-click="cxCancelClient">إغلاق</button></div>
-    <div class="row">
-      ${inp('cxc_name','الاسم *',d.name)} ${inp('cxc_name_en','الاسم بالإنجليزية',d.name_en,'dir="ltr"')}
-      <div class="f-md"><label>النوع</label><select id="cxc_kind">${opt(CX_CLIENT_KIND, d.kind)}</select></div>
-      <div class="f-lg"><label>يتبع</label><select id="cxc_parent"><option value="">— عميل رئيسي —</option>${parents.map(c=>`<option value="${c.id}" ${c.id===d.parent_id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
-      <div class="f-sm"><label>الحالة</label><select id="cxc_status"><option value="active" ${d.status==='active'?'selected':''}>نشط</option><option value="inactive" ${d.status==='inactive'?'selected':''}>موقوف</option></select></div>
+    <div class="uf-grid uf-2b">
+      ${inp('cxc_name','الاسم *',d.name,'placeholder="مثال: جمعية إحياء التراث الإسلامي"')}
+      ${inp('cxc_name_en','الاسم بالإنجليزية',d.name_en,'dir="ltr"')}
     </div>
-    <div class="row">
-      ${inp('cxc_address','العنوان',d.address)} ${inp('cxc_email','البريد الإلكتروني',d.email,'dir="ltr"')} ${inp('cxc_website','الموقع الإلكتروني',d.website,'dir="ltr"')} ${inp('cxc_tax_no','الرقم الضريبي أو التجاري',d.tax_no,'dir="ltr"')}
+    <div class="uf-flex">
+      <div class="f-md"><label for="cxc_kind">النوع</label><select id="cxc_kind">${opt(CX_CLIENT_KIND, d.kind)}</select></div>
+      <div class="f-sm"><label for="cxc_status">الحالة</label><select id="cxc_status"><option value="active" ${d.status==='active'?'selected':''}>نشط</option><option value="inactive" ${d.status==='inactive'?'selected':''}>موقوف</option></select></div>
+      <div class="f-lg"><label for="cxc_parent">يتبع</label><select id="cxc_parent"><option value="">— عميل رئيسي —</option>${parents.map(c=>`<option value="${c.id}" ${c.id===d.parent_id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
     </div>
-    <h3 class="cx-h3">أرقام الهاتف</h3>
-    ${(d.phones||[]).map((p,i)=>`<div class="row cx-item">
-      <div class="f-md"><label>الرقم</label><input id="cxc_ph_${i}_n" type="text" dir="ltr" value="${escH(p.number||'')}"></div>
-      <div class="f-sm"><label>النوع</label><select id="cxc_ph_${i}_t">${opt(CX_PHONE_TYPE,p.type)}</select></div>
-      <button class="btn btn-reject btn-xs" data-on-click="cxCDelPhone" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
-    <button class="btn btn-ghost btn-sm" data-on-click="cxCAddPhone">+ رقم هاتف</button>
-    <h3 class="cx-h3">جهات الاتصال</h3>
-    ${(d.contacts||[]).map((p,i)=>`<div class="row cx-item">
-      <div><label>الاسم</label><input id="cxc_ct_${i}_n" type="text" value="${escH(p.name||'')}"></div>
-      <div class="f-lg"><label>الصفة</label><input id="cxc_ct_${i}_t" type="text" value="${escH(p.title||'')}"></div>
-      <div class="f-md"><label>الهاتف</label><input id="cxc_ct_${i}_p" type="text" dir="ltr" value="${escH(p.phone||'')}"></div>
-      <div class="f-lg"><label>البريد</label><input id="cxc_ct_${i}_e" type="text" dir="ltr" value="${escH(p.email||'')}"></div>
-      <button class="btn btn-reject btn-xs" data-on-click="cxCDelContact" data-on-click-args="${qa([i])}">حذف</button></div>`).join('')}
-    <button class="btn btn-ghost btn-sm" data-on-click="cxCAddContact">+ جهة اتصال</button>
-    <div style="margin-top:16px;"><label style="display:block;font-weight:700;font-size:var(--fs-label);margin-bottom:6px;">ملاحظات</label><textarea id="cxc_notes" rows="2">${escH(d.notes||'')}</textarea></div>
+
+    <h3 class="uf-h">التواصل والعنوان</h3>
+    <div class="uf-grid uf-2b">
+      ${inp('cxc_email','البريد الإلكتروني',d.email,'dir="ltr" placeholder="name@example.com"')}
+      ${inp('cxc_website','الموقع الإلكتروني',d.website,'dir="ltr" placeholder="www.example.com"')}
+      ${inp('cxc_address','العنوان',d.address,'placeholder="المنطقة، القطعة، الشارع"')}
+      ${inp('cxc_tax_no','الرقم الضريبي أو التجاري',d.tax_no,'dir="ltr"')}
+    </div>
+
+    <div class="cx-cf-2">
+      <section class="cx-rep">
+        <div class="cx-rep-h"><h3>أرقام الهاتف</h3><button class="btn btn-ghost btn-sm" data-on-click="cxCAddPhone">+ رقم</button></div>
+        ${phones.length ? `<div class="cx-rep-g cx-rep-ph cx-rep-head"><span>الرقم</span><span>النوع</span><span></span></div>
+        ${phones.map((p,i)=>`<div class="cx-rep-g cx-rep-ph">
+          <input id="cxc_ph_${i}_n" type="text" dir="ltr" inputmode="tel" placeholder="الرقم" value="${escH(p.number||'')}" aria-label="الرقم">
+          <select id="cxc_ph_${i}_t" aria-label="النوع">${opt(CX_PHONE_TYPE,p.type)}</select>${del('cxCDelPhone', i)}</div>`).join('')}`
+        : '<div class="cx-rep-empty">لا أرقام بعد.</div>'}
+      </section>
+      <section class="cx-rep">
+        <div class="cx-rep-h"><h3>ملاحظات</h3></div>
+        <textarea id="cxc_notes" rows="4" placeholder="أي معلومة تخص العميل">${escH(d.notes||'')}</textarea>
+      </section>
+    </div>
+
+    <section class="cx-rep cx-rep-wide">
+      <div class="cx-rep-h"><h3>جهات الاتصال</h3><button class="btn btn-ghost btn-sm" data-on-click="cxCAddContact">+ جهة</button></div>
+      ${contacts.length ? `<div class="cx-rep-g cx-rep-ct cx-rep-head"><span>الاسم</span><span>الصفة</span><span>الهاتف</span><span>البريد</span><span></span></div>
+      ${contacts.map((p,i)=>`<div class="cx-rep-g cx-rep-ct">
+        <input id="cxc_ct_${i}_n" type="text" placeholder="الاسم" aria-label="الاسم" value="${escH(p.name||'')}">
+        <input id="cxc_ct_${i}_t" type="text" placeholder="الصفة" aria-label="الصفة" value="${escH(p.title||'')}">
+        <input id="cxc_ct_${i}_p" type="text" dir="ltr" inputmode="tel" placeholder="الهاتف" aria-label="الهاتف" value="${escH(p.phone||'')}">
+        <input id="cxc_ct_${i}_e" type="text" dir="ltr" placeholder="البريد" aria-label="البريد" value="${escH(p.email||'')}">${del('cxCDelContact', i)}</div>`).join('')}`
+      : '<div class="cx-rep-empty">لا جهات اتصال بعد. أضف المسؤول عن التواصل في الجهة.</div>'}
+    </section>
+
     <div class="cx-actions">
       <button class="btn btn-primary btn-md" data-on-click="cxSaveClient">حفظ</button>
       <button class="btn btn-ghost btn-sm" data-on-click="cxCancelClient">إلغاء</button>
@@ -16608,8 +16630,18 @@ function cxCanTransfer(){
   const r = cxUnit(cxRootOf(state.cx.centerId||'')); if(!r || !state.user) return false;
   return cxIsFin() || (r.transferUserIds||[]).includes(state.user.id);
 }
+// متوقف فعلياً: هو أو أحد أسلافه (إيقاف المركز يسري على بنوده)
+function cxSuspendedBy(u){ if(!u) return null; for(const x of [u.id, ...unitAncestorIds(u.id)]){ const v = cxUnit(x); if(v && v.stage==='suspended') return v; } return null; }
+function cxUserName(id){ const u = (state.users||[]).find(x=>x.id===id); return u ? u.name : ''; }
+function cxStageNoteHtml(u){
+  const s = cxSuspendedBy(u);
+  if(s && s.id!==u.id) return `<div class="cx-stnote cx-stnote-sus">متوقف مع «${escH(s.name)}»${s.stageNote ? ' · '+escH(s.stageNote) : ''}</div>`;
+  if(!u.stageNote || !['suspended','closed'].includes(u.stage)) return '';
+  const who = cxUserName(u.stageBy), when = u.stageAt ? cxDate(String(u.stageAt).slice(0,10)) : '';
+  return `<div class="cx-stnote cx-stnote-${u.stage==='suspended'?'sus':'cls'}"><b>${u.stage==='suspended'?'سبب الإيقاف':'ملاحظة الإغلاق'}:</b> ${escH(u.stageNote)}${who||when ? ` <small>— ${escH([who, when].filter(Boolean).join(' · '))}</small>` : ''}</div>`;
+}
 function cxPeriodEnded(u){ return !!(u && u.periodTo && !u.continuous && u.stage!=='closed' && u.periodTo < cxToday()); }
-function cxStageBadge(u){ const s = (u && u.stage) || 'active'; return `<span class="cx-badge cx-st-${escH(s)}" title="${escH(CX_STAGE_HINT[s]||'')}">${escH(cxStageLabel(s))}</span>`; }
+function cxStageBadge(u){ let s = (u && u.stage) || 'active'; if(s!=='closed' && cxSuspendedBy(u)) s = 'suspended'; return `<span class="cx-badge cx-st-${escH(s)}" title="${escH(CX_STAGE_HINT[s]||'')}">${escH(cxStageLabel(s))}</span>`; }
 function cxUnitTags(u){
   const t = [];
   if(u.continuous) t.push('<span class="cx-tag">مستمر</span>');
@@ -16680,10 +16712,35 @@ function renderCenterAccessPanel(){
     </tbody></table></div></div>`;
 }
 
-async function cxSetStage(id, stage){
-  const r = await db.rpc('qy_center_set_stage', {p_center:id, p_stage:stage});
+// تغيير الحالة: الإيقاف وإعادة فتح المتوقف أو المغلق تطلب سبباً يُكتب في سطر تحت الرأس
+function cxStageChange(id, stage){
+  const u = cxUnit(id); if(!u || u.stage===stage) return;
+  if(stage==='suspended' || ['suspended','closed'].includes(u.stage)){ state.cx.stagePend = {id, stage}; render(); setTimeout(()=>{ const el = document.getElementById('cxst_note'); if(el) el.focus(); }, 30); return; }
+  cxSetStage(id, stage);
+}
+function cxStageCancel(){ state.cx.stagePend = null; render(); }
+function cxStageConfirm(){
+  const p = state.cx.stagePend; if(!p) return;
+  const note = String((document.getElementById('cxst_note')||{}).value||'').trim();
+  if(!note){ showToast(p.stage==='suspended' ? 'اكتب سبب الإيقاف' : 'اكتب سبب إعادة الفتح','error'); return; }
+  cxSetStage(p.id, p.stage, note);
+}
+function cxStagePendHtml(){
+  const p = state.cx.stagePend; if(!p) return '';
+  const u = cxUnit(p.id) || {}, sus = p.stage==='suspended';
+  return `<div class="cx-stpend cx-stpend-${sus?'sus':'open'}">
+    <div class="cx-stpend-t"><b>${sus ? `إيقاف «${escH(u.name)}» مؤقتاً` : `إعادة فتح «${escH(u.name)}» إلى «${escH(cxStageLabel(p.stage))}»`}</b>
+      <span>${sus ? 'تُمنع الطلبات الجديدة ويُجمَّد صرف المفتوحة عند المحاسب، ويستمر الدخل والترحيل.' + (cxSubIds(p.id).length ? ' ويسري على كل بنوده.' : '') : 'تعود الطلبات والصرف كالمعتاد.'}</span></div>
+    <div class="cx-stpend-f"><input id="cxst_note" type="text" placeholder="${sus ? 'سبب الإيقاف (إلزامي)' : 'سبب إعادة الفتح (إلزامي)'}">
+      <button class="btn ${sus?'btn-reject':'btn-primary'} btn-md" data-on-click="cxStageConfirm">${sus ? 'إيقاف' : 'إعادة الفتح'}</button>
+      <button class="btn btn-ghost btn-sm" data-on-click="cxStageCancel">إلغاء</button></div>
+  </div>`;
+}
+async function cxSetStage(id, stage, note){
+  const r = await db.rpc('qy_center_set_stage', {p_center:id, p_stage:stage, p_note:note||null});
   if(!(await dbCheck(r,'تغيير الحالة'))){ render(); return; }
-  const c = cxUnit(id); if(c) c.stage = stage;
+  const c = cxUnit(id); if(c){ c.stage = stage; c.stageNote = note||''; c.stageBy = state.user.id; c.stageAt = new Date().toISOString(); }
+  state.cx.stagePend = null;
   showToast('تم تغيير الحالة إلى «'+cxStageLabel(stage)+'»','success'); render();
 }
 // إعدادات الوحدة المحددة: خصائص البند (المالية) + الجهة والحصص وضبط الرصيد ومن يرحّل (مدير النظام)
@@ -16928,7 +16985,7 @@ function cxItemsPanelHtml(){
     const pc = bud ? Math.min(100, Math.round(used/bud*100)) : 0;
     return `<div class="cx-icard${u.id===r?' cx-icard-root':''}" data-on-click="cxSelectItem" data-on-click-args="${qa([u.id])}" role="button" tabindex="0">
       <div class="cx-icard-h"><b class="cx-icard-n">${depth>1?'↳ ':''}${escH(u.name)}</b>${cxStageBadge(u)}</div>
-      <div class="cx-icard-m">${u.id===r ? 'المركز نفسه' : escH(unitType(u.kind).name)}${cxUnitTags(u)}</div>
+      <div class="cx-icard-m">${u.id===r ? 'المركز نفسه' : escH(unitType(u.kind).name)}${cxUnitTags(u)}</div>${cxStageNoteHtml(u)}
       <div class="cx-icard-v"><small>الرصيد</small><b ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</b></div>
       <div class="cx-icard-g"><span><small>دخل</small>${fmtKWDHtml(b.income)}</span><span><small>مصروف</small>${fmtKWDHtml(b.expense)}</span>${Number(b.transfers||0) ? `<span><small>ترحيلات</small>${fmtKWDHtml(b.transfers)}</span>` : ''}</div>
       ${bud ? `<div class="cx-bud"><div class="cx-bud-l"><small>الميزانية ${fmtKWDHtml(bud)}</small><small>${pc}%</small></div><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,pc)}%;background:${pc>=100?'var(--red)':pc>=80?'#c27c0e':'var(--green,#16794a)'};"></div></div></div>` : ''}
@@ -16983,7 +17040,7 @@ function cxCenterDetailHtml(){
   const has = cxHasItems(), tid = cxTargetId(), c = cxUnit(tid) || root, all = has && !state.cx.itemId;
   const itemPick = has ? `<label class="cx-mini cx-mini-lg"><span>البند</span><select data-on-change="cxSelectItem" data-on-change-args="${qa([QA.v])}"><option value="" ${all?'selected':''}>كل المركز (مجمّع)</option>${cxUnitOptionsHtml(state.cx.itemId)}</select></label>` : '';
   const stage = fin
-    ? `<label class="cx-mini cx-mini-md"><span>الحالة${all?' (المركز)':''}</span><select class="cx-st-sel cx-st-${escH(c.stage)}" data-on-change="cxSetStage" data-on-change-args="${qa([c.id, QA.v])}">${CX_STAGES.map(s=>`<option value="${s[0]}" ${c.stage===s[0]?'selected':''}>${s[1]}</option>`).join('')}</select></label>`
+    ? `<label class="cx-mini cx-mini-md"><span>الحالة${all?' (المركز)':''}</span><select class="cx-st-sel cx-st-${escH(c.stage)}" data-on-change="cxStageChange" data-on-change-args="${qa([c.id, QA.v])}">${CX_STAGES.map(s=>`<option value="${s[0]}" ${c.stage===s[0]?'selected':''}>${s[1]}</option>`).join('')}</select></label>`
     : `<div class="cx-mini cx-mini-md"><span>الحالة</span>${cxStageBadge(c)}</div>`;
   const ids = cxScopeIds(), b = cxAgg(ids), bal = Number(b.balance||0);
   const lacking = ids.filter(x=>!(state.cx.ledger||[]).some(l=>l.center_id===x && l.kind==='opening' && !l.voided));
@@ -16995,8 +17052,9 @@ function cxCenterDetailHtml(){
     <p class="sub">دخل المركز وبنوده ومصروفها وحركاتها. الدخل صافٍ بعد رسوم البوابة وحصة الشركة.</p>
     <div class="card cx-hero">
       <div class="cx-hero-t"><h2>${escH(c.name)}${all?' <small class="cx-h-sm">— كل المركز</small>':''}</h2><div class="file-hint">${sub}${c.balanceControl ? ' · ضبط الرصيد مفعّل' : ''}</div>
-        <div class="cx-tags">${cxUnitTags(c)}</div>${c.description ? `<div class="cx-desc-line">${escH(c.description)}</div>` : ''}</div>
+        <div class="cx-tags">${cxUnitTags(c)}</div>${c.description ? `<div class="cx-desc-line">${escH(c.description)}</div>` : ''}${cxStageNoteHtml(c)}</div>
       <div class="cx-hero-c">${picker}${itemPick}${stage}</div>
+      ${fin ? cxStagePendHtml() : ''}
     </div>
     <div class="cx-stats">
       ${cxStat('الدخل الصافي', fmtKWDHtml(b.income))}${cxStat('المصروف المكتمل', fmtKWDHtml(b.expense))}
@@ -17054,12 +17112,13 @@ function renderCenterBooks(app){
           <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.expense||0)/mx2*100))}%;background:#c27c0e;"></div></div><b class="cx-bv">${fmtKWDHtml(b.expense)}</b></div></div></div>`).join('')}
       </div></div>` : ''}
     <div class="cx-cards">${rows.map(({c,b,sub})=>{ const v = Number(b.balance||0); const names = sub.map(cxUnit).filter(Boolean);
-      return `<div class="cx-card" data-on-click="cxOpenCenter" data-on-click-args="${qa([c.id])}" role="button" tabindex="0">
+      return `<div class="cx-card" data-on-click="cxOpenCenter" data-on-click-args="${qa([c.id])}" role="button" tabindex="0" title="فتح دفتر «${escH(c.name)}»">
       <div class="cx-card-h"><div><b>${escH(c.name)}</b><div class="file-hint">${c.clientId ? escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}</div>${c.description ? `<div class="cx-desc-line">${escH(c.description)}</div>` : ''}</div>${cxStageBadge(c)}</div>
       <div class="cx-card-bal"><small>الرصيد${names.length?' مع البنود':''}</small><b ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</b></div>
       <div class="cx-card-g"><div><small>الدخل</small>${fmtKWDHtml(b.income)}</div><div><small>المصروف</small>${fmtKWDHtml(b.expense)}</div><div><small>طلبات مفتوحة</small>${fmtKWDHtml(b.pending_requests)}</div></div>
-      ${names.length ? `<div class="cx-card-items">${names.slice(0,4).map(u=>{ const ub = Number(cxB(u.id).balance||0); return `<span class="cx-tag${ub<0?' cx-tag-neg':''}">${escH(u.name)}</span>`; }).join('')}${names.length>4?`<span class="cx-tag">+${names.length-4}</span>`:''}</div>` : ''}
-      <div class="cx-card-f">فتح الدفتر ←</div></div>`; }).join('') || `<div class="card">${(state.cx.balances||[]).length || state.cx._balLoaded ? 'لا توجد مراكز متاحة لك.' : 'جارٍ التحميل…'}</div>`}</div>`;
+      ${cxStageNoteHtml(c)}
+      ${names.length ? `<div class="cx-card-items">${names.slice(0,4).map(u=>{ const ub = Number(cxB(u.id).balance||0), sus = u.stage==='suspended'; return `<span class="cx-tag${ub<0||sus?' cx-tag-neg':''}" ${sus?'title="متوقف"':''}>${escH(u.name)}${sus?' · متوقف':''}</span>`; }).join('')}${names.length>4?`<span class="cx-tag">+${names.length-4}</span>`:''}</div>` : ''}
+      </div>`; }).join('') || `<div class="card">${(state.cx.balances||[]).length || state.cx._balLoaded ? 'لا توجد مراكز متاحة لك.' : 'جارٍ التحميل…'}</div>`}</div>`;
 }
 
 // ===================== استيراد بوابة الدفع =====================
