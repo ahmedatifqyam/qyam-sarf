@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.9.3', APP_VERSION_DATE = '2026-11-14';
+const APP_VERSION = '1.9.4', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.3, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:350, base:350, extra:0.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -3316,6 +3316,7 @@ function impersonateUser(userId){
   state.impersonatingFromAdmin = state.user.id; state._impSeenAt = 0;
   state.user = {id: target.id, role: target.role, name: target.name};
   setupCompanyAccess(target);
+  state.cx.balances = []; state.cx.centerId = null; state.cx.itemId = ''; loadCxLight();
   state.view = 'dashboard';
   showToast('تتصفح الآن كـ: ' + target.name + ' (' + findRole(target.role).name + ')', 'success');
   render();
@@ -3327,6 +3328,7 @@ function returnToAdmin(){
   assistantReset(); state.dashOwner='all';
   state.user = {id: admin.id, role: admin.role, name: admin.name};
   setupCompanyAccess(admin);
+  state.cx.balances = []; state.cx.centerId = null; state.cx.itemId = ''; loadCxLight();
   state.impersonatingFromAdmin = null;
   state.view = 'admin';
   render();
@@ -16430,9 +16432,10 @@ function cxUsersOfCompany(){
 }
 
 function canSeeClients(){ return !!state.user && pageLevel('clients')!=='none'; }
+// لوحة المراكز (كل المراكز معاً): المالية والمدير التنفيذي، ومن أُعطي رؤية مراكز أخرى. موظف المركز يرى دفتر مركزه فقط
 function canSeeCenterBooks(){
   if(!state.user || pageLevel('centerBooks')==='none') return false;
-  return cxIsFin() || !!cxMyCenterId() || (state.cx.myAccess||[]).some(a=>a.mode==='allow');
+  return cxSeesAllCenters() || (state.cx.myAccess||[]).some(a=>a.mode==='allow');
 }
 function cxIsImporter(){
   if(!state.user) return false;
@@ -16643,10 +16646,21 @@ function cxUnit(id){ return (state.centers||[]).find(x=>x.id===id); }
 function cxRootOf(id){ let root = id; [id, ...unitAncestorIds(id)].forEach(x=>{ const u = cxUnit(x); if(u && u.kind==='center') root = x; }); return root; }
 function cxBalSet(){ return new Set((state.cx.balances||[]).map(b=>b.center_id)); }
 // جذر العرض: أعلى وحدة يراها المستخدم في السلسلة حتى جذر المركز (موظف النادي يرى ناديه جذراً)
-function cxViewRoot(id){ const vis = cxBalSet(), root = cxRootOf(id); let top = id; for(const x of [id, ...unitAncestorIds(id)]){ if(!vis.size || vis.has(x)) top = x; if(x===root) break; } return top; }
-function cxSubIds(rootId){ const vis = cxBalSet(); return unitDescendantIds(rootId).filter(x=>!vis.size || vis.has(x)); }
+// مرئي: من الأرصدة بعد تحميلها، وقبلها بقواعد الرؤية نفسها
+function cxVis(){ const vis = cxBalSet(); return id => vis.size ? vis.has(id) : cxCanSeeUnit(id); }
+function cxViewRoot(id){ const ok = cxVis(), root = cxRootOf(id); let top = id; for(const x of [id, ...unitAncestorIds(id)]){ if(ok(x)) top = x; if(x===root) break; } return top; }
+function cxSubIds(rootId){ const ok = cxVis(); return unitDescendantIds(rootId).filter(ok); }
 function cxIsBookUnit(u){ return u.kind==='center' || unitAncestorIds(u.id).some(x=>{ const p = cxUnit(x); return p && p.kind==='center'; }); }
 // ---------- موظف المركز: من وحدته «مركز» أو تحت مركز، وليس من المالية أو الإدارة ----------
+function cxSeesAllCenters(){ return cxIsFin() || (!!state.user && state.user.role==='executive_manager'); }
+// ما يراه المستخدم من الوحدات (مطابق لـ qy_center_can_see) — يُطبَّق في الواجهة أيضاً حتى يصح «عرض كمستخدم»
+function cxCanSeeUnit(id){
+  if(cxSeesAllCenters()) return true;
+  const acc = (state.cx.myAccess||[]).filter(a=>a.center_id===id);
+  if(acc.some(a=>a.mode==='deny')) return false;
+  if(acc.some(a=>a.mode==='allow')) return true;
+  const my = cxMyCenterId(); return !!my && (id===my || unitAncestorIds(id).includes(my));
+}
 function cxIsBookUnitId(id){ const u = cxUnit(id); return !!u && cxIsBookUnit(u); }
 // وحدة المستخدم من سجله في قائمة المستخدمين (state.user لا يحمل وحدته)، فيعمل أيضاً في «عرض كمستخدم»
 function cxMyCenterId(){ if(!state.user) return null; const me = (state.users||[]).find(x=>x.id===state.user.id); return (me && me.centerId) || state.user.centerId || null; }
@@ -16698,8 +16712,8 @@ function cxSubTree(rootId){
   visit(rootId, 0); return out;
 }
 function cxVisibleCenters(){
-  const vis = cxBalSet(), set = new Set();
-  (state.centers||[]).filter(c=>c.companyId===cxCid() && (!vis.size || vis.has(c.id))).forEach(c=>{
+  const ok = cxVis(), set = new Set();
+  (state.centers||[]).filter(c=>c.companyId===cxCid() && ok(c.id)).forEach(c=>{
     const b = cxB(c.id);
     if(cxIsBookUnit(c) || Math.abs(Number(b.income||0)) + Math.abs(Number(b.expense||0)) > 0) set.add(cxViewRoot(c.id));
   });
@@ -16739,7 +16753,7 @@ function cxSelectItem(id){ state.cx.itemId = id||''; cxResetLedgerView(); render
 async function cxLoadBalances(){
   const r = await db.rpc('qy_center_balances', {p_company: cxCid()});
   if(await dbCheck(r,'تحميل أرصدة المراكز')){
-    state.cx.balances = r.data||[]; state.cx._balLoaded = true;
+    state.cx.balances = (r.data||[]).filter(b=>cxCanSeeUnit(b.center_id)); state.cx._balLoaded = true;
     // جذر محدد لم يعد جذراً (مثلاً حُمّلت الأرصدة بعد الاختيار): انتقل لجذر عرضه
     if(state.cx.centerId && cxViewRoot(state.cx.centerId)!==state.cx.centerId){ state.cx.itemId = state.cx.centerId; state.cx.centerId = cxViewRoot(state.cx.centerId); }
     if(state.view==='centerBooks' || state.view==='centerBook') render();
