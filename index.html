@@ -693,6 +693,10 @@
   .nav-logout svg{display:block;}
   .db-badge{position:fixed;right:0;bottom:0;height:55px;width:176px;z-index:52;display:flex;align-items:center;justify-content:center;gap:8px;background:transparent;border:none;border-left:1px solid rgba(255,255,255,.08);color:#9FC2DB;font-family:inherit;font-size:var(--fs-hint);cursor:pointer;direction:ltr;}
   .db-badge:hover{color:#fff;background:rgba(255,255,255,.07);}
+  .db-badge{flex-direction:column;gap:2px !important;} .db-badge .db-l1{display:flex;align-items:center;gap:8px;}
+  .db-badge .db-ver{font-size:var(--fs-xs);font-weight:600;color:#9FC2DB;opacity:.85;white-space:nowrap;direction:rtl;}
+  .db-badge.db-badge-ver{cursor:default;} .db-badge.db-badge-ver:hover{background:transparent;color:#9FC2DB;}
+  .nav-ver{padding:6px 12px 10px;font-size:var(--fs-xs);color:rgba(255,255,255,.55);text-align:center;}
   .db-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
   .db-dot.ok{background:#3FBF7F;} .db-dot.bad{background:#E05252;}
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;}
@@ -1764,11 +1768,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .cx-rep-h{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:40px;}
   .cx-rep-h h3{margin:0;font-size:var(--fs-h3);}
   .cx-rep-g{display:grid;gap:8px;align-items:center;}
-  .cx-rep-ph{grid-template-columns:minmax(0,1fr) var(--fw-sm) 70px;}
-  .cx-rep-ct{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) var(--fw-md) minmax(0,1.2fr) 70px;}
+  .cx-rep-ph{grid-template-columns:minmax(0,1fr) var(--fw-sm) 40px;}
+  .cx-rep-ct{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) var(--fw-md) minmax(0,1.2fr) 40px;}
+  .cx-pair2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0;}
   .cx-rep-head span{font-size:var(--fs-label);font-weight:700;color:var(--text);}
   #app .cx-rep-g input,#app .cx-rep-g select{width:100% !important;max-width:none !important;height:40px;box-sizing:border-box;margin:0;}
-  #app .cx-rep-g .btn{width:70px;min-width:0;}
   #app .cx-rep textarea{width:100% !important;max-width:none !important;box-sizing:border-box;margin:0;flex:1 1 auto;min-height:88px;}
   .cx-rep-empty{padding:10px 12px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:var(--fs-hint);}
   @media (max-width:699px){
@@ -1776,7 +1780,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .cx-cform .uf-flex > .f-lg{flex:1 1 100%;} #app .cx-cform .uf-flex > .f-lg select{width:100% !important;}
     .cx-rep-ct.cx-rep-head{display:none;}
     .cx-rep-ct{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px;border:1px solid var(--line);border-radius:10px;background:#fcfbf8;}
-    .cx-rep-ct .btn{grid-column:2;justify-self:end;}
+    .cx-rep-ct{grid-template-columns:repeat(2,minmax(0,1fr)) ;} .cx-rep-ct .btn{grid-column:2;justify-self:end;}
   } .cx-card-f{margin-top:auto;}
   #app.cxv table td.cx-item{width:14%;max-width:0;font-weight:700;}
   .cx-tag-red{color:var(--red);font-weight:700;}
@@ -1969,6 +1973,14 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .qyl-sc-exp{padding:4px 8px;align-items:center;}
   .qyl-sum-all{border-color:#b9cde4;} .qyl-sum-all .qyl-sc{border-color:#d3e0ee;} .qyl-sum-all .qyl-sc-h{background:var(--blue-bg);color:var(--blue);}
   .qyl-sc-exp{border-inline-start:0 !important;}
+  /* جدول العملاء والملفات: الاسم بعرض مناسب، والهاتف وجهات الاتصال سطراً لكل قيمة */
+  #app table td.cx-cname{width:28%;} #app table td.cx-cphone{width:18%;white-space:nowrap;} #app table td.cx-cct{width:24%;}
+  .cx-ln{line-height:1.5;} .cx-ln small{color:var(--muted);font-size:var(--fs-hint);font-weight:600;}
+  #app table td.cx-fname{width:45%;word-break:break-all;line-height:1.45;}
+  #app table td.cx-period small{display:inline-block;min-width:24px;color:var(--muted);font-size:var(--fs-hint);font-weight:700;}
+  /* صندوق بلا أعمدة مبالغ: سطر واحد (العنوان، العدد، التصدير) */
+  .qyl-sum.qyl-sum-q0{display:flex;} .qyl-sum-q0 .qyl-sc-h{flex:0 0 170px;} .qyl-sum-q0 .qyl-sc-n{flex:1 1 auto;} .qyl-sum-q0 .qyl-sc-exp{flex:0 0 auto;margin-inline-start:auto;}
+  .qyl-sum-none .qyl-sc-h{flex:1 1 auto;}
   /* زر «تصدير» الموحّد وقائمته */
   .qy-exp{position:relative;display:inline-block;}
   #app .qy-exp .qy-exp-btn{width:105px !important;min-width:105px;height:40px;padding:0 6px !important;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
@@ -2004,7 +2016,8 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .qyl-bar .qyl-date{flex:1 1 0;width:auto !important;}
     .qyl-exp{margin:0;}
     .qyl-sum{display:flex;flex-wrap:wrap;} .qyl-sc{flex:1 1 45%;min-width:0;padding:8px 10px;border-top:1px solid var(--line);} .qyl-sc-h{flex:1 1 100%;border-top:0;}
-    .qyl-sc-exp{flex:1 1 100%;} .qyl-nav-bulk{justify-content:center;} .qyl-bulk{width:100%;} .qyl-bulk select{flex:1 1 auto;width:auto !important;}
+    .qyl-sc-exp{flex:1 1 100%;}
+    .qyl-sum.qyl-sum-q0{flex-wrap:nowrap;} .qyl-sum-q0 .qyl-sc{border-top:0;} .qyl-sum-q0 .qyl-sc-h{flex:0 0 auto;max-width:45%;} .qyl-sum-q0 .qyl-sc-n{flex:1 1 auto;} .qyl-sum-q0 .qyl-sc-exp{flex:0 0 auto;} .qyl-nav-bulk{justify-content:center;} .qyl-bulk{width:100%;} .qyl-bulk select{flex:1 1 auto;width:auto !important;}
     .cx-ph-tools{width:100%;} .cx-ph-tools .qy-search{flex:1 1 100%;width:100% !important;}
   }
   /* توحيد أحجام خطوط الجداول: العنوان 14 عريض، المحتوى 13.5 */
@@ -2658,6 +2671,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=b19efe2ddb"></script>
+<script src="app.js?v=22a376c6dc"></script>
 </body>
 </html>

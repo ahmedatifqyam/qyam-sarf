@@ -1,4 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
+// رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
+const APP_VERSION = '1.6.1', APP_VERSION_DATE = '2026-11-13';
+function appVersionText(){ return 'الإصدار ' + APP_VERSION + ' · ' + APP_VERSION_DATE.split('-').reverse().join('-'); }
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 
 // ═════════════ أوامر الواجهة بلا كود مضمَّن (سياسة أمان المحتوى) ═════════════
@@ -907,13 +910,15 @@ function copyDbRef(){
 }
 function renderDbBadge(){
   let el = document.getElementById('dbBadge');
-  const show = !!state.user && state.user.role==='admin' && !state.impersonatingFromAdmin && state.view!=='login';
+  const show = !!state.user && !state.impersonatingFromAdmin && state.view!=='login';
+  const adm = state.user && state.user.role==='admin';
   document.body.classList.toggle('has-dbbadge', show);
   if(!show){ if(el) el.remove(); return; }
-  if(!el){ el = document.createElement('button'); el.id = 'dbBadge'; el.type='button'; el.className='db-badge no-print'; el.onclick = copyDbRef; document.body.appendChild(el); }
+  if(!el){ el = document.createElement('button'); el.id = 'dbBadge'; el.type='button'; el.className='db-badge no-print'; document.body.appendChild(el); }
+  el.onclick = adm ? copyDbRef : null; el.classList.toggle('db-badge-ver', !adm);
   const ref = dbProjectRef(); const short = ref.length>14 ? ref.slice(0,9)+'…'+ref.slice(-3) : ref;
-  el.title = 'مشروع قاعدة البيانات الذي يتصل به التطبيق: '+ref+' — اضغط للنسخ';
-  el.innerHTML = `<span class="db-dot ${window._dbLastOk?'ok':'bad'}"></span><span class="db-ref">🗄 ${escH(short)}</span>`;
+  el.title = adm ? 'مشروع قاعدة البيانات الذي يتصل به التطبيق: '+ref+' — اضغط للنسخ\n'+appVersionText() : appVersionText();
+  el.innerHTML = (adm ? `<span class="db-l1"><span class="db-dot ${window._dbLastOk?'ok':'bad'}"></span><span class="db-ref">🗄 ${escH(short)}</span></span>` : '') + `<span class="db-ver">${escH(appVersionText())}</span>`;
 }
 function renderBrand(){
   const box = document.getElementById('brandBox'); if(!box) return;
@@ -3137,7 +3142,7 @@ function renderAppNavInner(){
   nav.innerHTML = `
     <div class="nav-head"><button type="button" class="nav-toggle" ${qon('click', mode==='drawer'?[["closeNavDrawer",[]]]:[["toggleNav",[]]])} title="${mode==='drawer'?'إغلاق':'طيّ/فتح القائمة'}">${mode==='drawer'?'✕':'☰'}</button><span class="nav-title">القائمة</span></div>
     <nav class="nav-list">${navTopItems().map(itemHtml).join('')}</nav>
-    <div class="nav-foot"><div class="nav-user${state.view==='account'?' on':''}" role="button" tabindex="0" title="حسابي — ${escH(state.user.name)} · ${escH(findRole(state.user.role).name)}" ${qon('click', navClick([["#10",[]]]))} data-on-keydown="#35"><div class="nav-avatar">${avSrc(state.user.id) ? `<img src="${escH(avSrc(state.user.id))}" alt="">` : escH((state.user.name||'?').trim().charAt(0))}</div><div class="nav-uinfo"><div class="nav-uname">${escH(state.user.name)}</div><div class="nav-urole">${escH(findRole(state.user.role).name)}</div></div></div><button type="button" class="nav-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج" ${qon('click', navClick([["logout",[]]]))}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>خروج</span></button></div>`;
+    <div class="nav-foot"><div class="nav-user${state.view==='account'?' on':''}" role="button" tabindex="0" title="حسابي — ${escH(state.user.name)} · ${escH(findRole(state.user.role).name)}" ${qon('click', navClick([["#10",[]]]))} data-on-keydown="#35"><div class="nav-avatar">${avSrc(state.user.id) ? `<img src="${escH(avSrc(state.user.id))}" alt="">` : escH((state.user.name||'?').trim().charAt(0))}</div><div class="nav-uinfo"><div class="nav-uname">${escH(state.user.name)}</div><div class="nav-urole">${escH(findRole(state.user.role).name)}</div></div></div><button type="button" class="nav-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج" ${qon('click', navClick([["logout",[]]]))}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>خروج</span></button></div>${mode==='drawer' ? `<div class="nav-ver">${escH(appVersionText())}</div>` : ''}`;
 }
 let _navResizeT=null;
 window.addEventListener('resize', ()=>{ clearTimeout(_navResizeT); _navResizeT=setTimeout(()=>{ if(state.navDrawer && window.innerWidth>=700) state.navDrawer=false; renderAppNav(); },80); });
@@ -7383,7 +7388,7 @@ function iconActs(){
   const app = document.getElementById('app'); if(!app) return;
   app.querySelectorAll('.btn').forEach(b=>{
     if(b.classList.contains('btn-ico') || b.closest('.modal-overlay,.mtab-sheet,.gfb-actions,[data-bar-actions]')) return;
-    if(!b.closest('.list-item,table,.tcards,.cus-li,.rec-li')) return;
+    if(!b.closest('.list-item,table,.tcards,.cus-li,.rec-li,.cx-rep-g')) return;
     const t = (b.textContent||'').replace(/\s+/g,' ').trim();
     const kind = /^حذف( نهائي| الصورة)?$/.test(t) ? 'del' : (t==='تعديل' ? 'edit' : '');
     if(!kind || !b.querySelector('svg')) return;
@@ -16520,10 +16525,10 @@ function cxClientFormHtml(){
       ${inp('cxc_name','الاسم *',d.name,'placeholder="مثال: جمعية إحياء التراث الإسلامي"')}
       ${inp('cxc_name_en','الاسم بالإنجليزية',d.name_en,'dir="ltr"')}
     </div>
-    <div class="uf-flex">
-      <div class="f-md"><label for="cxc_kind">النوع</label><select id="cxc_kind">${opt(CX_CLIENT_KIND, d.kind)}</select></div>
-      <div class="f-sm"><label for="cxc_status">الحالة</label><select id="cxc_status"><option value="active" ${d.status==='active'?'selected':''}>نشط</option><option value="inactive" ${d.status==='inactive'?'selected':''}>موقوف</option></select></div>
-      <div class="f-lg"><label for="cxc_parent">يتبع</label><select id="cxc_parent"><option value="">— عميل رئيسي —</option>${parents.map(c=>`<option value="${c.id}" ${c.id===d.parent_id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
+    <div class="uf-grid uf-2b">
+      <div class="cx-pair2"><div><label for="cxc_kind">النوع</label><select id="cxc_kind">${opt(CX_CLIENT_KIND, d.kind)}</select></div>
+      <div><label for="cxc_status">الحالة</label><select id="cxc_status"><option value="active" ${d.status==='active'?'selected':''}>نشط</option><option value="inactive" ${d.status==='inactive'?'selected':''}>موقوف</option></select></div></div>
+      <div><label for="cxc_parent">يتبع</label><select id="cxc_parent"><option value="">— عميل رئيسي —</option>${parents.map(c=>`<option value="${c.id}" ${c.id===d.parent_id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
     </div>
 
     <h3 class="uf-h">التواصل والعنوان</h3>
@@ -16570,10 +16575,11 @@ function renderClients(app){
   const tree = cxClientTree(), cs = state.centers||[];
   const rows = tree.map(({c,depth})=>{
     const kn = (CX_CLIENT_KIND.find(k=>k[0]===c.kind)||[0,c.kind])[1];
-    const ph = (c.phones||[]).map(p=>`<bdi dir="ltr">${escH(p.number)}</bdi>`).join('، ') || '—';
+    const ph = (c.phones||[]).filter(p=>p.number).map(p=>`<div class="cx-ln"><bdi dir="ltr">${escH(p.number)}</bdi> <small>${escH((CX_PHONE_TYPE.find(t=>t[0]===p.type)||[0,''])[1])}</small></div>`).join('') || '—';
+    const ct = (c.contacts||[]).filter(x=>x.name).map(x=>`<div class="cx-ln"><b>${escH(x.name)}</b>${x.title?` <small>${escH(x.title)}</small>`:''}</div>`).join('') || '—';
     const nCent = cs.filter(x=>x.clientId===c.id && x.companyId===cxCid()).length;
-    return `<tr><td data-label="" class="cx-desc" style="padding-inline-start:${10+depth*22}px;">${depth ? '<span class="cx-meta" style="display:inline">↳ </span>' : ''}<b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="cx-badge cx-st-closed">موقوف</span>' : ''}${c.name_en?`<div class="cx-meta" dir="ltr" style="text-align:right">${escH(c.name_en)}</div>`:''}</td>
-      <td data-label="النوع"><span class="cx-badge">${escH(kn)}</span></td><td data-label="الهاتف">${ph}</td><td data-label="جهات الاتصال"><div class="cx-clip">${(c.contacts||[]).length ? escH(c.contacts.map(x=>x.name).filter(Boolean).join('، ')) : '—'}</div></td><td data-label="المراكز" class="num">${nCent || '—'}</td>
+    return `<tr><td data-label="" class="cx-cname" style="padding-inline-start:${10+depth*22}px;">${depth ? '<span class="cx-meta" style="display:inline">↳ </span>' : ''}<b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="cx-badge cx-st-closed">موقوف</span>' : ''}${c.name_en?`<div class="cx-meta" dir="ltr" style="text-align:right">${escH(c.name_en)}</div>`:''}</td>
+      <td data-label="النوع"><span class="cx-badge">${escH(kn)}</span></td><td data-label="الهاتف" class="cx-cphone">${ph}</td><td data-label="جهات الاتصال" class="cx-cct">${ct}</td><td data-label="المراكز" class="num">${nCent || '—'}</td>
       <td class="cx-act"><div>
         <button class="btn btn-ghost btn-xs" data-on-click="cxNewClient" data-on-click-args="${qa([c.id])}">+ فرع</button>
         <button class="btn btn-ghost btn-xs" data-on-click="cxEditClient" data-on-click-args="${qa([c.id])}">تعديل</button>
@@ -16584,7 +16590,7 @@ function renderClients(app){
     <p class="sub">الجمعيات والجهات التي تتعامل معها الشركة، وفروعها تحتها. يُربط المركز بعميل من «دفتر المركز ← إعدادات المركز».</p>
     ${state.cx.cEditId ? cxClientFormHtml() : ''}
     <div class="card cx-panel"><div class="cx-panel-h"><div><h2>العملاء</h2><div class="file-hint">${tree.length} عميل</div></div>${state.cx.cEditId ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ عميل جديد</button>`}</div>
-    <table class="exec-table cx-tbl" data-qyl="clients" data-qyl-title="العملاء"><thead><tr><th>الاسم</th><th>النوع</th><th>الهاتف</th><th>جهات الاتصال</th><th class="num">المراكز</th><th style="width:240px;"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <table class="exec-table cx-tbl" data-qyl="clients" data-qyl-title="العملاء"><thead><tr><th>الاسم</th><th>النوع</th><th>الهاتف</th><th>جهات الاتصال</th><th class="num">المراكز</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 // ===================== دفاتر المراكز =====================
@@ -17465,8 +17471,8 @@ function renderGwImport(app){
     ${gwPendingHtml()}
     <div class="card cx-panel"><div class="cx-panel-h"><h2>الملفات المرفوعة</h2><span class="file-hint">تُحفظ كاملة ويمكن تنزيلها</span></div>
       <table class="exec-table cx-tbl" data-qyl="gwFiles" data-qyl-title="ملفات بوابة الدفع المرفوعة"><thead><tr><th>تاريخ الرفع</th><th>النوع</th><th>الملف</th><th>الفترة</th><th class="num">الصفوف</th><th></th></tr></thead><tbody>
-      ${hist.map(x=>`<tr data-date="${escH(String(x.uploaded_at||'').slice(0,10))}"><td data-label="تاريخ الرفع" class="cx-nowrap">${cxDate(String(x.uploaded_at||'').slice(0,10))}</td><td data-label="النوع"><span class="cx-badge">${x.kind==='statement'?'كشف حساب':'فواتير'}</span></td><td data-label="الملف"><div class="cx-clip" title="${escH(x.file_name)}">${escH(x.file_name)}</div></td>
-        <td data-label="الفترة" class="cx-nowrap">${cxDate(x.date_from)} ← ${cxDate(x.date_to)}</td><td data-label="الصفوف" class="num">${x.rows_count}</td>
+      ${hist.map(x=>`<tr data-date="${escH(String(x.uploaded_at||'').slice(0,10))}"><td data-label="تاريخ الرفع" class="cx-nowrap">${cxDate(String(x.uploaded_at||'').slice(0,10))}</td><td data-label="النوع"><span class="cx-badge">${x.kind==='statement'?'كشف حساب':'فواتير'}</span></td><td data-label="الملف" class="cx-fname"><bdi dir="ltr">${escH(x.file_name)}</bdi></td>
+        <td data-label="الفترة" class="cx-nowrap cx-period"><div><small>من</small> ${cxDate(x.date_from)}</div><div><small>إلى</small> ${cxDate(x.date_to)}</div></td><td data-label="الصفوف" class="num">${x.rows_count}</td>
         <td class="cx-act"><button class="btn btn-ghost btn-xs" data-on-click="gwDownload" data-on-click-args="${qa([x.id])}">تنزيل</button></td></tr>`).join('') || '<tr class="cx-empty"><td colspan="6">لا توجد ملفات.</td></tr>'}
       </tbody></table></div>
     ${gwMappingHtml()}
@@ -17580,7 +17586,7 @@ function qylApply(el, force){
   // التذييل: التنقل + مجموع المعروض + إجمالي الفترة
   const cols = qylSumCols(el), sumShown = qylSums(el, cols, shown), sumAll = qylSums(el, cols, inP);
   const expCell = (!hasBar && canExp) ? `<div class="qyl-sc qyl-sc-exp">${qyExportBtn('qyl:'+key)}</div>` : '';
-  const sumLine = (lab, cnt, arr, cls, exp) => `<div class="qyl-sum ${cls}" style="--qn:${arr.length};--qe:${exp?'auto':'0px'}"><div class="qyl-sc qyl-sc-h">${lab}</div><div class="qyl-sc qyl-sc-n"><small>العدد</small><b>${cnt}</b></div>${arr.map(x=>`<div class="qyl-sc"><small>${escH(x.label)}</small><b>${fmtKWDHtml(x.v)}</b></div>`).join('')}${exp||''}</div>`;
+  const sumLine = (lab, cnt, arr, cls, exp) => `<div class="qyl-sum ${cls}${arr.length?'':' qyl-sum-q0'}" style="--qn:${arr.length};--qe:${exp?'auto':'0px'}"><div class="qyl-sc qyl-sc-h">${lab}</div><div class="qyl-sc qyl-sc-n"><small>العدد</small><b>${cnt}</b></div>${arr.map(x=>`<div class="qyl-sc"><small>${escH(x.label)}</small><b>${fmtKWDHtml(x.v)}</b></div>`).join('')}${exp||''}</div>`;
   const foot = document.createElement('div'); foot.className = 'qyl-foot no-print'; foot.setAttribute('data-qyl-foot', key);
   const bulkTpl = el.getAttribute('data-qyl-bulk') && document.getElementById(el.getAttribute('data-qyl-bulk'));
   const bulk = bulkTpl ? `<div class="qyl-bulk">${bulkTpl.innerHTML}</div>` : '';
@@ -17589,7 +17595,7 @@ function qylApply(el, force){
       <span class="qyl-pos"><b>${n ? a+1 : 0}–${b}</b> من <b>${n}</b></span>
       <button type="button" class="btn btn-ghost btn-sm qyl-pg" data-no-ico data-on-click="qylPage" data-on-click-args="${qa([key,1])}" ${s.page>=pages-1?'disabled':''}>التالي ←</button></div>` : '';
   foot.innerHTML = `${pager || bulk ? `<div class="qyl-nav${bulk ? ' qyl-nav-bulk' : ''}">${pager}${bulk}</div>` : ''}
-    ${!n ? `<div class="qyl-sum" style="--qn:0;--qe:${expCell?'auto':'0px'}"><div class="qyl-sc qyl-sc-h">لا توجد سجلات في ${escH(rg.label||'هذا العرض')}</div>${expCell}</div>`
+    ${!n ? `<div class="qyl-sum qyl-sum-q0 qyl-sum-none" style="--qn:0;--qe:${expCell?'auto':'0px'}"><div class="qyl-sc qyl-sc-h">لا توجد سجلات في ${escH(rg.label||'هذا العرض')}</div>${expCell}</div>`
       : n > shown.length ? sumLine('المعروض', shown.length, sumShown, '') : ''}
     ${n ? sumLine(hasDate ? 'إجمالي ' + rg.label : 'الإجمالي', n, sumAll, 'qyl-sum-all', expCell) : ''}`;
   if(anchor.nextSibling) par.insertBefore(foot, anchor.nextSibling); else par.appendChild(foot);
