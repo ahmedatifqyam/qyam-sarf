@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.8.1', APP_VERSION_DATE = '2026-11-13';
+const APP_VERSION = '1.9.0', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:135, since:'2026-09-07', days:46, updates:369};
+const APP_WORK = {hours:136, since:'2026-09-07', days:46, updates:370};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -2633,6 +2633,7 @@ function viewAllowed(v){
   const u = state.user; if(!u || u.role==='admin') return true;
   if(v==='newRequest' && state.editingReqId) return pageLevel('editreq')!=='none';   // التعديل له صلاحيته الخاصة
   if(v==='newCustody' && state.custodyDraft && state.custodyDraft.reqId) return pageLevel('editreq')!=='none';
+  if(v==='centerBook' && isCenterStaff()) return true;   // موظف المركز يرى دفتر مركزه دائماً للاطلاع
   const k = VIEW_PAGE_KEY[v];
   return !k || pageLevel(k)!=='none';
 }
@@ -3053,9 +3054,10 @@ function navSections(){
     out.push({key:'cus', ico:'case', label:'العهد', count:kN, pages:cpages});
   }
   if(canSeeRevenues()) out.push({key:'rev', ico:'cash', label:'الإيرادات', pages:[{label:'الإيرادات', views:['revenues'], js:[["openRevenues",[0]]]}]});
-  if(canSeeCenterBooks() || canSeeGwImport()){
+  if(canSeeCenterBook() || canSeeGwImport()){
     const pg = [];
-    if(canSeeCenterBooks()){ pg.push({label:'لوحة المراكز', views:['centerBooks'], js:[["openCenterBooks",[]]]}); pg.push({label:'دفتر المركز', views:['centerBook'], js:[["openCenterBook",[]]]}); }
+    if(canSeeCenterBooks()) pg.push({label:'لوحة المراكز', views:['centerBooks'], js:[["openCenterBooks",[]]]});
+    if(canSeeCenterBook()) pg.push({label:'دفتر المركز', views:['centerBook'], js:[["openCenterBook",[]]]});
     if(canSeeGwImport()) pg.push({label:'استيراد البوابة', views:['gwImport'], js:[["openGwImport",[]]]});
     out.push({key:'cbk', ico:'building', label:'المراكز', pages:pg});
   }
@@ -4373,7 +4375,9 @@ async function submitDraftInner(){
   const detailedReasonInput = (d.detailedReason||'').trim();
   if(!reasonInput){ fieldErr('#reasonInput', 'الرجاء إدخال عنوان الطلب'); return; }
   // «بند غير محدد» يُخزَّن NULL ويمرّ — الصرف هو ما يتوقف لاحقاً لا الإرسال
-  const rawBudget = d.budgetItemId || '';
+  const staffReq = isCenterStaff();
+  if(staffReq && !state.editingReqId && !cxReqUnits().some(x=>x.u.id===d.centerUnitId)){ showToast('لا يمكن إنشاء طلب الآن: مركزك أو بندك غير مفتوح للطلبات','error'); return; }
+  const rawBudget = staffReq ? UNSPECIFIED_BUDGET : (d.budgetItemId || '');
   if(!rawBudget){ fieldErr('#budgetItemSelect', 'الرجاء اختيار بند الميزانية، أو «بند غير محدد» إن لم يناسبك أيٌّ منها'); return; }
   const budgetItemId = (rawBudget === UNSPECIFIED_BUDGET) ? null : rawBudget;
   const beneficiaries = [];
@@ -4561,7 +4565,7 @@ async function createNewRequest(o){
     createdBy: state.user.name,
     createdById: state.user.id,
     origin: 'center',
-    centerId: creatorUser ? creatorUser.centerId : null,
+    centerId: (isCenterStaff() && state.draft && state.draft.centerUnitId) ? state.draft.centerUnitId : (creatorUser ? creatorUser.centerId : null),
     dateGreg: dates.greg,
     dateHijri: dates.hijri,
     createdAtRaw: new Date().toISOString(),
@@ -4900,7 +4904,7 @@ async function approve(req){
     render();
     return;
   }
-  if(req.status==='pending_transfer_request' && isUnspecifiedBudget(req.budgetItemId)){
+  if(req.status==='pending_transfer_request' && isUnspecifiedBudget(req.budgetItemId) && !isCenterReq(req)){
     fieldErr(document.getElementById('assignBudgetSel'), 'حدّد بند الميزانية أولاً من بطاقة «بند غير محدد» أعلى الطلب، ثم سجّل التحويل');
     return false;
   }
@@ -5343,7 +5347,7 @@ async function assignBudgetItem(reqId){
 
 async function markDisbursed(req){
   // الصمام يُغلق هنا: لا صرف قبل إسناد الطلب إلى بند ميزانية حقيقي
-  if(isUnspecifiedBudget(req.budgetItemId)){
+  if(isUnspecifiedBudget(req.budgetItemId) && !isCenterReq(req)){
     fieldErr(document.getElementById('assignBudgetSel'), 'لا يمكن إتمام الصرف: الطلب على «بند غير محدد». أسنده إلى بند من بطاقة الطلب أولاً');
     return false;
   }
@@ -6921,7 +6925,7 @@ function render(){
   document.body.classList.toggle('on-login', state.view==='login');
   app.classList.toggle('cxv', ['clients','centerBooks','centerBook','gwImport'].includes(state.view));
   if(state.view==='login') renderLogin(app);
-  else if(state.view==='dashboard') { renderDashboard(app); cxDashBanner(app); }
+  else if(state.view==='dashboard') { renderDashboard(app); cxStaffBanner(app); cxDashBanner(app); }
   else if(state.view==='newRequest') renderNewRequest(app);
   else if(state.view==='detail') renderDetail(app);
   else if(state.view==='account') renderAccount(app);
@@ -14218,14 +14222,14 @@ function renderNewRequest(app){
         <textarea id="detailedReasonInput" class="grow-1" rows="1" placeholder="فارغ = يُستخدم عنوان الطلب">${escH(d.detailedReason||'')}</textarea></div>
       <div class="nr-bi-row nr-wide">
       <div class="nr-bi-col">
-      <div class="nr-f"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
+      ${isCenterStaff() ? nrCenterUnitHtml(d) : `<div class="nr-f"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
       <select id="budgetItemSelect" data-on-change="onBudgetItemSelectChange" style="width:100%;">
         <option value="">اختر البند</option>
         ${(state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId && b.is_active!==false).map(b=>
           `<option value="${b.id}"${(d.budgetItemId===b.id)?' selected':''}>${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}</option>`).join('')}
         <option value="${UNSPECIFIED_BUDGET}"${(d.budgetItemId===UNSPECIFIED_BUDGET)?' selected':''}>⚠️ بند غير محدد — يُستكمل قبل الصرف</option>
       </select></div>
-      <div id="budgetItemBalanceBox" style="display:none;"></div>
+      <div id="budgetItemBalanceBox" style="display:none;"></div>`}
       </div>
       <div class="nr-rec-row">
         <label class="check-line nr-rec"><input id="recurringCheck" type="checkbox" style="width:auto;" ${d.isRecurring ? 'checked' : ''}><span class="nr-rec-t">طلب متكرر مستقبلاً<small class="nr-rec-hint">مثل الرواتب الشهرية</small></span></label>
@@ -14478,6 +14482,10 @@ function renderAppRequestView(req){
 
     ${(()=>{
       // طلب بلا بند: تحذير دائم + إسناد للمحاسب ومدير النظام
+      if(isCenterReq(req)){
+        const cu = cxUnit(req.centerId) || {};
+        return `<div class="cx-src-box"><b>يُصرف من رصيد «${escH(cu.name||'')}»</b><span>طلب مركز: لا يحتاج بنداً من ميزانية الشركة، ويُخصم من رصيد المركز عند الصرف.</span></div>`;
+      }
       if(isUnspecifiedBudget(req.budgetItemId) && !req.isCancelled && req.status!=='rejected'){
         const canAssign = ['accountant','cfo','admin'].includes(state.user.role);
         const opts = (state.budgetItems||[])
@@ -16638,6 +16646,47 @@ function cxBalSet(){ return new Set((state.cx.balances||[]).map(b=>b.center_id))
 function cxViewRoot(id){ const vis = cxBalSet(), root = cxRootOf(id); let top = id; for(const x of [id, ...unitAncestorIds(id)]){ if(!vis.size || vis.has(x)) top = x; if(x===root) break; } return top; }
 function cxSubIds(rootId){ const vis = cxBalSet(); return unitDescendantIds(rootId).filter(x=>!vis.size || vis.has(x)); }
 function cxIsBookUnit(u){ return u.kind==='center' || unitAncestorIds(u.id).some(x=>{ const p = cxUnit(x); return p && p.kind==='center'; }); }
+// ---------- موظف المركز: من وحدته «مركز» أو تحت مركز، وليس من المالية أو الإدارة ----------
+function cxIsBookUnitId(id){ const u = cxUnit(id); return !!u && cxIsBookUnit(u); }
+function cxStaffUnitId(){ const u = state.user; if(!u || !u.centerId || ['admin','accountant','cfo','executive_manager'].includes(u.role)) return null; return cxIsBookUnitId(u.centerId) ? u.centerId : null; }
+function isCenterStaff(){ return !!cxStaffUnitId(); }
+// طلب يُصرف من رصيد مركز (لا من ميزانية الشركة)
+function isCenterReq(req){ return !!req && (req.amountRoute||'normal')==='normal' && !!req.centerId && cxIsBookUnitId(req.centerId) && (isUnspecifiedBudget(req.budgetItemId)); }
+function canSeeCenterBook(){ return canSeeCenterBooks() || isCenterStaff(); }
+function cxUnitOpenForReq(u){ return !!u && !['closed','suspended','potential'].includes(u.stage) && !(u.stage==='open' && !u.prePay) && !cxSuspendedBy(u); }
+// الوحدات التي يطلب عليها موظف المركز: وحدته وما تحتها، المفتوحة للطلب
+function cxReqUnits(){
+  const id = cxStaffUnitId(); if(!id) return [];
+  const out = [{u:cxUnit(id), depth:0}];
+  const visit = (pid, d)=>{ (state.centers||[]).filter(c=>c.parentId===pid).sort(_byName).forEach(c=>{ out.push({u:c, depth:d}); visit(c.id, d+1); }); };
+  visit(id, 1); return out.filter(x=>cxUnitOpenForReq(x.u));
+}
+function cxAvailFor(id){ const b = cxB(id), u = cxUnit(id) || {}; const v = Number(b.balance||0) - Number(b.pending_requests||0); return {balance:Number(b.balance||0), pending:Number(b.pending_requests||0), avail:cxR3(v), od:u.balanceControl ? Number(u.overdraftLimit||0) : 0}; }
+function cxStaffBalLine(id){
+  if(!(state.cx.balances||[]).length) return '<span class="file-hint">جارٍ تحميل الرصيد…</span>';
+  const a = cxAvailFor(id);
+  return `<span>الرصيد <b ${a.balance<0?'style="color:var(--red)"':''}>${fmtKWDHtml(a.balance)}</b></span><span>طلبات مفتوحة <b>${fmtKWDHtml(a.pending)}</b></span><span>المتاح للصرف <b ${a.avail<0?'style="color:var(--red)"':'style="color:var(--green,#16794a)"'}>${fmtKWDHtml(a.avail)}</b></span>${a.od ? `<span class="file-hint">حد السالب ${fmtKWDHtml(a.od)}</span>` : ''}`;
+}
+// بطاقة «رصيد مركزي» في الرئيسية لموظف المركز
+function cxStaffCardHtml(){
+  const id = cxStaffUnitId(); if(!id) return '';
+  const u = cxUnit(id), root = cxViewRoot(id), subs = cxSubIds(id);
+  const all = [id, ...subs], agg = (state.cx.balances||[]).length ? cxAgg(all) : null;
+  return `<div class="card cx-staff no-print" id="cxStaffCard">
+    <div class="cx-staff-h"><div><small>${subs.length ? 'رصيد مركزي مع بنوده' : (root===id ? 'رصيد مركزي' : 'رصيد بندي')}</small><b>${escH(u.name)}</b>${cxStageBadge(u)}</div>
+      <button class="btn btn-ghost btn-md" data-on-click="openCenterBook">الدفتر</button></div>
+    <div class="cx-staff-v">${agg ? `<span>الرصيد <b ${agg.balance<0?'style="color:var(--red)"':''}>${fmtKWDHtml(agg.balance)}</b></span><span>طلبات مفتوحة <b>${fmtKWDHtml(agg.pending_requests)}</b></span><span>المتاح للصرف <b ${agg.balance-agg.pending_requests<0?'style="color:var(--red)"':'style="color:var(--green,#16794a)"'}>${fmtKWDHtml(cxR3(agg.balance-agg.pending_requests))}</b></span>` : '<span class="file-hint">جارٍ تحميل الرصيد…</span>'}</div>
+    ${cxStageNoteHtml(u)}
+  </div>`;
+}
+function cxStaffBanner(app){
+  try{
+    if(!isCenterStaff() || !app) return;
+    const h = app.querySelector('h1'); const html = cxStaffCardHtml();
+    if(h) h.insertAdjacentHTML('afterend', html); else app.insertAdjacentHTML('afterbegin', html);
+    if(!(state.cx.balances||[]).length && !state.cx._balLoading){ state.cx._balLoading = true; cxLoadBalances().finally(()=>{ state.cx._balLoading = false; }); }
+  }catch(e){}
+}
 function cxB(id){ return (state.cx.balances||[]).find(x=>x.center_id===id) || {income:0,transfers:0,expense:0,balance:0,pending_requests:0}; }
 function cxAgg(ids){ return ids.reduce((a,id)=>{ const b = cxB(id); ['income','transfers','expense','balance','pending_requests'].forEach(k=>{ a[k] = cxR3(a[k] + Number(b[k]||0)); }); return a; }, {income:0,transfers:0,expense:0,balance:0,pending_requests:0}); }
 // البنود مرتبة كالشجرة مع عمقها تحت الجذر
@@ -16693,6 +16742,9 @@ async function cxLoadBalances(){
     if(state.cx.centerId && cxViewRoot(state.cx.centerId)!==state.cx.centerId){ state.cx.itemId = state.cx.centerId; state.cx.centerId = cxViewRoot(state.cx.centerId); }
     if(state.view==='centerBooks' || state.view==='centerBook') render();
     if(state.view==='centerBook' && cxHasItems() && !state.cx.itemId) cxLoadLedger();
+    // موظف المركز: حدّث بطاقة الرئيسية وسطر الرصيد في نموذج الطلب دون إعادة رسم الصفحة
+    const sc = document.getElementById('cxStaffCard'); if(sc) sc.outerHTML = cxStaffCardHtml();
+    const nb = document.getElementById('nrCenterBal'); if(nb) nb.innerHTML = cxStaffBalLine((document.getElementById('centerUnitSelect')||{}).value || (state.draft||{}).centerUnitId || cxStaffUnitId());
   }
 }
 function cxOpenCenter(id){ state.view = 'centerBook'; state.cx.centerId = id; state.cx.itemId = ''; cxResetLedgerView(); render(); window.scrollTo(0,0); cxLoadLedger(); }
@@ -17114,7 +17166,7 @@ function cxCenterDetailHtml(){
       <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="cxSaveOpening">تسجيل الرصيد الافتتاحي</button></div></details>` : ''}`;
 }
 function renderCenterBook(app){
-  if(!canSeeCenterBooks()){ state.view='dashboard'; render(); return; }
+  if(!canSeeCenterBook()){ state.view='dashboard'; render(); return; }
   app.innerHTML = cxCenterDetailHtml(); if(state.cx.showEntry) setTimeout(cxEntryPreview, 0);
 }
 
@@ -17129,6 +17181,14 @@ function renderCenterBooks(app){
   app.innerHTML = `
     <h1>لوحة المراكز</h1>
     <p class="sub">دخل كل مركز ومصروفه ورصيده مجمّعاً مع بنوده. الدخل صافٍ بعد رسوم البوابة وحصة الشركة، والمصروف من الطلبات المكتملة.</p>
+    <div class="cx-cards">${rows.map(({c,b,sub})=>{ const v = Number(b.balance||0); const names = sub.map(cxUnit).filter(Boolean);
+      return `<div class="cx-card" data-on-click="cxOpenCenter" data-on-click-args="${qa([c.id])}" role="button" tabindex="0" title="فتح دفتر «${escH(c.name)}»">
+      <div class="cx-card-h"><div><b>${escH(c.name)}</b><div class="file-hint">${c.clientId ? escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}</div>${c.description ? `<div class="cx-desc-line">${escH(c.description)}</div>` : ''}</div>${cxStageBadge(c)}</div>
+      <div class="cx-card-kv"><div class="cx-card-bal"><small>الرصيد${names.length?' مع البنود':''}</small><b ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</b></div>
+        <div class="cx-card-bal cx-card-pend"><small>طلبات مفتوحة</small><b>${fmtKWDHtml(b.pending_requests)}</b></div></div>
+      ${cxStageNoteHtml(c)}
+      ${names.length ? `<div class="cx-card-items">${names.slice(0,4).map(u=>{ const ub = Number(cxB(u.id).balance||0), sus = u.stage==='suspended'; return `<span class="cx-tag${ub<0||sus?' cx-tag-neg':''}" ${sus?'title="متوقف"':''}>${escH(u.name)}${sus?' · متوقف':''}</span>`; }).join('')}${names.length>4?`<span class="cx-tag">+${names.length-4}</span>`:''}</div>` : ''}
+      </div>`; }).join('') || `<div class="card">${(state.cx.balances||[]).length || state.cx._balLoaded ? 'لا توجد مراكز متاحة لك.' : 'جارٍ التحميل…'}</div>`}</div>
     <div class="cx-stats">
       ${cxStat('عدد المراكز', String(rows.length), '', [nItems ? `${nItems} بند تحتها` : '', neg ? `<span style="color:var(--red)">${neg} برصيد سالب</span>` : 'كلها برصيد موجب'].filter(Boolean).join(' · '))}
       ${cxStat('الدخل الصافي', fmtKWDHtml(tot.i))}${cxStat('المصروف المكتمل', fmtKWDHtml(tot.e))}
@@ -17142,15 +17202,7 @@ function renderCenterBooks(app){
         ${rows.map(({c,b})=>`<div class="cx-bar2"><div class="cx-bar-n">${escH(c.name)}</div><div class="cx-bar2-b">
           <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.income||0)/mx2*100))}%;background:var(--green,#16794a);"></div></div><b class="cx-bv">${fmtKWDHtml(b.income)}</b></div>
           <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.expense||0)/mx2*100))}%;background:#c27c0e;"></div></div><b class="cx-bv">${fmtKWDHtml(b.expense)}</b></div></div></div>`).join('')}
-      </div></div>` : ''}
-    <div class="cx-cards">${rows.map(({c,b,sub})=>{ const v = Number(b.balance||0); const names = sub.map(cxUnit).filter(Boolean);
-      return `<div class="cx-card" data-on-click="cxOpenCenter" data-on-click-args="${qa([c.id])}" role="button" tabindex="0" title="فتح دفتر «${escH(c.name)}»">
-      <div class="cx-card-h"><div><b>${escH(c.name)}</b><div class="file-hint">${c.clientId ? escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}</div>${c.description ? `<div class="cx-desc-line">${escH(c.description)}</div>` : ''}</div>${cxStageBadge(c)}</div>
-      <div class="cx-card-bal"><small>الرصيد${names.length?' مع البنود':''}</small><b ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</b></div>
-      <div class="cx-card-g"><div><small>الدخل</small>${fmtKWDHtml(b.income)}</div><div><small>المصروف</small>${fmtKWDHtml(b.expense)}</div><div><small>طلبات مفتوحة</small>${fmtKWDHtml(b.pending_requests)}</div></div>
-      ${cxStageNoteHtml(c)}
-      ${names.length ? `<div class="cx-card-items">${names.slice(0,4).map(u=>{ const ub = Number(cxB(u.id).balance||0), sus = u.stage==='suspended'; return `<span class="cx-tag${ub<0||sus?' cx-tag-neg':''}" ${sus?'title="متوقف"':''}>${escH(u.name)}${sus?' · متوقف':''}</span>`; }).join('')}${names.length>4?`<span class="cx-tag">+${names.length-4}</span>`:''}</div>` : ''}
-      </div>`; }).join('') || `<div class="card">${(state.cx.balances||[]).length || state.cx._balLoaded ? 'لا توجد مراكز متاحة لك.' : 'جارٍ التحميل…'}</div>`}</div>`;
+      </div></div>` : ''}`;
 }
 
 // ===================== استيراد بوابة الدفع =====================
@@ -17818,9 +17870,25 @@ async function qyExportData(fmt, d){
 }
 function qylDownload(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 
+// ---------- «يُصرف من» لموظف المركز في نموذج الطلب: مركزه أو أحد بنوده، لا بنود ميزانية الشركة ----------
+function nrCenterUnitHtml(d){
+  const us = cxReqUnits(), own = cxStaffUnitId();
+  if(state.editingReqId){ const rq = (state.requests||[]).find(r=>r.id===state.editingReqId) || {}; const cu = cxUnit(rq.centerId) || {};
+    return `<div class="nr-f"><label>يُصرف من</label><div class="nr-cu-fixed">${escH(cu.name||'—')}</div><div class="nr-cu-bal" id="nrCenterBal">${cxStaffBalLine(rq.centerId)}</div></div>`; }
+  if(!(state.cx.balances||[]).length && !state.cx._balLoading){ state.cx._balLoading = true; cxLoadBalances().finally(()=>{ state.cx._balLoading = false; }); }
+  if(!us.length){ const u = cxUnit(own)||{}; return `<div class="nr-f"><label>يُصرف من</label><div class="nr-cu-fixed nr-cu-off">«${escH(u.name||'')}» ${escH(cxStageLabel(cxSuspendedBy(u) ? 'suspended' : u.stage))}: لا تُنشأ طلبات الآن</div></div>`; }
+  const sel = us.some(x=>x.u.id===d.centerUnitId) ? d.centerUnitId : us[0].u.id;
+  d.centerUnitId = sel;
+  return `<div class="nr-f"><label>يُصرف من</label>
+    ${us.length>1 ? `<select id="centerUnitSelect" data-on-change="nrCenterUnitChange" data-on-change-args="${qa([QA.v])}">${us.map(({u,depth})=>`<option value="${u.id}" ${u.id===sel?'selected':''}>${'— '.repeat(depth)}${escH(u.name)}${u.id===own && us.length>1 ? ' (المركز نفسه)' : ''}</option>`).join('')}</select>`
+      : `<div class="nr-cu-fixed">${escH(us[0].u.name)}</div>`}
+    <div class="nr-cu-bal" id="nrCenterBal">${cxStaffBalLine(sel)}</div></div>`;
+}
+function nrCenterUnitChange(v){ if(state.draft) state.draft.centerUnitId = v; const nb = document.getElementById('nrCenterBal'); if(nb) nb.innerHTML = cxStaffBalLine(v); }
+
 // ---------- مسار المبلغ في نموذج الطلب ----------
 function cxRouteFieldHtml(d){
-  if(state.editingReqId) return '';
+  if(state.editingReqId || isCenterStaff()) return '';
   const route = d.amountRoute || 'normal';
   const cs = (state.centers||[]).filter(c=>c.stage!=='closed').sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
   if(!cs.length) return '';

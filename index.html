@@ -1762,6 +1762,18 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .cx-icard-g{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-label);font-weight:700;} .cx-icard-g small{display:block;font-size:var(--fs-xs);color:var(--muted);font-weight:600;}
   .cx-bud{display:flex;flex-direction:column;gap:4px;margin-top:auto;} .cx-bud-l{display:flex;justify-content:space-between;font-size:var(--fs-xs);color:var(--muted);font-weight:700;} .cx-bud .cx-bar-t{height:8px;}
   .cx-card-items{display:flex;gap:6px;flex-wrap:wrap;}
+  .cx-card-kv{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px;}
+  .cx-card-kv .cx-card-bal{margin:0;flex-direction:column;align-items:flex-start;gap:2px;} .cx-card-pend b{font-size:var(--fs-h2) !important;}
+  #app.cxv .cx-cards{margin-bottom:16px;}
+  .cx-staff{display:flex;flex-direction:column;gap:10px;margin:12px 0;border:1.5px solid var(--ink);}
+  .cx-staff-h{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .cx-staff-h > div{display:flex;align-items:center;gap:10px;flex-wrap:wrap;} .cx-staff-h small{font-size:var(--fs-hint);color:var(--muted);font-weight:700;} .cx-staff-h b{font-size:var(--fs-h3);}
+  .cx-staff-v,.nr-cu-bal{display:flex;gap:8px 18px;flex-wrap:wrap;align-items:baseline;font-size:var(--fs-label);}
+  .cx-staff-v b{font-size:var(--fs-h2);} .nr-cu-bal{margin-top:6px;}
+  .nr-cu-fixed{height:40px;display:flex;align-items:center;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:#f6f4ef;font-weight:700;}
+  .nr-cu-off{color:var(--red);background:var(--red-bg);border-color:var(--red);}
+  .cx-src-box{display:flex;flex-direction:column;gap:2px;padding:10px 14px;border-radius:8px;margin-bottom:12px;background:var(--green-bg);border:1.5px solid var(--green);}
+  .cx-src-box b{color:var(--green);} .cx-src-box span{font-size:var(--fs-hint);color:var(--text);}
   .cx-files-note{display:grid;gap:6px;margin-top:12px;padding:10px 14px;border-radius:10px;background:#f6f4ef;border:1px solid var(--line);}
   .cx-files-note > div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;font-size:var(--fs-hint);line-height:1.6;}
   .cx-files-note b{font-size:var(--fs-label);} .cx-files-note span{color:var(--text);}
@@ -2677,6 +2689,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=5c63896814"></script>
+<script src="app.js?v=1189b1fe45"></script>
 </body>
 </html>
