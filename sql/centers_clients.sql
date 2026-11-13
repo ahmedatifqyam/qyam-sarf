@@ -386,3 +386,15 @@ do $$ begin
     perform cron.schedule('qy_gateway_stale', '0 6 * * *', 'select public.qy_gateway_stale()');
   end if;
 end $$;
+
+-- 13 نوفمبر: منع ربط جهة بمركز من شركة أخرى، وحذف ما رُبط خطأً
+delete from public.gateway_agents g using public.centers c where c.id = g.center_id and c.company_id <> g.company_id;
+create or replace function public.qy_gateway_agent_guard() returns trigger language plpgsql security definer set search_path to 'public','pg_temp' as $$
+begin
+  if new.center_id is not null and not exists(select 1 from public.centers where id = new.center_id and company_id = new.company_id) then
+    raise exception 'المركز المختار لا يتبع هذه الشركة';
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_gateway_agent_guard on public.gateway_agents;
+create trigger trg_gateway_agent_guard before insert or update on public.gateway_agents for each row execute function public.qy_gateway_agent_guard();

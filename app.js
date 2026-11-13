@@ -16901,7 +16901,8 @@ async function gwAddAccount(){
 // ربط الجهة بالمركز يخص الحساب المختار، وما رُبط قبل وجود الحسابات (بلا حساب) يسري على الجميع
 function gwAgentRow(agent){
   const acc = state.cx.imp && state.cx.imp.accountId || null;
-  return state.cx.gwAgents.find(x=>x.agent_name===agent && (x.account_id||null)===acc) || state.cx.gwAgents.find(x=>x.agent_name===agent && !x.account_id) || null;
+  const ok = x => (state.centers||[]).some(c=>c.id===x.center_id && c.companyId===cxCid());   // تجاهل أي ربط بمركز لا يتبع الشركة
+  return state.cx.gwAgents.filter(ok).find(x=>x.agent_name===agent && (x.account_id||null)===acc) || state.cx.gwAgents.filter(ok).find(x=>x.agent_name===agent && !x.account_id) || null;
 }
 function gwAgentCenter(agent){ const m = gwAgentRow(agent); return m ? m.center_id : null; }
 async function gwSaveMapping(agent, centerId){

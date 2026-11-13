@@ -1756,6 +1756,10 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* خلايا النص الطويل تنكمش وتقتطع (max-width:0) فلا يتجاوز الجدول عرض البطاقة */
   #app.cxv table td.cx-desc{width:40%;max-width:0;}
   #app.cxv table td.cx-payer{width:18%;max-width:0;}
+  /* أي خلية فيها نص مقتطع تنكمش بدل أن تدفع الجدول خارج البطاقة */
+  #app table.cx-tbl td:has(> .cx-clip){max-width:0;}
+  #app .cx-panel,#app .cx-fold{min-width:0;overflow:hidden;}
+  .cx-map-r > div b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   #app.cxv table td.cx-act{width:1%;}
   #app.cxv td.cx-act{white-space:nowrap;}
   #app.cxv td.cx-act > div{display:flex;gap:6px;flex-wrap:nowrap;}
@@ -1779,8 +1783,8 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .cx-calc-c{display:flex;flex-direction:column;padding:4px 10px;} .cx-calc-c small{font-size:11.5px;color:var(--muted);font-weight:600;} .cx-calc-c b{font-size:15px;}
   .cx-calc-s{background:#fff;border:1px solid var(--green);border-radius:8px;} .cx-calc-s b{color:var(--green);}
   /* صناديق الملفات */
-  .cx-drops{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  .cx-drop{display:flex;align-items:center;gap:12px;padding:14px;border:2px dashed var(--line);border-radius:12px;background:#fcfbf8;}
+  .cx-drops{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}
+  .cx-drop{min-width:0;display:flex;align-items:center;gap:12px;padding:14px;border:2px dashed var(--line);border-radius:12px;background:#fcfbf8;}
   .cx-drop-ok{border-style:solid;border-color:var(--green);background:var(--green-bg);}
   .cx-drop-ico{width:40px;height:40px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 40px;border:1px solid var(--line);}
   .cx-drop-ico .qi{width:20px;height:20px;}
@@ -1844,7 +1848,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app.cxv table.cx-tbl td.cx-act .btn{width:100% !important;}
     #app.cxv table.cx-tbl tr.cx-total{background:#f6f4ef;}
     .cx-scroll-y{max-height:none;border:0;}
-    #app.cxv table td.cx-desc,#app.cxv table td.cx-payer{max-width:none;width:auto;}
+    #app.cxv table td.cx-desc,#app.cxv table td.cx-payer,#app table.cx-tbl td:has(> .cx-clip){max-width:none;width:auto;}
     /* بطاقة الحركة: التاريخ والصافي أعلى، ثم البيان والدافع، ثم المبالغ */
     #app.cxv table.cx-ledger tr{grid-template-columns:repeat(3,minmax(0,1fr));}
     #app.cxv table.cx-ledger td:nth-child(1){order:1;grid-column:span 2;}
@@ -2487,6 +2491,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=f611bb6d16"></script>
+<script src="app.js?v=f6b42b5f25"></script>
 </body>
 </html>
