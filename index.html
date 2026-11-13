@@ -1731,7 +1731,26 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .cx-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:999px;background:#f1efe8;font-size:var(--fs-hint);color:var(--text);}
   .cx-chip-red{background:var(--red-bg);color:var(--red);}
   .cx-badge{display:inline-block;padding:3px 10px;border-radius:999px;background:var(--blue-bg);color:var(--blue);font-size:var(--fs-hint);font-weight:700;white-space:nowrap;}
-  .cx-st-finance{background:var(--amber-bg);color:var(--amber);} .cx-st-closed{background:#eceae4;color:var(--muted);} .cx-st-creation{background:var(--teal-bg);color:var(--teal);} .cx-st-operation{background:var(--green-bg);color:var(--green);}
+  .cx-st-potential{background:var(--teal-bg);color:var(--teal);} .cx-st-open{background:var(--amber-bg);color:var(--amber);} .cx-st-active{background:var(--green-bg);color:var(--green);} .cx-st-closed{background:#eceae4;color:var(--muted);}
+  select.cx-st-sel{font-weight:700;} select.cx-st-sel option{background:#fff;color:var(--text);}
+  .cx-mini.cx-mini-lg,.cx-mini.cx-mini-lg select{min-width:0;width:260px;} .cx-mini.cx-mini-md,.cx-mini.cx-mini-md select{min-width:0;width:150px;}
+  .cx-mini-md > .cx-badge{align-self:flex-start;height:40px;display:inline-flex;align-items:center;padding:0 14px;}
+  .cx-h-sm{font-size:var(--fs-body);font-weight:600;color:var(--muted);}
+  .cx-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;} .cx-tags:empty{display:none;}
+  .cx-tag{display:inline-block;padding:2px 9px;border-radius:999px;background:#f1efe8;color:var(--text);font-size:var(--fs-xs);font-weight:600;white-space:nowrap;}
+  .cx-tag-amber{background:var(--amber-bg);color:var(--amber);} .cx-tag-neg{background:var(--red-bg);color:var(--red);}
+  .cx-icards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+  .cx-icard{min-width:0;border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:8px;background:#fff;transition:border-color .15s, box-shadow .15s;}
+  .cx-icard:hover{border-color:var(--ink);box-shadow:0 3px 10px rgba(0,0,0,.07);}
+  .cx-icard-root{background:#fcfbf8;} .cx-icard-n{min-width:0;line-height:1.35;overflow-wrap:anywhere;} .cx-icard-h .cx-badge{flex:0 0 auto;}
+  .cx-icard-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:var(--fs-h3);min-width:0;}
+  .cx-icard-m{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:var(--fs-hint);color:var(--muted);font-weight:600;}
+  .cx-icard-v{display:flex;justify-content:space-between;align-items:baseline;padding:8px 10px;border-radius:8px;background:#f6f4ef;}
+  .cx-icard-v small{font-size:var(--fs-hint);color:var(--muted);font-weight:700;} .cx-icard-v b{font-size:var(--fs-h2);}
+  .cx-icard-g{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-label);font-weight:700;} .cx-icard-g small{display:block;font-size:var(--fs-xs);color:var(--muted);font-weight:600;}
+  .cx-bud{display:flex;flex-direction:column;gap:4px;margin-top:auto;} .cx-bud-l{display:flex;justify-content:space-between;font-size:var(--fs-xs);color:var(--muted);font-weight:700;} .cx-bud .cx-bar-t{height:8px;}
+  .cx-card-items{display:flex;gap:6px;flex-wrap:wrap;} .cx-card-f{margin-top:auto;}
+  #app.cxv table td.cx-item{width:14%;max-width:0;font-weight:700;}
   .cx-tag-red{color:var(--red);font-weight:700;}
   .cx-mini{display:flex;flex-direction:column;gap:4px;margin:0;min-width:200px;}
   .cx-mini > span{font-size:var(--fs-hint);font-weight:700;color:var(--muted);}
@@ -1836,6 +1855,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app.cxv .cx-actions .btn-primary{width:100% !important;flex:1 1 100%;}
     #app.cxv .row.cx-item > .btn{width:100% !important;justify-self:stretch;}
     .cx-hero-c,.cx-mini,.cx-mini select{width:100%;min-width:0;}
+    .cx-mini.cx-mini-lg,.cx-mini.cx-mini-lg select,.cx-mini.cx-mini-md,.cx-mini.cx-mini-md select{width:100%;} .cx-icards{grid-template-columns:1fr;}
     .cx-stat-v{font-size:var(--fs-h2);} .cx-stat{padding:12px;}
     .cx-drops,.cx-map{grid-template-columns:1fr;}
     .cx-drop{flex-wrap:wrap;} .cx-drop-t{flex:1 1 calc(100% - 60px);} .cx-drop-a{flex:1 1 100%;} .cx-drop-a .btn{flex:1 1 auto;width:auto !important;}
@@ -2610,6 +2630,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=ad5c377f98"></script>
+<script src="app.js?v=d55df8367c"></script>
 </body>
 </html>
