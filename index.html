@@ -1887,10 +1887,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .cx-bar-v{text-align:left;font-weight:800;white-space:nowrap;}
   .cx-bar2{display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:center;margin:12px 0;font-size:var(--fs-hint);}
   .cx-bar2-b{display:grid;gap:5px;} .cx-bar2-r{display:grid;grid-template-columns:1fr 100px;gap:8px;align-items:center;} .cx-bar2-r .cx-bv{text-align:left;font-weight:700;white-space:nowrap;}
-  .cx-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:16px;}
+  .cx-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:16px;}
+  @media (max-width:1100px){ .cx-cards{grid-template-columns:repeat(2,minmax(0,1fr));} }
   .cx-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:border-color .15s, box-shadow .15s;display:flex;flex-direction:column;gap:10px;}
   .cx-card:hover{border-color:var(--ink);box-shadow:0 4px 14px rgba(0,0,0,.08);}
-  .cx-card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:var(--fs-h3);}
+  .cx-card-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:var(--fs-h3);min-height:30px;} .cx-card-h b{min-width:0;line-height:1.35;} .cx-card-h .cx-badge{flex:0 0 auto;}
   .cx-card-bal{display:flex;justify-content:space-between;align-items:baseline;padding:10px 12px;border-radius:8px;background:#f6f4ef;}
   .cx-card-bal small{font-size:var(--fs-hint);color:var(--muted);font-weight:700;} .cx-card-bal b{font-size:var(--fs-h1);}
   .cx-card-g{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:var(--fs-label);font-weight:700;}
@@ -1912,7 +1913,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .cx-map-r{flex-direction:column;align-items:stretch;} .cx-map-r select{width:100% !important;max-width:100% !important;}
     .cx-tools .cx-month,.cx-sel-sm{width:100% !important;max-width:100% !important;}
     .cx-bar{grid-template-columns:90px 1fr 92px;} .cx-bar2{grid-template-columns:90px 1fr;} .cx-bar2-r{grid-template-columns:1fr 84px;}
-    .cx-cards{grid-template-columns:1fr;}
+    .cx-cards{grid-template-columns:1fr;gap:10px;} .cx-card{padding:12px 14px;gap:8px;} .cx-card-kv .cx-card-bal{padding:8px 10px;} .cx-card-kv .cx-card-bal b{font-size:var(--fs-h2) !important;}
     /* الجداول تصير بطاقات */
     #app.cxv table.cx-tbl{table-layout:auto;}
     #app.cxv table.cx-tbl thead{display:none;}
@@ -2689,6 +2690,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=36f67a81f2"></script>
+<script src="app.js?v=4eca07dbbc"></script>
 </body>
 </html>

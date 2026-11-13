@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.9.1', APP_VERSION_DATE = '2026-11-14';
+const APP_VERSION = '1.9.2', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:350, base:350, extra:0.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -17181,13 +17181,11 @@ function renderCenterBooks(app){
   app.innerHTML = `
     <h1>لوحة المراكز</h1>
     <p class="sub">دخل كل مركز ومصروفه ورصيده مجمّعاً مع بنوده. الدخل صافٍ بعد رسوم البوابة وحصة الشركة، والمصروف من الطلبات المكتملة.</p>
-    <div class="cx-cards">${rows.map(({c,b,sub})=>{ const v = Number(b.balance||0); const names = sub.map(cxUnit).filter(Boolean);
+    <div class="cx-cards">${rows.map(({c,b})=>{ const v = Number(b.balance||0);
       return `<div class="cx-card" data-on-click="cxOpenCenter" data-on-click-args="${qa([c.id])}" role="button" tabindex="0" title="فتح دفتر «${escH(c.name)}»">
-      <div class="cx-card-h"><div><b>${escH(c.name)}</b><div class="file-hint">${c.clientId ? escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}</div>${c.description ? `<div class="cx-desc-line">${escH(c.description)}</div>` : ''}</div>${cxStageBadge(c)}</div>
-      <div class="cx-card-kv"><div class="cx-card-bal"><small>الرصيد${names.length?' مع البنود':''}</small><b ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</b></div>
+      <div class="cx-card-h"><b>${escH(c.name)}</b>${cxStageBadge(c)}</div>
+      <div class="cx-card-kv"><div class="cx-card-bal"><small>الرصيد</small><b ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</b></div>
         <div class="cx-card-bal cx-card-pend"><small>طلبات مفتوحة</small><b>${fmtKWDHtml(b.pending_requests)}</b></div></div>
-      ${cxStageNoteHtml(c)}
-      ${names.length ? `<div class="cx-card-items">${names.slice(0,4).map(u=>{ const ub = Number(cxB(u.id).balance||0), sus = u.stage==='suspended'; return `<span class="cx-tag${ub<0||sus?' cx-tag-neg':''}" ${sus?'title="متوقف"':''}>${escH(u.name)}${sus?' · متوقف':''}</span>`; }).join('')}${names.length>4?`<span class="cx-tag">+${names.length-4}</span>`:''}</div>` : ''}
       </div>`; }).join('') || `<div class="card">${(state.cx.balances||[]).length || state.cx._balLoaded ? 'لا توجد مراكز متاحة لك.' : 'جارٍ التحميل…'}</div>`}</div>
     <div class="cx-stats">
       ${cxStat('عدد المراكز', String(rows.length), '', [nItems ? `${nItems} بند تحتها` : '', neg ? `<span style="color:var(--red)">${neg} برصيد سالب</span>` : 'كلها برصيد موجب'].filter(Boolean).join(' · '))}
