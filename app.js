@@ -17315,7 +17315,7 @@ function qylApply(el, force){
   // التذييل: التنقل + مجموع المعروض + إجمالي الفترة
   const cols = qylSumCols(el), sumShown = qylSums(el, cols, shown), sumAll = qylSums(el, cols, inP);
   const expCell = (!hasBar && canExp) ? `<div class="qyl-sc qyl-sc-exp">${qyExportBtn('qyl:'+key)}</div>` : '';
-  const sumLine = (lab, cnt, arr, cls, exp) => `<div class="qyl-sum ${cls}"><div class="qyl-sc qyl-sc-h">${lab}</div><div class="qyl-sc qyl-sc-n"><small>العدد</small><b>${cnt}</b></div>${arr.map(x=>`<div class="qyl-sc"><small>${escH(x.label)}</small><b>${fmtKWDHtml(x.v)}</b></div>`).join('')}${exp||''}</div>`;
+  const sumLine = (lab, cnt, arr, cls, exp) => `<div class="qyl-sum ${cls}" style="--qn:${arr.length};--qe:${exp?'auto':'0px'}"><div class="qyl-sc qyl-sc-h">${lab}</div><div class="qyl-sc qyl-sc-n"><small>العدد</small><b>${cnt}</b></div>${arr.map(x=>`<div class="qyl-sc"><small>${escH(x.label)}</small><b>${fmtKWDHtml(x.v)}</b></div>`).join('')}${exp||''}</div>`;
   const foot = document.createElement('div'); foot.className = 'qyl-foot no-print'; foot.setAttribute('data-qyl-foot', key);
   const bulkTpl = el.getAttribute('data-qyl-bulk') && document.getElementById(el.getAttribute('data-qyl-bulk'));
   const bulk = bulkTpl ? `<div class="qyl-bulk">${bulkTpl.innerHTML}</div>` : '';
@@ -17324,7 +17324,7 @@ function qylApply(el, force){
       <span class="qyl-pos"><b>${n ? a+1 : 0}–${b}</b> من <b>${n}</b></span>
       <button type="button" class="btn btn-ghost btn-sm qyl-pg" data-no-ico data-on-click="qylPage" data-on-click-args="${qa([key,1])}" ${s.page>=pages-1?'disabled':''}>التالي ←</button></div>` : '';
   foot.innerHTML = `${pager || bulk ? `<div class="qyl-nav${bulk ? ' qyl-nav-bulk' : ''}">${pager}${bulk}</div>` : ''}
-    ${!n ? `<div class="qyl-sum"><div class="qyl-sc qyl-sc-h">لا توجد سجلات في ${escH(rg.label||'هذا العرض')}</div>${expCell}</div>`
+    ${!n ? `<div class="qyl-sum" style="--qn:0;--qe:${expCell?'auto':'0px'}"><div class="qyl-sc qyl-sc-h">لا توجد سجلات في ${escH(rg.label||'هذا العرض')}</div>${expCell}</div>`
       : n > shown.length ? sumLine('المعروض', shown.length, sumShown, '') : ''}
     ${n ? sumLine(hasDate ? 'إجمالي ' + rg.label : 'الإجمالي', n, sumAll, 'qyl-sum-all', expCell) : ''}`;
   if(anchor.nextSibling) par.insertBefore(foot, anchor.nextSibling); else par.appendChild(foot);

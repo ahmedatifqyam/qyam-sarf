@@ -1910,14 +1910,15 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .qyl-nav .qyl-pg[disabled]{opacity:.45;cursor:default;}
   .qyl-pos{font-size:var(--fs-label);min-width:90px;text-align:center;font-variant-numeric:tabular-nums;}
   /* صناديق المجاميع: مضغوطة، القيمة بجوار اسمها، والخلية الأولى بعرض واحد في كل الصفوف */
-  .qyl-sum{display:flex;flex-wrap:wrap;align-items:stretch;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;}
-  .qyl-sc{flex:0 0 auto;display:flex;align-items:baseline;gap:6px;padding:8px 16px;border-inline-start:1px solid var(--line);}
+  /* صفوف المجاميع شبكة واحدة: أعمدة متطابقة بين «المعروض» و«الإجمالي»، فلا يلتف عمود لسطر ثانٍ */
+  .qyl-sum{display:grid;grid-template-columns:170px 110px repeat(var(--qn,0),minmax(0,1fr)) var(--qe,0px);align-items:stretch;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;}
+  .qyl-sc{display:flex;align-items:baseline;gap:6px;padding:8px 14px;border-inline-start:1px solid var(--line);min-width:0;white-space:nowrap;}
   .qyl-sc:first-child{border-inline-start:0;}
   .qyl-sc small{font-size:var(--fs-hint);color:var(--muted);font-weight:700;}
   .qyl-sc b{font-size:var(--fs-body);font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;}
   .qyl-sc-n b{display:inline-block;min-width:4ch;}
-  .qyl-sc-h{flex:0 0 170px;box-sizing:border-box;background:#f6f4ef;font-size:var(--fs-label);font-weight:800;color:var(--text);align-items:center;}
-  .qyl-sc-exp{margin-inline-start:auto;padding:4px 8px;align-items:center;}
+  .qyl-sc-h{background:#f6f4ef;font-size:var(--fs-label);font-weight:800;color:var(--text);align-items:center;white-space:normal;line-height:1.35;}
+  .qyl-sc-exp{padding:4px 8px;align-items:center;}
   .qyl-sum-all{border-color:#b9cde4;} .qyl-sum-all .qyl-sc{border-color:#d3e0ee;} .qyl-sum-all .qyl-sc-h{background:var(--blue-bg);color:var(--blue);}
   .qyl-sc-exp{border-inline-start:0 !important;}
   /* زر «تصدير» الموحّد وقائمته */
@@ -1954,7 +1955,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .qyl-bar{padding:8px;flex-wrap:wrap;} .qyl-g{flex:1 1 100%;} .qyl-bar .qyl-per{flex:1 1 auto;width:auto !important;}
     .qyl-bar .qyl-date{flex:1 1 0;width:auto !important;}
     .qyl-exp{margin:0;}
-    .qyl-sc{flex:1 1 45%;min-width:0;padding:8px 10px;border-top:1px solid var(--line);} .qyl-sc-h{flex:1 1 100%;border-top:0;}
+    .qyl-sum{display:flex;flex-wrap:wrap;} .qyl-sc{flex:1 1 45%;min-width:0;padding:8px 10px;border-top:1px solid var(--line);} .qyl-sc-h{flex:1 1 100%;border-top:0;}
     .qyl-sc-exp{flex:1 1 100%;} .qyl-nav-bulk{justify-content:center;} .qyl-bulk{width:100%;} .qyl-bulk select{flex:1 1 auto;width:auto !important;}
     .cx-ph-tools{width:100%;} .cx-ph-tools .qy-search{flex:1 1 100%;width:100% !important;}
   }
@@ -2609,6 +2610,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=784569e457"></script>
+<script src="app.js?v=ad5c377f98"></script>
 </body>
 </html>
