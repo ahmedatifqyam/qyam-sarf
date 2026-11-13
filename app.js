@@ -1,9 +1,13 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.7.0', APP_VERSION_DATE = '2026-11-13';
+const APP_VERSION = '1.7.1', APP_VERSION_DATE = '2026-11-13';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:132, since:'2026-09-07', days:46, updates:365};
+const APP_WORK = {hours:132, since:'2026-09-07', days:46, updates:366};
+// مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
+const OWNER_PHONE = '98937472';
+function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
+function isOwner(){ return isOwnerUser(state.user) || isOwnerUser((state.users||[]).find(x=>state.user && x.id===state.user.id)); }
 function appWorkBase(){ const v = Number((state.appSettings||{}).work_hours_base); return isFinite(v) && v>0 ? v : 0; }
 function appWorkTotal(){ return Math.round(appWorkBase() + APP_WORK.hours); }
 function appWorkTip(){ return `≈ ${appWorkTotal()} ساعة عمل: ${appWorkBase()} تقديرك لما قبل السجل وخارجه + ${APP_WORK.hours} من سجل التحديثات (منذ ${APP_WORK.since.split('-').reverse().join('-')}، ${APP_WORK.days} يوم عمل، ${APP_WORK.updates} تحديثاً)`; }
@@ -922,8 +926,8 @@ function renderDbBadge(){
   if(!el){ el = document.createElement('button'); el.id = 'dbBadge'; el.type='button'; el.className='db-badge no-print'; document.body.appendChild(el); }
   el.onclick = adm ? copyDbRef : null; el.classList.toggle('db-badge-ver', !adm);
   const ref = dbProjectRef(); const short = ref.length>14 ? ref.slice(0,9)+'…'+ref.slice(-3) : ref;
-  el.title = adm ? 'مشروع قاعدة البيانات الذي يتصل به التطبيق: '+ref+' — اضغط للنسخ\n'+appVersionText()+'\n'+appWorkTip() : appVersionText();
-  el.innerHTML = (adm ? `<span class="db-l1"><span class="db-dot ${window._dbLastOk?'ok':'bad'}"></span><span class="db-ref">🗄 ${escH(short)}</span></span>` : '') + `<span class="db-ver">${escH(appVersionText())}</span>` + (adm ? `<span class="db-ver">≈ ${appWorkTotal()} ساعة عمل</span>` : '');
+  el.title = adm ? 'مشروع قاعدة البيانات الذي يتصل به التطبيق: '+ref+' — اضغط للنسخ\n'+appVersionText()+(isOwner() ? '\n'+appWorkTip() : '') : appVersionText();
+  el.innerHTML = (adm ? `<span class="db-l1"><span class="db-dot ${window._dbLastOk?'ok':'bad'}"></span><span class="db-ref">🗄 ${escH(short)}</span></span>` : '') + `<span class="db-ver">${escH(appVersionText())}</span>` + (isOwner() ? `<span class="db-ver">≈ ${appWorkTotal()} ساعة عمل</span>` : '');
 }
 function renderBrand(){
   const box = document.getElementById('brandBox'); if(!box) return;
@@ -3147,7 +3151,7 @@ function renderAppNavInner(){
   nav.innerHTML = `
     <div class="nav-head"><button type="button" class="nav-toggle" ${qon('click', mode==='drawer'?[["closeNavDrawer",[]]]:[["toggleNav",[]]])} title="${mode==='drawer'?'إغلاق':'طيّ/فتح القائمة'}">${mode==='drawer'?'✕':'☰'}</button><span class="nav-title">القائمة</span></div>
     <nav class="nav-list">${navTopItems().map(itemHtml).join('')}</nav>
-    <div class="nav-foot"><div class="nav-user${state.view==='account'?' on':''}" role="button" tabindex="0" title="حسابي — ${escH(state.user.name)} · ${escH(findRole(state.user.role).name)}" ${qon('click', navClick([["#10",[]]]))} data-on-keydown="#35"><div class="nav-avatar">${avSrc(state.user.id) ? `<img src="${escH(avSrc(state.user.id))}" alt="">` : escH((state.user.name||'?').trim().charAt(0))}</div><div class="nav-uinfo"><div class="nav-uname">${escH(state.user.name)}</div><div class="nav-urole">${escH(findRole(state.user.role).name)}</div></div></div><button type="button" class="nav-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج" ${qon('click', navClick([["logout",[]]]))}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>خروج</span></button></div>${mode==='drawer' ? `<div class="nav-ver">${escH(appVersionText())}${state.user.role==='admin' ? ` · ≈ ${appWorkTotal()} ساعة عمل` : ''}</div>` : ''}`;
+    <div class="nav-foot"><div class="nav-user${state.view==='account'?' on':''}" role="button" tabindex="0" title="حسابي — ${escH(state.user.name)} · ${escH(findRole(state.user.role).name)}" ${qon('click', navClick([["#10",[]]]))} data-on-keydown="#35"><div class="nav-avatar">${avSrc(state.user.id) ? `<img src="${escH(avSrc(state.user.id))}" alt="">` : escH((state.user.name||'?').trim().charAt(0))}</div><div class="nav-uinfo"><div class="nav-uname">${escH(state.user.name)}</div><div class="nav-urole">${escH(findRole(state.user.role).name)}</div></div></div><button type="button" class="nav-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج" ${qon('click', navClick([["logout",[]]]))}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>خروج</span></button></div>${mode==='drawer' ? `<div class="nav-ver">${escH(appVersionText())}${isOwner() ? ` · ≈ ${appWorkTotal()} ساعة عمل` : ''}</div>` : ''}`;
 }
 let _navResizeT=null;
 window.addEventListener('resize', ()=>{ clearTimeout(_navResizeT); _navResizeT=setTimeout(()=>{ if(state.navDrawer && window.innerWidth>=700) state.navDrawer=false; renderAppNav(); },80); });
@@ -7993,7 +7997,7 @@ function suspendFindings(uid){
   const own = state.requests.filter(r=>!r.isCancelled && r.createdById===uid && r.status!=='completed' && r.status!=='rejected');
   return {reqs, subs, hoIn, hoOut, own};
 }
-function openSuspendCheck(uid){ state.suspendCheck = uid; render(); }
+function openSuspendCheck(uid){ if(isOwnerUser((state.users||[]).find(x=>x.id===uid))){ showToast('حساب مالك النظام لا يُوقف','error'); return; } state.suspendCheck = uid; render(); }
 function closeSuspendCheck(){ state.suspendCheck = null; render(); }
 function renderSuspendModal(){
   const uid = state.suspendCheck; const u = state.users.find(x=>x.id===uid); if(!u) return '';
@@ -12734,12 +12738,12 @@ function renderBrandingPanel(){
         <input type="checkbox" style="width:auto;" ${showAvatars() ? 'checked' : ''} data-on-change="setShowAvatars" data-on-change-args="${qa([QA.c])}" title="يُحفظ فوراً لكل المستخدمين">
         إظهار صور المستخدمين
       </label>
-      <h3 class="uf-h">الإصدار وساعات العمل</h3>
+      ${isOwner() ? `<h3 class="uf-h">الإصدار وساعات العمل</h3>
       <div class="uf-flex">
         <div class="f-sm"><label for="workBase">ساعات قبل السجل</label><input id="workBase" type="text" inputmode="numeric" dir="ltr" value="${appWorkBase()||''}" placeholder="0"></div>
         <button type="button" class="btn btn-primary btn-md" data-on-click="saveWorkBase">حفظ</button>
       </div>
-      <p class="file-hint" style="margin:6px 0 0;">${escH(appVersionText())} · ${escH(appWorkTip())}. يظهر لمدير النظام فقط أسفل الشاشة.</p>
+      <p class="file-hint" style="margin:6px 0 0;">${escH(appVersionText())} · ${escH(appWorkTip())}. يظهر لك وحدك أسفل الشاشة.</p>` : ''}
       <p class="file-hint" style="margin:2px 0 0;">في الشريط الجانبي وقائمة المستخدمين ومسار الطلب. يُحفظ فوراً لكل المستخدمين؛ إطفاؤه يخفي الصور ولا يحذفها.</p>
       <label style="margin-top:14px;">${escH(BRAND_SPECS.sysLogo.label)}</label>
       ${brandHintHtml('sysLogo')}
@@ -13064,13 +13068,14 @@ function renderAdminsPanel(){
   const nActive = admins.filter(u=>!u.isSuspended).length;
   const rows = admins.map(u=>{
     const me = u.id===state.user.id;
-    const why = me ? 'لا يمكنك حذف حسابك أنت' : (!u.isSuspended && nActive<=1) ? 'لا يمكن حذف آخر مدير نظام نشط' : '';
+    const own = isOwnerUser(u);
+    const why = own ? 'حساب مالك النظام — لا يُحذف' : me ? 'لا يمكنك حذف حسابك أنت' : (!u.isSuspended && nActive<=1) ? 'لا يمكن حذف آخر مدير نظام نشط' : '';
     const act = u.isSuspended
       ? `<button type="button" class="btn btn-ghost btn-sm" data-on-click="openSuspendCheck" data-on-click-args="${qa([(''+u.id)])}" title="الحساب موقوف — اضغط لإعادة تفعيله">إعادة التفعيل</button>`
       : `<button type="button" class="btn btn-reject btn-sm" ${why ? `disabled title="${escH(why)}"` : `title="حذف «${escH(u.name)}» — تُطلب كلمة مرورك، ومن له أثر في النظام يُوقف بدل حذفه"`} data-on-click="deleteAdminUser" data-on-click-args="${qa([(''+u.id)])}">حذف</button>`;
     return `<div class="list-item" style="cursor:default;"><div class="li-main">
       <b>${escH(u.name)}</b><span dir="ltr" style="text-align:right;">${escH(u.phone||'')}</span>
-      ${me ? '<span class="sub">أنت</span>' : ''}${u.isSuspended ? '<span class="sub" style="color:#b45309;">موقوف</span>' : ''}</div><div>${act}</div></div>`;
+      ${own ? '<span class="sub" style="color:var(--blue);font-weight:800;">مالك النظام</span>' : ''}${me ? '<span class="sub">أنت</span>' : ''}${u.isSuspended ? '<span class="sub" style="color:#b45309;">موقوف</span>' : ''}</div><div>${act}</div></div>`;
   }).join('');
   return `
     <div class="card" style="margin-top:28px;"><h2>مديرو النظام (${admins.length})</h2>
@@ -13672,6 +13677,7 @@ async function userUsage(id){
 // حذف مدير نظام: ليس نفسك ولا آخر مدير نشط؛ بكلمة مرورك؛ ومن له أثر يُوقف بدل الحذف
 async function deleteAdminUser(id){
   const u = state.users.find(x=>x.id===id); if(!u) return;
+  if(isOwnerUser(u)){ showToast('حساب مالك النظام لا يُحذف','error'); return; }
   if(id===state.user.id){ showToast('لا يمكنك حذف حسابك أنت','error'); return; }
   const active = state.users.filter(x=>x.role==='admin' && !x.isSuspended && x.id!==id);
   if(!active.length){ showToast('لا يمكن حذف آخر مدير نظام نشط','error'); return; }
@@ -13681,6 +13687,7 @@ async function deleteAdminUser(id){
 }
 async function deleteUser(id){
   const u = state.users.find(x=>x.id===id);
+  if(isOwnerUser(u)){ showToast('حساب مالك النظام لا يُحذف','error'); return; }
   // الحذف النهائي لمن بلا أي أثر في أي شركة؛ وإلا فالإيقاف
   const checks = [['requests','created_by_id','طلبات'],['request_history','user_id','قرارات وسجل'],['request_approval_steps','approver_id','خطوات اعتماد'],['transactions','created_by_id','حركات مالية'],['qy_attachments','created_by','مرفقات'],['recurring_templates','created_by_id','قيود دورية']];
   const used = [];
