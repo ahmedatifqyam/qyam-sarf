@@ -398,3 +398,6 @@ begin
 end $$;
 drop trigger if exists trg_gateway_agent_guard on public.gateway_agents;
 create trigger trg_gateway_agent_guard before insert or update on public.gateway_agents for each row execute function public.qy_gateway_agent_guard();
+
+-- 13 نوفمبر: وصف الوحدة/المركز (يُطبَّق على التجربة عند عودة الاتصال)
+alter table public.centers add column if not exists description text;

@@ -548,7 +548,7 @@ function dbCenterToState(c){
     maxRequestAmount:c.max_request_amount, maxBeneficiaryAmount:c.max_beneficiary_amount,
     requireBankTransferRef: c.require_bank_transfer_ref!==false,
     kind: c.kind||'center', scope: c.scope||'company', parentId: c.parent_id||null,
-    clientId:c.client_id||null, stage:c.stage||'operation', balanceControl:!!c.balance_control, overdraftLimit:Number(c.overdraft_limit||0),
+    clientId:c.client_id||null, description:c.description||'', stage:c.stage||'operation', balanceControl:!!c.balance_control, overdraftLimit:Number(c.overdraft_limit||0),
     companySharePct:(c.company_share_pct==null?null:Number(c.company_share_pct)), supportSharePct:(c.support_share_pct==null?null:Number(c.support_share_pct))
   };
 }
@@ -9727,18 +9727,10 @@ function renderAdmin(app){
       </div>
     `).join('')}
 `,
-    centers: `    <div class="card" style="margin-top:20px;">
+    centers: `    <div class="card uf-card" style="margin-top:20px;">
       <h2>إضافة وحدة تنظيمية جديدة (للشركة الحالية)</h2>
-      <div class="row">
-        <div style="--fw:380px;"><label>اسم الوحدة</label><input id="newCenterName" type="text" placeholder="مثال: مركز حولي" style="--fw:380px;"></div>
-        <div><label>النوع</label><select id="newCenterKind">${unitTypeOptionsHtml('center')}</select></div>
-        <div><label>تتبع الوحدة</label><select id="newCenterParent">${unitOptionsHtml(state.currentCompanyId, '', {noneLabel:'تحت الشركة مباشرة'})}</select></div>
-      </div>
-      <div class="row">
-        <div><label>الرمز (للترقيم)</label><input id="newCenterCode" type="text" placeholder="مثال: HWL"></div>
-      </div>
-      <label>صورة ترويسة الوحدة (اختياري)</label>
-      <input id="newCenterLetterhead" type="file" accept="image/*">
+      ${unitBasicFieldsHtml('newCenter', null)}
+      <div class="uf-grid"><div><label>صورة ترويسة الوحدة (اختياري)</label><input id="newCenterLetterhead" type="file" accept="image/*"></div></div>
       <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" data-on-click="addCenter">إضافة الوحدة</button>
       </div>
@@ -11382,8 +11374,10 @@ async function addCenter(){
   const parentId = (document.getElementById('newCenterParent')||{}).value || null;
   const center = {id:'c_'+Date.now(), name, code, letterheadData:'', companyId: state.currentCompanyId, kind, scope:'company', parentId};
   if(file){ center.letterheadData = await readFileAsDataURL(file); }
-  const result = await db.from('centers').insert({id:center.id, name:center.name, code:center.code, company_id:center.companyId, letterhead_data: center.letterheadData || null, kind, parent_id: parentId});
+  const clientId = kind==='center' ? ((document.getElementById('newCenterClient')||{}).value || null) : null, description = ((document.getElementById('newCenterDesc')||{}).value||'').trim() || null;
+  const result = await unitSaveWithDesc(row=>db.from('centers').insert(row), Object.assign({id:center.id, name:center.name, code:center.code, company_id:center.companyId, letterhead_data: center.letterheadData || null, kind, parent_id: parentId}, {client_id: clientId, description}));
   if(!(await dbCheck(result, 'إضافة المركز'))) return;
+  center.clientId = clientId; center.description = result._descSkipped ? '' : (description||''); center.stage = 'operation';
   state.centers.push(center);
   showToast('تمت إضافة المركز', 'success');
   backToAdminList('centers');
@@ -11718,57 +11712,71 @@ async function saveCompanyEdit(){
   render();
 }
 
+// ===== نموذج الوحدة (إضافة/تعديل) — حقول مشتركة بترتيب متوازن =====
+function unitClientOptionsHtml(sel){
+  if(!(state.cx && state.cx.clients && state.cx.clients.length) && !state._unitClientsLoading && typeof cxLoadClients==='function'){ state._unitClientsLoading = true; cxLoadClients().finally(()=>{ state._unitClientsLoading = false; }); }
+  return `<option value="">— غير مرتبط —</option>` + (typeof cxClientTree==='function' ? cxClientTree() : []).map(({c,depth})=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${'— '.repeat(depth)}${escH(c.name)}</option>`).join('');
+}
+function unitKindToggle(prefix){ const k = document.getElementById(prefix+'Kind'), box = document.getElementById(prefix+'ClientBox'); if(k && box) box.style.display = k.value==='center' ? '' : 'none'; }
+function unitBasicFieldsHtml(prefix, c){
+  c = c || {};
+  const kind = c.kind || 'center';
+  return `
+      <div class="uf-grid uf-2">
+        <div><label>اسم الوحدة</label><input id="${prefix}Name" type="text" value="${escH(c.name||'')}" placeholder="مثال: مركز حولي"></div>
+        <div class="f-sm"><label>الرمز (للترقيم)</label><input id="${prefix}Code" type="text" dir="ltr" value="${escH(c.code||'')}" placeholder="HWL"></div>
+      </div>
+      <div class="uf-grid uf-3">
+        <div><label>النوع</label><select id="${prefix}Kind" data-on-change="unitKindToggle" data-on-change-args="${qa([prefix])}">${unitTypeOptionsHtml(kind)}</select></div>
+        <div><label>تتبع الوحدة</label><select id="${prefix}Parent">${unitOptionsHtml(c.companyId||state.currentCompanyId, c.parentId||'', c.id ? {noneLabel:'تحت الشركة مباشرة', excludeId:c.id} : {noneLabel:'تحت الشركة مباشرة'})}</select></div>
+        <div id="${prefix}ClientBox" ${kind==='center'?'':'style="display:none;"'}><label>الجهة التابع لها (اختياري)</label><select id="${prefix}Client">${unitClientOptionsHtml(c.clientId||'')}</select></div>
+      </div>
+      <div class="uf-grid"><div><label>الوصف (اختياري)</label><textarea id="${prefix}Desc" rows="2" placeholder="مثال: مركز نسائي لتحفيظ القرآن، يعمل مساءً">${escH(c.description||'')}</textarea></div></div>`;
+}
+// حفظ آمن للوصف: إن لم يُضف عموده في القاعدة بعد يُحفظ الباقي ويُنبَّه المستخدم
+async function unitSaveWithDesc(run, row){
+  let r = await run(row);
+  if(r && r.error && /description/i.test(r.error.message||'') && 'description' in row){
+    const {description, ...rest} = row; r = await run(rest);
+    if(!r.error) showToast('حُفظت الوحدة، لكن «الوصف» لم يُحفظ: عموده لم يُضف في قاعدة البيانات بعد','error');
+    r._descSkipped = true;
+  }
+  return r;
+}
 function renderCenterEditForm(){
   const c = state.centers.find(x=>x.id===state.editingCenterId);
   if(!c) return '';
+  const chk = (id, on, txt, wide) => `<label class="chk-card${wide?' chk-wide':''}"><input type="checkbox" id="${id}" ${on?'checked':''}><span>${txt}</span></label>`;
   return `
-    <div class="card" style="border-color:var(--blue);">
+    <div class="card uf-card" style="border-color:var(--blue);">
       <h2>تعديل وحدة</h2>
-      <div class="row">
-        <div style="--fw:380px;"><label>اسم الوحدة</label><input id="editCenterName" type="text" value="${escH(c.name)}" style="--fw:380px;"></div>
-        <div><label>النوع</label><select id="editCenterKind">${unitTypeOptionsHtml(c.kind)}</select></div>
-        <div><label>تتبع الوحدة</label><select id="editCenterParent">${unitOptionsHtml(c.companyId, c.parentId||'', {noneLabel:'تحت الشركة مباشرة', excludeId:c.id})}</select></div>
-      </div>
-      <div class="row">
-        <div><label>رمز الوحدة</label><input id="editCenterCode" type="text" value="${escH(c.code||'')}"></div>
-      </div>
-      ${c.letterheadData ? `<div class="file-hint">✓ يوجد ترويسة خاصة محفوظة</div>` : ''}
-      <label>تحديث صورة الترويسة (اختياري)</label>
-      <input id="editCenterLetterhead" type="file" accept="image/*">
+      ${unitBasicFieldsHtml('editCenter', c)}
+      <div class="uf-grid"><div><label>تحديث صورة الترويسة (اختياري)${c.letterheadData ? ' <span class="file-hint">· يوجد ترويسة خاصة محفوظة ✓</span>' : ''}</label><input id="editCenterLetterhead" type="file" accept="image/*"></div></div>
 
-      <h2 style="margin-top:22px;">حوكمة المصروفات</h2>
-      <div class="row">
-        <div><label>الميزانية الشهرية (د.ك)</label><input id="editCenterMonthlyBudget" type="number" step="0.001" min="0" value="${c.monthlyBudget??''}" placeholder="اختياري"></div>
-        <div><label>الميزانية السنوية (د.ك)</label><input id="editCenterAnnualBudget" type="number" step="0.001" min="0" value="${c.annualBudget??''}" placeholder="اختياري"></div>
+      <h3 class="uf-h">حوكمة المصروفات</h3>
+      <div class="uf-flex">
+        <div class="f-md"><label>الميزانية الشهرية (د.ك)</label><input id="editCenterMonthlyBudget" type="number" step="0.001" min="0" value="${c.monthlyBudget??''}" placeholder="اختياري"></div>
+        <div class="f-md"><label>الميزانية السنوية (د.ك)</label><input id="editCenterAnnualBudget" type="number" step="0.001" min="0" value="${c.annualBudget??''}" placeholder="اختياري"></div>
       </div>
-      <div class="row">
-        <div><label>الحد الأعلى لإجمالي الطلب (د.ك) — تحذير فقط</label><input id="editCenterMaxRequest" type="number" step="0.001" min="0" value="${c.maxRequestAmount??''}" placeholder="اختياري"></div>
-        <div><label>الحد الأعلى لمبلغ المستفيد الواحد (د.ك) — تحذير فقط</label><input id="editCenterMaxBene" type="number" step="0.001" min="0" value="${c.maxBeneficiaryAmount??''}" placeholder="اختياري"></div>
+      <div class="uf-flex">
+        <div class="f-md"><label>حد إجمالي الطلب (تحذير)</label><input id="editCenterMaxRequest" type="number" step="0.001" min="0" value="${c.maxRequestAmount??''}" placeholder="اختياري"></div>
+        <div class="f-md"><label>حد المستفيد الواحد (تحذير)</label><input id="editCenterMaxBene" type="number" step="0.001" min="0" value="${c.maxBeneficiaryAmount??''}" placeholder="اختياري"></div>
+        <div class="f-md"><label>حد التخطّي التلقائي (د.ك)</label><input id="editCenterMinThreshold" type="number" step="0.001" min="0" value="${c.minThreshold??''}" placeholder="فارغ = معطّل"></div>
       </div>
-      <label>الحد الأدنى المالي (د.ك) — الطلبات بهذا المبلغ أو أقل تتخطى الأدوار المحدّدة أدناه تلقائياً</label>
-      <input id="editCenterMinThreshold" type="number" step="0.001" min="0" value="${c.minThreshold??''}" placeholder="اتركه فارغاً لتعطيل هذي الخاصية">
-      <div style="margin-top:8px;display:flex;gap:18px;flex-wrap:wrap;">
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-label);">
-          <input type="checkbox" id="editCenterSkipDept" ${c.skipDeptManager?'checked':''}> تخطي مدير الإدارة
-        </label>
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-label);">
-          <input type="checkbox" id="editCenterSkipSenior" ${c.skipSeniorManager?'checked':''}> تخطي المدير الأعلى
-        </label>
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-label);">
-          <input type="checkbox" id="editCenterSkipExec" ${c.skipExecutiveManager?'checked':''}> تخطي المدير التنفيذي
-        </label>
+      <p class="file-hint">الطلب بمبلغ «حد التخطّي» أو أقل يتخطى تلقائياً الأدوار المحددة هنا:</p>
+      <div class="chk-grid">
+        ${chk('editCenterSkipDept', c.skipDeptManager, 'تخطي مدير الإدارة')}
+        ${chk('editCenterSkipSenior', c.skipSeniorManager, 'تخطي المدير الأعلى')}
+        ${chk('editCenterSkipExec', c.skipExecutiveManager, 'تخطي المدير التنفيذي')}
       </div>
-      ${c.hasMinSingle ? `<div style="margin-top:8px;">
-        <label style="font-size:var(--fs-label);">المعتمِد الوحيد قبل المالية إذا حذف التخطّي كل المعتمدين</label>
-        <select id="editCenterMinSingle" style="--fw:280px;">
+      ${c.hasMinSingle ? `<div class="uf-grid uf-3" style="margin-top:12px;">
+        <div><label>المعتمِد الوحيد إذا حذف التخطّي الجميع</label>
+        <select id="editCenterMinSingle">
           ${[['exec','المدير التنفيذي (الافتراضي)'],['direct','المدير المباشر'],['senior','المدير العام']].map(([v,l])=>`<option value="${v}" ${(c.minSingleApprover||'exec')===v?'selected':''}>${l}</option>`).join('')}
-        </select>
-        <div class="file-hint" style="margin-top:3px;">لا يصل طلب للمالية قبل اعتماد واحد على الأقل. إن لم يكن في مسار الطلب من يحمل هذا الدور، يبقى أول معتمِد فيه.</div>
+        </select></div>
+        <div class="uf-span2 file-hint" style="align-self:end;">لا يصل طلب للمالية قبل اعتماد واحد على الأقل. إن لم يكن في مسار الطلب من يحمل هذا الدور، يبقى أول معتمِد فيه.</div>
       </div>` : ''}
-
-      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-label);margin-top:14px;">
-        <input type="checkbox" id="editCenterRequireTransferRef" ${c.requireBankTransferRef?'checked':''}> يطلب من المحاسب تسجيل رقم/مرجع التحويل البنكي قبل الاعتماد
-      </label>
+      <div class="chk-grid" style="margin-top:12px;">${chk('editCenterRequireTransferRef', c.requireBankTransferRef, 'يطلب من المحاسب تسجيل رقم/مرجع التحويل البنكي قبل الاعتماد', true)}</div>
 
       <div class="actions-row" data-bar-actions style="margin-top:16px;">
         <button class="btn btn-primary btn-md" data-on-click="saveCenterEdit">حفظ التعديلات</button>
@@ -11791,6 +11799,8 @@ async function saveCenterEdit(){
   const numOrNull = id => { const v = document.getElementById(id).value; return v===''? null : parseFloat(v); };
   const updates = {
     name, code, kind, parent_id: parentId,
+    client_id: kind==='center' ? ((document.getElementById('editCenterClient')||{}).value || null) : null,
+    description: ((document.getElementById('editCenterDesc')||{}).value||'').trim() || null,
     monthly_budget: numOrNull('editCenterMonthlyBudget'),
     annual_budget: numOrNull('editCenterAnnualBudget'),
     max_request_amount: numOrNull('editCenterMaxRequest'),
@@ -11803,9 +11813,9 @@ async function saveCenterEdit(){
     require_bank_transfer_ref: document.getElementById('editCenterRequireTransferRef').checked
   };
   if(file){ updates.letterhead_data = await readFileAsDataURL(file); }
-  const result = await db.from('centers').update(updates).eq('id', c.id);
+  const result = await unitSaveWithDesc(row=>db.from('centers').update(row).eq('id', c.id), updates);
   if(!(await dbCheck(result, 'تعديل المركز'))) return;
-  c.name=name; c.code=code; c.kind=kind; c.parentId=parentId;
+  c.name=name; c.code=code; c.kind=kind; c.parentId=parentId; c.clientId = updates.client_id; if(!result._descSkipped) c.description = updates.description||'';
   c.monthlyBudget = updates.monthly_budget; c.annualBudget = updates.annual_budget;
   c.maxRequestAmount = updates.max_request_amount; c.maxBeneficiaryAmount = updates.max_beneficiary_amount;
   c.minThreshold = updates.min_threshold;
@@ -16774,7 +16784,7 @@ function cxCenterDetailHtml(){
     <h1>دفتر المركز</h1>
     <p class="sub">دخل المركز ومصروفه وحركاته. الدخل صافٍ بعد رسوم البوابة وحصة الشركة.</p>
     <div class="card cx-hero">
-      <div class="cx-hero-t"><h2>${escH(c.name)}</h2><div class="file-hint">${c.clientId ? 'يتبع: '+escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}${c.balanceControl ? ' · ضبط الرصيد مفعّل' : ''}</div></div>
+      <div class="cx-hero-t"><h2>${escH(c.name)}</h2><div class="file-hint">${c.clientId ? 'يتبع: '+escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}${c.balanceControl ? ' · ضبط الرصيد مفعّل' : ''}</div>${c.description ? `<div class="cx-desc-line">${escH(c.description)}</div>` : ''}</div>
       <div class="cx-hero-c">${picker}${stage}</div>
     </div>
     <div class="cx-stats">
@@ -16790,16 +16800,18 @@ function cxCenterDetailHtml(){
       <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" data-qyl-title="دفتر ${escH(c.name)}"><thead><tr><th>التاريخ</th><th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin?'<th></th>':''}</tr></thead>
       <tbody id="cxLedgerBody">${cxLedgerRowsHtml()}</tbody></table>
     </div>
-    ${adm ? `<details class="card cx-fold"><summary><span>إعدادات المركز</span><span class="file-hint">العميل، حصة الشركة، ضبط الرصيد</span></summary>
-      <div class="row">
-        <div><label>يتبع العميل</label><select id="cxs_client"><option value="">— غير مرتبط —</option>${cxClientTree().map(({c:cl,depth})=>`<option value="${cl.id}" ${cl.id===c.clientId?'selected':''}>${'— '.repeat(depth)}${escH(cl.name)}</option>`).join('')}</select></div>
-        <div class="f-md"><label>حد الصرف بالسالب (د.ك)</label><input id="cxs_od" type="text" inputmode="decimal" dir="ltr" value="${c.overdraftLimit||0}"></div>
+    ${adm ? `<details class="card cx-fold"><summary><span>إعدادات المركز</span><span class="file-hint">الجهة، حصة الشركة، ضبط الرصيد</span></summary>
+      <div class="uf-grid uf-2b">
+        <div><label>الجهة التابع لها</label><select id="cxs_client"><option value="">— غير مرتبط —</option>${cxClientTree().map(({c:cl,depth})=>`<option value="${cl.id}" ${cl.id===c.clientId?'selected':''}>${'— '.repeat(depth)}${escH(cl.name)}</option>`).join('')}</select></div>
+        <div></div>
+      </div>
+      <div class="uf-flex">
         <div class="f-xs"><label>حصة الاشتراكات %</label><input id="cxs_pct" type="text" inputmode="decimal" placeholder="⁦${cxCo().gatewayCompanyPct}⁩" value="${c.companySharePct==null?'':c.companySharePct}"></div>
         <div class="f-xs"><label>حصة الدعم %</label><input id="cxs_spct" type="text" inputmode="decimal" placeholder="⁦${cxCo().supportCompanyPct}⁩" value="${c.supportSharePct==null?'':c.supportSharePct}"></div>
+        <div class="f-md"><label>حد الصرف بالسالب (د.ك)</label><input id="cxs_od" type="text" inputmode="decimal" dir="ltr" value="${c.overdraftLimit||0}"></div>
       </div>
-      <label class="cx-check"><input id="cxs_ctl" type="checkbox" ${c.balanceControl?'checked':''}> ضبط الرصيد: يُمنع طلب جديد يتجاوز الرصيد المتاح مع حد السالب</label>
-      <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="cxSaveCenterSettings">حفظ الإعدادات</button></div>
-      <p class="file-hint">من يرى هذا المركز: لوحة التحكم ← المستخدمون والصلاحيات ← رؤية المراكز.</p>
+      <div class="chk-grid"><label class="chk-card chk-wide"><input id="cxs_ctl" type="checkbox" ${c.balanceControl?'checked':''}><span>ضبط الرصيد: يُمنع طلب جديد يتجاوز الرصيد المتاح مع حد السالب</span></label></div>
+      <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="cxSaveCenterSettings">حفظ الإعدادات</button><span class="file-hint">النسبة الفارغة = النسبة الافتراضية للشركة. ومن يرى المركز: لوحة التحكم ← المستخدمون والصلاحيات ← رؤية المراكز.</span></div>
     </details>` : ''}
     ${fin && state.cx.ledgerLoaded && !hasOpening ? `<details class="card cx-fold"><summary><span>رصيد افتتاحي</span><span class="file-hint">يُسجَّل مرة واحدة</span></summary>
       <p class="file-hint">رصيد المركز عند بدء استخدام النظام. بعد التسجيل يظهر أول حركة في الجدول بعنوان «رصيد افتتاحي»، ويختفي هذا القسم.</p>
@@ -16838,7 +16850,7 @@ function renderCenterBooks(app){
           <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.expense||0)/mx2*100))}%;background:#c27c0e;"></div></div><b class="cx-bv">${fmtKWDHtml(b.expense)}</b></div></div></div>`).join('')}
       </div></div>` : ''}
     <div class="cx-cards">${rows.map(({c,b})=>{ const v = Number(b.balance||0); return `<div class="cx-card" data-on-click="cxOpenCenter" data-on-click-args="${qa([c.id])}" role="button" tabindex="0">
-      <div class="cx-card-h"><div><b>${escH(c.name)}</b><div class="file-hint">${c.clientId ? escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}</div></div><span class="cx-badge cx-st-${escH(c.stage||'')}">${escH(cxStageLabel(c.stage))}</span></div>
+      <div class="cx-card-h"><div><b>${escH(c.name)}</b><div class="file-hint">${c.clientId ? escH(cxClientName(c.clientId)) : 'غير مرتبط بعميل'}</div>${c.description ? `<div class="cx-desc-line">${escH(c.description)}</div>` : ''}</div><span class="cx-badge cx-st-${escH(c.stage||'')}">${escH(cxStageLabel(c.stage))}</span></div>
       <div class="cx-card-bal"><small>الرصيد</small><b ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</b></div>
       <div class="cx-card-g"><div><small>الدخل</small>${fmtKWDHtml(b.income)}</div><div><small>المصروف</small>${fmtKWDHtml(b.expense)}</div><div><small>طلبات مفتوحة</small>${fmtKWDHtml(b.pending_requests)}</div></div>
       <div class="cx-card-f">فتح الدفتر ←</div></div>`; }).join('') || '<div class="card">لا توجد مراكز متاحة لك.</div>'}</div>`;

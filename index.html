@@ -1868,6 +1868,28 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app.cxv table.cx-ledger tr.cx-total td:nth-child(2){order:1;grid-column:span 2;}
   }
 
+
+  /* ===== نماذج متوازنة موحّدة (uf) وصناديق الاختيار (chk-card) ===== */
+  .uf-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px 18px;margin-top:12px;align-items:end;}
+  .uf-2{grid-template-columns:minmax(0,1fr) auto;} .uf-2b{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .uf-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .uf-span2{grid-column:span 2;}
+  .uf-flex{display:flex;flex-wrap:wrap;gap:12px 18px;margin-top:12px;align-items:flex-end;}
+  #app .uf-flex label{display:block;margin:0 0 6px;font-size:var(--fs-label);font-weight:700;color:var(--text);white-space:nowrap;}
+  #app .uf-flex input,#app .uf-flex select{height:40px;box-sizing:border-box;margin:0;}
+  #app .uf-grid label{display:block;margin:0 0 6px;font-size:var(--fs-label);font-weight:700;color:var(--text);}
+  #app .uf-grid input:not([type=checkbox]):not([type=file]):not([type=radio]),#app .uf-grid select{width:100% !important;max-width:none !important;height:40px;box-sizing:border-box;margin:0;}
+  #app .uf-grid .f-sm input:not([type=checkbox]):not([type=file]):not([type=radio]){width:var(--fw-sm) !important;}
+  #app .uf-grid textarea{width:100% !important;max-width:none !important;box-sizing:border-box;margin:0;}
+  #app .uf-grid input[type=file]{margin:0;}
+  .uf-h{font-size:var(--fs-h3);margin:22px 0 0;padding-top:14px;border-top:1px solid var(--line);}
+  .chk-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px;}
+  #app label.chk-card{display:flex;align-items:center;gap:10px;margin:0;padding:10px 12px;min-height:44px;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:var(--fs-label);font-weight:700;color:var(--text);line-height:1.4;}
+  #app label.chk-card input{width:18px !important;height:18px;margin:0;flex:0 0 18px;}
+  #app label.chk-card:has(input:checked){border-color:var(--blue);background:var(--blue-bg);}
+  .chk-wide{grid-column:1 / -1;}
+  .cx-desc-line{font-size:var(--fs-label);color:var(--text);margin-top:4px;line-height:1.5;}
+  @media (max-width:699px){ .uf-2b,.uf-3,.chk-grid{grid-template-columns:minmax(0,1fr);} .uf-span2{grid-column:auto;} }
   /* ===== qyl: شريط الفترة/العرض/التصدير وتذييل التنقل والمجاميع — موحّد في كل القوائم ===== */
   .qyl-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin:0 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:#faf9f6;}
   .qyl-g{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -2587,6 +2609,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=defda2ac0e"></script>
+<script src="app.js?v=784569e457"></script>
 </body>
 </html>
