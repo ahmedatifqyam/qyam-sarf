@@ -24,7 +24,7 @@ create policy svc_catalog_wrt on public.svc_catalog for all to authenticated usi
 create table if not exists public.client_contracts (
   id uuid primary key default gen_random_uuid(),
   company_id text not null references public.companies(id) on delete cascade,
-  client_id uuid not null references public.clients(id) on delete cascade,
+  client_id text not null references public.clients(id) on delete cascade,
   title text not null,
   contract_date date,
   start_date date,
