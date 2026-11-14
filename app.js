@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.11.0', APP_VERSION_DATE = '2026-11-14';
+const APP_VERSION = '1.11.1', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:1.9, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -4120,6 +4120,8 @@ function showBudgetBalance(){
     if(f.reservedCustody>0 || f.reservedExtra>0) bits.push(`محجوز في العهد المفتوحة ${fmtKWD(f.reservedCustody+f.reservedExtra,{noUnit:true})}`);
     if(f.pending>0)   bits.push(`قيد الطلب ${fmtKWD(f.pending,{noUnit:true})}`);
   }
+  const pl = prjPlanOfItem(itemId);
+  if(pl) bits.push(`مشروع «${escH(pl.p.name)}»: القيمة ${fmtKWD(pl.value,{noUnit:true})} · المحصّل ${fmtKWD(pl.collected,{noUnit:true})}${pl.prepay ? ' · يُصرف قبل الدفع حتى ' + pl.pct + '%' : ''}`);
   box.innerHTML = `الرصيد المتاح لطلب جديد: ${fmtKWD(bal)}`
     + (bits.length ? `<div style="font-size:var(--fs-xs);opacity:.85;margin-top:2px;font-weight:600;">من إيراد ${fmtKWD(f.revenue,{noUnit:true})} — ${bits.join(' · ')}</div>` : '');
 }
@@ -10285,7 +10287,7 @@ function renderBudgetReportTab(){
       const fw = depth===0 ? 'font-weight:700;' : '';
       return `<tr class="bri-row" style="background:${rowBg};border-bottom:1px solid var(--line);">
         <td style="padding:7px 10px;padding-right:${pad}px;white-space:nowrap;${fw}${SEP}">
-          ${toggleBtn}${indent}${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
+          ${toggleBtn}${indent}${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${prjItemNote(b.id)}
           ${!b.is_active?'<span style="font-size:var(--fs-xs);color:var(--red);"> (غير نشط)</span>':''}
         </td>
         <td style="padding:7px 10px;text-align:center;font-size:var(--fs-label);color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
@@ -10340,7 +10342,7 @@ function renderBudgetReportTab(){
         const simpleBg = depth===0 ? 'var(--paper)' : '#fff';
         return `<tr class="bri-row" style="background:${simpleBg};border-bottom:1px solid var(--line);">
           <td style="padding:7px 10px;padding-right:${pad}px;white-space:nowrap;${SEP}">
-            <span style="display:inline-block;width:18px;"></span>${indent}${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
+            <span style="display:inline-block;width:18px;"></span>${indent}${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${prjItemNote(b.id)}
             ${!b.is_active?'<span style="font-size:var(--fs-xs);color:var(--red);"> (غير نشط)</span>':''}
           </td>
           <td style="padding:7px 10px;text-align:center;font-size:var(--fs-label);color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
@@ -10365,7 +10367,7 @@ function renderBudgetReportTab(){
         // ── صف إجمالي الجذر ──
         const rootRow = `<tr class="bri-row" style="background:var(--paper);border-top:2px solid var(--blue);border-bottom:1px solid var(--line);">
           <td style="padding:9px 10px;padding-right:${pad}px;white-space:nowrap;font-weight:900;font-size:var(--fs-body);${SEP}">
-            ${toggleBtn} ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
+            ${toggleBtn} ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${prjItemNote(b.id)}
             ${!b.is_active?'<span style="font-size:var(--fs-xs);color:var(--red);"> (غير نشط)</span>':''}
             <span style="font-size:var(--fs-xs);font-weight:600;color:var(--blue);margin-right:8px;background:rgba(59,130,246,.1);padding:1px 7px;border-radius:4px;">إجمالي مع الفروع</span>
           </td>
@@ -10390,7 +10392,7 @@ function renderBudgetReportTab(){
           <td style="padding:7px 10px;padding-right:${pad}px;white-space:nowrap;font-weight:700;${SEP}">
             ${toggleBtn}
             <span style="color:var(--muted);font-size:var(--fs-xs);margin-left:2px;">└</span>
-            ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}
+            ${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)}${prjItemNote(b.id)}
             ${!b.is_active?'<span style="font-size:var(--fs-xs);color:var(--red);"> (غير نشط)</span>':''}
           </td>
           <td style="padding:7px 10px;text-align:center;font-size:var(--fs-label);color:var(--muted);${SEP}">${BUDGET_TYPE_LABELS[b.type]||b.type}</td>
@@ -16560,7 +16562,7 @@ function cxEditClient(id){
   state.cx.cDraft = Object.assign({}, c, {parent_id:c.parent_id||'', phones:JSON.parse(JSON.stringify(c.phones||[])), contacts:JSON.parse(JSON.stringify(c.contacts||[]))});
   render(); window.scrollTo(0,0);
 }
-function cxCancelClient(){ state.cx.cEditId=null; state.cx.cDraft=null; render(); }
+function cxCancelClient(){ state.cx.cEditId=null; state.cx.cDraft=null; if(state.prj.returnTo && prjClientBack(null)) return; render(); }
 function cxCSync(){
   const d = state.cx.cDraft; if(!d) return;
   const g = id => { const el = document.getElementById(id); return el ? el.value : null; };
@@ -16588,10 +16590,11 @@ async function cxSaveClient(){
   if(d.id && d.parent_id===d.id){ showToast('لا يكون العميل تابعاً لنفسه','error'); return; }
   let r;
   if(d.id) r = await db.from('clients').update(row).eq('id', d.id);
-  else { row.created_by = state.user.id; r = await db.from('clients').insert(row); }
+  else { row.created_by = state.user.id; r = await db.from('clients').insert(row).select().single(); }
   if(!(await dbCheck(r,'حفظ العميل'))) return;
   showToast('تم حفظ العميل','success');
   state.cx.cEditId=null; state.cx.cDraft=null; await cxLoadClients();
+  if(!d.id && state.prj.returnTo) prjClientBack(r.data && r.data.id);
 }
 async function cxDeleteClient(id){
   const c = (state.cx.clients||[]).find(x=>x.id===id); if(!c) return;
@@ -16677,6 +16680,7 @@ function renderClients(app){
   app.innerHTML = `
     <h1>العملاء</h1>
     <p class="sub">الجمعيات والجهات التي تتعامل معها الشركة، وفروعها تحتها. يُربط المركز بعميل من «دفتر المركز ← إعدادات المركز».</p>
+    ${state.prj.returnTo ? `<div class="pj-next pj-next-info"><span>عميل جديد ${state.prj.returnTo.kind==='doc' ? 'للوثيقة' : 'للعقد'}: بعد «حفظ» ترجع إلى ${state.prj.returnTo.kind==='doc' ? 'الوثيقة' : 'العقد'} والعميل مختار.</span><button class="btn btn-ghost btn-sm" data-on-click="cxCancelClient">رجوع</button></div>` : ''}
     ${state.cx.cEditId ? cxClientFormHtml() : ''}
     <div class="card cx-panel"><div class="cx-panel-h"><div><h2>العملاء</h2><div class="file-hint">${tree.length} عميل</div></div>${state.cx.cEditId ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ عميل جديد</button>`}</div>
     <table class="exec-table cx-tbl" data-qyl="clients" data-qyl-title="العملاء"><thead><tr><th>الاسم</th><th>النوع</th><th>الهاتف</th><th>جهات الاتصال</th><th class="num">المراكز</th><th class="num">العقود</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -17636,6 +17640,18 @@ function prjPrepayExtra(itemId, totalRev){
   return Math.max(0, cxR3(cap - totalRev));
 }
 
+// قيمة المشروع «ميزانية مخططة» لبنده: تظهر في تقرير الميزانية وسطر الرصيد عند طلب الصرف
+function prjPlanOfItem(itemId){
+  const p = (state.prj.projects||[]).find(x=>x.budget_item_id===itemId); if(!p) return null;
+  const value = prjValue(p), collected = prjCollected(p);
+  const f = computeBudgetItemFigures(itemId), used = f ? cxR3(f.spent + f.committed + f.pending) : 0;
+  return {p, value, collected, used, rest:cxR3(value - used), prepay:!!p.prepay && p.status==='active', pct:p.prepay_pct};
+}
+function prjItemNote(itemId){
+  let pl = null; try{ pl = prjPlanOfItem(itemId); }catch(e){}
+  if(!pl) return '';
+  return `<div class="pj-plan" title="قيمة المشروع ميزانية مخططة للبند">مشروع${pl.p.status==='closed' ? ' مغلق' : ''} · القيمة ${fmtKWD(pl.value,{noUnit:true})} · المحصّل ${fmtKWD(pl.collected,{noUnit:true})} · المتبقي من القيمة ${fmtKWD(pl.rest,{noUnit:true})}</div>`;
+}
 // ===================== صفحة المشاريع =====================
 function openProjects(){ state.view='projects'; state.prj.openId=null; state.prj.docForm=null; render(); window.scrollTo(0,0); prjLoad(); if(cxCid()) cxLoadClients(); }
 function openProject(id){ state.view='project'; state.prj.openId=id; state.prj.approve=null; state.prj.invForm=null; state.prj.colForm=null; state.prj.editSet=false; state.prj.docForm=null; render(); window.scrollTo(0,0); if(!state.prj.loaded) prjLoad(); }
@@ -17739,7 +17755,7 @@ function prjDocFormHtml(){
     <p class="file-hint">ارفع الوثيقة جاهزة (PDF أو صورة) واكتب بياناتها. الرقم يُعطى تلقائياً: رمز الشركة-الرقم/السنة.</p>
     <div class="uf-flex">
       <div class="f-md"><label for="pjd_doc_type">نوع الوثيقة</label><select id="pjd_doc_type">${PRJ_DOC_TYPES.map(([k,l])=>`<option value="${k}" ${d.doc_type===k?'selected':''}>${l}</option>`).join('')}</select></div>
-      <div class="f-lg"><label for="pjd_client_id">العميل</label><select id="pjd_client_id" data-on-change="prjDocRefresh"><option value="">— اختر العميل —</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${d.client_id===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select></div>
+      <div class="f-lg"><label for="pjd_client_id">العميل</label><select id="pjd_client_id" data-on-change="prjClientPick" data-on-change-args="${qa(['doc', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${d.client_id===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select></div>
       <div class="f-lg"><label for="pjd_contract_id">المرجع (العقد أو الملحق)</label><select id="pjd_contract_id">${prjContractOpts(d.client_id, d.contract_id)}</select></div>
     </div>
     <div class="uf-flex">
@@ -17812,10 +17828,33 @@ function renderProject(app){
     <div class="pj-top"><button class="btn btn-ghost btn-sm" data-on-click="openProjects">← كل المشاريع</button></div>
     <h1 class="pj-h1">${escH(p ? p.name : d.title)} ${st}</h1>
     <p class="sub">${escH(prjClientName(cl)||'')}${d ? ' · ' + escH(prjDocTypeName(d.doc_type)) + ' ' + escH(d.doc_no) : ''}</p>
+    ${prjNextHtml(p, d)}
     ${state.prj.docForm ? prjDocFormHtml() : ''}
     ${d ? prjDocPanelHtml(d, p) : ''}
     ${p ? prjMoneyPanelHtml(p) + prjInvoicesPanelHtml(p) + prjClosePanelHtml(p) : ''}`;
 }
+// شريط «الخطوة التالية»: يقود المستخدم في مسار المشروع خطوة خطوة بزر واحد
+function prjNextHtml(p, d){
+  const fin = isFinanceUser(), ed = canEditPrj();
+  const bar = (txt, btn, cls) => `<div class="pj-next ${cls||''}"><span><b>الخطوة التالية:</b> ${txt}</span>${btn||''}</div>`;
+  const b = (fn, args, l, prim) => `<button class="btn ${prim===false?'btn-ghost':'btn-primary'} btn-md" data-on-click="${fn}" data-on-click-args="${qa(args)}">${l}</button>`;
+  if(!p){
+    if(!d) return '';
+    if(d.status==='sent') return bar('بانتظار رد العميل على ' + escH(prjDocTypeName(d.doc_type)) + '. عند موافقته افتح المشروع.', fin && !state.prj.approve ? b('prjApproveOpen', [d.id], 'اعتمد العميل') : (fin ? '' : '<span class="file-hint">اعتماد العميل للمالية</span>'));
+    if(d.status==='rejected') return bar('رفضها العميل. عدّلها وأعدها إلى «بانتظار رد العميل»، أو ارفع وثيقة جديدة.', '', 'pj-next-off');
+    return '';
+  }
+  if(p.status==='closed') return bar('المشروع مغلق.', '', 'pj-next-done');
+  const due = prjDuePeriods(p), rc = prjMissingReceipts(p);
+  if(due.length && !state.prj.invForm) return bar(due[0] ? 'فاتورة ' + prjYmName(due[0]) + ' مستحقة — سجّلها بصورتيها.' : 'سجّل فاتورة المشروع بصورتيها (الفاتورة وعلم الوصول).', ed ? b('prjInvNew', [p.id], '+ فاتورة الآن') : '');
+  if(rc.length) return bar('ارفع علم وصول الفاتورة ' + escH(rc[0].inv_no||'') + '.', ed ? b('prjRcpOpen', [rc[0].id], '+ علم الوصول') : '');
+  const unpaid = prjInvs(p).find(i=>prjInvCollected(i) < Number(i.amount));
+  if(unpaid) return bar('عند دفع العميل سجّل التحصيل للفاتورة ' + escH(unpaid.inv_no||'') + ' فيدخل المبلغ بند المشروع.', fin ? b('prjColOpen', [unpaid.id], 'تحصيل') : '<span class="file-hint">التحصيل للمالية</span>');
+  if(p.invoice_mode==='monthly' && (p.open_ended || (p.months && prjYm() < prjYmAdd(prjYm(p.start_date), p.months-1)))) return bar('الفواتير محدّثة. فاتورة ' + prjYmName(prjYmAdd(prjYm(),1)) + ' تُستحق أول الشهر، أو ارفع التقرير وأغلق المشروع إن انتهى.', '', 'pj-next-done');
+  if(!p.report_path) return bar('الفواتير محصّلة. ارفع التقرير الختامي ثم أغلق المشروع.', ed ? `<button class="btn btn-primary btn-md" data-on-click="prjGoReport">رفع التقرير</button>` : '');
+  return bar('التقرير مرفوع. أغلق المشروع.', ed ? b('prjClose', [p.id], 'إغلاق المشروع') : '');
+}
+function prjGoReport(){ const el = document.getElementById('pjrep_file'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); setTimeout(()=>el.click(), 350); } }
 function prjDocPanelHtml(d, p){
   const ref = d.contract_id ? state.prj.contracts.find(c=>c.id===d.contract_id) : null;
   const kv = (l, v) => `<div class="pj-kv2"><span>${l}</span><b>${v}</b></div>`;
@@ -17925,6 +17964,8 @@ async function prjApproveSave(){
     await dbCheck(await db.from('prj_documents').update(du).eq('id', d.id), 'تحديث الوثيقة');
     showToast('فُتح المشروع «' + name + '» وبنده', 'success');
     state.prj.approve = null; state.prj.openId = 'p:' + rp.data.id; await prjLoad();
+    // المسار التلقائي: بعد فتح المشروع يُفتح نموذج الفاتورة مباشرة
+    if(canEditPrj()){ prjInvNew(rp.data.id); setTimeout(()=>{ const el = document.getElementById('pji_no'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus({preventScroll:true}); } }, 80); showToast('فُتح المشروع وبنده — الخطوة التالية: سجّل الفاتورة','success'); }
   }catch(e){ if(e.message!=='-') showToast('تعذّر: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'اعتماد وفتح المشروع'; } }
 }
 // ---------- المبالغ والصرف قبل الدفع والمدة ----------
@@ -17998,7 +18039,7 @@ function prjInvNew(pid){
   const p = state.prj.projects.find(x=>x.id===pid); if(!p) return;
   const due = prjDuePeriods(p), rem = cxR3(prjValue(p) - prjInvoiced(p));
   state.prj.invForm = {pid, period: p.invoice_mode==='monthly' ? (due[0] || prjYm()) : '', amount: p.invoice_mode==='monthly' && Number(p.monthly_amount)>0 ? Number(p.monthly_amount) : Math.max(0, rem)};
-  render();
+  render(); setTimeout(()=>{ const el = document.getElementById('pji_no'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus({preventScroll:true}); } }, 60);
 }
 function prjInvFormHtml(p, due){
   const f = state.prj.invForm, per = [];
@@ -18034,10 +18075,10 @@ async function prjInvSave(){
       invoice_path:a.path, invoice_name:a.name, receipt_path:b?b.path:null, receipt_name:b?b.name:null, created_by:state.user.id};
     const r = await db.from('prj_invoices').insert(row);
     if(!(await dbCheck(r,'حفظ الفاتورة'))){ db.storage.from('attachments').remove([a.path].concat(b?[b.path]:[])).catch(()=>{}); throw new Error('-'); }
-    showToast('حُفظت الفاتورة','success'); state.prj.invForm = null; await prjLoad();
+    showToast(b ? 'حُفظت الفاتورة — التالي: التحصيل عند دفع العميل' : 'حُفظت الفاتورة — ارفع علم الوصول عند استلامه','success'); state.prj.invForm = null; await prjLoad(); window.scrollTo({top:0, behavior:'smooth'});
   }catch(e){ if(e.message!=='-') showToast('تعذّر: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'حفظ الفاتورة'; } }
 }
-function prjRcpOpen(id){ state.prj.rcpFor = id || null; render(); }
+function prjRcpOpen(id){ state.prj.rcpFor = id || null; render(); if(id) setTimeout(()=>{ const el = document.getElementById('pjr_file'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 60); }
 async function prjRcpSave(id){
   const f = prjFileOf('pjr_file'); if(!f){ fieldErr('#pjr_file','أرفق الصورة'); return; }
   try{
@@ -18053,7 +18094,7 @@ async function prjInvCancel(id){
   if(!(await dbCheck(r,'إلغاء الفاتورة'))) return;
   showToast('أُلغيت','success'); await prjLoad();
 }
-function prjColOpen(invId){ state.prj.colForm = {invId}; render(); }
+function prjColOpen(invId){ state.prj.colForm = {invId}; render(); setTimeout(()=>{ const el = document.getElementById('pjc_amount'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus({preventScroll:true}); } }, 60); }
 function prjColFormHtml(i, rem){
   return `<div class="uf-flex">
     <div class="f-md"><label for="pjc_amount">المبلغ المحصّل</label><input id="pjc_amount" type="text" inputmode="decimal" dir="ltr" value="${rem}"></div>
@@ -18185,6 +18226,26 @@ function prjContractNew(parentId){
   render(); setTimeout(()=>{ const el = document.getElementById('pjcForm'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 40);
 }
 function prjContractEdit(id){ const c = state.prj.contracts.find(x=>x.id===id); if(!c) return; state.prj.cForm = Object.assign({}, c); render(); setTimeout(()=>{ const el = document.getElementById('pjcForm'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 40); }
+// يحفظ ما كُتب في نموذج العقد قبل الانتقال (لإنشاء عميل جديد) ليرجع كما كان
+function prjContractSync(){
+  const c = state.prj.cForm; if(!c) return;
+  const g = k => { const el = document.getElementById('pjk_'+k); return el ? (el.type==='checkbox' ? el.checked : el.value) : undefined; };
+  ['client_id','title','contract_date','start_date','end_date','auto_renew','renew_notice_months','free_revisions','revision_pct','late_pct_day','late_pct_max','billing','notes','active'].forEach(k=>{ const v = g(k); if(v!==undefined) c[k] = v; });
+}
+// «+ عميل جديد» في قائمة العميل: ينقل إلى نموذج عميل جديد، وبعد الحفظ يرجع إلى النموذج والعميل مختار
+function prjClientPick(kind, v){
+  if(v!=='__new'){ if(kind==='doc') prjDocRefresh(); return; }
+  if(kind==='doc'){ prjDocSync(); state.prj.docForm.client_id = ''; } else { prjContractSync(); state.prj.cForm.client_id = ''; }
+  state.prj.returnTo = {kind, view:state.view};
+  state.view = 'clients'; cxNewClient('');
+}
+function prjClientBack(newId){
+  const rt = state.prj.returnTo; if(!rt) return false;
+  state.prj.returnTo = null;
+  if(newId){ if(rt.kind==='doc' && state.prj.docForm) state.prj.docForm.client_id = newId; if(rt.kind==='contract' && state.prj.cForm) state.prj.cForm.client_id = newId; }
+  state.view = rt.view; render(); window.scrollTo(0,0);
+  return true;
+}
 function prjContractCancel(){ state.prj.cForm = null; render(); }
 function prjContractFormHtml(){
   const c = state.prj.cForm, ad = !!c.parent_id, clients = cxClientTree();
@@ -18192,7 +18253,7 @@ function prjContractFormHtml(){
   return `<div class="card cx-panel pj-form" id="pjcForm">
     <div class="cx-panel-h"><h2>${c.id ? 'تعديل ' : ''}${ad ? 'ملحق' : 'عقد'}${c.id ? '' : ' جديد'}</h2></div>
     <div class="uf-flex">
-      ${ad ? '' : `<div class="f-lg"><label for="pjk_client_id">العميل</label><select id="pjk_client_id"><option value="">— اختر العميل —</option>${clients.map(({c:cl,depth})=>`<option value="${escH(cl.id)}" ${c.client_id===cl.id?'selected':''}>${depth?'— ':''}${escH(cl.name)}</option>`).join('')}</select></div>`}
+      ${ad ? '' : `<div class="f-lg"><label for="pjk_client_id">العميل</label><select id="pjk_client_id" data-on-change="prjClientPick" data-on-change-args="${qa(['contract', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c:cl,depth})=>`<option value="${escH(cl.id)}" ${c.client_id===cl.id?'selected':''}>${depth?'— ':''}${escH(cl.name)}</option>`).join('')}</select></div>`}
       <div class="f-xl"><label for="pjk_title">العنوان</label><input id="pjk_title" type="text" value="${escH(c.title||'')}" placeholder="${ad ? 'مثال: ملحق خدمات التسويق' : 'مثال: عقد الخدمات الإعلامية'}"></div>
       <div class="f-md"><label for="pjk_contract_date">تاريخ ${ad ? 'الملحق' : 'العقد'}</label><input id="pjk_contract_date" type="date" value="${escH(c.contract_date||'')}"></div>
     </div>
