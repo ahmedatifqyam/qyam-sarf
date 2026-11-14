@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.10.3', APP_VERSION_DATE = '2026-11-14';
+const APP_VERSION = '1.10.4', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:351, base:350, extra:0.7, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:0.9, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -2190,6 +2190,36 @@ function unitType(kind){ return unitTypes().find(t=>t.id===kind) || {id:kind, na
 const _byName = (a,b)=> String(a.name).localeCompare(String(b.name),'ar');
 // ترتيب الوحدات (المراكز والبنود): الترتيب اليدوي بالسحب أولاً، ثم الاسم
 const _byUnit = (a,b)=> ((a.sort==null ? 1e9 : a.sort) - (b.sort==null ? 1e9 : b.sort)) || _byName(a,b);
+// «وحدات الشركة» شجرة: المركز وتحته بنوده، تُفتح وتُطوى، والترتيب بالسحب بين الإخوة
+// التعديل يُفتح فوق الشجرة: ننزل إليه حتى لا يظن المستخدم أن شيئاً لم يحدث
+function unitEdit(id){ state.editingCenterId = id; render(); setTimeout(()=>{ const c = document.getElementById('unitEditAnchor'); if(c) c.scrollIntoView({behavior:'smooth', block:'start'}); }, 40); }
+function unitTreeToggle(id){ state.unitTreeClosed = state.unitTreeClosed || {}; state.unitTreeClosed[id] = !state.unitTreeClosed[id]; render(); }
+function unitTreeFold(open){ state.unitTreeClosed = {}; if(!open) state.centers.forEach(c=>{ state.unitTreeClosed[c.id] = true; }); render(); }
+function unitAdminTreeHtml(cid){
+  const all = state.centers.filter(c=>c.companyId===cid && c.scope!=='org');
+  if(!all.length) return `<div class="empty">لا توجد وحدات مضافة بعد لهذه الشركة</div>`;
+  const ids = new Set(all.map(c=>c.id)), closed = state.unitTreeClosed || {};
+  const kidsOf = pid => all.filter(c=> pid ? c.parentId===pid : (!c.parentId || !ids.has(c.parentId))).sort(_byUnit);
+  const seen = new Set();
+  const node = c => {
+    if(seen.has(c.id)) return ''; seen.add(c.id);
+    const kids = kidsOf(c.id), op = kids.length && !closed[c.id], t = unitType(c.kind), sel = state.editingCenterId===c.id;
+    const meta = [t.name, c.code || '', c.letterheadData ? 'ترويسة خاصة ✓' : ''].filter(Boolean).map(escH).join(' · ');
+    return `<div class="ct-node ut-node${c.stage==='closed'?' cat-off':''}" ${dndAttrs('unit', c.id, c.parentId && ids.has(c.parentId) ? c.parentId : 'root')}>
+      <div class="ct-row dnd-row${sel?' ct-sel':''}">${unitSibCount(c)>1 ? dndGrip() : '<span class="ut-sp"></span>'}
+        ${kids.length ? `<button class="ct-tog" data-on-click="unitTreeToggle" data-on-click-args="${qa([c.id])}" aria-label="${op?'طي':'فتح'}">${op?'▾':'◂'}</button>` : '<span class="ct-dot"></span>'}
+        <span class="ut-ico">${t.icon}</span>
+        <button class="ct-name" data-on-click="unitEdit" data-on-click-args="${qa([c.id])}" title="تعديل">${escH(c.name)}</button>
+        <span class="ut-meta">${meta}</span>${kids.length ? `<span class="ct-cnt" title="وحدات تابعة">${kids.length}</span>` : '<span class="ut-fill"></span>'}
+        <span class="ct-acts"><button class="ct-ico ct-ico-e" data-on-click="unitEdit" data-on-click-args="${qa([c.id])}" title="تعديل" aria-label="تعديل">${qi('pen')}</button><button class="ct-ico ct-ico-d" data-on-click="deleteCenter" data-on-click-args="${qa([c.id])}" title="حذف" aria-label="حذف">${qi('trash')}</button></span>
+      </div>
+      ${op ? `<div class="ct-kids">${kids.map(node).join('')}</div>` : ''}
+    </div>`;
+  };
+  const roots = kidsOf(null), anyOpen = all.some(c=>kidsOf(c.id).length && !closed[c.id]);
+  return `<div class="ut-tools"><span class="file-hint">اضغط الاسم للتعديل، واسحب ⋮⋮ لتغيير الترتيب بين الوحدات تحت الأم نفسها.</span>${all.some(c=>c.parentId && ids.has(c.parentId)) ? `<button class="btn btn-ghost btn-sm" data-on-click="unitTreeFold" data-on-click-args="${qa([!anyOpen])}">${anyOpen ? 'طي الكل' : 'فتح الكل'}</button>` : ''}</div>
+    <div class="ct-tree ut-tree">${roots.map(node).join('')}${all.filter(c=>!seen.has(c.id)).map(node).join('')}</div>`;
+}
 function unitSibCount(c){ return state.centers.filter(x=>x.companyId===c.companyId && x.scope!=='org' && (x.parentId||null)===(c.parentId||null)).length; }
 // ترتيب الوحدات بالسحب بين الإخوة (تحت الأم نفسها)؛ يُرقَّم الإخوة كلهم 10، 20، 30…
 DND_DROP.unit = async (id, beforeId)=>{
@@ -9782,18 +9812,8 @@ function renderAdmin(app){
       </div>
     </div>
     <h2 style="margin-top:20px;">وحدات الشركة الحالية (${unitsOrdered(state.currentCompanyId).length})</h2>
-    ${state.editingCenterId ? renderCenterEditForm() : ''}
-    ${unitsOrdered(state.currentCompanyId).length===0 ? `<div class="empty">لا توجد وحدات مضافة بعد لهذه الشركة</div>` : unitsOrdered(state.currentCompanyId).map(x=>{ const c=x.unit; return `
-      <div class="list-item unit-li" style="margin-right:${x.depth*26}px;" ${dndAttrs('unit', c.id, c.parentId||'root')}>
-        ${unitSibCount(c)>1 ? dndGrip() : ''}<div class="li-main">
-          <b>${unitType(c.kind).icon} ${escH(c.name)}</b> <span style="color:var(--muted);">(${escH(unitType(c.kind).name)} · ${escH(c.code||'—')})</span>
-          <span>${c.parentId ? 'تتبع: '+escH(((state.centers.find(p=>p.id===c.parentId)||{}).name)||'—')+' · ' : ''}${c.letterheadData ? 'ترويسة خاصة مرفوعة ✓' : 'بدون ترويسة خاصة'}${unitChildren(c.id).length ? ' · '+unitChildren(c.id).length+' وحدة تابعة' : ''}</span>
-        </div>
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-ghost btn-xs" data-on-click="#79" data-on-click-args="${qa([(''+(c.id))])}">تعديل</button>
-          <button class="btn btn-reject btn-xs" data-on-click="deleteCenter" data-on-click-args="${qa([(''+(c.id))])}">حذف</button>
-        </div>
-      </div>`; }).join('')}
+    ${state.editingCenterId ? '<div id="unitEditAnchor"></div>'+renderCenterEditForm() : ''}
+    ${unitAdminTreeHtml(state.currentCompanyId)}
     ${renderUnitTypesPanel()}
 `,
 
@@ -16450,8 +16470,10 @@ function cxUsersOfCompany(){
 
 function canSeeClients(){ return !!state.user && pageLevel('clients')!=='none'; }
 // لوحة المراكز (كل المراكز معاً): المالية والمدير التنفيذي، ومن أُعطي رؤية مراكز أخرى. موظف المركز يرى دفتر مركزه فقط
+// شركة بلا مراكز (كشركة الدعاية): لا يظهر فيها شيء من المراكز حتى يُنشأ أول مركز من «المنشأة ← الوحدات التنظيمية»
+function coHasCenters(cid){ cid = cid || state.currentCompanyId; return (state.centers||[]).some(c=>c.companyId===cid && (c.kind||'center')==='center' && c.scope!=='org'); }
 function canSeeCenterBooks(){
-  if(!state.user || pageLevel('centerBooks')==='none') return false;
+  if(!state.user || pageLevel('centerBooks')==='none' || !coHasCenters()) return false;
   return cxSeesAllCenters() || (state.cx.myAccess||[]).some(a=>a.mode==='allow');
 }
 function cxIsImporter(){
@@ -16459,7 +16481,7 @@ function cxIsImporter(){
   if(cxIsFin()) return true;
   return (state.cx.importers||[]).some(x=>x.company_id===cxCid() && x.user_id===state.user.id);
 }
-function canSeeGwImport(){ return !!state.user && pageLevel('gatewayImport')!=='none' && cxIsImporter(); }
+function canSeeGwImport(){ return !!state.user && pageLevel('gatewayImport')!=='none' && coHasCenters() && cxIsImporter(); }
 
 async function loadCxLight(){
   if(!state.user) return;
@@ -16689,7 +16711,7 @@ function cxStaffUnitId(){ const u = state.user, cid = cxMyCenterId(); if(!u || !
 function isCenterStaff(){ return !!cxStaffUnitId(); }
 // طلب يُصرف من رصيد مركز (لا من ميزانية الشركة)
 function isCenterReq(req){ return !!req && (req.amountRoute||'normal')==='normal' && !!req.centerId && cxIsBookUnitId(req.centerId) && (isUnspecifiedBudget(req.budgetItemId)); }
-function canSeeCenterBook(){ return canSeeCenterBooks() || isCenterStaff(); }
+function canSeeCenterBook(){ return canSeeCenterBooks() || (isCenterStaff() && coHasCenters()); }
 function cxUnitOpenForReq(u){ return !!u && !['closed','suspended','potential'].includes(u.stage) && !(u.stage==='open' && !u.prePay) && !cxSuspendedBy(u); }
 // الوحدات التي يطلب عليها موظف المركز: وحدته وما تحتها، المفتوحة للطلب
 function cxReqUnits(){
@@ -18166,7 +18188,7 @@ function nrCenterUnitChange(v){ if(state.draft) state.draft.centerUnitId = v; co
 function cxRouteFieldHtml(d){
   if(state.editingReqId || isCenterStaff()) return '';
   const route = d.amountRoute || 'normal';
-  const cs = (state.centers||[]).filter(c=>c.stage!=='closed').sort(_byUnit);
+  const cs = (state.centers||[]).filter(c=>c.companyId===state.currentCompanyId && (c.kind||'center')==='center' && c.stage!=='closed').sort(_byUnit);
   if(!cs.length) return '';
   return `<div class="nr-f nr-wide"><label>مسار المبلغ</label>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">

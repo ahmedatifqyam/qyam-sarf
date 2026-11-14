@@ -1813,9 +1813,16 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .ct-kv span{color:var(--muted);font-size:var(--fs-label);} .ct-kv b{font-weight:600;overflow-wrap:anywhere;}
   .ct-det-a{display:flex;gap:8px;flex-wrap:wrap;}
   .cat-off > .ct-row{opacity:.6;}
+  .ut-tools{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 8px;}
+  .ut-ico{flex:0 0 auto;font-size:var(--fs-body);} .ut-sp{width:20px;flex:0 0 20px;}
+  .ut-meta{flex:0 1 auto;min-width:0;color:var(--muted);font-size:var(--fs-label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ut-tree .ct-cnt{margin-inline-end:auto;} .ut-fill{margin-inline-end:auto;}
+  .ut-tree .ct-l1 > .ct-row .ct-name,.ut-tree > .ct-node > .ct-row .ct-name{font-weight:800;}
+  .ut-tree .ct-name{font-weight:600;}
+  @media (max-width:699px){ .ut-meta{display:none;} }
   /* السحب والإفلات لتغيير الترتيب (عام) */
   .bbh-t{display:inline-flex;align-items:center;gap:6px;} #app td .dnd-grip{display:inline-flex;height:24px;vertical-align:middle;margin-inline-end:6px;}
-  .dnd-grip{display:inline-flex;align-items:center;justify-content:center;width:18px;flex:0 0 18px;align-self:stretch;cursor:grab;color:var(--muted);font-size:13px;letter-spacing:-3px;user-select:none;-webkit-user-select:none;touch-action:none;border-radius:5px;}
+  .dnd-grip{display:inline-flex;align-items:center;justify-content:center;width:20px;flex:0 0 20px;align-self:stretch;cursor:grab;color:var(--muted);font-size:12px;letter-spacing:1px;font-weight:900;line-height:1;user-select:none;-webkit-user-select:none;touch-action:none;border-radius:5px;}
   .dnd-grip:hover{color:var(--ink);background:#f1eee6;}
   @media (hover:none){ .dnd-grip{width:26px;flex-basis:26px;font-size:16px;} }
   .dnd-dragging{opacity:.45;} .dnd-dragging > .dnd-row,tr.dnd-dragging > td{background:#eaf1fb !important;}
@@ -2761,6 +2768,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=7932b7a0d6"></script>
+<script src="app.js?v=3419727c98"></script>
 </body>
 </html>
