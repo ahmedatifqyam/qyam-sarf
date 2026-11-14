@@ -1,13 +1,15 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.10.2', APP_VERSION_DATE = '2026-11-14';
+const APP_VERSION = '1.10.3', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:0.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
 function isOwner(){ return isOwnerUser(state.user) || isOwnerUser((state.users||[]).find(x=>state.user && x.id===state.user.id)); }
+// معالجات الإفلات للسحب والإفلات العام (تُسجَّل في أماكنها: cat، lvl، ben، cxph، cxct، unit)
+const DND_DROP = {};
 function appWorkBase(){ const v = Number((state.appSettings||{}).work_hours_base); return isFinite(v) ? v : 0; }
 function appWorkTotal(){ return Math.round(appWorkBase() + APP_WORK.hours); }
 function appWorkTip(){ const adj = appWorkBase(); return `≈ ${appWorkTotal()} ساعة عمل منذ ${String(APP_WORK.since||'').split('-').reverse().join('-')}: ${APP_WORK.base} حتى ${String(APP_WORK.at||'').split('-').reverse().join('-')} + ${APP_WORK.extra} بعده (وقت المحادثات + 25% للتجربة)${adj ? ` + ${adj} تعديل يدوي` : ''}`; }
@@ -553,7 +555,7 @@ function dbUserToState(u){
 }
 function dbCenterToState(c){
   return {
-    id:c.id, name:c.name, letterheadData:c.letterhead_data||'', companyId:c.company_id, code:c.code||'', footerMode:c.footer_mode||'company', footerText:c.footer_text||'',
+    id:c.id, name:c.name, sort:(c.sort==null ? null : Number(c.sort)), letterheadData:c.letterhead_data||'', companyId:c.company_id, code:c.code||'', footerMode:c.footer_mode||'company', footerText:c.footer_text||'',
     annualBudget:c.annual_budget, monthlyBudget:c.monthly_budget, minThreshold:c.min_threshold,
     skipDeptManager: !!c.skip_dept_manager, skipSeniorManager: !!c.skip_senior_manager, skipExecutiveManager: !!c.skip_executive_manager,
     minSingleApprover: c.min_single_approver || 'exec', hasMinSingle: c.min_single_approver!==undefined,
@@ -612,7 +614,7 @@ function mapRequestRow(r){
     bankTransferRef: r.bank_transfer_ref||'', bankTransferAt: r.bank_transfer_at, fastTracked: !!r.fast_tracked, limitExceeded: !!r.limit_exceeded,
     budgetItemId: r.budget_item_id||null,
     requestType: r.request_type||'normal',
-    beneficiaries:(r.request_beneficiaries||[]).map(b=>({
+    beneficiaries:(r.request_beneficiaries||[]).slice().sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0)).map(b=>({
       name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', statement:b.statement||'', notes:b.notes||'',
       amount:Number(b.amount), deduction:Number(b.deduction||0), deductionNote:b.deduction_note||'',
       extra:Number(b.extra||0), extraNote:b.extra_note||''
@@ -2186,6 +2188,18 @@ function unitTypes(){
 }
 function unitType(kind){ return unitTypes().find(t=>t.id===kind) || {id:kind, name:kind||'مركز', icon:'🏫'}; }
 const _byName = (a,b)=> String(a.name).localeCompare(String(b.name),'ar');
+// ترتيب الوحدات (المراكز والبنود): الترتيب اليدوي بالسحب أولاً، ثم الاسم
+const _byUnit = (a,b)=> ((a.sort==null ? 1e9 : a.sort) - (b.sort==null ? 1e9 : b.sort)) || _byName(a,b);
+function unitSibCount(c){ return state.centers.filter(x=>x.companyId===c.companyId && x.scope!=='org' && (x.parentId||null)===(c.parentId||null)).length; }
+// ترتيب الوحدات بالسحب بين الإخوة (تحت الأم نفسها)؛ يُرقَّم الإخوة كلهم 10، 20، 30…
+DND_DROP.unit = async (id, beforeId)=>{
+  const c = state.centers.find(x=>x.id===id); if(!c) return;
+  const sibs = state.centers.filter(x=>x.companyId===c.companyId && x.scope!=='org' && (x.parentId||null)===(c.parentId||null)).sort(_byUnit);
+  const ids = dndReorder(sibs.map(x=>x.id), id, beforeId); if(!ids) return;
+  const ch = []; ids.forEach((k,i)=>{ const u = sibs.find(x=>x.id===k), v = (i+1)*10; if(u.sort !== v){ u.sort = v; ch.push([k, v]); } });
+  render();
+  await dndSaveSorts('centers', 'sort', ch);
+};
 function unitChildren(id, companyId){ return state.centers.filter(c=>c.parentId===id && (!companyId || c.companyId===companyId)); }
 function unitDescendantIds(id){
   const out = [], st = [id];
@@ -2206,8 +2220,8 @@ function unitHasLoop(c){
 function unitsOrdered(companyId, includeOrg){
   const all = state.centers.filter(c=>c.companyId===companyId && (includeOrg || c.scope!=='org'));
   const ids = new Set(all.map(c=>c.id)), res = [], seen = new Set();
-  const visit = (c, d)=>{ if(seen.has(c.id)) return; seen.add(c.id); res.push({unit:c, depth:d}); all.filter(x=>x.parentId===c.id).sort(_byName).forEach(x=>visit(x, d+1)); };
-  all.filter(c=>!c.parentId || !ids.has(c.parentId)).sort(_byName).forEach(r=>visit(r, 0));
+  const visit = (c, d)=>{ if(seen.has(c.id)) return; seen.add(c.id); res.push({unit:c, depth:d}); all.filter(x=>x.parentId===c.id).sort(_byUnit).forEach(x=>visit(x, d+1)); };
+  all.filter(c=>!c.parentId || !ids.has(c.parentId)).sort(_byUnit).forEach(r=>visit(r, 0));
   all.forEach(c=>{ if(!seen.has(c.id)) visit(c, 0); });   // أي حلقة مفقودة
   return res;
 }
@@ -4311,6 +4325,13 @@ function nrAdjSave(clear){
   nrAdjClose(); render(); saveDraftToStorage();
 }
 function nrAdjClear(){ nrAdjSave(true); }
+// ترتيب المستفيدين بالسحب: يتغير ترتيبهم في الطلب وفي المطبوع
+DND_DROP.ben = (id, beforeId)=>{
+  syncDraftFromDOM();
+  const arr = state.draft.beneficiaries, ids = dndReorder(arr.map((_,i)=>String(i)), id, beforeId); if(!ids) return;
+  state.draft.beneficiaries = ids.map(k=>arr[+k]);
+  render(); saveDraftToStorage();
+};
 function removeBeneficiaryRow(i){
   syncDraftFromDOM();
   state.draft.beneficiaries.splice(i,1);
@@ -9763,8 +9784,8 @@ function renderAdmin(app){
     <h2 style="margin-top:20px;">وحدات الشركة الحالية (${unitsOrdered(state.currentCompanyId).length})</h2>
     ${state.editingCenterId ? renderCenterEditForm() : ''}
     ${unitsOrdered(state.currentCompanyId).length===0 ? `<div class="empty">لا توجد وحدات مضافة بعد لهذه الشركة</div>` : unitsOrdered(state.currentCompanyId).map(x=>{ const c=x.unit; return `
-      <div class="list-item" style="margin-right:${x.depth*26}px;">
-        <div class="li-main">
+      <div class="list-item unit-li" style="margin-right:${x.depth*26}px;" ${dndAttrs('unit', c.id, c.parentId||'root')}>
+        ${unitSibCount(c)>1 ? dndGrip() : ''}<div class="li-main">
           <b>${unitType(c.kind).icon} ${escH(c.name)}</b> <span style="color:var(--muted);">(${escH(unitType(c.kind).name)} · ${escH(c.code||'—')})</span>
           <span>${c.parentId ? 'تتبع: '+escH(((state.centers.find(p=>p.id===c.parentId)||{}).name)||'—')+' · ' : ''}${c.letterheadData ? 'ترويسة خاصة مرفوعة ✓' : 'بدون ترويسة خاصة'}${unitChildren(c.id).length ? ' · '+unitChildren(c.id).length+' وحدة تابعة' : ''}</span>
         </div>
@@ -12340,7 +12361,7 @@ async function renderOrgTree(app){
       ${treeRow({icon:iconOpen||t.icon, label:`<span class="org-editable" data-kind="center" data-id="${c.id}" data-on-click="#96" style="cursor:pointer;text-decoration:underline dotted;">${escH(c.name)}</span>`,
                  sub:`(${escH(t.name)} — ${staff.length} موظف${kids.length ? ' — '+kids.length+' وحدة تابعة' : ''})`, toggleId:id, dflt:false, indent, hasChildren:true})}
       ${open ? ((staff.length ? renderPeople(staff, indent+22, c.companyId, personRow) : (kids.length ? '' : `<div class="sub" style="font-size:var(--fs-hint);padding-right:${indent+22}px;margin-bottom:0;">لا يوجد موظفون بعد</div>`))
-                + kids.sort(_byName).map(k=>unitBlock(k, indent+22, '', depth+1)).join('')) : ''}
+                + kids.sort(_byUnit).map(k=>unitBlock(k, indent+22, '', depth+1)).join('')) : ''}
     `;
   }
   function companyBlock(co){
@@ -12912,18 +12933,16 @@ function renderJobLevels(app){
   const companyId = state.jobLevelsCompanyId;
   const levels = levelsForCompany(companyId);
   const rows = levels.map((l,i)=>`
-    <tr>
-      <td style="width:28px;">${l.sortOrder}</td>
+    <tr ${dndAttrs('lvl', l.id, companyId)}>
+      <td style="width:28px;white-space:nowrap;">${levels.length>1 ? dndGrip() : ''}<span class="lvl-no">${i+1}</span></td>
       <td><span class="org-editable" data-kind="level" data-id="${l.id}" data-on-click="startLevelNameEdit" data-on-click-args="${qa([QA.t, (''+(l.id))])}" style="cursor:pointer;text-decoration:underline dotted;">${escH(l.name)}</span></td>
       <td class="lvl-acts" style="white-space:nowrap;width:1%;">
-        <button type="button" class="btn btn-ghost btn-xs lvl-mv" title="أعلى" ${i===0?'disabled':''} data-on-click="moveLevel" data-on-click-args="${qa([(''+(l.id)), -1])}">▲</button>
-        <button type="button" class="btn btn-ghost btn-xs lvl-mv" title="أسفل" ${i===levels.length-1?'disabled':''} data-on-click="moveLevel" data-on-click-args="${qa([(''+(l.id)), 1])}">▼</button>
         <button type="button" class="btn btn-reject btn-xs" data-on-click="deleteLevel" data-on-click-args="${qa([(''+(l.id))])}">حذف</button>
       </td>
     </tr>`).join('');
   app.innerHTML = wrapWithAdminSidebar(`
     <h1 style="margin:0 0 4px;">سلّم المستويات الوظيفية</h1>
-    <p class="sub" style="margin:0 0 14px;">الأعلى بالجدول = أعلى مستوى. يُستخدم بالشجرة وفحص الهيكل ومعاينة المسار، ولا يغيّر محرك الاعتماد الفعلي.</p>
+    <p class="sub" style="margin:0 0 14px;">الأعلى بالجدول = أعلى مستوى، ولتغيير الترتيب اسحب المقبض ⋮⋮ لأعلى أو لأسفل. يُستخدم بالشجرة وفحص الهيكل ومعاينة المسار، ولا يغيّر محرك الاعتماد الفعلي.</p>
     <div class="filt-bar filt-wide" style="margin-bottom:14px;">
       <div><label>الشركة</label>
         <select data-on-change="#105">
@@ -12976,20 +12995,13 @@ async function addJobLevel(){
   state.jobLevels.push({id:row.id, companyId:row.company_id, name:row.name, sortOrder:row.sort_order});
   render();
 }
-async function moveLevel(id, dir){
+DND_DROP.lvl = async (id, beforeId)=>{
   const levels = levelsForCompany(state.jobLevelsCompanyId);
-  const idx = levels.findIndex(l=>l.id===id);
-  const swapIdx = idx+dir;
-  if(idx<0 || swapIdx<0 || swapIdx>=levels.length) return;
-  const a = levels[idx], b = levels[swapIdx];
-  const oa = a.sortOrder, ob = b.sortOrder;
-  const r1 = await db.from('job_levels').update({sort_order:ob}).eq('id', a.id);
-  if(!(await dbCheck(r1, 'إعادة الترتيب'))) return;
-  const r2 = await db.from('job_levels').update({sort_order:oa}).eq('id', b.id);
-  if(!(await dbCheck(r2, 'إعادة الترتيب'))) return;
-  a.sortOrder = ob; b.sortOrder = oa;
+  const ids = dndReorder(levels.map(l=>l.id), id, beforeId); if(!ids) return;
+  const ch = []; ids.forEach((k,i)=>{ const l = levels.find(x=>x.id===k); if(l.sortOrder !== i+1){ l.sortOrder = i+1; ch.push([k, i+1]); } });
   render();
-}
+  await dndSaveSorts('job_levels', 'sort_order', ch);
+};
 function deleteLevel(id){
   requestDeleteConfirm('حذف هذا المستوى من السلّم؟ المستخدمون المرتبطون به يرجعون للمستوى الافتراضي حسب دورهم.', 'jobLevel', id);
 }
@@ -14258,8 +14270,8 @@ function renderNewRequest(app){
           const chip = (type, word, val, note) => `<button type="button" class="btn btn-sm nr-abtn nr-chip nr-chip-${type}" title="${escH((note ? note+' — ' : '')+'اضغط للتعديل')}" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}"><span class="nr-cw">${type==='deduction' ? '−' : '+'} ${word}</span><b>${fmtKWDHtml(val)}</b></button>`;
           const link = (type, txt) => `<button type="button" class="btn btn-ghost btn-sm nr-abtn" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">+ ${txt}</button>`;
           return `
-          <div class="beneficiary-block nr-ben">
-            <div class="beneficiary-block-header">مستفيد رقم ${i+1}${d.beneficiaries.length>1 ? `<span class="remove-b" data-on-click="removeBeneficiaryRow" data-on-click-args="${qa([(i)])}">إزالة ✕</span>` : ''}</div>
+          <div class="beneficiary-block nr-ben" ${dndAttrs('ben', i)}>
+            <div class="beneficiary-block-header"><span class="bbh-t">${d.beneficiaries.length>1 ? dndGrip() : ''}مستفيد رقم ${i+1}</span>${d.beneficiaries.length>1 ? `<span class="remove-b" data-on-click="removeBeneficiaryRow" data-on-click-args="${qa([(i)])}">إزالة ✕</span>` : ''}</div>
             <div class="nr-grid">
               <div class="nr-f"><label>الاسم</label>
                 <input class="b-name" type="text" data-combo="benList" autocomplete="off" value="${escH(b.name||'')}" placeholder="اسم الشخص أو الجهة" data-on-change="onBeneficiaryNameChange" data-on-change-args="${qa([(i), QA.v])}">
@@ -16528,6 +16540,10 @@ function cxCSync(){
 }
 function cxCAddPhone(){ cxCSync(); state.cx.cDraft.phones.push({number:'',type:'mobile'}); render(); }
 function cxCDelPhone(i){ cxCSync(); state.cx.cDraft.phones.splice(i,1); render(); }
+// ترتيب أرقام الهاتف وجهات الاتصال بالسحب (يُحفظ مع العميل عند «حفظ»)
+function cxCMoveRep(list, id, beforeId){ cxCSync(); const arr = state.cx.cDraft[list]||[], ids = dndReorder(arr.map((_,i)=>String(i)), id, beforeId); if(!ids) return; state.cx.cDraft[list] = ids.map(k=>arr[+k]); render(); }
+DND_DROP.cxph = (id, b)=>cxCMoveRep('phones', id, b);
+DND_DROP.cxct = (id, b)=>cxCMoveRep('contacts', id, b);
 function cxCAddContact(){ cxCSync(); state.cx.cDraft.contacts.push({name:'',title:'',phone:'',email:''}); render(); }
 function cxCDelContact(i){ cxCSync(); state.cx.cDraft.contacts.splice(i,1); render(); }
 async function cxSaveClient(){
@@ -16584,8 +16600,8 @@ function cxClientFormHtml(){
     <div class="cx-cf-2">
       <section class="cx-rep">
         <div class="cx-rep-h"><h3>أرقام الهاتف</h3><button class="btn btn-ghost btn-sm" data-on-click="cxCAddPhone">+ رقم</button></div>
-        ${phones.length ? `<div class="cx-rep-g cx-rep-ph cx-rep-head"><span>الرقم</span><span>النوع</span><span></span></div>
-        ${phones.map((p,i)=>`<div class="cx-rep-g cx-rep-ph">
+        ${phones.length ? `<div class="cx-rep-g cx-rep-ph cx-rep-head"><span></span><span>الرقم</span><span>النوع</span><span></span></div>
+        ${phones.map((p,i)=>`<div class="cx-rep-g cx-rep-ph" ${dndAttrs('cxph', i)}>${phones.length>1 ? dndGrip() : '<span></span>'}
           <input id="cxc_ph_${i}_n" type="text" dir="ltr" inputmode="tel" placeholder="الرقم" value="${escH(p.number||'')}" aria-label="الرقم">
           <select id="cxc_ph_${i}_t" aria-label="النوع">${opt(CX_PHONE_TYPE,p.type)}</select>${del('cxCDelPhone', i)}</div>`).join('')}`
         : '<div class="cx-rep-empty">لا أرقام بعد.</div>'}
@@ -16598,8 +16614,8 @@ function cxClientFormHtml(){
 
     <section class="cx-rep cx-rep-wide">
       <div class="cx-rep-h"><h3>جهات الاتصال</h3><button class="btn btn-ghost btn-sm" data-on-click="cxCAddContact">+ جهة</button></div>
-      ${contacts.length ? `<div class="cx-rep-g cx-rep-ct cx-rep-head"><span>الاسم</span><span>الصفة</span><span>الهاتف</span><span>البريد</span><span></span></div>
-      ${contacts.map((p,i)=>`<div class="cx-rep-g cx-rep-ct">
+      ${contacts.length ? `<div class="cx-rep-g cx-rep-ct cx-rep-head"><span></span><span>الاسم</span><span>الصفة</span><span>الهاتف</span><span>البريد</span><span></span></div>
+      ${contacts.map((p,i)=>`<div class="cx-rep-g cx-rep-ct" ${dndAttrs('cxct', i)}>${contacts.length>1 ? dndGrip() : '<span class="dnd-none"></span>'}
         <input id="cxc_ct_${i}_n" type="text" placeholder="الاسم" aria-label="الاسم" value="${escH(p.name||'')}">
         <input id="cxc_ct_${i}_t" type="text" placeholder="الصفة" aria-label="الصفة" value="${escH(p.title||'')}">
         <input id="cxc_ct_${i}_p" type="text" dir="ltr" inputmode="tel" placeholder="الهاتف" aria-label="الهاتف" value="${escH(p.phone||'')}">
@@ -16679,7 +16695,7 @@ function cxUnitOpenForReq(u){ return !!u && !['closed','suspended','potential'].
 function cxReqUnits(){
   const id = cxStaffUnitId(); if(!id) return [];
   const out = [{u:cxUnit(id), depth:0}];
-  const visit = (pid, d)=>{ (state.centers||[]).filter(c=>c.parentId===pid).sort(_byName).forEach(c=>{ out.push({u:c, depth:d}); visit(c.id, d+1); }); };
+  const visit = (pid, d)=>{ (state.centers||[]).filter(c=>c.parentId===pid).sort(_byUnit).forEach(c=>{ out.push({u:c, depth:d}); visit(c.id, d+1); }); };
   visit(id, 1); return out.filter(x=>cxUnitOpenForReq(x.u));
 }
 function cxAvailFor(id){ const b = cxB(id), u = cxUnit(id) || {}; const v = Number(b.balance||0) - Number(b.pending_requests||0); return {balance:Number(b.balance||0), pending:Number(b.pending_requests||0), avail:cxR3(v), od:u.balanceControl ? Number(u.overdraftLimit||0) : 0}; }
@@ -16713,7 +16729,7 @@ function cxAgg(ids){ return ids.reduce((a,id)=>{ const b = cxB(id); ['income','t
 // البنود مرتبة كالشجرة مع عمقها تحت الجذر
 function cxSubTree(rootId){
   const ids = new Set(cxSubIds(rootId)), out = [];
-  const visit = (pid, d)=>{ (state.centers||[]).filter(c=>c.parentId===pid && ids.has(c.id)).sort(_byName).forEach(c=>{ out.push({u:c, depth:d}); visit(c.id, d+1); }); };
+  const visit = (pid, d)=>{ (state.centers||[]).filter(c=>c.parentId===pid && ids.has(c.id)).sort(_byUnit).forEach(c=>{ out.push({u:c, depth:d}); visit(c.id, d+1); }); };
   visit(rootId, 0); return out;
 }
 function cxVisibleCenters(){
@@ -16722,7 +16738,7 @@ function cxVisibleCenters(){
     const b = cxB(c.id);
     if(cxIsBookUnit(c) || Math.abs(Number(b.income||0)) + Math.abs(Number(b.expense||0)) > 0) set.add(cxViewRoot(c.id));
   });
-  return [...set].map(cxUnit).filter(Boolean).sort(_byName);
+  return [...set].map(cxUnit).filter(Boolean).sort(_byUnit);
 }
 function cxScopeIds(){ const r = state.cx.centerId; if(!r) return []; return state.cx.itemId ? [state.cx.itemId] : [r, ...cxSubIds(r)]; }
 function cxHasItems(){ return !!state.cx.centerId && cxSubIds(state.cx.centerId).length > 0; }
@@ -16802,7 +16818,7 @@ async function cxSetAccess(userId, mode){
   await cxLoadAccess(); showToast('تم الحفظ','success');
 }
 function renderCenterAccessPanel(){
-  const cs = (state.centers||[]).filter(c=>c.companyId===cxCid()).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const cs = (state.centers||[]).filter(c=>c.companyId===cxCid()).sort(_byUnit);
   if(!state.cx.accCenter && cs.length){ state.cx.accCenter = cs[0].id; cxLoadAccess(); }
   const acc = state.cx.accessRows||[], users = cxUsersOfCompany();
   const nAllow = acc.filter(x=>x.mode==='allow').length, nDeny = acc.filter(x=>x.mode==='deny').length;
@@ -17224,6 +17240,61 @@ function renderCenterBooks(app){
       </div></div>` : ''}`;
 }
 
+// ===================== السحب والإفلات لتغيير الترتيب (عام في النظام) =====================
+// العنصر: data-dnd="مفتاح المعالج" data-dnd-id="المعرّف" data-dnd-grp="مجموعة الإخوة" (اختياري)، وفيه مقبض dndGrip().
+// السحب بين الإخوة فقط (نفس الحاوية ونفس المجموعة). عند الإفلات يُستدعى DND_DROP[المفتاح](المعرّف، معرّف-ما-قبله-يُدرج أو null للآخر).
+let qyDnd = null;   // DND_DROP معرّف أول الملف
+function dndGrip(){ return `<span class="dnd-grip" title="اسحب لتغيير الترتيب" aria-label="اسحب لتغيير الترتيب">⋮⋮</span>`; }
+function dndAttrs(key, id, grp){ return `data-dnd="${escH(key)}" data-dnd-id="${escH(String(id))}"${grp!=null ? ` data-dnd-grp="${escH(String(grp))}"` : ''}`; }
+// ترتيب جديد للمعرّفات بعد نقل واحد؛ null إن لم يتغير شيء
+function dndReorder(ids, id, beforeId){
+  const out = ids.filter(k=>k!==id), at = beforeId!=null ? out.indexOf(beforeId) : -1;
+  out.splice(at < 0 ? out.length : at, 0, id);
+  return out.join('\u0001') === ids.join('\u0001') ? null : out;
+}
+async function dndSaveSorts(table, col, changes, reload){
+  if(!changes.length) return true;
+  const rs = await Promise.all(changes.map(([id,v])=>db.from(table).update({[col]:v}).eq('id', id)));
+  for(const r of rs){ if(!(await dbCheck(r,'حفظ الترتيب'))){ if(reload) await reload(); else render(); return false; } }
+  showToast('تم حفظ الترتيب','success'); return true;
+}
+function dndRowOf(el){ return el.querySelector(':scope > .dnd-row') || el; }
+function dndStart(e){
+  const g = e.target && e.target.closest && e.target.closest('.dnd-grip'); if(!g || (e.button!=null && e.button>0)) return;
+  const item = g.closest('[data-dnd-id]'), box = item && item.parentElement; if(!box || !DND_DROP[item.dataset.dnd]) return;
+  e.preventDefault();
+  const grp = item.dataset.dndGrp, key = item.dataset.dnd;
+  const sibs = [...box.children].filter(n=>n.dataset && n.dataset.dnd===key && n.dataset.dndGrp===grp);
+  if(sibs.length < 2) return;
+  qyDnd = {key, id:item.dataset.dndId, item, sibs, before:undefined, mark:null};
+  item.classList.add('dnd-dragging'); document.body.classList.add('dnd-on');
+  try{ g.setPointerCapture(e.pointerId); }catch(_){}
+  dndMove(e);
+}
+function dndMove(e){
+  const d = qyDnd; if(!d) return;
+  const y = e.clientY, others = d.sibs.filter(n=>n!==d.item);
+  let tgt = null; for(const n of others){ const r = dndRowOf(n).getBoundingClientRect(); if(y < r.top + r.height/2){ tgt = n; break; } }
+  d.before = tgt ? tgt.dataset.dndId : null;
+  const mark = tgt || others[others.length-1], cls = tgt ? 'dnd-before' : 'dnd-after';
+  if(d.mark && (d.mark.el!==mark || d.mark.cls!==cls)) d.mark.el.classList.remove(d.mark.cls);
+  if(mark){ mark.classList.add(cls); d.mark = {el:mark, cls}; }
+  if(y < 70) window.scrollBy(0, -14); else if(y > window.innerHeight - 90) window.scrollBy(0, 14);
+}
+function dndEnd(cancel){
+  const d = qyDnd; if(!d) return; qyDnd = null;
+  d.item.classList.remove('dnd-dragging'); document.body.classList.remove('dnd-on');
+  if(d.mark) d.mark.el.classList.remove(d.mark.cls);
+  if(cancel===true || d.before===undefined) return;
+  const ids = d.sibs.map(n=>n.dataset.dndId);
+  if(!dndReorder(ids, d.id, d.before)) return;
+  try{ DND_DROP[d.key](d.id, d.before, d); }catch(err){ console.error(err); }
+}
+document.addEventListener('pointerdown', dndStart);
+document.addEventListener('pointermove', e=>{ if(qyDnd) dndMove(e); });
+document.addEventListener('pointerup', ()=>{ if(qyDnd) dndEnd(); });
+document.addEventListener('pointercancel', ()=>{ if(qyDnd) dndEnd(true); });
+
 // ===================== خدمات الشركة (الكتالوج): خدمة رئيسية ← خدمة فرعية ← بند مسعّر =====================
 state.cat = {items:[], loaded:false, q:'', open:{}, edit:null, sel:null, showOff:false};
 const CAT_UNITS = ['قطعة','تصميم','صفحة','مقطع','دقيقة','ثانية','ساعة','يوم','شهر','مشروع','حملة','نسبة %','أخرى'];
@@ -17342,47 +17413,14 @@ function catPlacePop(){
   pop.style.top = top + 'px'; pop.style.setProperty('--ar', Math.max(10, Math.min(h - 26, Math.round(rr.top + rr.height/2 - sr.top - top - 7))) + 'px');
   side.style.minHeight = (top + h + 12) + 'px';
 }
-// الترتيب بالسحب والإفلات من المقبض ⋮⋮ (بين الإخوة تحت الأب نفسه فقط) — يعمل بالفأرة واللمس
-let catDrag = null;
-function catDragStart(e){
-  const g = e.target && e.target.closest && e.target.closest('.ct-grip'); if(!g || state.view!=='catalog' || !canEditCatalog()) return;
-  const node = g.closest('.ct-node'), box = node && node.parentElement; if(!box) return;
-  e.preventDefault();
-  const sibs = [...box.children].filter(n=>n.classList.contains('ct-node'));
-  const line = document.createElement('div'); line.className = 'ct-dropline'; box.appendChild(line);
-  catDrag = {id:node.dataset.cid, node, box, sibs, before:undefined, line};
-  node.classList.add('ct-dragging'); document.body.classList.add('ct-drag-on');
-  try{ g.setPointerCapture(e.pointerId); }catch(_){}
-  catDragMove(e);
-}
-function catDragMove(e){
-  const d = catDrag; if(!d) return;
-  const y = e.clientY, others = d.sibs.filter(n=>n!==d.node);
-  let tgt = null; for(const n of others){ const r = n.querySelector(':scope > .ct-row').getBoundingClientRect(); if(y < r.top + r.height/2){ tgt = n; break; } }
-  d.before = tgt ? tgt.dataset.cid : null;
-  const last = others[others.length-1];
-  const t = tgt ? tgt.offsetTop : (last ? last.offsetTop + last.offsetHeight : d.node.offsetTop);
-  d.line.style.top = (t - 1) + 'px';
-  if(y < 70) window.scrollBy(0, -12); else if(y > window.innerHeight - 90) window.scrollBy(0, 12);
-}
-async function catDragEnd(){
-  const d = catDrag; if(!d) return; catDrag = null;
-  d.node.classList.remove('ct-dragging'); document.body.classList.remove('ct-drag-on'); d.line.remove();
-  if(d.before === undefined) return;
-  const x = state.cat.items.find(i=>i.id===d.id); if(!x) return;
-  const full = catKids(x.parent_id), ids = full.map(i=>i.id).filter(i=>i!==d.id);
-  const at = d.before ? ids.indexOf(d.before) : ids.length; ids.splice(at < 0 ? ids.length : at, 0, d.id);
-  if(ids.join() === full.map(i=>i.id).join()) return;
-  const ch = []; ids.forEach((id,i)=>{ const it = state.cat.items.find(k=>k.id===id), ns = (i+1)*10; if(it.sort !== ns){ it.sort = ns; ch.push([id, ns]); } });
+// ترتيب الخدمات بالسحب: يعاد ترقيم الإخوة كلهم (حتى المخفي منهم بالفلترة) حسب الترتيب الجديد
+DND_DROP.cat = async (id, beforeId)=>{
+  const x = state.cat.items.find(i=>i.id===id); if(!x) return;
+  const full = catKids(x.parent_id), ids = dndReorder(full.map(i=>i.id), id, beforeId); if(!ids) return;
+  const ch = []; ids.forEach((k,i)=>{ const it = state.cat.items.find(q=>q.id===k), ns = (i+1)*10; if(it.sort !== ns){ it.sort = ns; ch.push([k, ns]); } });
   state.cat.items.sort((a,b)=>(a.sort||0)-(b.sort||0) || String(a.name).localeCompare(String(b.name),'ar')); render();
-  const rs = await Promise.all(ch.map(([id,ns])=>db.from('svc_catalog').update({sort:ns}).eq('id', id)));
-  for(const r of rs){ if(!(await dbCheck(r,'الترتيب'))){ await catLoad(); return; } }
-  showToast('تم حفظ الترتيب','success');
-}
-document.addEventListener('pointerdown', catDragStart);
-document.addEventListener('pointermove', e=>{ if(catDrag) catDragMove(e); });
-document.addEventListener('pointerup', ()=>{ if(catDrag) catDragEnd(); });
-document.addEventListener('pointercancel', ()=>{ if(catDrag){ catDrag.before = undefined; catDragEnd(); } });
+  await dndSaveSorts('svc_catalog', 'sort', ch, catLoad);
+};
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && state.view==='catalog' && (state.cat.sel || state.cat.edit)) catClose(); });
 document.addEventListener('click', e=>{
   if(state.view!=='catalog' || !state.cat.sel || state.cat.edit || catInline()) return;
@@ -17400,9 +17438,9 @@ function catRowHtml(x){
     : `<span class="ct-cnt">${catKids(x.id).length}</span>`;
   const IN = catInline(), ed = state.cat.edit, newHere = IN && ed && !ed.id && ed.parent_id===x.id;
   const inl = IN && sel && (!ed || ed.id) && `<div class="ct-inline">${catDetailHtml()}</div>`;
-  const grip = canEditCatalog() && !(state.cat.q||'').trim() ? `<span class="ct-grip" title="اسحب لتغيير الترتيب" aria-label="اسحب لتغيير الترتيب">⋮⋮</span>` : '';
-  return `<div class="ct-node ct-l${x.level}${x.active?'':' cat-off'}" data-cid="${escH(x.id)}">
-    <div class="ct-row${sel?' ct-sel':''}">${grip}
+  const grip = canEditCatalog() && !(state.cat.q||'').trim() ? dndGrip() : '';
+  return `<div class="ct-node ct-l${x.level}${x.active?'':' cat-off'}" data-cid="${escH(x.id)}" ${dndAttrs('cat', x.id, x.parent_id||'root')}>
+    <div class="ct-row dnd-row${sel?' ct-sel':''}">${grip}
       ${x.level<3 ? `<button class="ct-tog" data-on-click="catToggle" data-on-click-args="${qa([x.id])}" aria-label="${op?'طي':'فتح'}">${op?'▾':'◂'}</button>` : '<span class="ct-dot"></span>'}
       <button class="ct-name" data-on-click="catSelect" data-on-click-args="${qa([x.id])}">${escH(x.name)}${x.active?'':' <span class="cx-tag">موقوفة</span>'}</button>
       ${meta}${catActsHtml(x)}
@@ -17761,7 +17799,7 @@ async function gwSaveSettings(){
 }
 
 function gwCentersOptions(sel){
-  const cs = (state.centers||[]).filter(c=>c.companyId===cxCid() && c.stage!=='closed').sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const cs = (state.centers||[]).filter(c=>c.companyId===cxCid() && c.stage!=='closed').sort(_byUnit);
   return cs.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${escH(c.name)}</option>`).join('');
 }
 function gwDropHtml(kind, title, hint, file){
@@ -18128,7 +18166,7 @@ function nrCenterUnitChange(v){ if(state.draft) state.draft.centerUnitId = v; co
 function cxRouteFieldHtml(d){
   if(state.editingReqId || isCenterStaff()) return '';
   const route = d.amountRoute || 'normal';
-  const cs = (state.centers||[]).filter(c=>c.stage!=='closed').sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const cs = (state.centers||[]).filter(c=>c.stage!=='closed').sort(_byUnit);
   if(!cs.length) return '';
   return `<div class="nr-f nr-wide"><label>مسار المبلغ</label>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">

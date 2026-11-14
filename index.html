@@ -1794,13 +1794,8 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .ct-x{width:28px;height:28px;flex:0 0 28px;border:0;background:none;border-radius:6px;cursor:pointer;color:var(--muted);font-size:14px;}
   .ct-x:hover{background:#f1eee6;color:var(--ink);}
   #app .ct-det-a .btn,#app .ct-pop .cx-actions .btn{width:auto;min-width:0;flex:1 1 0;}
-  .ct-grip{width:16px;flex:0 0 16px;cursor:grab;color:var(--muted);font-size:13px;letter-spacing:-3px;text-align:center;user-select:none;touch-action:none;opacity:0;transition:opacity .12s;}
-  .ct-row:hover .ct-grip,.ct-row.ct-sel .ct-grip{opacity:1;}
-  @media (hover:none){ .ct-grip{opacity:1;font-size:15px;width:22px;flex-basis:22px;} }
-  .ct-kids,.ct-tree{position:relative;}
-  .ct-dropline{position:absolute;inset-inline:0;height:3px;border-radius:2px;background:#1d5fbf;pointer-events:none;z-index:3;}
-  .ct-dragging > .ct-row{opacity:.45;background:#eaf1fb;}
-  body.ct-drag-on,body.ct-drag-on *{cursor:grabbing !important;user-select:none !important;}
+  .ct-row .dnd-grip{opacity:0;transition:opacity .12s;} .ct-row:hover .dnd-grip,.ct-row.ct-sel .dnd-grip{opacity:1;}
+  @media (hover:none){ .ct-row .dnd-grip{opacity:1;} }
   .cat-par{display:flex;flex-direction:column;gap:4px;} #app .cat-par select{width:100% !important;max-width:none !important;}
   .ct-side .cat-form{border:0;padding:0;}
   .ct-pop .cat-form-g{gap:8px;}
@@ -1818,6 +1813,15 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .ct-kv span{color:var(--muted);font-size:var(--fs-label);} .ct-kv b{font-weight:600;overflow-wrap:anywhere;}
   .ct-det-a{display:flex;gap:8px;flex-wrap:wrap;}
   .cat-off > .ct-row{opacity:.6;}
+  /* السحب والإفلات لتغيير الترتيب (عام) */
+  .bbh-t{display:inline-flex;align-items:center;gap:6px;} #app td .dnd-grip{display:inline-flex;height:24px;vertical-align:middle;margin-inline-end:6px;}
+  .dnd-grip{display:inline-flex;align-items:center;justify-content:center;width:18px;flex:0 0 18px;align-self:stretch;cursor:grab;color:var(--muted);font-size:13px;letter-spacing:-3px;user-select:none;-webkit-user-select:none;touch-action:none;border-radius:5px;}
+  .dnd-grip:hover{color:var(--ink);background:#f1eee6;}
+  @media (hover:none){ .dnd-grip{width:26px;flex-basis:26px;font-size:16px;} }
+  .dnd-dragging{opacity:.45;} .dnd-dragging > .dnd-row,tr.dnd-dragging > td{background:#eaf1fb !important;}
+  .dnd-before{box-shadow:inset 0 3px 0 #1d5fbf;} .dnd-after{box-shadow:inset 0 -3px 0 #1d5fbf;}
+  tr.dnd-before > td{box-shadow:inset 0 3px 0 #1d5fbf;} tr.dnd-after > td{box-shadow:inset 0 -3px 0 #1d5fbf;}
+  body.dnd-on,body.dnd-on *{cursor:grabbing !important;user-select:none !important;-webkit-user-select:none !important;}
   @media (max-width:699px){ .ct-name{white-space:normal;line-height:1.5;} .ct-kids{padding-inline-start:10px;margin-inline-start:12px;} .ct-tree{padding:4px;border:0;} .ct-row{padding:2px 2px;} .ct-l3 > .ct-row{flex-wrap:wrap;row-gap:0;padding-bottom:6px;} .ct-l3 > .ct-row .ct-name{flex:1 1 calc(100% - 60px);} .ct-l3 > .ct-row .ct-price{margin-inline-start:48px;} .ct-l3 > .ct-row .ct-acts{margin-inline-start:auto;} }
   #app table.cat-tbl{background:#fff;} #app table.cat-tbl td.cat-desc{color:var(--muted);}
   .cat-form{border:1.5px solid var(--ink);border-radius:10px;padding:12px 14px;background:#fff;display:flex;flex-direction:column;gap:10px;}
@@ -1851,8 +1855,9 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .cx-rep-h{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:40px;}
   .cx-rep-h h3{margin:0;font-size:var(--fs-h3);}
   .cx-rep-g{display:grid;gap:8px;align-items:center;}
-  .cx-rep-ph{grid-template-columns:minmax(0,1fr) var(--fw-sm) 40px;}
-  .cx-rep-ct{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) var(--fw-md) minmax(0,1.2fr) 40px;}
+  .cx-rep-ph{grid-template-columns:18px minmax(0,1fr) var(--fw-sm) 40px;}
+  .cx-rep-ct{grid-template-columns:18px minmax(0,1.2fr) minmax(0,1fr) var(--fw-md) minmax(0,1.2fr) 40px;}
+  .cx-rep-g > .dnd-grip{height:40px;}
   .cx-pair2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0;}
   .cx-rep-head span{font-size:var(--fs-label);font-weight:700;color:var(--text);}
   #app .cx-rep-g input,#app .cx-rep-g select{width:100% !important;max-width:none !important;height:40px;box-sizing:border-box;margin:0;}
@@ -1864,6 +1869,8 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .cx-rep-ct.cx-rep-head{display:none;}
     .cx-rep-ct{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px;border:1px solid var(--line);border-radius:10px;background:#fcfbf8;}
     .cx-rep-ct{grid-template-columns:repeat(2,minmax(0,1fr)) ;} .cx-rep-ct .btn{grid-column:2;justify-self:end;}
+    .cx-rep-ct > .dnd-grip,.cx-rep-ct > .dnd-none{order:9;grid-column:1;justify-self:start;} .cx-rep-ct > .btn{order:10;}
+    .cx-rep-ph{grid-template-columns:26px minmax(0,1fr) var(--fw-sm) 40px;}
   } .cx-card-f{margin-top:auto;}
   #app.cxv table td.cx-item{width:14%;max-width:0;font-weight:700;}
   .cx-tag-red{color:var(--red);font-weight:700;}
@@ -2485,7 +2492,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* حقل نص يتمدد بأسطر */
   textarea.grow-ta{resize:none;overflow:hidden;min-height:40px;line-height:1.5;padding-top:8px;padding-bottom:8px;box-sizing:border-box;width:100%;font-family:inherit;}
   /* المستويات الوظيفية: أزرار مربعة ثابتة 40 في الهاتف وسطح المكتب */
-  #app .btn.lvl-mv{width:40px !important;min-width:40px !important;max-width:40px;height:40px !important;padding:0 !important;font-size:var(--fs-label) !important;}
   #app td.lvl-acts .btn{margin-inline-start:6px;vertical-align:middle;}
   /* صلاحيات الصفحات: دور واحد في كل مرة، صفحتان في الصف على سطح المكتب */
   .perm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 28px;max-width:780px;}
@@ -2755,6 +2761,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=ca10e11f7f"></script>
+<script src="app.js?v=7932b7a0d6"></script>
 </body>
 </html>
