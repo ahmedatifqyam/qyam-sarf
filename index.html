@@ -1763,7 +1763,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .cx-bud{display:flex;flex-direction:column;gap:4px;margin-top:auto;} .cx-bud-l{display:flex;justify-content:space-between;font-size:var(--fs-xs);color:var(--muted);font-weight:700;} .cx-bud .cx-bar-t{height:8px;}
   .cx-card-items{display:flex;gap:6px;flex-wrap:wrap;}
   /* خدمات الشركة (الكتالوج) */
-  .ct-wrap{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start;margin-top:6px;}
+  .ct-wrap{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:stretch;margin-top:6px;}
   .ct-wrap.ct-one{grid-template-columns:minmax(0,1fr);}
   .ct-tree{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;background:#fff;padding:6px;min-width:0;}
   .ct-node{display:flex;flex-direction:column;}
@@ -1786,8 +1786,24 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .ct-ico-e:hover{background:#eaf1fb;border-color:#1d5fbf;} .ct-ico-d:hover{background:#fbecea;border-color:#c0352b;}
   .ct-add{align-self:flex-start;border:0;background:none;color:var(--muted);font:inherit;font-size:var(--fs-label);font-weight:700;cursor:pointer;padding:8px 6px;border-radius:6px;}
   .ct-add:hover{color:var(--ink);background:#faf9f6;} .ct-add-1{margin-top:4px;color:var(--ink);}
-  .ct-side{position:sticky;top:76px;border:1.5px solid var(--ink);border-radius:10px;background:#fff;padding:14px;min-width:0;}
+  .ct-side{position:relative;min-width:0;}
+  .ct-pop{position:absolute;inset-inline:0;top:0;z-index:5;border:1.5px solid var(--ink);border-radius:10px;background:#fff;padding:12px 14px;box-shadow:0 10px 28px rgba(20,20,20,.13);transition:top .15s ease;}
+  .ct-pop::before{content:"";position:absolute;right:-8px;top:var(--ar,22px);width:13px;height:13px;background:#fff;border-top:1.5px solid var(--ink);border-right:1.5px solid var(--ink);transform:rotate(45deg);transition:top .15s ease;}
+  .ct-hint{color:var(--muted);font-size:var(--fs-label);padding:10px 4px;line-height:1.7;}
+  .ct-det-top{display:flex;align-items:flex-start;gap:8px;} .ct-det-top .ct-path{flex:1 1 auto;}
+  .ct-x{width:28px;height:28px;flex:0 0 28px;border:0;background:none;border-radius:6px;cursor:pointer;color:var(--muted);font-size:14px;}
+  .ct-x:hover{background:#f1eee6;color:var(--ink);}
+  #app .ct-det-a .btn,#app .ct-pop .cx-actions .btn{width:auto;min-width:0;flex:1 1 0;}
+  .ct-grip{width:16px;flex:0 0 16px;cursor:grab;color:var(--muted);font-size:13px;letter-spacing:-3px;text-align:center;user-select:none;touch-action:none;opacity:0;transition:opacity .12s;}
+  .ct-row:hover .ct-grip,.ct-row.ct-sel .ct-grip{opacity:1;}
+  @media (hover:none){ .ct-grip{opacity:1;font-size:15px;width:22px;flex-basis:22px;} }
+  .ct-kids,.ct-tree{position:relative;}
+  .ct-dropline{position:absolute;inset-inline:0;height:3px;border-radius:2px;background:#1d5fbf;pointer-events:none;z-index:3;}
+  .ct-dragging > .ct-row{opacity:.45;background:#eaf1fb;}
+  body.ct-drag-on,body.ct-drag-on *{cursor:grabbing !important;user-select:none !important;}
+  .cat-par{display:flex;flex-direction:column;gap:4px;} #app .cat-par select{width:100% !important;max-width:none !important;}
   .ct-side .cat-form{border:0;padding:0;}
+  .ct-pop .cat-form-g{gap:8px;}
   .ct-side .cat-form-g.cat-l1,.ct-side .cat-form-g.cat-l2,.ct-side .cat-form-g.cat-l3{grid-template-columns:repeat(2,minmax(0,1fr));}
   .ct-side .cat-form-g > div:nth-child(-n+2){grid-column:1/-1;}
   .ct-side .cat-form-x{margin-inline-start:0;}
@@ -1802,7 +1818,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .ct-kv span{color:var(--muted);font-size:var(--fs-label);} .ct-kv b{font-weight:600;overflow-wrap:anywhere;}
   .ct-det-a{display:flex;gap:8px;flex-wrap:wrap;}
   .cat-off > .ct-row{opacity:.6;}
-  @media (max-width:699px){ .ct-name{white-space:normal;line-height:1.5;} .ct-kids{padding-inline-start:10px;margin-inline-start:12px;} .ct-tree{padding:4px;border:0;} .ct-row{padding:2px 2px;} }
+  @media (max-width:699px){ .ct-name{white-space:normal;line-height:1.5;} .ct-kids{padding-inline-start:10px;margin-inline-start:12px;} .ct-tree{padding:4px;border:0;} .ct-row{padding:2px 2px;} .ct-l3 > .ct-row{flex-wrap:wrap;row-gap:0;padding-bottom:6px;} .ct-l3 > .ct-row .ct-name{flex:1 1 calc(100% - 60px);} .ct-l3 > .ct-row .ct-price{margin-inline-start:48px;} .ct-l3 > .ct-row .ct-acts{margin-inline-start:auto;} }
   #app table.cat-tbl{background:#fff;} #app table.cat-tbl td.cat-desc{color:var(--muted);}
   .cat-form{border:1.5px solid var(--ink);border-radius:10px;padding:12px 14px;background:#fff;display:flex;flex-direction:column;gap:10px;}
   .cat-form-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;}
@@ -2739,6 +2755,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=a859351032"></script>
+<script src="app.js?v=ca10e11f7f"></script>
 </body>
 </html>

@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.10.1', APP_VERSION_DATE = '2026-11-14';
+const APP_VERSION = '1.10.2', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.1, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:350, base:350, extra:0.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -17253,6 +17253,8 @@ async function catSave(){
   const row = {name, description:String(g('catf_desc')||'').trim()||null};
   if(e.level===3){ row.unit = g('catf_unit')||null; const p = String(g('catf_price')||'').trim(); row.price = p==='' ? null : cxR3(cxN(p)); }
   let r;
+  const np = g('catf_parent');
+  if(e.id && np && np!==e.parent_id){ const sib = catKids(np); row.parent_id = np; row.sort = (sib.length ? Math.max(...sib.map(s=>s.sort||0)) : 0) + 10; state.cat.open[np] = true; }
   if(e.id) r = await db.from('svc_catalog').update(row).eq('id', e.id);
   else { const sib = catKids(e.parent_id); r = await db.from('svc_catalog').insert(Object.assign(row, {company_id:state.currentCompanyId, parent_id:e.parent_id, level:e.level, sort:(sib.length ? Math.max(...sib.map(s=>s.sort||0)) : 0) + 10})); }
   if(!(await dbCheck(r,'حفظ الخدمة'))) return;
@@ -17273,26 +17275,24 @@ async function catDelete(id){
   if(state.cat.sel===id || catPath(state.cat.items.find(i=>i.id===state.cat.sel)||{name:''}).includes(x.name)) state.cat.sel = null;
   showToast('حُذفت «'+x.name+'»','success'); await catLoad();
 }
-async function catMove(id, dir){
-  const x = state.cat.items.find(i=>i.id===id); if(!x) return;
-  const sib = catKids(x.parent_id), i = sib.findIndex(s=>s.id===id), j = i + dir;
-  if(j<0 || j>=sib.length) return;
-  const o = sib[j]; const a = x.sort, b = o.sort===a ? a + dir : o.sort;
-  const r1 = await db.from('svc_catalog').update({sort:b}).eq('id', x.id), r2 = await db.from('svc_catalog').update({sort:a}).eq('id', o.id);
-  if(await dbCheck(r1,'الترتيب') && await dbCheck(r2,'الترتيب')) await catLoad();
+function catParentOpts(e){
+  const opt = p => `<option value="${escH(p.id)}"${p.id===e.parent_id?' selected':''}>${escH(p.name)}</option>`;
+  if(e.level===2) return catKids(null).map(opt).join('');
+  return catKids(null).map(m=>{ const ss = catKids(m.id); return ss.length ? `<optgroup label="${escH(m.name)}">${ss.map(opt).join('')}</optgroup>` : ''; }).join('');
 }
 function catFormHtml(){
   const e = state.cat.edit; if(!e) return '';
   const par = e.parent_id ? (state.cat.items.find(i=>i.id===e.parent_id)||{}).name : '';
   return `<div class="cat-form" id="catForm">
-    <div class="cat-form-h"><b>${e.id ? 'تعديل' : 'إضافة'} ${CAT_LEVEL[e.level]}</b>${par ? `<span class="file-hint">تحت «${escH(par)}»</span>` : ''}</div>
+    <div class="cat-form-h"><b>${e.id ? 'تعديل' : 'إضافة'} ${CAT_LEVEL[e.level]}</b>${par && !(e.id && e.level>1) ? `<span class="file-hint">تحت «${escH(par)}»</span>` : ''}</div>
+    ${e.id && e.level>1 ? `<div class="cat-par"><label for="catf_parent">تحت</label><select id="catf_parent">${catParentOpts(e)}</select></div>` : ''}
     <div class="cat-form-g cat-l${e.level}">
       <div><label for="catf_name">${e.level===3 ? 'العمل' : 'الاسم'}</label><input id="catf_name" type="text" value="${escH(e.name||'')}" placeholder="${e.level===1 ? 'مثال: إنتاج فني – تصميم' : e.level===2 ? 'مثال: تصميم بوستر' : 'مثال: بوستر لمواقع التواصل'}"></div>
       <div><label for="catf_desc">${e.level===3 ? 'المواصفات' : 'الوصف (اختياري)'}</label><input id="catf_desc" type="text" value="${escH(e.description||'')}" placeholder="${e.level===3 ? 'مثال: مقاس مربع 800×800 بكسل · 300 dpi' : ''}"></div>
       ${e.level===3 ? `<div><label for="catf_unit">الوحدة</label><select id="catf_unit">${CAT_UNITS.map(u=>`<option ${u===(e.unit||'قطعة')?'selected':''}>${u}</option>`).join('')}</select></div>
       <div><label for="catf_price">السعر (د.ك)</label><input id="catf_price" type="text" inputmode="decimal" dir="ltr" value="${e.price===''||e.price==null?'':e.price}" placeholder="0.000"></div>` : ''}
     </div>
-    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="catSave">حفظ</button><button class="btn btn-ghost btn-sm" data-on-click="catCancel">إلغاء</button></div>
+    <div class="cx-actions"><button class="btn btn-primary btn-sm" data-on-click="catSave">حفظ</button><button class="btn btn-ghost btn-sm" data-on-click="catCancel">إلغاء</button></div>
   </div>`;
 }
 // ---------- الشجرة: تُفتح وتُطوى، والاسم يفتح التفاصيل، وأزرار صغيرة، و«+ إضافة» آخر كل مستوى ----------
@@ -17307,11 +17307,11 @@ function catActsHtml(x){
 function catDetailHtml(){
   const ed = state.cat.edit; if(ed) return catFormHtml();
   const x = state.cat.sel && state.cat.items.find(i=>i.id===state.cat.sel);
-  if(!x) return `<div class="ct-empty">اختر خدمة أو بنداً من الشجرة لعرض تفاصيله.</div>`;
+  if(!x) return '';
   const kids = catKids(x.id), cnt = x.level===1 ? kids.reduce((a,s)=>a+catKids(s.id).length,0) : 0;
   const row = (l,v) => v==null || v==='' ? '' : `<div class="ct-kv"><span>${l}</span><b>${v}</b></div>`;
   return `<div class="ct-det">
-    <div class="ct-path">${catPath(x).slice(0,-1).map(escH).join(' ← ') || CAT_LEVEL[x.level]}</div>
+    <div class="ct-det-top"><div class="ct-path">${catPath(x).slice(0,-1).map(escH).join(' ← ') || CAT_LEVEL[x.level]}</div><button class="ct-x" data-on-click="catClose" aria-label="إغلاق" title="إغلاق (Esc)">✕</button></div>
     <div class="ct-det-h"><b>${escH(x.name)}</b>${x.active ? '' : '<span class="cx-tag">موقوفة</span>'}</div>
     <div class="ct-kvs">
       ${row('النوع', CAT_LEVEL[x.level])}
@@ -17320,14 +17320,78 @@ function catDetailHtml(){
       ${x.level===1 ? row('تحتها', `${kids.length} فرعية · ${cnt} بند`) : ''}${x.level===2 ? row('تحتها', `${kids.length} بند`) : ''}
     </div>
     ${canEditCatalog() ? `<div class="ct-det-a">
-      <button class="btn btn-primary btn-md" data-on-click="catEdit" data-on-click-args="${qa([x.id])}">تعديل</button>
-      ${x.level<3 ? `<button class="btn btn-ghost btn-md" data-on-click="catNew" data-on-click-args="${qa([x.level+1, x.id])}">+ ${x.level===1 ? 'خدمة فرعية' : 'بند'}</button>` : ''}
-      <button class="btn btn-ghost btn-sm" data-on-click="catMove" data-on-click-args="${qa([x.id,-1])}">نقل لأعلى</button>
-      <button class="btn btn-ghost btn-sm" data-on-click="catMove" data-on-click-args="${qa([x.id,1])}">نقل لأسفل</button>
+      <button class="btn btn-primary btn-sm" data-on-click="catEdit" data-on-click-args="${qa([x.id])}">تعديل</button>
+      ${x.level<3 ? `<button class="btn btn-ghost btn-sm" data-on-click="catNew" data-on-click-args="${qa([x.level+1, x.id])}" title="${x.level===1 ? 'إضافة خدمة فرعية تحتها' : 'إضافة بند تحتها'}">+ ${x.level===1 ? 'فرعية' : 'بند'}</button>` : ''}
       ${x.active ? `<button class="btn btn-ghost btn-sm" data-on-click="catSetActive" data-on-click-args="${qa([x.id,false])}" title="لا تظهر في العروض الجديدة، ويبقى أثرها في القديمة">إيقاف</button>` : `<button class="btn btn-ghost btn-sm" data-on-click="catSetActive" data-on-click-args="${qa([x.id,true])}">تفعيل</button>`}
     </div>` : ''}
   </div>`;
 }
+function catClose(){ state.cat.sel = null; state.cat.edit = null; render(); }
+// سطح المكتب: الصندوق يطفو بجوار السطر المختار نفسه (لا يصعد لأعلى الصفحة)
+function catPlacePop(){
+  const pop = document.querySelector('#app .ct-pop'), side = document.querySelector('#app .ct-side'); if(!pop || !side) return;
+  const ed = state.cat.edit, aid = ed ? (ed.id || ed.parent_id) : state.cat.sel;
+  const row = aid ? document.querySelector(`#app .ct-node[data-cid="${CSS.escape(aid)}"] > .ct-row`) : document.querySelector('#app .ct-add-1');
+  if(!row){ pop.style.top = '0px'; return; }
+  // يبقى بمستوى السطر؛ وإن كان السطر قرب أسفل الشاشة يرتفع الصندوق بقدر ما يلزم ليظهر كله، والسهم يبقى مشيراً إلى السطر
+  const rr = row.getBoundingClientRect(), sr = side.getBoundingClientRect(), h = pop.offsetHeight;
+  const bar = document.querySelector('.global-floating-bar'), bottom = window.innerHeight - (bar ? bar.offsetHeight : 0) - 12;
+  let top = rr.top - sr.top - 10;
+  const over = (sr.top + top + h) - bottom; if(over > 0) top -= Math.min(over, Math.max(0, h - 44));
+  top = Math.max(0, Math.round(top));
+  pop.style.top = top + 'px'; pop.style.setProperty('--ar', Math.max(10, Math.min(h - 26, Math.round(rr.top + rr.height/2 - sr.top - top - 7))) + 'px');
+  side.style.minHeight = (top + h + 12) + 'px';
+}
+// الترتيب بالسحب والإفلات من المقبض ⋮⋮ (بين الإخوة تحت الأب نفسه فقط) — يعمل بالفأرة واللمس
+let catDrag = null;
+function catDragStart(e){
+  const g = e.target && e.target.closest && e.target.closest('.ct-grip'); if(!g || state.view!=='catalog' || !canEditCatalog()) return;
+  const node = g.closest('.ct-node'), box = node && node.parentElement; if(!box) return;
+  e.preventDefault();
+  const sibs = [...box.children].filter(n=>n.classList.contains('ct-node'));
+  const line = document.createElement('div'); line.className = 'ct-dropline'; box.appendChild(line);
+  catDrag = {id:node.dataset.cid, node, box, sibs, before:undefined, line};
+  node.classList.add('ct-dragging'); document.body.classList.add('ct-drag-on');
+  try{ g.setPointerCapture(e.pointerId); }catch(_){}
+  catDragMove(e);
+}
+function catDragMove(e){
+  const d = catDrag; if(!d) return;
+  const y = e.clientY, others = d.sibs.filter(n=>n!==d.node);
+  let tgt = null; for(const n of others){ const r = n.querySelector(':scope > .ct-row').getBoundingClientRect(); if(y < r.top + r.height/2){ tgt = n; break; } }
+  d.before = tgt ? tgt.dataset.cid : null;
+  const last = others[others.length-1];
+  const t = tgt ? tgt.offsetTop : (last ? last.offsetTop + last.offsetHeight : d.node.offsetTop);
+  d.line.style.top = (t - 1) + 'px';
+  if(y < 70) window.scrollBy(0, -12); else if(y > window.innerHeight - 90) window.scrollBy(0, 12);
+}
+async function catDragEnd(){
+  const d = catDrag; if(!d) return; catDrag = null;
+  d.node.classList.remove('ct-dragging'); document.body.classList.remove('ct-drag-on'); d.line.remove();
+  if(d.before === undefined) return;
+  const x = state.cat.items.find(i=>i.id===d.id); if(!x) return;
+  const full = catKids(x.parent_id), ids = full.map(i=>i.id).filter(i=>i!==d.id);
+  const at = d.before ? ids.indexOf(d.before) : ids.length; ids.splice(at < 0 ? ids.length : at, 0, d.id);
+  if(ids.join() === full.map(i=>i.id).join()) return;
+  const ch = []; ids.forEach((id,i)=>{ const it = state.cat.items.find(k=>k.id===id), ns = (i+1)*10; if(it.sort !== ns){ it.sort = ns; ch.push([id, ns]); } });
+  state.cat.items.sort((a,b)=>(a.sort||0)-(b.sort||0) || String(a.name).localeCompare(String(b.name),'ar')); render();
+  const rs = await Promise.all(ch.map(([id,ns])=>db.from('svc_catalog').update({sort:ns}).eq('id', id)));
+  for(const r of rs){ if(!(await dbCheck(r,'الترتيب'))){ await catLoad(); return; } }
+  showToast('تم حفظ الترتيب','success');
+}
+document.addEventListener('pointerdown', catDragStart);
+document.addEventListener('pointermove', e=>{ if(catDrag) catDragMove(e); });
+document.addEventListener('pointerup', ()=>{ if(catDrag) catDragEnd(); });
+document.addEventListener('pointercancel', ()=>{ if(catDrag){ catDrag.before = undefined; catDragEnd(); } });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && state.view==='catalog' && (state.cat.sel || state.cat.edit)) catClose(); });
+document.addEventListener('click', e=>{
+  if(state.view!=='catalog' || !state.cat.sel || state.cat.edit || catInline()) return;
+  if(e.target.closest && e.target.closest('.ct-pop,.ct-row,.modal-overlay,.toast,#toast')) return;
+  if(!document.body.contains(e.target)) return;
+  state.cat.sel = null; render();
+});
+let _catIn = null;
+window.addEventListener('resize', ()=>{ if(state.view!=='catalog') return; const v = catInline(); if(_catIn!==null && v!==_catIn) render(); else catPlacePop(); _catIn = v; });
 function catRowHtml(x){
   const kids = catKids(x.id).filter(k=>(state.cat.showOff || k.active) && catMatch(k));
   const op = x.level<3 && (state.cat.open[x.id] || !!(state.cat.q||'').trim());
@@ -17336,8 +17400,9 @@ function catRowHtml(x){
     : `<span class="ct-cnt">${catKids(x.id).length}</span>`;
   const IN = catInline(), ed = state.cat.edit, newHere = IN && ed && !ed.id && ed.parent_id===x.id;
   const inl = IN && sel && (!ed || ed.id) && `<div class="ct-inline">${catDetailHtml()}</div>`;
-  return `<div class="ct-node ct-l${x.level}${x.active?'':' cat-off'}">
-    <div class="ct-row${sel?' ct-sel':''}">
+  const grip = canEditCatalog() && !(state.cat.q||'').trim() ? `<span class="ct-grip" title="اسحب لتغيير الترتيب" aria-label="اسحب لتغيير الترتيب">⋮⋮</span>` : '';
+  return `<div class="ct-node ct-l${x.level}${x.active?'':' cat-off'}" data-cid="${escH(x.id)}">
+    <div class="ct-row${sel?' ct-sel':''}">${grip}
       ${x.level<3 ? `<button class="ct-tog" data-on-click="catToggle" data-on-click-args="${qa([x.id])}" aria-label="${op?'طي':'فتح'}">${op?'▾':'◂'}</button>` : '<span class="ct-dot"></span>'}
       <button class="ct-name" data-on-click="catSelect" data-on-click-args="${qa([x.id])}">${escH(x.name)}${x.active?'':' <span class="cx-tag">موقوفة</span>'}</button>
       ${meta}${catActsHtml(x)}
@@ -17371,9 +17436,10 @@ function renderCatalog(app){
           ${catInline() && ed && !ed.id && ed.level===1 ? `<div class="ct-inline ct-inline-new">${catFormHtml()}</div>` : ''}
           ${canEditCatalog() ? `<button class="ct-add ct-add-1" data-on-click="catNew" data-on-click-args="${qa([1, null])}">+ خدمة رئيسية</button>` : ''}
         </div>
-        ${catInline() ? '' : `<aside class="ct-side">${catDetailHtml()}</aside>`}
+        ${catInline() ? '' : `<aside class="ct-side">${(state.cat.sel || state.cat.edit) ? `<div class="ct-pop">${catDetailHtml()}</div>` : `<div class="ct-hint">اضغط اسم أي خدمة أو بند لعرض تفاصيله هنا بجواره، واسحب ⋮⋮ لتغيير الترتيب.</div>`}</aside>`}
       </div>
     </div>`;
+  _catIn = catInline(); requestAnimationFrame(catPlacePop);
 }
 function cxStop(){ /* يمنع فتح/طي الخدمة عند الضغط على أزرارها */ }
 
