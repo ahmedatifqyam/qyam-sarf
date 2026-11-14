@@ -1762,6 +1762,29 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .cx-icard-g{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-label);font-weight:700;} .cx-icard-g small{display:block;font-size:var(--fs-xs);color:var(--muted);font-weight:600;}
   .cx-bud{display:flex;flex-direction:column;gap:4px;margin-top:auto;} .cx-bud-l{display:flex;justify-content:space-between;font-size:var(--fs-xs);color:var(--muted);font-weight:700;} .cx-bud .cx-bar-t{height:8px;}
   .cx-card-items{display:flex;gap:6px;flex-wrap:wrap;}
+  /* خدمات الشركة (الكتالوج) */
+  .cat-tree{display:flex;flex-direction:column;gap:10px;margin-top:6px;}
+  .cat-main{border:1px solid var(--line);border-radius:10px;background:#fff;}
+  .cat-main-h{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;}
+  .cat-main-h:hover{background:#faf9f6;border-radius:10px;}
+  .cat-car{width:18px;color:var(--muted);font-size:var(--fs-label);}
+  .cat-t{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px;} .cat-t b{font-size:var(--fs-h3);}
+  .cat-subs{padding:4px 14px 12px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);}
+  .cat-sub{padding:10px 12px;border-radius:8px;background:#faf9f6;display:flex;flex-direction:column;gap:8px;}
+  .cat-sub-h{display:flex;align-items:center;gap:10px;} .cat-sub-h .cat-t b{font-size:var(--fs-body);}
+  .cat-acts{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;}
+  .cat-form-x{display:inline-flex;gap:8px;flex-wrap:wrap;margin-inline-start:auto;}
+  .cat-sub:has(> .cat-sub-h:only-child){padding:8px 12px;}
+  .cat-off{opacity:.6;}
+  .cat-add{display:flex;}
+  #app table.cat-tbl{background:#fff;} #app table.cat-tbl td.cat-desc{color:var(--muted);}
+  .cat-form{border:1.5px solid var(--ink);border-radius:10px;padding:12px 14px;background:#fff;display:flex;flex-direction:column;gap:10px;}
+  .cat-form-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;}
+  .cat-form-g{display:grid;gap:10px;align-items:end;} .cat-form-g.cat-l1,.cat-form-g.cat-l2{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);}
+  .cat-form-g.cat-l3{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) var(--fw-sm) var(--fw-md);}
+  #app .cat-form-g input,#app .cat-form-g select{width:100% !important;max-width:none !important;}
+  .cat-chk{height:40px;padding:0 12px;}
+  @media (max-width:699px){ .cat-form-g.cat-l1,.cat-form-g.cat-l2{grid-template-columns:minmax(0,1fr);} .cat-form-g.cat-l3{grid-template-columns:repeat(2,minmax(0,1fr));} .cat-form-g.cat-l3 > div:nth-child(-n+2){grid-column:1/-1;} .cat-main-h,.cat-sub-h{flex-wrap:wrap;} }
   .cx-card-kv{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px;}
   .cx-card-kv .cx-card-bal{margin:0;flex-direction:column;align-items:flex-start;gap:2px;} .cx-card-pend b{font-size:var(--fs-h2) !important;}
   #app.cxv .cx-cards{margin-bottom:16px;}
@@ -2690,6 +2713,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=ad883be6f0"></script>
+<script src="app.js?v=acd1eab312"></script>
 </body>
 </html>

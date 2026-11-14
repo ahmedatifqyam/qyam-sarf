@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.9.4', APP_VERSION_DATE = '2026-11-14';
+const APP_VERSION = '1.10.0', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:1.9, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -2590,6 +2590,7 @@ const PAGE_CATALOG = [
   {key:'handovers', label:'الإسناد',            hint:'إسناد المعاملات لزميل عند الغياب أو الانتقال. يظهر دائماً لمن وصله إسناد'},
   {key:'budgetReport', label:'تقرير الميزانية', hint:'لكل بند: الإيراد والمصروف والمرتبط والرصيد، مع التصدير (عرض فقط). افتراضياً: المالية'},
   {key:'cancelled', label:'أرشيف الملغاة',     hint:'الطلبات الملغاة: عرضها واسترجاعها لمن يملك الاسترجاع. الحذف النهائي لمدير النظام وحده. افتراضياً: المالية'},
+  {key:'projects',  label:'المشاريع وخدمات الشركة', hint:'خدمات الشركة وأسعارها وعقود العملاء والمشاريع. افتراضياً: المالية والمدير التنفيذي (تعديل الخدمات للمالية ومدير النظام)'},
   {key:'clients',   label:'العملاء',            hint:'العملاء وفروعهم وجهات الاتصال. افتراضياً: المالية'},
   {key:'centerBooks', label:'دفاتر المراكز',    hint:'رصيد كل مركز ودخله وحركاته. من يرى أي مركز يحدده مدير النظام من شاشة المركز، وعاملو المركز يرون مركزهم فقط'},
   {key:'gatewayImport', label:'استيراد بوابة الدفع', hint:'رفع كشف الحساب وملف الفواتير. للمالية، ومن يختاره مدير النظام من شاشة الاستيراد'},
@@ -2603,6 +2604,7 @@ function pageDefaultLevel(role, key){
   if(key==='revenues' || key==='ledger' || key==='recurring' || key==='budgetReport' || key==='cancelled') return fin ? 'full' : 'none';
   if(key==='handovers') return role==='employee' ? 'none' : 'full';
   if(key==='clients') return fin ? 'full' : 'none';
+  if(key==='projects') return fin ? 'full' : (role==='executive_manager' ? 'read' : 'none');
   if(key==='monitor') return (fin || role==='executive_manager') ? 'full' : 'none';   // المالية والمدير التنفيذي افتراضياً، ومن يُمنح من صفحة الصلاحيات
   return 'full';
 }
@@ -2628,7 +2630,7 @@ function pageLevel(key){
   return pageDefaultLevel(u.role, key);
 }
 function pageAtLeast(key, need){ return PAGE_LEVEL_RANK[pageLevel(key)] >= PAGE_LEVEL_RANK[need]; }
-const VIEW_PAGE_KEY = {clients:'clients', centerBooks:'centerBooks', centerBook:'centerBooks', gwImport:'gatewayImport', newCustody:'custody', custodyList:'custody', newRequest:'newreq', newRequestChoice:'newreq', analytics:'analytics', revenues:'revenues', recurring:'recurring', ledger:'ledger', budgetReport:'budgetReport', cancelledArchive:'cancelled'};
+const VIEW_PAGE_KEY = {catalog:'projects', clients:'clients', centerBooks:'centerBooks', centerBook:'centerBooks', gwImport:'gatewayImport', newCustody:'custody', custodyList:'custody', newRequest:'newreq', newRequestChoice:'newreq', analytics:'analytics', revenues:'revenues', recurring:'recurring', ledger:'ledger', budgetReport:'budgetReport', cancelledArchive:'cancelled'};
 function viewAllowed(v){
   const u = state.user; if(!u || u.role==='admin') return true;
   if(v==='newRequest' && state.editingReqId) return pageLevel('editreq')!=='none';   // التعديل له صلاحيته الخاصة
@@ -2669,6 +2671,7 @@ const QI = {
   clip:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 12h8M8 16h5"/>',
   download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+  layers:'<path d="M12 3 2 8l10 5 10-5-10-5z"/><path d="m2 13 10 5 10-5"/><path d="m2 18 10 5 10-5"/>',
   building:'<path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M16 9h3a2 2 0 0 1 2 2v10"/><path d="M9 7h3M9 11h3M9 15h3"/>',
   case:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
   cash:'<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01" stroke-width="3"/>',
@@ -2973,7 +2976,7 @@ function setAccountSec(i){
 // مجموعات الشريط الجانبي القابلة للفتح والإغلاق: المعاملات المالية | لوحة التحكم | المساعدة
 function inFinArea(){
   const v = state.view;
-  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','centerBooks','centerBook','gwImport'].includes(v)) return true;
+  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','catalog','centerBooks','centerBook','gwImport'].includes(v)) return true;
   return !inAdminArea() && ['ledger','analytics'].includes(v);
 }
 function inHelpArea(){ return ['guide','sitemap'].includes(state.view); }
@@ -3061,6 +3064,7 @@ function navSections(){
     if(canSeeGwImport()) pg.push({label:'استيراد البوابة', views:['gwImport'], js:[["openGwImport",[]]]});
     out.push({key:'cbk', ico:'building', label:'المراكز', pages:pg});
   }
+  if(canSeeCatalog()) out.push({key:'prj', ico:'layers', label:'المشاريع', pages:[{label:'خدمات الشركة', views:['catalog'], js:[["openCatalog",[]]]}]});
   if(canSeeClients()) out.push({key:'cli', ico:'me', label:'العملاء', pages:[{label:'العملاء', views:['clients'], js:[["openClients",[]]]}]});
   if(canSeeRecurring()) out.push({key:'rec', ico:'repeat', label:'القيود الدورية', count:recDueCount(), pages:[{label:'القيود الدورية', views:['recurring'], js:[["openRecurring",[0]]]}]});
   const rep = [];
@@ -6925,7 +6929,7 @@ function render(){
   renderDbBadge();
   const app = document.getElementById('app');
   document.body.classList.toggle('on-login', state.view==='login');
-  app.classList.toggle('cxv', ['clients','centerBooks','centerBook','gwImport'].includes(state.view));
+  app.classList.toggle('cxv', ['clients','catalog','centerBooks','centerBook','gwImport'].includes(state.view));
   if(state.view==='login') renderLogin(app);
   else if(state.view==='dashboard') { renderDashboard(app); cxStaffBanner(app); cxDashBanner(app); }
   else if(state.view==='newRequest') renderNewRequest(app);
@@ -6941,6 +6945,7 @@ function render(){
   else if(state.view==='ledger') renderLedger(app);
   else if(state.view==='revenues') renderRevenues(app);
   else if(state.view==='clients') renderClients(app);
+  else if(state.view==='catalog') renderCatalog(app);
   else if(state.view==='centerBooks') renderCenterBooks(app);
   else if(state.view==='centerBook') renderCenterBook(app);
   else if(state.view==='gwImport') renderGwImport(app);
@@ -7403,7 +7408,7 @@ function iconActs(){
   const app = document.getElementById('app'); if(!app) return;
   app.querySelectorAll('.btn').forEach(b=>{
     if(b.classList.contains('btn-ico') || b.closest('.modal-overlay,.mtab-sheet,.gfb-actions,[data-bar-actions]')) return;
-    if(!b.closest('.list-item,table,.tcards,.cus-li,.rec-li,.cx-rep-g')) return;
+    if(!b.closest('.list-item,table,.tcards,.cus-li,.rec-li,.cx-rep-g,.cat-acts')) return;
     const t = (b.textContent||'').replace(/\s+/g,' ').trim();
     const kind = /^حذف( نهائي| الصورة)?$/.test(t) ? 'del' : (t==='تعديل' ? 'edit' : '');
     if(!kind || !b.querySelector('svg')) return;
@@ -17218,6 +17223,124 @@ function renderCenterBooks(app){
           <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.expense||0)/mx2*100))}%;background:#c27c0e;"></div></div><b class="cx-bv">${fmtKWDHtml(b.expense)}</b></div></div></div>`).join('')}
       </div></div>` : ''}`;
 }
+
+// ===================== خدمات الشركة (الكتالوج): خدمة رئيسية ← خدمة فرعية ← بند مسعّر =====================
+state.cat = {items:[], loaded:false, q:'', open:{}, edit:null, showOff:false};
+const CAT_UNITS = ['قطعة','تصميم','صفحة','مقطع','دقيقة','ثانية','ساعة','يوم','شهر','مشروع','حملة','نسبة %','أخرى'];
+const CAT_LEVEL = {1:'خدمة رئيسية', 2:'خدمة فرعية', 3:'بند مسعّر'};
+function canSeeCatalog(){ return !!state.user && pageLevel('projects')!=='none'; }
+function canEditCatalog(){ return !!state.user && PAGE_FINANCE_ROLES.includes(state.user.role) && PAGE_LEVEL_RANK[pageLevel('projects')] >= 2; }   // المالية ومدير النظام (القاعدة تشترط is_finance)
+function openCatalog(){ state.view='catalog'; state.cat.edit=null; render(); window.scrollTo(0,0); catLoad(); }
+async function catLoad(){
+  const r = await db.from('svc_catalog').select('*').eq('company_id', state.currentCompanyId).order('sort').order('name');
+  if(!(await dbCheck(r,'تحميل خدمات الشركة'))) return;
+  state.cat.items = r.data||[]; state.cat.loaded = true; state.cat._cid = state.currentCompanyId;
+  if(state.view==='catalog') render();
+}
+function catKids(pid){ return (state.cat.items||[]).filter(x=>(x.parent_id||null)===(pid||null)).sort((a,b)=>(a.sort-b.sort) || String(a.name).localeCompare(String(b.name),'ar')); }
+function catMatch(x){ const q = (state.cat.q||'').trim(); if(!q) return true; const t = [x.name, x.description].join(' '); return t.includes(q) || catKids(x.id).some(catMatch); }
+function catToggle(id){ state.cat.open[id] = !state.cat.open[id]; render(); }
+function catNew(level, parentId){ state.cat.edit = {id:null, level, parent_id:parentId||null, name:'', description:'', unit:level===3?'قطعة':'', price:''}; if(parentId) state.cat.open[parentId] = true; render(); catFocus(); }
+function catEdit(id){ const x = state.cat.items.find(i=>i.id===id); if(!x) return; state.cat.edit = Object.assign({}, x, {price:x.price==null?'':x.price}); render(); catFocus(); }
+function catCancel(){ state.cat.edit = null; render(); }
+function catFocus(){ setTimeout(()=>{ const el = document.getElementById('catf_name'); if(el){ el.focus(); el.scrollIntoView({behavior:'smooth', block:'center'}); } }, 40); }
+function catSearch(v){ state.cat.q = v; render(); const el = document.querySelector('#app .cat-search'); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }
+function catShowOff(v){ state.cat.showOff = !!v; render(); }
+async function catSave(){
+  const e = state.cat.edit; if(!e) return;
+  const g = k => (document.getElementById(k)||{}).value;
+  const name = String(g('catf_name')||'').trim(); if(!name){ fieldErr('#catf_name','اكتب الاسم'); return; }
+  const row = {name, description:String(g('catf_desc')||'').trim()||null};
+  if(e.level===3){ row.unit = g('catf_unit')||null; const p = String(g('catf_price')||'').trim(); row.price = p==='' ? null : cxR3(cxN(p)); }
+  let r;
+  if(e.id) r = await db.from('svc_catalog').update(row).eq('id', e.id);
+  else { const sib = catKids(e.parent_id); r = await db.from('svc_catalog').insert(Object.assign(row, {company_id:state.currentCompanyId, parent_id:e.parent_id, level:e.level, sort:(sib.length ? Math.max(...sib.map(s=>s.sort||0)) : 0) + 10})); }
+  if(!(await dbCheck(r,'حفظ الخدمة'))) return;
+  showToast('تم حفظ «'+name+'»','success'); state.cat.edit = null; await catLoad();
+}
+async function catSetActive(id, on){
+  const r = await db.from('svc_catalog').update({active:!!on}).eq('id', id);
+  if(!(await dbCheck(r,'تغيير حالة الخدمة'))) return;
+  showToast(on ? 'أُعيد تفعيلها' : 'أُوقفت: لا تظهر في العروض الجديدة، ويبقى أثرها في القديمة','success'); await catLoad();
+}
+async function catDelete(id){
+  const x = state.cat.items.find(i=>i.id===id); if(!x) return;
+  const n = catKids(id).length;
+  if(!confirm(`حذف «${x.name}»${n ? ` وكل ما تحته (${n})` : ''} نهائياً؟\n\nإن كانت مستعملة في عروض أو عقود فالأفضل «إيقاف» بدل الحذف.`)) return;
+  const r = await db.from('svc_catalog').delete().eq('id', id);
+  if(!(await dbCheck(r,'حذف الخدمة'))) return;
+  showToast('حُذفت «'+x.name+'»','success'); await catLoad();
+}
+async function catMove(id, dir){
+  const x = state.cat.items.find(i=>i.id===id); if(!x) return;
+  const sib = catKids(x.parent_id), i = sib.findIndex(s=>s.id===id), j = i + dir;
+  if(j<0 || j>=sib.length) return;
+  const o = sib[j]; const a = x.sort, b = o.sort===a ? a + dir : o.sort;
+  const r1 = await db.from('svc_catalog').update({sort:b}).eq('id', x.id), r2 = await db.from('svc_catalog').update({sort:a}).eq('id', o.id);
+  if(await dbCheck(r1,'الترتيب') && await dbCheck(r2,'الترتيب')) await catLoad();
+}
+function catFormHtml(){
+  const e = state.cat.edit; if(!e) return '';
+  const par = e.parent_id ? (state.cat.items.find(i=>i.id===e.parent_id)||{}).name : '';
+  return `<div class="cat-form" id="catForm">
+    <div class="cat-form-h"><b>${e.id ? 'تعديل' : 'إضافة'} ${CAT_LEVEL[e.level]}</b>${par ? `<span class="file-hint">تحت «${escH(par)}»</span>` : ''}</div>
+    <div class="cat-form-g cat-l${e.level}">
+      <div><label for="catf_name">${e.level===3 ? 'العمل' : 'الاسم'}</label><input id="catf_name" type="text" value="${escH(e.name||'')}" placeholder="${e.level===1 ? 'مثال: إنتاج فني – تصميم' : e.level===2 ? 'مثال: تصميم بوستر' : 'مثال: بوستر لمواقع التواصل'}"></div>
+      <div><label for="catf_desc">${e.level===3 ? 'المواصفات' : 'الوصف (اختياري)'}</label><input id="catf_desc" type="text" value="${escH(e.description||'')}" placeholder="${e.level===3 ? 'مثال: مقاس مربع 800×800 بكسل · 300 dpi' : ''}"></div>
+      ${e.level===3 ? `<div><label for="catf_unit">الوحدة</label><select id="catf_unit">${CAT_UNITS.map(u=>`<option ${u===(e.unit||'قطعة')?'selected':''}>${u}</option>`).join('')}</select></div>
+      <div><label for="catf_price">السعر (د.ك)</label><input id="catf_price" type="text" inputmode="decimal" dir="ltr" value="${e.price===''||e.price==null?'':e.price}" placeholder="0.000"></div>` : ''}
+    </div>
+    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="catSave">حفظ</button><button class="btn btn-ghost btn-sm" data-on-click="catCancel">إلغاء</button>
+      ${e.id ? `<span class="cat-form-x"><button class="btn btn-ghost btn-sm" data-on-click="catMove" data-on-click-args="${qa([e.id,-1])}">نقل لأعلى</button><button class="btn btn-ghost btn-sm" data-on-click="catMove" data-on-click-args="${qa([e.id,1])}">نقل لأسفل</button>
+        ${e.active ? `<button class="btn btn-ghost btn-sm" data-on-click="catSetActive" data-on-click-args="${qa([e.id,false])}" title="لا تظهر في العروض الجديدة، ويبقى أثرها في القديمة">إيقاف</button>` : `<button class="btn btn-ghost btn-sm" data-on-click="catSetActive" data-on-click-args="${qa([e.id,true])}">تفعيل</button>`}</span>` : ''}</div>
+  </div>`;
+}
+function catActsHtml(x){
+  if(!canEditCatalog()) return '';
+  return `<span class="cat-acts"><button class="btn btn-ghost btn-xs" data-on-click="catEdit" data-on-click-args="${qa([x.id])}">تعديل</button><button class="btn btn-reject btn-xs" data-on-click="catDelete" data-on-click-args="${qa([x.id])}">حذف</button></span>`;
+}
+function catItemsHtml(sub){
+  const items = catKids(sub.id).filter(x=>(state.cat.showOff || x.active) && catMatch(x));
+  const ed = state.cat.edit, edHere = ed && ((ed.level===3 && !ed.id && ed.parent_id===sub.id) || (ed.id && items.some(i=>i.id===ed.id)));
+  return `${items.length ? `<table class="exec-table cat-tbl"><thead><tr><th>العمل</th><th>المواصفات</th><th>الوحدة</th><th class="num">السعر</th>${canEditCatalog()?'<th></th>':''}</tr></thead><tbody>
+    ${items.map(x=>`<tr class="${x.active?'':'cat-off'}"><td data-label="العمل"><b>${escH(x.name)}</b>${x.active?'':' <span class="cx-tag">موقوف</span>'}</td><td data-label="المواصفات" class="cat-desc">${escH(x.description||'—')}</td><td data-label="الوحدة" class="cx-nowrap">${escH(x.unit||'—')}</td><td data-label="السعر" class="num cx-nowrap">${x.price==null ? '—' : fmtKWDHtml(x.price)}</td>${canEditCatalog()?`<td class="cx-act">${catActsHtml(x)}</td>`:''}</tr>`).join('')}
+    </tbody></table>` : ''}
+    ${edHere ? catFormHtml() : ''}`;
+}
+function renderCatalog(app){
+  if(!canSeeCatalog()){ state.view='dashboard'; render(); return; }
+  if(state.cat._cid !== state.currentCompanyId && !state.cat._loading){ state.cat._loading = true; catLoad().finally(()=>{ state.cat._loading=false; }); }
+  const ed = state.cat.edit, mains = catKids(null).filter(x=>(state.cat.showOff || x.active) && catMatch(x));
+  const all = state.cat.items||[], nSub = all.filter(x=>x.level===2).length, nItem = all.filter(x=>x.level===3).length;
+  const co = (state.companies||[]).find(c=>c.id===state.currentCompanyId)||{};
+  app.innerHTML = `
+    <h1>خدمات الشركة</h1>
+    <p class="sub">خدمات «${escH(co.nameAr||'')}»: خدمة رئيسية، تحتها خدمات فرعية، وتحت كل فرعية بنود مسعّرة. منها تُعدّ عروض الأسعار، وتُنسخ منها أسعار عقود العملاء. التعديل يسري على العروض الجديدة فقط.</p>
+    <div class="cx-stats">${cxStat('خدمات رئيسية', String(all.filter(x=>x.level===1).length))}${cxStat('خدمات فرعية', String(nSub))}${cxStat('بنود مسعّرة', String(nItem))}${cxStat('موقوفة', String(all.filter(x=>!x.active).length))}</div>
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><h2>الخدمات</h2><div class="cx-ph-tools">
+        <input type="search" class="qy-search cat-search" placeholder="بحث في الخدمات والبنود" value="${escH(state.cat.q||'')}" data-on-input="catSearch" data-on-input-args="${qa([QA.v])}">
+        <label class="chk-card cat-chk"><input type="checkbox" ${state.cat.showOff?'checked':''} data-on-change="catShowOff" data-on-change-args="${qa([QA.c])}"><span>إظهار الموقوفة</span></label>
+        ${canEditCatalog() && !(ed && ed.level===1 && !ed.id) ? `<button class="btn btn-primary btn-md" data-on-click="catNew" data-on-click-args="${qa([1, null])}">+ خدمة رئيسية</button>` : ''}</div></div>
+      ${ed && ed.level===1 && !ed.id ? catFormHtml() : ''}
+      ${!state.cat.loaded ? '<div class="cx-rep-empty">جارٍ التحميل…</div>' : !mains.length ? `<div class="cx-rep-empty">${state.cat.q ? 'لا نتائج.' : 'لا خدمات بعد. ابدأ بإضافة خدمة رئيسية.'}</div>` : ''}
+      <div class="cat-tree">${mains.map(m=>{
+        const subs = catKids(m.id).filter(x=>(state.cat.showOff || x.active) && catMatch(x)), op = state.cat.open[m.id] || !!state.cat.q;
+        const cnt = catKids(m.id).reduce((a,s)=>a+catKids(s.id).length, 0);
+        return `<section class="cat-main ${m.active?'':'cat-off'}">
+          ${ed && ed.id===m.id ? catFormHtml() : `<div class="cat-main-h" data-on-click="catToggle" data-on-click-args="${qa([m.id])}" role="button">
+            <span class="cat-car">${op?'▾':'◂'}</span><div class="cat-t"><b>${escH(m.name)}</b>${m.active?'':' <span class="cx-tag">موقوفة</span>'}<span class="file-hint">${catKids(m.id).length} فرعية · ${cnt} بند${m.description?' · '+escH(m.description):''}</span></div>
+            <span class="cat-stop" data-on-click="cxStop">${catActsHtml(m)}</span></div>`}
+          ${op ? `<div class="cat-subs">${subs.map(sb=>`<div class="cat-sub ${sb.active?'':'cat-off'}">
+              ${ed && ed.id===sb.id ? catFormHtml() : `<div class="cat-sub-h"><div class="cat-t"><b>${escH(sb.name)}</b>${sb.active?'':' <span class="cx-tag">موقوفة</span>'}<span class="file-hint">${catKids(sb.id).length ? catKids(sb.id).length+' بند' : 'لا بنود مسعّرة بعد'}${sb.description?' · '+escH(sb.description):''}</span></div>
+                ${canEditCatalog() ? `<button class="btn btn-ghost btn-sm" data-on-click="catNew" data-on-click-args="${qa([3, sb.id])}">+ بند</button>` : ''}${catActsHtml(sb)}</div>`}
+              ${catItemsHtml(sb)}</div>`).join('') || '<div class="cx-rep-empty">لا خدمات فرعية بعد.</div>'}
+            ${ed && ed.level===2 && !ed.id && ed.parent_id===m.id ? catFormHtml() : (canEditCatalog() ? `<div class="cat-add"><button class="btn btn-ghost btn-sm" data-on-click="catNew" data-on-click-args="${qa([2, m.id])}">+ خدمة فرعية</button></div>` : '')}
+          </div>` : ''}
+        </section>`; }).join('')}</div>
+    </div>`;
+}
+function cxStop(){ /* يمنع فتح/طي الخدمة عند الضغط على أزرارها */ }
 
 // ===================== استيراد بوابة الدفع =====================
 function openGwImport(){ state.view='gwImport'; state.cx.imp = state.cx.imp || {accountId:'', stmt:null, bills:null, rows:null, info:null}; state.cx.pendSel = state.cx.pendSel || {}; render(); window.scrollTo(0,0); gwLoad(); }
