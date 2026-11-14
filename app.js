@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.10.0', APP_VERSION_DATE = '2026-11-14';
+const APP_VERSION = '1.10.1', APP_VERSION_DATE = '2026-11-14';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.5, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:350, base:350, extra:0.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -17225,7 +17225,7 @@ function renderCenterBooks(app){
 }
 
 // ===================== خدمات الشركة (الكتالوج): خدمة رئيسية ← خدمة فرعية ← بند مسعّر =====================
-state.cat = {items:[], loaded:false, q:'', open:{}, edit:null, showOff:false};
+state.cat = {items:[], loaded:false, q:'', open:{}, edit:null, sel:null, showOff:false};
 const CAT_UNITS = ['قطعة','تصميم','صفحة','مقطع','دقيقة','ثانية','ساعة','يوم','شهر','مشروع','حملة','نسبة %','أخرى'];
 const CAT_LEVEL = {1:'خدمة رئيسية', 2:'خدمة فرعية', 3:'بند مسعّر'};
 function canSeeCatalog(){ return !!state.user && pageLevel('projects')!=='none'; }
@@ -17241,7 +17241,7 @@ function catKids(pid){ return (state.cat.items||[]).filter(x=>(x.parent_id||null
 function catMatch(x){ const q = (state.cat.q||'').trim(); if(!q) return true; const t = [x.name, x.description].join(' '); return t.includes(q) || catKids(x.id).some(catMatch); }
 function catToggle(id){ state.cat.open[id] = !state.cat.open[id]; render(); }
 function catNew(level, parentId){ state.cat.edit = {id:null, level, parent_id:parentId||null, name:'', description:'', unit:level===3?'قطعة':'', price:''}; if(parentId) state.cat.open[parentId] = true; render(); catFocus(); }
-function catEdit(id){ const x = state.cat.items.find(i=>i.id===id); if(!x) return; state.cat.edit = Object.assign({}, x, {price:x.price==null?'':x.price}); render(); catFocus(); }
+function catEdit(id){ const x = state.cat.items.find(i=>i.id===id); if(!x) return; state.cat.sel = id; state.cat.edit = Object.assign({}, x, {price:x.price==null?'':x.price}); render(); catFocus(); }
 function catCancel(){ state.cat.edit = null; render(); }
 function catFocus(){ setTimeout(()=>{ const el = document.getElementById('catf_name'); if(el){ el.focus(); el.scrollIntoView({behavior:'smooth', block:'center'}); } }, 40); }
 function catSearch(v){ state.cat.q = v; render(); const el = document.querySelector('#app .cat-search'); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }
@@ -17257,6 +17257,7 @@ async function catSave(){
   else { const sib = catKids(e.parent_id); r = await db.from('svc_catalog').insert(Object.assign(row, {company_id:state.currentCompanyId, parent_id:e.parent_id, level:e.level, sort:(sib.length ? Math.max(...sib.map(s=>s.sort||0)) : 0) + 10})); }
   if(!(await dbCheck(r,'حفظ الخدمة'))) return;
   showToast('تم حفظ «'+name+'»','success'); state.cat.edit = null; await catLoad();
+  if(!e.id){ const n = state.cat.items.filter(i=>i.parent_id===e.parent_id && i.name===name).pop(); if(n){ state.cat.sel = n.id; render(); } }
 }
 async function catSetActive(id, on){
   const r = await db.from('svc_catalog').update({active:!!on}).eq('id', id);
@@ -17269,6 +17270,7 @@ async function catDelete(id){
   if(!confirm(`حذف «${x.name}»${n ? ` وكل ما تحته (${n})` : ''} نهائياً؟\n\nإن كانت مستعملة في عروض أو عقود فالأفضل «إيقاف» بدل الحذف.`)) return;
   const r = await db.from('svc_catalog').delete().eq('id', id);
   if(!(await dbCheck(r,'حذف الخدمة'))) return;
+  if(state.cat.sel===id || catPath(state.cat.items.find(i=>i.id===state.cat.sel)||{name:''}).includes(x.name)) state.cat.sel = null;
   showToast('حُذفت «'+x.name+'»','success'); await catLoad();
 }
 async function catMove(id, dir){
@@ -17290,54 +17292,87 @@ function catFormHtml(){
       ${e.level===3 ? `<div><label for="catf_unit">الوحدة</label><select id="catf_unit">${CAT_UNITS.map(u=>`<option ${u===(e.unit||'قطعة')?'selected':''}>${u}</option>`).join('')}</select></div>
       <div><label for="catf_price">السعر (د.ك)</label><input id="catf_price" type="text" inputmode="decimal" dir="ltr" value="${e.price===''||e.price==null?'':e.price}" placeholder="0.000"></div>` : ''}
     </div>
-    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="catSave">حفظ</button><button class="btn btn-ghost btn-sm" data-on-click="catCancel">إلغاء</button>
-      ${e.id ? `<span class="cat-form-x"><button class="btn btn-ghost btn-sm" data-on-click="catMove" data-on-click-args="${qa([e.id,-1])}">نقل لأعلى</button><button class="btn btn-ghost btn-sm" data-on-click="catMove" data-on-click-args="${qa([e.id,1])}">نقل لأسفل</button>
-        ${e.active ? `<button class="btn btn-ghost btn-sm" data-on-click="catSetActive" data-on-click-args="${qa([e.id,false])}" title="لا تظهر في العروض الجديدة، ويبقى أثرها في القديمة">إيقاف</button>` : `<button class="btn btn-ghost btn-sm" data-on-click="catSetActive" data-on-click-args="${qa([e.id,true])}">تفعيل</button>`}</span>` : ''}</div>
+    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="catSave">حفظ</button><button class="btn btn-ghost btn-sm" data-on-click="catCancel">إلغاء</button></div>
   </div>`;
 }
+// ---------- الشجرة: تُفتح وتُطوى، والاسم يفتح التفاصيل، وأزرار صغيرة، و«+ إضافة» آخر كل مستوى ----------
+function catSelect(id){ state.cat.sel = (state.cat.sel===id && !state.cat.edit) ? null : id; state.cat.edit = null; const x = state.cat.items.find(i=>i.id===id); if(x && x.level<3) state.cat.open[id] = true; render(); }
+function catInline(){ return window.innerWidth < 1000; }   // الهاتف والشاشة الضيقة: التفاصيل تحت السطر نفسه بدل اللوحة الجانبية
+function catFoldAll(open){ (state.cat.items||[]).filter(x=>x.level<3).forEach(x=>{ state.cat.open[x.id] = !!open; }); render(); }
+function catPath(x){ const out = []; let p = x; while(p){ out.unshift(p.name); p = state.cat.items.find(i=>i.id===p.parent_id); } return out; }
 function catActsHtml(x){
   if(!canEditCatalog()) return '';
-  return `<span class="cat-acts"><button class="btn btn-ghost btn-xs" data-on-click="catEdit" data-on-click-args="${qa([x.id])}">تعديل</button><button class="btn btn-reject btn-xs" data-on-click="catDelete" data-on-click-args="${qa([x.id])}">حذف</button></span>`;
+  return `<span class="ct-acts"><button class="ct-ico ct-ico-e" data-on-click="catEdit" data-on-click-args="${qa([x.id])}" title="تعديل" aria-label="تعديل">${qi('pen')}</button><button class="ct-ico ct-ico-d" data-on-click="catDelete" data-on-click-args="${qa([x.id])}" title="حذف" aria-label="حذف">${qi('trash')}</button></span>`;
 }
-function catItemsHtml(sub){
-  const items = catKids(sub.id).filter(x=>(state.cat.showOff || x.active) && catMatch(x));
-  const ed = state.cat.edit, edHere = ed && ((ed.level===3 && !ed.id && ed.parent_id===sub.id) || (ed.id && items.some(i=>i.id===ed.id)));
-  return `${items.length ? `<table class="exec-table cat-tbl"><thead><tr><th>العمل</th><th>المواصفات</th><th>الوحدة</th><th class="num">السعر</th>${canEditCatalog()?'<th></th>':''}</tr></thead><tbody>
-    ${items.map(x=>`<tr class="${x.active?'':'cat-off'}"><td data-label="العمل"><b>${escH(x.name)}</b>${x.active?'':' <span class="cx-tag">موقوف</span>'}</td><td data-label="المواصفات" class="cat-desc">${escH(x.description||'—')}</td><td data-label="الوحدة" class="cx-nowrap">${escH(x.unit||'—')}</td><td data-label="السعر" class="num cx-nowrap">${x.price==null ? '—' : fmtKWDHtml(x.price)}</td>${canEditCatalog()?`<td class="cx-act">${catActsHtml(x)}</td>`:''}</tr>`).join('')}
-    </tbody></table>` : ''}
-    ${edHere ? catFormHtml() : ''}`;
+function catDetailHtml(){
+  const ed = state.cat.edit; if(ed) return catFormHtml();
+  const x = state.cat.sel && state.cat.items.find(i=>i.id===state.cat.sel);
+  if(!x) return `<div class="ct-empty">اختر خدمة أو بنداً من الشجرة لعرض تفاصيله.</div>`;
+  const kids = catKids(x.id), cnt = x.level===1 ? kids.reduce((a,s)=>a+catKids(s.id).length,0) : 0;
+  const row = (l,v) => v==null || v==='' ? '' : `<div class="ct-kv"><span>${l}</span><b>${v}</b></div>`;
+  return `<div class="ct-det">
+    <div class="ct-path">${catPath(x).slice(0,-1).map(escH).join(' ← ') || CAT_LEVEL[x.level]}</div>
+    <div class="ct-det-h"><b>${escH(x.name)}</b>${x.active ? '' : '<span class="cx-tag">موقوفة</span>'}</div>
+    <div class="ct-kvs">
+      ${row('النوع', CAT_LEVEL[x.level])}
+      ${row(x.level===3 ? 'المواصفات' : 'الوصف', x.description ? escH(x.description) : (x.level===3 ? '—' : ''))}
+      ${x.level===3 ? row('الوحدة', escH(x.unit||'—')) + row('السعر', x.price==null ? '—' : fmtKWDHtml(x.price)+' <small>د.ك</small>') : ''}
+      ${x.level===1 ? row('تحتها', `${kids.length} فرعية · ${cnt} بند`) : ''}${x.level===2 ? row('تحتها', `${kids.length} بند`) : ''}
+    </div>
+    ${canEditCatalog() ? `<div class="ct-det-a">
+      <button class="btn btn-primary btn-md" data-on-click="catEdit" data-on-click-args="${qa([x.id])}">تعديل</button>
+      ${x.level<3 ? `<button class="btn btn-ghost btn-md" data-on-click="catNew" data-on-click-args="${qa([x.level+1, x.id])}">+ ${x.level===1 ? 'خدمة فرعية' : 'بند'}</button>` : ''}
+      <button class="btn btn-ghost btn-sm" data-on-click="catMove" data-on-click-args="${qa([x.id,-1])}">نقل لأعلى</button>
+      <button class="btn btn-ghost btn-sm" data-on-click="catMove" data-on-click-args="${qa([x.id,1])}">نقل لأسفل</button>
+      ${x.active ? `<button class="btn btn-ghost btn-sm" data-on-click="catSetActive" data-on-click-args="${qa([x.id,false])}" title="لا تظهر في العروض الجديدة، ويبقى أثرها في القديمة">إيقاف</button>` : `<button class="btn btn-ghost btn-sm" data-on-click="catSetActive" data-on-click-args="${qa([x.id,true])}">تفعيل</button>`}
+    </div>` : ''}
+  </div>`;
+}
+function catRowHtml(x){
+  const kids = catKids(x.id).filter(k=>(state.cat.showOff || k.active) && catMatch(k));
+  const op = x.level<3 && (state.cat.open[x.id] || !!(state.cat.q||'').trim());
+  const sel = state.cat.sel===x.id || (state.cat.edit && state.cat.edit.id===x.id);
+  const meta = x.level===3 ? `<span class="ct-price">${x.price==null ? '—' : fmtKWDHtml(x.price)}<small>${x.unit ? ' / '+escH(x.unit) : ''}</small></span>`
+    : `<span class="ct-cnt">${catKids(x.id).length}</span>`;
+  const IN = catInline(), ed = state.cat.edit, newHere = IN && ed && !ed.id && ed.parent_id===x.id;
+  const inl = IN && sel && (!ed || ed.id) && `<div class="ct-inline">${catDetailHtml()}</div>`;
+  return `<div class="ct-node ct-l${x.level}${x.active?'':' cat-off'}">
+    <div class="ct-row${sel?' ct-sel':''}">
+      ${x.level<3 ? `<button class="ct-tog" data-on-click="catToggle" data-on-click-args="${qa([x.id])}" aria-label="${op?'طي':'فتح'}">${op?'▾':'◂'}</button>` : '<span class="ct-dot"></span>'}
+      <button class="ct-name" data-on-click="catSelect" data-on-click-args="${qa([x.id])}">${escH(x.name)}${x.active?'':' <span class="cx-tag">موقوفة</span>'}</button>
+      ${meta}${catActsHtml(x)}
+    </div>
+    ${inl || ''}
+    ${op ? `<div class="ct-kids">${kids.map(catRowHtml).join('')}
+      ${newHere ? `<div class="ct-inline ct-inline-new">${catFormHtml()}</div>` : ''}
+      ${canEditCatalog() ? `<button class="ct-add" data-on-click="catNew" data-on-click-args="${qa([x.level+1, x.id])}">+ ${x.level===1 ? 'خدمة فرعية' : 'بند'}</button>` : ''}</div>` : ''}
+  </div>`;
 }
 function renderCatalog(app){
   if(!canSeeCatalog()){ state.view='dashboard'; render(); return; }
   if(state.cat._cid !== state.currentCompanyId && !state.cat._loading){ state.cat._loading = true; catLoad().finally(()=>{ state.cat._loading=false; }); }
   const ed = state.cat.edit, mains = catKids(null).filter(x=>(state.cat.showOff || x.active) && catMatch(x));
-  const all = state.cat.items||[], nSub = all.filter(x=>x.level===2).length, nItem = all.filter(x=>x.level===3).length;
+  const all = state.cat.items||[];
   const co = (state.companies||[]).find(c=>c.id===state.currentCompanyId)||{};
+  const anyOpen = all.some(x=>x.level<3 && state.cat.open[x.id]);
   app.innerHTML = `
     <h1>خدمات الشركة</h1>
-    <p class="sub">خدمات «${escH(co.nameAr||'')}»: خدمة رئيسية، تحتها خدمات فرعية، وتحت كل فرعية بنود مسعّرة. منها تُعدّ عروض الأسعار، وتُنسخ منها أسعار عقود العملاء. التعديل يسري على العروض الجديدة فقط.</p>
-    <div class="cx-stats">${cxStat('خدمات رئيسية', String(all.filter(x=>x.level===1).length))}${cxStat('خدمات فرعية', String(nSub))}${cxStat('بنود مسعّرة', String(nItem))}${cxStat('موقوفة', String(all.filter(x=>!x.active).length))}</div>
+    <p class="sub">خدمات «${escH(co.nameAr||'')}»: خدمة رئيسية ← خدمة فرعية ← بند مسعّر. منها تُعدّ عروض الأسعار وتُنسخ أسعار عقود العملاء. التعديل يسري على العروض الجديدة فقط.</p>
+    <div class="cx-stats">${cxStat('خدمات رئيسية', String(all.filter(x=>x.level===1).length))}${cxStat('خدمات فرعية', String(all.filter(x=>x.level===2).length))}${cxStat('بنود مسعّرة', String(all.filter(x=>x.level===3).length))}${cxStat('موقوفة', String(all.filter(x=>!x.active).length))}</div>
     <div class="card cx-panel">
       <div class="cx-panel-h"><h2>الخدمات</h2><div class="cx-ph-tools">
         <input type="search" class="qy-search cat-search" placeholder="بحث في الخدمات والبنود" value="${escH(state.cat.q||'')}" data-on-input="catSearch" data-on-input-args="${qa([QA.v])}">
-        <label class="chk-card cat-chk"><input type="checkbox" ${state.cat.showOff?'checked':''} data-on-change="catShowOff" data-on-change-args="${qa([QA.c])}"><span>إظهار الموقوفة</span></label>
-        ${canEditCatalog() && !(ed && ed.level===1 && !ed.id) ? `<button class="btn btn-primary btn-md" data-on-click="catNew" data-on-click-args="${qa([1, null])}">+ خدمة رئيسية</button>` : ''}</div></div>
-      ${ed && ed.level===1 && !ed.id ? catFormHtml() : ''}
-      ${!state.cat.loaded ? '<div class="cx-rep-empty">جارٍ التحميل…</div>' : !mains.length ? `<div class="cx-rep-empty">${state.cat.q ? 'لا نتائج.' : 'لا خدمات بعد. ابدأ بإضافة خدمة رئيسية.'}</div>` : ''}
-      <div class="cat-tree">${mains.map(m=>{
-        const subs = catKids(m.id).filter(x=>(state.cat.showOff || x.active) && catMatch(x)), op = state.cat.open[m.id] || !!state.cat.q;
-        const cnt = catKids(m.id).reduce((a,s)=>a+catKids(s.id).length, 0);
-        return `<section class="cat-main ${m.active?'':'cat-off'}">
-          ${ed && ed.id===m.id ? catFormHtml() : `<div class="cat-main-h" data-on-click="catToggle" data-on-click-args="${qa([m.id])}" role="button">
-            <span class="cat-car">${op?'▾':'◂'}</span><div class="cat-t"><b>${escH(m.name)}</b>${m.active?'':' <span class="cx-tag">موقوفة</span>'}<span class="file-hint">${catKids(m.id).length} فرعية · ${cnt} بند${m.description?' · '+escH(m.description):''}</span></div>
-            <span class="cat-stop" data-on-click="cxStop">${catActsHtml(m)}</span></div>`}
-          ${op ? `<div class="cat-subs">${subs.map(sb=>`<div class="cat-sub ${sb.active?'':'cat-off'}">
-              ${ed && ed.id===sb.id ? catFormHtml() : `<div class="cat-sub-h"><div class="cat-t"><b>${escH(sb.name)}</b>${sb.active?'':' <span class="cx-tag">موقوفة</span>'}<span class="file-hint">${catKids(sb.id).length ? catKids(sb.id).length+' بند' : 'لا بنود مسعّرة بعد'}${sb.description?' · '+escH(sb.description):''}</span></div>
-                ${canEditCatalog() ? `<button class="btn btn-ghost btn-sm" data-on-click="catNew" data-on-click-args="${qa([3, sb.id])}">+ بند</button>` : ''}${catActsHtml(sb)}</div>`}
-              ${catItemsHtml(sb)}</div>`).join('') || '<div class="cx-rep-empty">لا خدمات فرعية بعد.</div>'}
-            ${ed && ed.level===2 && !ed.id && ed.parent_id===m.id ? catFormHtml() : (canEditCatalog() ? `<div class="cat-add"><button class="btn btn-ghost btn-sm" data-on-click="catNew" data-on-click-args="${qa([2, m.id])}">+ خدمة فرعية</button></div>` : '')}
-          </div>` : ''}
-        </section>`; }).join('')}</div>
+        <button class="btn btn-ghost btn-sm" data-on-click="catFoldAll" data-on-click-args="${qa([!anyOpen])}">${anyOpen ? 'طي الكل' : 'فتح الكل'}</button>
+        <label class="chk-card cat-chk"><input type="checkbox" ${state.cat.showOff?'checked':''} data-on-change="catShowOff" data-on-change-args="${qa([QA.c])}"><span>إظهار الموقوفة</span></label></div></div>
+      <div class="ct-wrap${catInline() ? ' ct-one' : ''}">
+        <div class="ct-tree">
+          ${!state.cat.loaded ? '<div class="ct-empty">جارٍ التحميل…</div>' : !mains.length ? `<div class="ct-empty">${state.cat.q ? 'لا نتائج.' : 'لا خدمات بعد.'}</div>` : ''}
+          ${mains.map(catRowHtml).join('')}
+          ${catInline() && ed && !ed.id && ed.level===1 ? `<div class="ct-inline ct-inline-new">${catFormHtml()}</div>` : ''}
+          ${canEditCatalog() ? `<button class="ct-add ct-add-1" data-on-click="catNew" data-on-click-args="${qa([1, null])}">+ خدمة رئيسية</button>` : ''}
+        </div>
+        ${catInline() ? '' : `<aside class="ct-side">${catDetailHtml()}</aside>`}
+      </div>
     </div>`;
 }
 function cxStop(){ /* يمنع فتح/طي الخدمة عند الضغط على أزرارها */ }
