@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.13.2', APP_VERSION_DATE = '2026-11-15';
+const APP_VERSION = '1.13.3', APP_VERSION_DATE = '2026-11-15';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:356, base:350, extra:5.5, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:356, base:350, extra:6.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -3332,22 +3332,31 @@ async function topPrint(){
   if(state.view==='orgTree' && typeof printOrgTree==='function'){ printOrgTree(); return; }   // الشجرة لها تجهيز خاص (A4 صفحة واحدة)
   window.print();
 }
-// قائمة «عرض كمستخدم»: مستخدمو الشركة الحالية فقط — العامّون أعلاها، ثم الأعضاء مرتبين كشجرة المدير المباشر (بإزاحة)، والموقوفون أسفلها بعلامة
-function impersonateOptionsHtml(withUnit){
-  const cid = state.currentCompanyId;
-  const pool = (state.users||[]).filter(u=>u.role!=='admin' && userHasCompany(u, cid));
-  const lab = (u, depth) => '\u00A0\u00A0'.repeat(depth) + (depth ? '↳ ' : '') + u.name + ' — ' + ((u.jobTitle||'').trim() || findRole(u.role).name) + (withUnit && u.centerId ? ' (' + ((state.centers.find(c=>c.id===u.centerId)||{}).name||'') + ')' : '');
-  const opt = (u, depth, extra) => `<option value="${escH(u.id)}">${escH(lab(u, depth))}${extra||''}</option>`;
-  const act = pool.filter(u=>!u.isSuspended), sus = pool.filter(u=>u.isSuspended).sort(_byName);
+// ترتيب المستخدمين كما في الشجرة: العامّون أولاً، ثم الجذور حسب المستوى، وتحت كل مدير موظفوه — يعيد [{u, depth, group}]
+function usersTreeOrder(list){
+  const act = list.filter(u=>!u.isSuspended), sus = list.filter(u=>u.isSuspended).sort(_byName);
   const gen = act.filter(u=>u.isGeneral).sort(_byName), mem = act.filter(u=>!u.isGeneral), ids = new Set(mem.map(u=>u.id));
   const rank = u => { const lv = (state.jobLevels||[]).find(l=>l.id===u.levelId); return lv ? lv.sortOrder : 99; };
-  const seen = new Set(), out = [];
-  const walk = (u, d) => { if(seen.has(u.id)) return; seen.add(u.id); out.push(opt(u, d)); mem.filter(k=>k.managerId===u.id).sort(_byName).forEach(k=>walk(k, d+1)); };
+  const seen = new Set(), out = gen.map(u=>({u, depth:0, group:'gen'}));
+  const walk = (u, d) => { if(seen.has(u.id)) return; seen.add(u.id); out.push({u, depth:d, group:'mem'}); mem.filter(k=>k.managerId===u.id).sort(_byName).forEach(k=>walk(k, d+1)); };
   mem.filter(u=>!u.managerId || !ids.has(u.managerId)).sort((a,b)=>rank(a)-rank(b) || _byName(a,b)).forEach(u=>walk(u,0));
   mem.filter(u=>!seen.has(u.id)).forEach(u=>walk(u,0));
-  return (gen.length ? `<optgroup label="🌐 مستخدمون عامّون">${gen.map(u=>opt(u,0)).join('')}</optgroup>` : '')
-    + (out.length ? `<optgroup label="${escH((state.companies.find(c=>c.id===cid)||{}).nameAr || 'الشركة')}">${out.join('')}</optgroup>` : '')
-    + (sus.length ? `<optgroup label="🚪 موقوفون">${sus.map(u=>opt(u,0,' (موقوف)')).join('')}</optgroup>` : '');
+  sus.forEach(u=>out.push({u, depth:0, group:'sus'}));
+  return out;
+}
+// قائمة «عرض كمستخدم»: مستخدمو الشركة الحالية فقط — العامّون أعلاها، ثم الأعضاء مرتبين كشجرة المدير المباشر (بإزاحة)، والموقوفون أسفلها بعلامة
+function impersonateOptionsHtml(withUnit){
+  // بلا مجموعات ولا إزاحة (قائمة Windows تضيف فراغاً أو رمزاً أول كل اسم في الاتجاه العربي): الاسم أولاً، وفواصل غير قابلة للاختيار بين المجموعات
+  const cid = state.currentCompanyId;
+  const rows = usersTreeOrder((state.users||[]).filter(u=>u.role!=='admin' && userHasCompany(u, cid)));
+  const head = t => `<option disabled>── ${escH(t)} ──</option>`;
+  let last = '', html = '';
+  rows.forEach(({u, group})=>{
+    if(group!==last){ html += head(group==='gen' ? 'مستخدمون عامّون' : group==='sus' ? 'موقوفون' : ((state.companies.find(c=>c.id===cid)||{}).nameAr || 'الشركة')); last = group; }
+    const unit = withUnit && u.centerId ? ' (' + ((state.centers.find(c=>c.id===u.centerId)||{}).name||'') + ')' : '';
+    html += `<option value="${escH(u.id)}">${escH(u.name + ' — ' + ((u.jobTitle||'').trim() || findRole(u.role).name) + unit + (group==='sus' ? ' (موقوف)' : ''))}</option>`;
+  });
+  return html;
 }
 function renderTopbar(){
   const el = document.getElementById('topbarRight');
@@ -9965,7 +9974,7 @@ function renderAdmin(app){
     <div class="ut-head"><h2 style="margin:8px 0 0;">مستخدمو الشركة الحالية</h2>
       <div class="ut-viewsw"><button class="pj-chip${(state.userView||'tree')==='tree'?' on':''}" data-on-click="userViewSet" data-on-click-args="${qa(['tree'])}">شجرة</button><button class="pj-chip${state.userView==='list'?' on':''}" data-on-click="userViewSet" data-on-click-args="${qa(['list'])}">قائمة</button></div></div>
     ${state.editingUserId ? renderUserEditForm() : ''}
-    ${(state.userView||'tree')==='tree' ? userTreeHtml(companyScopedUsers) : `${companyScopedUsers.map(u=>`
+    ${(state.userView||'tree')==='tree' ? userTreeHtml(companyScopedUsers) : `${usersTreeOrder(companyScopedUsers).map(x=>x.u).map(u=>`
       <div class="list-item">
         ${avatarHtml(u.id, u.name, 'u-av u-av-md')}
         <div class="li-main">
