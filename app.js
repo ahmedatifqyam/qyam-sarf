@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.11.3', APP_VERSION_DATE = '2026-11-15';
+const APP_VERSION = '1.11.4', APP_VERSION_DATE = '2026-11-15';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:3.5, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:3.9, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -17653,6 +17653,12 @@ function prjItemNote(itemId){
   if(!pl) return '';
   return `<div class="pj-plan" title="قيمة المشروع ميزانية مخططة للبند">مشروع${pl.p.status==='closed' ? ' مغلق' : ''} · القيمة ${fmtKWD(pl.value,{noUnit:true})} · المحصّل ${fmtKWD(pl.collected,{noUnit:true})} · المتبقي من القيمة ${fmtKWD(pl.rest,{noUnit:true})}</div>`;
 }
+// ---------- مرحلة التنفيذ: المنفذ، وأجزاء التنفيذ = طلبات الصرف على بند المشروع ----------
+const PRJ_EXEC_BY = {company:'الشركة', external:'جهة خارجية', both:'الشركة وجهة خارجية'};
+const PRJ_EXEC_ST = {not_started:'لم يبدأ', in_progress:'جارٍ', done:'اكتمل'};
+function prjReqs(p){ return p && p.budget_item_id ? (state.requests||[]).filter(r=>r.budgetItemId===p.budget_item_id && !r.isCancelled) : []; }
+// الحالة الفعلية: «لم يبدأ» تصير «جارٍ» تلقائياً عند أول طلب صرف على البند
+function prjExecSt(p){ const st = p.exec_status || 'not_started'; return st==='not_started' && prjReqs(p).length ? 'in_progress' : st; }
 // ===================== صفحة المشاريع =====================
 function openProjects(){ state.view='projects'; state.prj.openId=null; state.prj.docForm=null; render(); window.scrollTo(0,0); prjLoad(); if(cxCid()) cxLoadClients(); }
 function openProject(id){ state.view='project'; state.prj.openId=id; state.prj.approve=null; state.prj.invForm=null; state.prj.colForm=null; state.prj.editSet=false; state.prj.docForm=null; render(); window.scrollTo(0,0); if(!state.prj.loaded) prjLoad(); }
@@ -17701,8 +17707,9 @@ function prjCardHtml(r){
       ${prjStep(1, 'الوثيقة', step1, d && d.status==='approved' ? 'done' : (d && d.status==='sent' ? 'warn' : ''))}
       ${prjStep(2, 'الفاتورة', step2, s2c)}
       ${prjStep(3, 'المبالغ', step3, s3c)}
-      ${prjStep(4, 'التقرير', step4, s4c)}
-      ${prjStep(5, 'الحالة', st, p && p.status==='closed' ? 'done' : '')}
+      ${prjStep(4, 'التنفيذ', p ? `<b>${escH(PRJ_EXEC_BY[p.exec_by]||'لم يُحدَّد المنفذ')}</b>${p.exec_party ? `<span>${escH(p.exec_party)}</span>` : ''}${prjBadge(PRJ_EXEC_ST[prjExecSt(p)], prjExecSt(p)==='done' ? 'ok' : prjExecSt(p)==='in_progress' ? 'sent' : 'none')}${prjReqs(p).length ? `<span class="pj-muted">${prjReqs(p).length} طلب صرف</span>` : ''}` : '<span class="pj-muted">—</span>', p ? (prjExecSt(p)==='done' ? 'done' : (!p.exec_by ? 'warn' : '')) : 'off')}
+      ${prjStep(5, 'التقرير', step4, s4c)}
+      ${prjStep(6, 'الحالة', st, p && p.status==='closed' ? 'done' : '')}
     </div>
   </div>`;
 }
@@ -17717,7 +17724,7 @@ function renderProjects(app){
   const clients = cxClientTree();
   app.innerHTML = `
     <h1>المشاريع</h1>
-    <p class="sub">كل مشروع من وثيقته (عرض سعر، نموذج خدمة، مقترح خدمة) حتى إغلاقه: الوثيقة ← الفاتورة ← المبالغ ← التقرير ← الحالة.</p>
+    <p class="sub">كل مشروع من وثيقته (عرض سعر، نموذج خدمة، مقترح خدمة) حتى إغلاقه: الوثيقة ← الفاتورة ← المبالغ ← التنفيذ ← التقرير ← الحالة.</p>
     <div class="cx-stats">${cxStat('مشاريع نشطة', String(act.length))}${cxStat('بانتظار رد العميل', String(P.docs.filter(d=>d.status==='sent').length))}${cxStat('فواتير مستحقة', String(dueN), dueN ? 'var(--red)' : '')}${cxStat('غير محصّل', fmtKWDHtml(uncol))}</div>
     ${P.docForm ? prjDocFormHtml() : ''}
     <div class="card cx-panel">
@@ -17832,7 +17839,7 @@ function renderProject(app){
     ${prjNextHtml(p, d)}
     ${state.prj.docForm ? prjDocFormHtml() : ''}
     ${d ? prjDocPanelHtml(d, p) : ''}
-    ${p ? prjMoneyPanelHtml(p) + prjInvoicesPanelHtml(p) + prjClosePanelHtml(p) : ''}`;
+    ${p ? prjMoneyPanelHtml(p) + prjInvoicesPanelHtml(p) + prjExecPanelHtml(p) + prjClosePanelHtml(p) : ''}`;
 }
 // شريط «الخطوة التالية»: يقود المستخدم في مسار المشروع خطوة خطوة بزر واحد
 function prjNextHtml(p, d){
@@ -17849,10 +17856,12 @@ function prjNextHtml(p, d){
   const due = prjDuePeriods(p), rc = prjMissingReceipts(p);
   if(due.length && !state.prj.invForm) return bar(due[0] ? 'فاتورة ' + prjYmName(due[0]) + ' مستحقة — سجّلها بصورتيها.' : 'سجّل فاتورة المشروع بصورتيها (الفاتورة وعلم الوصول).', ed ? b('prjInvNew', [p.id], '+ فاتورة الآن') : '');
   if(rc.length) return bar('ارفع علم وصول الفاتورة ' + escH(rc[0].inv_no||'') + '.', ed ? b('prjRcpOpen', [rc[0].id], '+ علم الوصول') : '');
+  if(!p.exec_by) return bar('حدّد منفذ المشروع: الشركة أو جهة خارجية.', ed ? b('prjExecEdit', [p.id], 'تحديد المنفذ') : '');
   const unpaid = prjInvs(p).find(i=>prjInvCollected(i) < Number(i.amount));
   if(unpaid) return bar('عند دفع العميل سجّل التحصيل للفاتورة ' + escH(unpaid.inv_no||'') + ' فيدخل المبلغ بند المشروع.', fin ? b('prjColOpen', [unpaid.id], 'تحصيل') : '<span class="file-hint">التحصيل للمالية</span>');
+  if(prjExecSt(p)!=='done') return bar(prjExecSt(p)==='in_progress' ? 'التنفيذ جارٍ' + (prjReqs(p).length ? ' (' + prjReqs(p).length + ' طلب صرف على البند)' : '') + '. عند انتهائه اضغط «اكتمل التنفيذ».' : 'ابدأ التنفيذ؛ طلبات الصرف على بند المشروع تظهر في «التنفيذ» تلقائياً.', ed ? b('prjExecSet', [p.id, prjExecSt(p)==='in_progress' ? 'done' : 'in_progress'], prjExecSt(p)==='in_progress' ? 'اكتمل التنفيذ' : 'بدء التنفيذ') : '');
   if(p.invoice_mode==='monthly' && (p.open_ended || (p.months && prjYm() < prjYmAdd(prjYm(p.start_date), p.months-1)))) return bar('الفواتير محدّثة. فاتورة ' + prjYmName(prjYmAdd(prjYm(),1)) + ' تُستحق أول الشهر، أو ارفع التقرير وأغلق المشروع إن انتهى.', '', 'pj-next-done');
-  if(!p.report_path) return bar('الفواتير محصّلة. ارفع التقرير الختامي ثم أغلق المشروع.', ed ? `<button class="btn btn-primary btn-md" data-on-click="prjGoReport">رفع التقرير</button>` : '');
+  if(!p.report_path) return bar('الفواتير محصّلة والتنفيذ اكتمل. ارفع التقرير الختامي ثم أغلق المشروع.', ed ? `<button class="btn btn-primary btn-md" data-on-click="prjGoReport">رفع التقرير</button>` : '');
   return bar('التقرير مرفوع. أغلق المشروع.', ed ? b('prjClose', [p.id], 'إغلاق المشروع') : '');
 }
 function prjGoReport(){ const el = document.getElementById('pjrep_file'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); setTimeout(()=>el.click(), 350); } }
@@ -18132,11 +18141,76 @@ async function prjColSave(invId){
   await db.from('prj_collections').update({revenue_id:rev.id}).eq('id', c.data.id);
   showToast('سُجِّل التحصيل إيراداً على بند المشروع','success'); state.prj.colForm = null; await prjLoad();
 }
+// ---------- التنفيذ ----------
+function prjExecPanelHtml(p){
+  const ed = canEditPrj() && p.status==='active', es = state.prj.execEdit===p.id, st = prjExecSt(p), reqs = prjReqs(p);
+  const live = reqs.filter(r=>r.status!=='rejected'), sum = cxR3(live.reduce((s,r)=>s+Number(r.totalAmount||0),0));
+  const kv = (l, v) => `<div class="pj-kv2"><span>${l}</span><b>${v}</b></div>`;
+  const rows = reqs.map(r=>{
+    const bens = (r.beneficiaries||[]), stm = [...new Set(bens.map(b=>String(b.statement||'').trim()).filter(Boolean))].join('، ');
+    return `<tr class="pj-row" data-on-click="openRequest" data-on-click-args="${qa([String(r.id)])}"><td data-label="الرقم"><bdi>${escH(r.number||'قيد المراجعة')}</bdi></td><td data-label="الطلب"><b>${escH(r.reason||'')}</b>${stm ? `<div class="pj-muted">${escH(stm)}</div>` : ''}</td>
+      <td data-label="المستفيد">${escH(bens.map(b=>b.name).filter(Boolean).slice(0,3).join('، ') + (bens.length>3 ? '…' : ''))}</td><td data-label="التاريخ">${cxDate(r.dateGreg)}</td><td data-label="المبلغ" class="num">${fmtKWDHtml(r.totalAmount)}</td><td data-label="الحالة">${statusBadge(r.status, r.isCancelled, false, false, false)}</td></tr>`;
+  }).join('');
+  return `<div class="card cx-panel">
+    <div class="cx-panel-h"><h2>4 · التنفيذ</h2><div class="cx-ph-tools">${prjFileBtn(p.exec_file_path, p.exec_file_name, 'عرض/عقد الجهة')}
+      ${ed && !es ? `${st!=='done' ? `<button class="btn btn-ghost btn-sm" data-on-click="prjExecSet" data-on-click-args="${qa([p.id, st==='not_started' ? 'in_progress' : 'done'])}">${st==='not_started' ? 'بدء التنفيذ' : 'اكتمل التنفيذ'}</button>` : `<button class="btn btn-ghost btn-sm" data-on-click="prjExecSet" data-on-click-args="${qa([p.id,'in_progress'])}">إعادة إلى «جارٍ»</button>`}
+        <button class="btn btn-ghost btn-sm" data-on-click="prjExecEdit" data-on-click-args="${qa([p.id])}">تعديل</button>` : ''}</div></div>
+    <div class="pj-kvs">
+      ${kv('المنفذ', p.exec_by ? escH(PRJ_EXEC_BY[p.exec_by]) : '<span class="pj-muted">لم يُحدَّد</span>')}
+      ${p.exec_by && p.exec_by!=='company' ? kv('الجهة الخارجية', escH(p.exec_party||'—')) + kv('مبلغ الاتفاق', p.exec_amount==null ? '—' : fmtKWDHtml(p.exec_amount)) : ''}
+      ${kv('حالة التنفيذ', prjBadge(PRJ_EXEC_ST[st], st==='done' ? 'ok' : st==='in_progress' ? 'sent' : 'none') + (st==='in_progress' && (p.exec_status||'not_started')==='not_started' ? ' <small class="pj-muted">تلقائياً من أول طلب صرف</small>' : '') + (st==='done' && p.exec_done_at ? ' <small class="pj-muted">' + cxDate(String(p.exec_done_at).slice(0,10)) + '</small>' : ''))}
+      ${kv('طلبات الصرف', `${live.length} طلب · ${fmtKWDHtml(sum)}`)}
+    </div>
+    ${es ? `<div class="pj-approve">
+      <div class="uf-flex">
+        <div class="f-lg"><label for="pje_by">المنفذ</label><select id="pje_by" data-on-change="prjExecRefresh"><option value="">— اختر —</option>${Object.entries(PRJ_EXEC_BY).map(([k,l])=>`<option value="${k}" ${state.prj.execBy===k?'selected':''}>${l}</option>`).join('')}</select></div>
+        <div class="f-md"><label for="pje_status">حالة التنفيذ</label><select id="pje_status">${Object.entries(PRJ_EXEC_ST).map(([k,l])=>`<option value="${k}" ${(p.exec_status||'not_started')===k?'selected':''}>${l}</option>`).join('')}</select></div>
+      </div>
+      ${state.prj.execBy && state.prj.execBy!=='company' ? `<div class="uf-flex">
+        <div class="f-xl"><label for="pje_party">اسم الجهة الخارجية</label><input id="pje_party" type="text" value="${escH(p.exec_party||'')}" placeholder="مثال: استوديو التصوير"></div>
+        <div class="f-md"><label for="pje_amount">مبلغ الاتفاق (اختياري)</label><input id="pje_amount" type="text" inputmode="decimal" dir="ltr" value="${p.exec_amount==null ? '' : escH(String(p.exec_amount))}" placeholder="0.000"></div>
+        <div class="f-lg"><label for="pje_file">عرضها أو عقدها (اختياري)</label><input id="pje_file" type="file" accept="application/pdf,image/*"></div>
+      </div>` : ''}
+      <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjExecBtn" data-on-click="prjExecSave" data-on-click-args="${qa([p.id])}">حفظ</button><button class="btn btn-ghost btn-sm" data-on-click="prjExecEdit" data-on-click-args="${qa([''])}">إلغاء</button></div>
+    </div>` : ''}
+    <h3 class="uf-h">أجزاء التنفيذ — طلبات الصرف على بند المشروع</h3>
+    ${reqs.length ? `<table class="exec-table pj-tbl"><thead><tr><th>الرقم</th><th>الطلب والبيان</th><th>المستفيد</th><th>التاريخ</th><th class="num">المبلغ</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="ct-empty">لا طلبات صرف على بند المشروع بعد. كل طلب صرف يُنشأ على هذا البند (مثل بوفيه أو مصور) يظهر هنا جزءاً من التنفيذ.</div>`}
+  </div>`;
+}
+function prjExecEdit(id){ const p = id && state.prj.projects.find(x=>x.id===id); state.prj.execEdit = p ? id : null; state.prj.execBy = p ? (p.exec_by||'') : ''; render(); }
+function prjExecRefresh(){ state.prj.execBy = (document.getElementById('pje_by')||{}).value || ''; const keep = {status:(document.getElementById('pje_status')||{}).value}; render(); const s = document.getElementById('pje_status'); if(s && keep.status) s.value = keep.status; }
+async function prjExecSave(id){
+  const p = state.prj.projects.find(x=>x.id===id); if(!p) return;
+  const g = k => document.getElementById('pje_'+k);
+  const by = g('by').value || null, st = g('status').value || 'not_started';
+  if(!by){ fieldErr('#pje_by','اختر المنفذ'); return; }
+  const row = {exec_by:by, exec_status:st, exec_done_at: st==='done' ? (p.exec_done_at || new Date().toISOString()) : null};
+  if(by==='company'){ Object.assign(row, {exec_party:null, exec_amount:null}); }
+  else {
+    row.exec_party = String(g('party').value||'').trim() || null;
+    if(!row.exec_party){ fieldErr('#pje_party','اكتب اسم الجهة الخارجية'); return; }
+    const a = String(g('amount').value||'').trim(); row.exec_amount = a ? cxR3(cxN(a)) : null;
+  }
+  const btn = document.getElementById('pjExecBtn'); if(btn){ btn.disabled = true; btn.textContent = '…'; }
+  try{
+    const f = by!=='company' ? prjFileOf('pje_file') : null, up = f ? await prjUpload(f, 'exec') : null;
+    if(up){ row.exec_file_path = up.path; row.exec_file_name = up.name; }
+    const r = await db.from('projects').update(row).eq('id', id);
+    if(!(await dbCheck(r,'حفظ التنفيذ'))) throw new Error('-');
+    showToast('حُفظ التنفيذ','success'); state.prj.execEdit = null; await prjLoad();
+  }catch(e){ if(e.message!=='-') showToast('تعذّر: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'حفظ'; } }
+}
+async function prjExecSet(id, st){
+  if(st==='done' && !confirm('تأكيد: اكتمل تنفيذ المشروع؟ الخطوة التالية رفع التقرير الختامي.')) return;
+  const r = await db.from('projects').update({exec_status:st, exec_done_at: st==='done' ? new Date().toISOString() : null}).eq('id', id);
+  if(!(await dbCheck(r,'حالة التنفيذ'))) return;
+  showToast(st==='done' ? 'اكتمل التنفيذ — التالي: رفع التقرير' : 'التنفيذ جارٍ','success'); await prjLoad();
+}
 // ---------- التقرير والإغلاق ----------
 function prjClosePanelHtml(p){
   const ed = canEditPrj(), fin = isFinanceUser();
   return `<div class="card cx-panel">
-    <div class="cx-panel-h"><h2>4 · التقرير والإغلاق</h2>${prjFileBtn(p.report_path, p.report_name, 'عرض التقرير')}</div>
+    <div class="cx-panel-h"><h2>5 · التقرير والإغلاق</h2>${prjFileBtn(p.report_path, p.report_name, 'عرض التقرير')}</div>
     ${p.status==='active' ? (ed ? `<div class="uf-flex">
         <div class="f-lg"><label for="pjrep_file">${p.report_path ? 'استبدال التقرير الختامي' : 'التقرير الختامي'}</label><input id="pjrep_file" type="file" accept="application/pdf,image/*"></div>
         <div class="f-md"><label>&nbsp;</label><div class="cx-actions pj-inline"><button class="btn btn-ghost btn-md" data-on-click="prjReportSave" data-on-click-args="${qa([p.id])}">رفع التقرير</button></div></div>
