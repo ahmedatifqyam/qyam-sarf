@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.13.5', APP_VERSION_DATE = '2026-11-15';
+const APP_VERSION = '1.13.6', APP_VERSION_DATE = '2026-11-15';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:356, base:350, extra:6.2, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:357, base:350, extra:7.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -15586,6 +15586,16 @@ async function cusPicAdd(){
     }catch(e){ showToast('تعذّر قراءة الصورة', 'error'); }
   }
   cusPrevRefresh();
+  if(files.length) cusFocusAmt();
+}
+// بعد التصوير أو الاختيار من المعرض أو تحميل سند من الانتظار: ننتقل لحقل المبلغ إن كان فارغاً (فتفتح لوحة الأرقام مباشرة)
+function cusFocusAmt(){
+  setTimeout(()=>{
+    const el = document.getElementById('cusLineAmt');
+    if(!el || String(el.value||'').trim()!=='') return;
+    try{ el.focus({preventScroll:true}); }catch(e){ el.focus(); }
+    try{ el.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+  }, 250);
 }
 async function cusDocsLoadImg(){
   const d = state.cusDocs; if(!d) return;
@@ -15963,6 +15973,7 @@ async function saveCusLine(mode){
   if(mode==='close' && state.cusDocs){ state.cusDocs = null; state.cusQueue = []; }
   render();
   if(mode==='cam' && state.cusDocs) setTimeout(()=>{ const c = document.getElementById('cusCam'); if(c) try{ c.click(); }catch(e){} }, 300);
+  else if(state.cusPics && state.cusPics.dirty && state.cusDocs) cusFocusAmt();   // سند من الانتظار بصورته
   return true;
 }
 async function deleteCusLine(id){
