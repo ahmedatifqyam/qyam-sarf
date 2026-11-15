@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.11.5', APP_VERSION_DATE = '2026-11-15';
+const APP_VERSION = '1.12.0', APP_VERSION_DATE = '2026-11-15';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:4.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:4.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -755,6 +755,7 @@ async function loadAll(){
   await Promise.all([loadRecurring(), mergeUserPrivate(), loadPeopleNames(), loadMyCompanyNames(), loadCustodies(), loadAvatars(), loadCxLight()]);
   loadBudgetSums();
   try{ prjLoad(); }catch(e){}
+  try{ wcLoad(); }catch(e){}
 }
 
 
@@ -1269,11 +1270,12 @@ function computeNotifications(){
   items.push(...computeAdminStructureItems());
   items.push(...computeRecurringItems());
   try{ items.push(...computeInvoiceDueItems()); }catch(e){}
+  try{ items.push(...computeWContractItems()); }catch(e){}
   { const sk = notifSeenKeys(); items.forEach(i=>{ if(i.key && sk.has(i.key)) i.isNew = false; }); }
-  const actKind = k => k==='pending' || k==='custody_receipt' || k==='invoice_due';
+  const actKind = k => k==='pending' || k==='custody_receipt' || k==='invoice_due' || k==='contract_end';
   items.sort((a,b)=> (actKind(a.kind)?0:1)-(actKind(b.kind)?0:1) || (b.overdue-a.overdue) || (b.ts-a.ts));
-  const pendingCount = items.filter(i=>i.kind==='pending' || i.kind==='custody_receipt' || i.kind==='path_reset' || i.kind==='handover' || i.kind==='invoice_due').length;
-  const unreadEvents = items.filter(i=>i.kind!=='pending' && i.kind!=='custody_receipt' && i.kind!=='path_reset' && i.kind!=='handover' && i.kind!=='structure' && i.kind!=='reset' && i.kind!=='recurring' && i.kind!=='invoice_due' && i.isNew).length;
+  const pendingCount = items.filter(i=>i.kind==='pending' || i.kind==='custody_receipt' || i.kind==='path_reset' || i.kind==='handover' || i.kind==='invoice_due' || i.kind==='contract_end').length;
+  const unreadEvents = items.filter(i=>i.kind!=='pending' && i.kind!=='custody_receipt' && i.kind!=='path_reset' && i.kind!=='handover' && i.kind!=='structure' && i.kind!=='reset' && i.kind!=='recurring' && i.kind!=='invoice_due' && i.kind!=='contract_end' && i.isNew).length;
   const recurringCount = items.filter(i=>i.kind==='recurring').length;
   const recurringNew = items.filter(i=>i.kind==='recurring' && i.isNew).length;
   const structureIssues = items.filter(i=>i.kind==='structure' || i.kind==='reset').length;
@@ -1306,7 +1308,7 @@ function renderBellPanel(){
   if(!p) return;
   if(!state.bellOpen || !state.user){ p.classList.remove('open'); p.innerHTML=''; return; }
   const n = computeNotifications();
-  const icon = {invoice_due:'🧾', pending:'📝', custody_receipt:'💼', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳', reset:'🔑', recurring:'🔁', iban:'🏦', handover:'🤝', handover_res:'🤝', paper_off:'📄'};
+  const icon = {contract_end:'📄', invoice_due:'🧾', pending:'📝', custody_receipt:'💼', approved:'✅', rejected:'❌', paid:'💰', structure:'🧩', path_reset:'⟳', reset:'🔑', recurring:'🔁', iban:'🏦', handover:'🤝', handover_res:'🤝', paper_off:'📄'};
   // «إخفاء المقروء»: اختيار محفوظ لكل مستخدم. يُخفي كل مقروء؛ وما ينتظر إجراءك يبقى في «ما ينتظرني» وعدّاد الجرس
   const hideRead = bellHideRead();
   const shown = hideRead ? n.items.filter(i=>i.isNew) : n.items;
@@ -1413,6 +1415,7 @@ function openNotifItem(id, kind, key){
   state.bellOpen = false; markNotifKeySeen(key); refreshNotifIndicators();
   if(kind==='custody_receipt'){ renderBellPanel(); openCustody(Number(id)); return; }
   if(kind==='invoice_due'){ renderBellPanel(); openProject('p:'+id); return; }
+  if(kind==='contract_end'){ renderBellPanel(); openWContracts(); setTimeout(()=>{ if(state.wc.list.some(c=>c.id===id) && canEditWContracts()) wcEdit(id); }, 50); return; }
   if(kind==='handover' || kind==='handover_res'){ persistNotifSeen(latestServerTs()); renderBellPanel(); openHandovers(); return; }
   if(kind==='recurring'){
     markRecurringSeen(computeRecurringItems().map(i=>i.key));
@@ -2640,6 +2643,7 @@ const PAGE_CATALOG = [
   {key:'cancelled', label:'أرشيف الملغاة',     hint:'الطلبات الملغاة: عرضها واسترجاعها لمن يملك الاسترجاع. الحذف النهائي لمدير النظام وحده. افتراضياً: المالية'},
   {key:'projects',  label:'المشاريع وخدمات الشركة', hint:'خدمات الشركة وأسعارها وعقود العملاء والمشاريع. افتراضياً: المالية والمدير التنفيذي (تعديل الخدمات للمالية ومدير النظام)'},
   {key:'clients',   label:'العملاء',            hint:'العملاء وفروعهم وجهات الاتصال. افتراضياً: المالية'},
+  {key:'contracts', label:'عقود العاملين',       hint:'عقود العاملين مع الشركة أو مراكزها. افتراضياً: المالية (ويضيف مدير النظام غيرها كالسكرتير)'},
   {key:'centerBooks', label:'دفاتر المراكز',    hint:'رصيد كل مركز ودخله وحركاته. من يرى أي مركز يحدده مدير النظام من شاشة المركز، وعاملو المركز يرون مركزهم فقط'},
   {key:'gatewayImport', label:'استيراد بوابة الدفع', hint:'رفع كشف الحساب وملف الفواتير. للمالية، ومن يختاره مدير النظام من شاشة الاستيراد'},
   {key:'monitor',   label:'لوحة المتابعة',     hint:'ما يحدث في النظام: من ينتظر قراره، وما في يد المالية، وآخر الحركات (عرض فقط). افتراضياً: المالية والمدير التنفيذي'}
@@ -2653,6 +2657,7 @@ function pageDefaultLevel(role, key){
   if(key==='handovers') return role==='employee' ? 'none' : 'full';
   if(key==='clients') return fin ? 'full' : 'none';
   if(key==='projects') return fin ? 'full' : (role==='executive_manager' ? 'read' : 'none');
+  if(key==='contracts') return fin ? 'full' : 'none';
   if(key==='monitor') return (fin || role==='executive_manager') ? 'full' : 'none';   // المالية والمدير التنفيذي افتراضياً، ومن يُمنح من صفحة الصلاحيات
   return 'full';
 }
@@ -2678,7 +2683,7 @@ function pageLevel(key){
   return pageDefaultLevel(u.role, key);
 }
 function pageAtLeast(key, need){ return PAGE_LEVEL_RANK[pageLevel(key)] >= PAGE_LEVEL_RANK[need]; }
-const VIEW_PAGE_KEY = {catalog:'projects', projects:'projects', project:'projects', contracts:'projects', contract:'projects', clients:'clients', centerBooks:'centerBooks', centerBook:'centerBooks', gwImport:'gatewayImport', newCustody:'custody', custodyList:'custody', newRequest:'newreq', newRequestChoice:'newreq', analytics:'analytics', revenues:'revenues', recurring:'recurring', ledger:'ledger', budgetReport:'budgetReport', cancelledArchive:'cancelled'};
+const VIEW_PAGE_KEY = {wcontracts:'contracts', catalog:'projects', projects:'projects', project:'projects', contracts:'projects', contract:'projects', clients:'clients', centerBooks:'centerBooks', centerBook:'centerBooks', gwImport:'gatewayImport', newCustody:'custody', custodyList:'custody', newRequest:'newreq', newRequestChoice:'newreq', analytics:'analytics', revenues:'revenues', recurring:'recurring', ledger:'ledger', budgetReport:'budgetReport', cancelledArchive:'cancelled'};
 function viewAllowed(v){
   const u = state.user; if(!u || u.role==='admin') return true;
   if(v==='newRequest' && state.editingReqId) return pageLevel('editreq')!=='none';   // التعديل له صلاحيته الخاصة
@@ -2692,6 +2697,7 @@ function viewAllowed(v){
 // ===================== الرموز: مجموعة واحدة بخط رفيع، تأخذ لون النص أو لون الحالة =====================
 // المصافحة من مجموعة Lucide (رخصة ISC)، والبقية مرسومة بالأسلوب نفسه
 const QI = {
+  contract:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/>',
   route:'<circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h7.5a3.5 3.5 0 0 0 0-7h-7a3.5 3.5 0 0 1 0-7H16"/>',
   all:'<path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/>',
   me:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>',
@@ -3024,7 +3030,7 @@ function setAccountSec(i){
 // مجموعات الشريط الجانبي القابلة للفتح والإغلاق: المعاملات المالية | لوحة التحكم | المساعدة
 function inFinArea(){
   const v = state.view;
-  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','catalog','projects','project','contracts','contract','centerBooks','centerBook','gwImport'].includes(v)) return true;
+  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','catalog','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(v)) return true;
   return !inAdminArea() && ['ledger','analytics'].includes(v);
 }
 function inHelpArea(){ return ['guide','sitemap'].includes(state.view); }
@@ -3112,7 +3118,10 @@ function navSections(){
     if(canSeeGwImport()) pg.push({label:'استيراد البوابة', views:['gwImport'], js:[["openGwImport",[]]]});
     out.push({key:'cbk', ico:'building', label:'المراكز', pages:pg});
   }
-  if(canSeeCatalog()) out.push({key:'prj', ico:'layers', label:'المشاريع', pages:[{label:'المشاريع', views:['projects','project'], js:[["openProjects",[]]]}, {label:'عقود العملاء', views:['contracts','contract'], js:[["openContracts",[]]]}, {label:'خدمات الشركة', views:['catalog'], js:[["openCatalog",[]]]}]});
+  if(canSeeCatalog()) out.push({key:'prj', ico:'layers', label:'المشاريع', pages:[{label:'المشاريع', views:['projects','project'], js:[["openProjects",[]]]}, {label:'خدمات الشركة', views:['catalog'], js:[["openCatalog",[]]]}]});
+  // العقود: عقود العملاء (صلاحية المشاريع) وعقود العاملين (صلاحية العقود)
+  { const cp = []; if(canSeeCatalog()) cp.push({label:'عقود العملاء', views:['contracts','contract'], js:[["openContracts",[]]]}); if(canSeeWContracts()) cp.push({label:'عقود العاملين', views:['wcontracts'], js:[["openWContracts",[]]]});
+    if(cp.length) out.push({key:'ctr', ico:'contract', label:'العقود', pages:cp}); }
   if(canSeeClients()) out.push({key:'cli', ico:'me', label:'العملاء', pages:[{label:'العملاء', views:['clients'], js:[["openClients",[]]]}]});
   if(canSeeRecurring()) out.push({key:'rec', ico:'repeat', label:'القيود الدورية', count:recDueCount(), pages:[{label:'القيود الدورية', views:['recurring'], js:[["openRecurring",[0]]]}]});
   const rep = [];
@@ -6988,7 +6997,7 @@ function render(){
   renderDbBadge();
   const app = document.getElementById('app');
   document.body.classList.toggle('on-login', state.view==='login');
-  app.classList.toggle('cxv', ['clients','catalog','projects','project','contracts','contract','centerBooks','centerBook','gwImport'].includes(state.view));
+  app.classList.toggle('cxv', ['clients','catalog','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(state.view));
   if(state.view==='login') renderLogin(app);
   else if(state.view==='dashboard') { renderDashboard(app); cxStaffBanner(app); cxDashBanner(app); }
   else if(state.view==='newRequest') renderNewRequest(app);
@@ -7009,6 +7018,7 @@ function render(){
   else if(state.view==='project') renderProject(app);
   else if(state.view==='contracts') renderContracts(app);
   else if(state.view==='contract') renderContract(app);
+  else if(state.view==='wcontracts') renderWContracts(app);
   else if(state.view==='centerBooks') renderCenterBooks(app);
   else if(state.view==='centerBook') renderCenterBook(app);
   else if(state.view==='gwImport') renderGwImport(app);
@@ -18516,6 +18526,152 @@ async function prjPickApply(cid){
   const r = await db.from('contract_prices').insert(rows).select();
   if(!(await dbCheck(r,'نسخ الأسعار'))) return;
   state.prj.prices.push(...(r.data||[])); state.prj.pickOpen = false; showToast('نُسخ ' + rows.length + ' بند — عدّل الأسعار كما في العقد','success'); render();
+}
+
+// ===================== عقود العاملين =====================
+// لكل عامل عقده مع الشركة أو أحد مراكزها؛ العامل مستخدم في النظام أو شخص من خارجه (اسم، رقم مدني، هاتف، آيبان).
+// أساس قاعدة «لا يُصرف لأحد بلا عقد» لاحقاً، وتنبيه قبل انتهاء العقد بشهر.
+state.wc = {list:[], loaded:false, cid:null, _loading:false, f:{q:'', st:'active', unit:''}, form:null};
+const WC_TYPES = {employment:'عقد عمل', reward:'مكافأة', freelance:'عمل حر'};
+const WC_CYCLES = {monthly:'شهري', per_task:'لكل مهمة', lump:'مبلغ مقطوع'};
+function canSeeWContracts(){ return !!state.user && pageLevel('contracts')!=='none'; }
+function canEditWContracts(){ return !!state.user && PAGE_LEVEL_RANK[pageLevel('contracts')] >= 2; }
+async function wcLoad(){
+  const cid = state.currentCompanyId; if(!cid || !state.user || state.wc._loading || !canSeeWContracts()) return;
+  state.wc._loading = true;
+  try{
+    const r = await db.from('worker_contracts').select('*').eq('company_id', cid).order('created_at', {ascending:false});
+    state.wc.list = r.data||[]; state.wc.loaded = true; state.wc.cid = cid;
+  }catch(e){ console.error(e); }
+  state.wc._loading = false;
+  if(state.view==='wcontracts') render();
+  try{ refreshNotifIndicators(); }catch(e){}
+}
+function wcName(c){ if(c.user_id){ const u = (state.users||[]).find(x=>x.id===c.user_id); return u ? u.name : (c.person_name||'—'); } return c.person_name||'—'; }
+function wcUnitName(c){ if(!c.unit_id) return prjCo().nameAr || 'الشركة'; const u = (state.centers||[]).find(x=>x.id===c.unit_id); return u ? u.name : '—'; }
+function wcDaysLeft(c){ return c.end_date ? Math.round((new Date(c.end_date) - new Date(cxToday()))/86400000) : null; }
+function wcEndingSoon(c){ const d = wcDaysLeft(c); return c.status==='active' && d!=null && d >= 0 && d <= 30; }
+function wcExpired(c){ const d = wcDaysLeft(c); return c.status==='active' && d!=null && d < 0; }
+// تنبيه الجرس: عقد ساري ينتهي خلال شهر أو انتهى تاريخه ولم يُغلق — للمالية ومدير النظام
+function computeWContractItems(){
+  if(!state.user || !(isFinanceUser() || state.user.role==='admin') || !canSeeWContracts()) return [];
+  if(state.wc.cid !== state.currentCompanyId){ if(!state.wc._loading) setTimeout(wcLoad, 0); return []; }
+  const now = Date.now();
+  return state.wc.list.filter(c=>wcEndingSoon(c) || wcExpired(c)).map(c=>({key:'wc:'+c.id+':'+c.end_date, kind:'contract_end', reqId:c.id, number:'', ts:now, isNew:false, overdue:wcExpired(c),
+    title:(wcExpired(c) ? 'انتهى عقد ' : 'ينتهي عقد ') + wcName(c), sub:(wcExpired(c) ? 'انتهى في ' : 'في ') + cxDate(c.end_date) + ' · ' + wcUnitName(c) + ' — جدّده أو أنهِه'}));
+}
+function openWContracts(){ state.view='wcontracts'; state.wc.form=null; render(); window.scrollTo(0,0); wcLoad(); }
+function wcFilter(k, v){ state.wc.f[k] = v; render(); if(k==='q'){ const el = document.querySelector('#app .wc-search'); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } } }
+function wcUnits(){ return (state.centers||[]).filter(c=>c.companyId===state.currentCompanyId && c.scope!=='org' && (c.kind||'center')==='center').sort(_byUnit); }
+function renderWContracts(app){
+  if(!canSeeWContracts()){ state.view='dashboard'; render(); return; }
+  if(state.wc.cid !== state.currentCompanyId && !state.wc._loading) wcLoad();
+  const W = state.wc, f = W.f, q = (f.q||'').trim(), ed = canEditWContracts();
+  const rows = W.list.filter(c=>{
+    if(f.st==='active' && c.status!=='active') return false;
+    if(f.st==='soon' && !(wcEndingSoon(c) || wcExpired(c))) return false;
+    if(f.st==='ended' && c.status!=='ended') return false;
+    if(f.unit==='co' && c.unit_id) return false;
+    if(f.unit && f.unit!=='co' && c.unit_id!==f.unit) return false;
+    if(q && !(wcName(c) + ' ' + (c.job_title||'') + ' ' + (c.phone||'') + ' ' + (c.civil_id||'')).includes(q)) return false;
+    return true;
+  });
+  const chip = (k,l) => `<button class="pj-chip${f.st===k?' on':''}" data-on-click="wcFilter" data-on-click-args="${qa(['st',k])}">${l}</button>`;
+  const units = wcUnits();
+  app.innerHTML = `
+    <h1>عقود العاملين</h1>
+    <p class="sub">لكل عامل عقده مع الشركة أو أحد مراكزها: النوع، المسمى، المدة، المبلغ ودوريته، والملف. يصل تنبيه قبل انتهاء العقد بشهر.</p>
+    <div class="cx-stats">${cxStat('عقود سارية', String(W.list.filter(c=>c.status==='active').length))}${cxStat('تنتهي خلال شهر', String(W.list.filter(wcEndingSoon).length), W.list.some(wcEndingSoon) ? 'var(--amber)' : '')}${cxStat('انتهى تاريخها', String(W.list.filter(wcExpired).length), W.list.some(wcExpired) ? 'var(--red)' : '')}${cxStat('منتهية', String(W.list.filter(c=>c.status==='ended').length))}</div>
+    ${W.form ? wcFormHtml() : ''}
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><h2>العقود</h2><div class="cx-ph-tools">
+        <input type="search" class="qy-search wc-search" placeholder="بحث بالاسم أو المسمى أو الهاتف" value="${escH(f.q||'')}" data-on-input="wcFilter" data-on-input-args="${qa(['q', QA.v])}">
+        ${units.length ? `<select class="pj-csel" data-on-change="wcFilter" data-on-change-args="${qa(['unit', QA.v])}"><option value="">كل الجهات</option><option value="co" ${f.unit==='co'?'selected':''}>الشركة</option>${units.map(u=>`<option value="${escH(u.id)}" ${f.unit===u.id?'selected':''}>${escH(u.name)}</option>`).join('')}</select>` : ''}
+        ${ed && !W.form ? `<button class="btn btn-primary btn-md" data-on-click="wcNew">+ عقد عامل</button>` : ''}
+      </div></div>
+      <div class="pj-chips">${chip('active','سارية')}${chip('soon','تنتهي قريباً')}${chip('ended','منتهية')}${chip('all','الكل')}</div>
+      ${!W.loaded ? '<div class="ct-empty">جارٍ التحميل…</div>' : rows.length ? `<table class="exec-table pj-tbl"><thead><tr><th>العامل</th><th>الجهة</th><th>النوع والمسمى</th><th>المدة</th><th class="num">المبلغ</th><th>الحالة</th><th></th></tr></thead><tbody>
+        ${rows.map(c=>`<tr class="pj-row" data-on-click="${ed ? 'wcEdit' : 'wcNoop'}" data-on-click-args="${qa([c.id])}">
+          <td data-label="العامل"><b>${escH(wcName(c))}</b>${c.user_id ? '' : ' <small class="pj-muted">من خارج النظام</small>'}</td>
+          <td data-label="الجهة">${escH(wcUnitName(c))}</td>
+          <td data-label="النوع">${escH(WC_TYPES[c.contract_type]||'')}${c.job_title ? ' · ' + escH(c.job_title) : ''}</td>
+          <td data-label="المدة">${c.start_date ? cxDate(c.start_date) : '…'} ← ${c.end_date ? cxDate(c.end_date) : 'مفتوح'}</td>
+          <td data-label="المبلغ" class="num">${c.amount==null ? '—' : fmtKWDHtml(c.amount) + ' <small>' + escH(WC_CYCLES[c.pay_cycle]||'') + '</small>'}</td>
+          <td data-label="الحالة">${c.status==='ended' ? prjBadge('منتهٍ','closed') : wcExpired(c) ? prjBadge('انتهى تاريخه','due') : wcEndingSoon(c) ? prjBadge('ينتهي خلال ' + wcDaysLeft(c) + ' يوم','sent') : prjBadge('ساري','ok')}</td>
+          <td class="pj-acts">${prjFileBtn(c.file_path, c.file_name, 'الملف')}</td></tr>`).join('')}
+      </tbody></table>` : `<div class="ct-empty">${W.list.length ? 'لا نتائج بهذا الفلتر.' : 'لا عقود بعد.' + (ed ? ' ابدأ بـ«+ عقد عامل».' : '')}</div>`}
+    </div>`;
+}
+function wcNoop(){}
+function wcNew(){ state.wc.form = {id:null, who:'user', user_id:'', person_name:'', civil_id:'', phone:'', iban:'', unit_id:'', contract_type:'employment', job_title:'', start_date:cxToday(), end_date:'', amount:'', pay_cycle:'monthly', status:'active', notes:''}; render(); window.scrollTo({top:0, behavior:'smooth'}); }
+function wcEdit(id){ const c = state.wc.list.find(x=>x.id===id); if(!c) return; state.wc.form = Object.assign({}, c, {who:c.user_id ? 'user' : 'person', user_id:c.user_id||'', unit_id:c.unit_id||'', amount:c.amount==null ? '' : c.amount}); render(); window.scrollTo({top:0, behavior:'smooth'}); }
+function wcCancel(){ state.wc.form = null; render(); }
+function wcSync(){
+  const c = state.wc.form; if(!c) return;
+  ['who','user_id','person_name','civil_id','phone','iban','unit_id','contract_type','job_title','start_date','end_date','amount','pay_cycle','status','notes'].forEach(k=>{ const el = document.getElementById('wcf_'+k); if(el) c[k] = el.value; });
+}
+function wcRefresh(){ wcSync(); const c = state.wc.form; if(c && c.who==='user' && c.user_id && !c.job_title){ const u = (state.users||[]).find(x=>x.id===c.user_id); if(u && u.jobTitle) c.job_title = u.jobTitle; } render(); }
+function wcFormHtml(){
+  const c = state.wc.form, units = wcUnits();
+  const users = companyUsers(state.currentCompanyId).filter(u=>!u.isSuspended).sort(_byName);
+  const sel = (id, obj, v) => `<select id="wcf_${id}">${Object.entries(obj).map(([k,l])=>`<option value="${k}" ${v===k?'selected':''}>${l}</option>`).join('')}</select>`;
+  return `<div class="card cx-panel pj-form" id="wcForm">
+    <div class="cx-panel-h"><h2>${c.id ? 'تعديل عقد ' + escH(wcName(c)) : 'عقد عامل جديد'}</h2></div>
+    <div class="uf-flex">
+      <div class="f-md"><label for="wcf_who">العامل</label><select id="wcf_who" data-on-change="wcRefresh"><option value="user" ${c.who==='user'?'selected':''}>من مستخدمي النظام</option><option value="person" ${c.who==='person'?'selected':''}>من خارج النظام</option></select></div>
+      ${c.who==='user' ? `<div class="f-lg"><label for="wcf_user_id">المستخدم</label><select id="wcf_user_id" data-on-change="wcRefresh"><option value="">— اختر —</option>${users.map(u=>`<option value="${escH(u.id)}" ${c.user_id===u.id?'selected':''}>${escH(u.name)}${u.jobTitle ? ' — ' + escH(u.jobTitle) : ''}</option>`).join('')}</select></div>`
+        : `<div class="f-lg"><label for="wcf_person_name">الاسم</label><input id="wcf_person_name" type="text" value="${escH(c.person_name||'')}"></div>`}
+      <div class="f-lg"><label for="wcf_unit_id">جهة العقد</label><select id="wcf_unit_id"><option value="">${escH(prjCo().nameAr || 'الشركة')}</option>${units.map(u=>`<option value="${escH(u.id)}" ${c.unit_id===u.id?'selected':''}>${escH(u.name)}</option>`).join('')}</select></div>
+    </div>
+    ${c.who==='person' ? `<div class="uf-flex">
+      <div class="f-md"><label for="wcf_civil_id">الرقم المدني</label><input id="wcf_civil_id" type="text" inputmode="numeric" dir="ltr" value="${escH(c.civil_id||'')}"></div>
+      <div class="f-md"><label for="wcf_phone">الهاتف</label><input id="wcf_phone" type="tel" dir="ltr" value="${escH(c.phone||'')}"></div>
+      <div class="f-xl"><label for="wcf_iban">الآيبان</label><input id="wcf_iban" type="text" dir="ltr" value="${escH(c.iban||'')}" placeholder="KW00 XXXX…"></div>
+    </div>` : ''}
+    <div class="uf-flex">
+      <div class="f-md"><label for="wcf_contract_type">نوع العقد</label>${sel('contract_type', WC_TYPES, c.contract_type)}</div>
+      <div class="f-lg"><label for="wcf_job_title">المسمى الوظيفي</label><input id="wcf_job_title" type="text" value="${escH(c.job_title||'')}"></div>
+      <div class="f-md"><label for="wcf_start_date">يبدأ</label><input id="wcf_start_date" type="date" value="${escH(c.start_date||'')}"></div>
+      <div class="f-md"><label for="wcf_end_date">ينتهي (فارغ = مفتوح)</label><input id="wcf_end_date" type="date" value="${escH(c.end_date||'')}"></div>
+    </div>
+    <div class="uf-flex">
+      <div class="f-md"><label for="wcf_amount">المبلغ (د.ك)</label><input id="wcf_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String(c.amount??''))}" placeholder="0.000"></div>
+      <div class="f-md"><label for="wcf_pay_cycle">الدورية</label>${sel('pay_cycle', WC_CYCLES, c.pay_cycle)}</div>
+      <div class="f-md"><label for="wcf_status">الحالة</label>${sel('status', {active:'ساري', ended:'منتهٍ'}, c.status)}</div>
+      <div class="f-lg"><label for="wcf_file">ملف العقد ${c.file_path ? '(فارغ = إبقاء الحالي)' : ''}</label><input id="wcf_file" type="file" accept="application/pdf,image/*"></div>
+    </div>
+    <div class="uf-flex"><div class="f-xl"><label for="wcf_notes">ملاحظات</label><input id="wcf_notes" type="text" value="${escH(c.notes||'')}"></div></div>
+    <div class="cx-actions"><button class="btn btn-primary btn-md" id="wcSaveBtn" data-on-click="wcSave">حفظ</button><button class="btn btn-ghost btn-sm" data-on-click="wcCancel">إلغاء</button>${c.file_path ? prjFileBtn(c.file_path, c.file_name, 'الملف الحالي') : ''}${c.id && isFinanceUser() ? `<button class="btn btn-reject btn-sm" data-on-click="wcDelete" data-on-click-args="${qa([c.id])}">حذف</button>` : ''}</div>
+  </div>`;
+}
+async function wcSave(){
+  wcSync(); const c = state.wc.form; if(!c) return;
+  const row = {unit_id:c.unit_id||null, contract_type:c.contract_type, job_title:String(c.job_title||'').trim()||null, start_date:c.start_date||null, end_date:c.end_date||null,
+    amount: String(c.amount).trim()==='' ? null : cxR3(cxN(c.amount)), pay_cycle:c.pay_cycle, status:c.status, notes:String(c.notes||'').trim()||null};
+  if(c.who==='user'){
+    if(!c.user_id){ fieldErr('#wcf_user_id','اختر المستخدم'); return; }
+    Object.assign(row, {user_id:c.user_id, person_name:null, civil_id:null, phone:null, iban:null});
+  } else {
+    const nm = String(c.person_name||'').trim(); if(!nm){ fieldErr('#wcf_person_name','اكتب الاسم'); return; }
+    Object.assign(row, {user_id:null, person_name:nm, civil_id:String(c.civil_id||'').trim()||null, phone:String(c.phone||'').trim()||null, iban:String(c.iban||'').replace(/\s+/g,'').toUpperCase()||null});
+  }
+  if(row.start_date && row.end_date && row.end_date < row.start_date){ fieldErr('#wcf_end_date','تاريخ الانتهاء قبل البداية'); return; }
+  const btn = document.getElementById('wcSaveBtn'); if(btn){ btn.disabled = true; btn.textContent = 'جارٍ الحفظ…'; }
+  try{
+    const f = prjFileOf('wcf_file'), up = f ? await prjUpload(f, 'workers') : null;
+    if(up){ row.file_path = up.path; row.file_name = up.name; }
+    const r = c.id ? await db.from('worker_contracts').update(row).eq('id', c.id)
+                   : await db.from('worker_contracts').insert(Object.assign(row, {company_id:state.currentCompanyId, created_by:state.user.id}));
+    if(!(await dbCheck(r,'حفظ العقد'))){ if(up) db.storage.from('attachments').remove([up.path]).catch(()=>{}); throw new Error('-'); }
+    showToast('حُفظ العقد','success'); state.wc.form = null; await wcLoad();
+  }catch(e){ if(e.message!=='-') showToast('تعذّر: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'حفظ'; } }
+}
+async function wcDelete(id){
+  const c = state.wc.list.find(x=>x.id===id); if(!c || !confirm('حذف عقد ' + wcName(c) + ' نهائياً؟ (للعقد المنتهي استعمل الحالة «منتهٍ»)')) return;
+  const r = await db.from('worker_contracts').delete().eq('id', id);
+  if(!(await dbCheck(r,'حذف العقد'))) return;
+  if(c.file_path) db.storage.from('attachments').remove([c.file_path]).catch(()=>{});
+  showToast('حُذف','success'); state.wc.form = null; await wcLoad();
 }
 
 // ===================== استيراد بوابة الدفع =====================
