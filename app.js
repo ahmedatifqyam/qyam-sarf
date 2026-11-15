@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.13.1', APP_VERSION_DATE = '2026-11-15';
+const APP_VERSION = '1.13.2', APP_VERSION_DATE = '2026-11-15';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:355, base:350, extra:4.9, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:356, base:350, extra:5.5, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -3332,6 +3332,23 @@ async function topPrint(){
   if(state.view==='orgTree' && typeof printOrgTree==='function'){ printOrgTree(); return; }   // الشجرة لها تجهيز خاص (A4 صفحة واحدة)
   window.print();
 }
+// قائمة «عرض كمستخدم»: مستخدمو الشركة الحالية فقط — العامّون أعلاها، ثم الأعضاء مرتبين كشجرة المدير المباشر (بإزاحة)، والموقوفون أسفلها بعلامة
+function impersonateOptionsHtml(withUnit){
+  const cid = state.currentCompanyId;
+  const pool = (state.users||[]).filter(u=>u.role!=='admin' && userHasCompany(u, cid));
+  const lab = (u, depth) => '\u00A0\u00A0'.repeat(depth) + (depth ? '↳ ' : '') + u.name + ' — ' + ((u.jobTitle||'').trim() || findRole(u.role).name) + (withUnit && u.centerId ? ' (' + ((state.centers.find(c=>c.id===u.centerId)||{}).name||'') + ')' : '');
+  const opt = (u, depth, extra) => `<option value="${escH(u.id)}">${escH(lab(u, depth))}${extra||''}</option>`;
+  const act = pool.filter(u=>!u.isSuspended), sus = pool.filter(u=>u.isSuspended).sort(_byName);
+  const gen = act.filter(u=>u.isGeneral).sort(_byName), mem = act.filter(u=>!u.isGeneral), ids = new Set(mem.map(u=>u.id));
+  const rank = u => { const lv = (state.jobLevels||[]).find(l=>l.id===u.levelId); return lv ? lv.sortOrder : 99; };
+  const seen = new Set(), out = [];
+  const walk = (u, d) => { if(seen.has(u.id)) return; seen.add(u.id); out.push(opt(u, d)); mem.filter(k=>k.managerId===u.id).sort(_byName).forEach(k=>walk(k, d+1)); };
+  mem.filter(u=>!u.managerId || !ids.has(u.managerId)).sort((a,b)=>rank(a)-rank(b) || _byName(a,b)).forEach(u=>walk(u,0));
+  mem.filter(u=>!seen.has(u.id)).forEach(u=>walk(u,0));
+  return (gen.length ? `<optgroup label="🌐 مستخدمون عامّون">${gen.map(u=>opt(u,0)).join('')}</optgroup>` : '')
+    + (out.length ? `<optgroup label="${escH((state.companies.find(c=>c.id===cid)||{}).nameAr || 'الشركة')}">${out.join('')}</optgroup>` : '')
+    + (sus.length ? `<optgroup label="🚪 موقوفون">${sus.map(u=>opt(u,0,' (موقوف)')).join('')}</optgroup>` : '');
+}
 function renderTopbar(){
   const el = document.getElementById('topbarRight');
   if(!state.user){
@@ -3349,7 +3366,7 @@ function renderTopbar(){
   const impersonateSwitcher = (state.user.role==='admin' && !state.impersonatingFromAdmin)
     ? `<select class="tb-impersonate" data-on-change="#38" style="border-radius:6px;padding:8px 10px;font-size:var(--fs-label);border:1px solid #2E4356;background:#2E4356;color:#fff;max-width:180px;">
         <option value="">👁 عرض كمستخدم...</option>
-        ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('')}
+        ${impersonateOptionsHtml()}
       </select>`
     : '';
   const searchResultsHtml = (state.searchResults && state.searchResults.length>0) ? `
@@ -9974,7 +9991,7 @@ function renderAdmin(app){
       <div class="row">
         <div><label>اختر المستخدم</label>
           <select id="impersonateSelect">
-            ${state.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${escH(u.name)} — ${escH(findRole(u.role).name)}${u.centerId ? ' ('+ escH(state.centers.find(c=>c.id===u.centerId)?.name||'') +')' : ''}</option>`).join('')}
+            ${impersonateOptionsHtml(true)}
           </select>
         </div>
       </div>
