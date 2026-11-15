@@ -647,6 +647,8 @@
     cursor:pointer;flex-wrap:wrap;
   }
   .list-item:hover{border-color:var(--blue);}
+  /* النص يبدأ ملاصقاً لما قبله (الصورة) على اليمين ويأخذ المساحة الباقية، لا في منتصف البطاقة */
+  .list-item > .li-main{flex:1 1 auto;min-width:0;text-align:start;}
   .list-item .li-main b{display:block;font-size:var(--fs-body);}
   .list-item .li-main span{color:var(--muted);font-size:var(--fs-hint);}
   .badge{
@@ -2848,6 +2850,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=293985fada"></script>
+<script src="app.js?v=6e471f2ecd"></script>
 </body>
 </html>
