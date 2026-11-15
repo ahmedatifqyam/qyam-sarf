@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.13.0', APP_VERSION_DATE = '2026-11-15';
+const APP_VERSION = '1.13.1', APP_VERSION_DATE = '2026-11-15';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:355, base:350, extra:4.7, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:355, base:350, extra:4.9, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -2225,6 +2225,41 @@ function unitAdminTreeHtml(cid){
   const roots = kidsOf(null), anyOpen = all.some(c=>kidsOf(c.id).length && !closed[c.id]);
   return `<div class="ut-tools"><span class="file-hint">اضغط الاسم للتعديل، واسحب ⋮⋮ لتغيير الترتيب بين الوحدات تحت الأم نفسها.</span>${all.some(c=>c.parentId && ids.has(c.parentId)) ? `<button class="btn btn-ghost btn-sm" data-on-click="unitTreeFold" data-on-click-args="${qa([!anyOpen])}">${anyOpen ? 'طي الكل' : 'فتح الكل'}</button>` : ''}</div>
     <div class="ct-tree ut-tree">${roots.map(node).join('')}${all.filter(c=>!seen.has(c.id)).map(node).join('')}</div>`;
+}
+// «مستخدمو الشركة الحالية» شجرةً حسب المدير المباشر: العامّون مجموعة مستقلة أعلاها، ثم من لا مدير له داخل الشركة، وتحت كل مدير موظفوه
+try{ state.userView = localStorage.getItem('qy_user_view') || 'tree'; }catch(e){}
+function userViewSet(v){ state.userView = v==='list' ? 'list' : 'tree'; try{ localStorage.setItem('qy_user_view', state.userView); }catch(e){} render(); }
+function userTreeToggle(id){ state.userTreeClosed = state.userTreeClosed || {}; state.userTreeClosed[id] = !state.userTreeClosed[id]; render(); }
+function userTreeFold(open){ state.userTreeClosed = {}; if(!open) (state.users||[]).forEach(u=>{ state.userTreeClosed[u.id] = true; }); render(); }
+function userTreeHtml(list){
+  if(!list.length) return '<div class="empty">لا مستخدمين.</div>';
+  const gen = list.filter(u=>u.isGeneral), mem = list.filter(u=>!u.isGeneral), ids = new Set(mem.map(u=>u.id)), closed = state.userTreeClosed || {};
+  const kidsOf = id => mem.filter(u=>u.managerId===id).sort(_byName);
+  const seen = new Set();
+  const row = (u, kids, lvl) => {
+    const op = kids.length && !closed[u.id], sel = state.editingUserId===u.id;
+    const meta = [(u.jobTitle||'').trim() || findRole(u.role).name, getUserUnit(u), u.phone].filter(Boolean).map(escH).join(' · ');
+    return `<div class="ct-row${sel?' ct-sel':''}">
+      ${kids.length ? `<button class="ct-tog" data-on-click="userTreeToggle" data-on-click-args="${qa([u.id])}" aria-label="${op?'طي':'فتح'}">${op?'▾':'◂'}</button>` : '<span class="ct-dot"></span>'}
+      ${avatarHtml(u.id, u.name, 'u-av u-av-sm')}
+      <button class="ct-name" data-on-click="editUser" data-on-click-args="${qa([u.id])}" title="تعديل">${escH(u.name)}</button>
+      <span class="ut-meta">${meta}${u.isGeneral ? ' · 🌐 عام' : ''}</span>${kids.length ? `<span class="ct-cnt" title="تحت إدارته">${kids.length}</span>` : '<span class="ut-fill"></span>'}
+      <span class="ct-acts"><button class="ct-ico ct-ico-e" data-on-click="editUser" data-on-click-args="${qa([u.id])}" title="تعديل" aria-label="تعديل">${qi('pen')}</button><button class="ct-ico ct-ico-d" data-on-click="deleteUser" data-on-click-args="${qa([u.id])}" title="حذف" aria-label="حذف">${qi('trash')}</button></span>
+    </div>`;
+  };
+  const node = (u, lvl) => {
+    if(seen.has(u.id)) return ''; seen.add(u.id);
+    const kids = kidsOf(u.id), op = kids.length && !closed[u.id];
+    return `<div class="ct-node">${row(u, kids, lvl)}${op ? `<div class="ct-kids">${kids.map(k=>node(k, lvl+1)).join('')}</div>` : ''}</div>`;
+  };
+  // الجذور: من لا مدير له، أو مديره خارج أعضاء الشركة (عام أو في شركة أخرى) — مرتبة حسب المستوى الوظيفي ثم الاسم
+  const rank = u => { const lv = (state.jobLevels||[]).find(l=>l.id===u.levelId); return lv ? lv.sortOrder : 99; };
+  const roots = mem.filter(u=>!u.managerId || !ids.has(u.managerId)).sort((a,b)=>rank(a)-rank(b) || _byName(a,b));
+  const body = roots.map(u=>node(u,0)).join('') + mem.filter(u=>!seen.has(u.id)).map(u=>node(u,0)).join('');
+  const anyOpen = mem.some(u=>kidsOf(u.id).length && !closed[u.id]);
+  return `<div class="ut-tools"><span class="file-hint">الإزاحة تبيّن المدير المباشر: تحت كل مدير موظفوه. اضغط الاسم للتعديل (ومنه يُغيَّر المدير المباشر).</span><button class="btn btn-ghost btn-sm" data-on-click="userTreeFold" data-on-click-args="${qa([!anyOpen])}">${anyOpen ? 'طي الكل' : 'فتح الكل'}</button></div>
+    ${gen.length ? `<div class="ct-tree ut-tree ut-gen"><div class="ut-grp">🌐 مستخدمون عامّون — في كل الشركات</div>${gen.sort(_byName).map(u=>`<div class="ct-node">${row(u, [], 0)}</div>`).join('')}</div>` : ''}
+    <div class="ct-tree ut-tree">${body}</div>`;
 }
 function unitSibCount(c){ return state.centers.filter(x=>x.companyId===c.companyId && x.scope!=='org' && (x.parentId||null)===(c.parentId||null)).length; }
 // ترتيب الوحدات بالسحب بين الإخوة (تحت الأم نفسها)؛ يُرقَّم الإخوة كلهم 10، 20، 30…
@@ -9910,9 +9945,10 @@ function renderAdmin(app){
         <button class="btn btn-primary btn-md" data-on-click="addUser">إضافة المستخدم</button>
       </div>
     </div>
-    <h2 style="margin-top:8px;">مستخدمو الشركة الحالية</h2>
+    <div class="ut-head"><h2 style="margin:8px 0 0;">مستخدمو الشركة الحالية</h2>
+      <div class="ut-viewsw"><button class="pj-chip${(state.userView||'tree')==='tree'?' on':''}" data-on-click="userViewSet" data-on-click-args="${qa(['tree'])}">شجرة</button><button class="pj-chip${state.userView==='list'?' on':''}" data-on-click="userViewSet" data-on-click-args="${qa(['list'])}">قائمة</button></div></div>
     ${state.editingUserId ? renderUserEditForm() : ''}
-    ${companyScopedUsers.map(u=>`
+    ${(state.userView||'tree')==='tree' ? userTreeHtml(companyScopedUsers) : `${companyScopedUsers.map(u=>`
       <div class="list-item">
         ${avatarHtml(u.id, u.name, 'u-av u-av-md')}
         <div class="li-main">
@@ -9925,6 +9961,7 @@ function renderAdmin(app){
         </div>
       </div>
     `).join('')}
+`}
     ${(()=>{ const sus = state.users.filter(u=>u.role!=='admin' && u.isSuspended && userHasCompany(u, state.currentCompanyId));
       return sus.length ? `<details style="margin-top:18px;" ${state.editingUserId && sus.some(x=>x.id===state.editingUserId)?'open':''}><summary style="cursor:pointer;font-weight:700;font-size:var(--fs-h3);">🚪 الموقوفون / تركوا العمل (${sus.length})</summary>
         ${sus.map(u=>`<div class="list-item" style="opacity:.85;"><div class="li-main"><b>${escH(u.name)}</b>
