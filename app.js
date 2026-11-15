@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.12.0', APP_VERSION_DATE = '2026-11-15';
+const APP_VERSION = '1.13.0', APP_VERSION_DATE = '2026-11-15';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:4.1, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:355, base:350, extra:4.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -617,7 +617,7 @@ function mapRequestRow(r){
     beneficiaries:(r.request_beneficiaries||[]).slice().sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0)).map(b=>({
       name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', statement:b.statement||'', notes:b.notes||'',
       amount:Number(b.amount), deduction:Number(b.deduction||0), deductionNote:b.deduction_note||'',
-      extra:Number(b.extra||0), extraNote:b.extra_note||''
+      extra:Number(b.extra||0), extraNote:b.extra_note||'', contractId:b.contract_id||null
     })),
     history:(r.request_history||[]).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).map(h=>({
       step:h.step, actor:h.actor, userId:h.user_id, action:h.action, note:h.note||'', time:h.time, signatureOverride:h.signature_override||'', createdAt:h.created_at
@@ -3637,10 +3637,13 @@ function switchCompany(companyId){
   render();
 }
 
-function newDraft(){
+function newDraft(type){
   if(newReqBlocked()) return;
+  type = type==='payroll' ? 'payroll' : 'normal';
+  if(type==='payroll') nrWcLoad();
   const saved = loadDraftFromStorage();
-  if(saved && saved.draft){
+  // تُسترجع المسودة المحفوظة إن كانت من النوع نفسه (عادي أو راتب)
+  if(saved && saved.draft && ((saved.draft.requestType||'normal')===type || saved.editingReqId)){
     state.editingReqId = saved.editingReqId || null;
     state.draft = saved.draft;
     state.view='newRequest';
@@ -3650,6 +3653,7 @@ function newDraft(){
   }
   state.editingReqId = null;
   state.draft = {
+    requestType:type,
     reason:'', detailedReason:'', number: null, isRecurring:false,
     beneficiaries:[{name:'', nameEn:'', iban:'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', extra:'', extraNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true}]
   };
@@ -3659,7 +3663,9 @@ function newDraft(){
 function discardDraftAndStartFresh(){
   clearDraftStorage();
   state.editingReqId = null;
+  const keepType = (state.draft && state.draft.requestType) || 'normal';
   state.draft = {
+    requestType:keepType,
     reason:'', detailedReason:'', number: null, isRecurring:false,
     beneficiaries:[{name:'', nameEn:'', iban:'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', extra:'', extraNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true}]
   };
@@ -3711,9 +3717,12 @@ function duplicateFromRequest(id){
   const req = state.requests.find(r=>r.id===id);
   if(!req) return;
   state.editingReqId = null;
+  const ptype = (req.requestType==='payroll' || (req.beneficiaries||[]).some(b=>Number(b.deduction)>0 || Number(b.extra)>0)) ? 'payroll' : 'normal';
+  if(ptype==='payroll') nrWcLoad();
   state.draft = {
+    requestType: ptype,
     reason: req.reason, detailedReason: req.detailedReason||'', salutationText: req.salutationText||'', referenceText: req.referenceText||'', number: null, isRecurring: !!req.isRecurring,
-    beneficiaries: req.beneficiaries.map(b=>({
+    beneficiaries: req.beneficiaries.map(b=>({contractId:b.contractId||null,
       name:b.name, nameEn:b.nameEn, iban:b.iban, civilId:b.civilId, statement:b.statement, notes:b.notes,
       amount:b.amount, deduction:b.deduction, deductionNote:b.deductionNote, extra:b.extra||0, extraNote:b.extraNote,
       idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:false
@@ -3725,21 +3734,33 @@ function duplicateFromRequest(id){
 }
 
 function renderNewRequestChoice(app){
+  const canCus = pageLevel('custody')!=='none';
   app.innerHTML = `
     <h1>طلب صرف جديد</h1>
-    <p class="sub">اختر طريقة إنشاء الطلب</p>
-    <div class="role-grid">
-      <div class="role-card" data-on-click="newDraft">
-        <b>إنشاء من الصفر</b>
-        <span>تعبئة كل البيانات يدوياً من البداية</span>
+    <p class="sub">اختر نوع الطلب</p>
+    <div class="role-grid nr-types">
+      <div class="role-card nr-type" data-on-click="newDraft" data-on-click-args="${qa(['normal'])}">
+        <span class="nr-type-i">🧾</span><b>طلب عادي</b>
+        <span>صرف لشركة أو مورد أو استرجاع اشتراك لمستفيد من خارج الشركة. بلا خصم ولا إضافي، مع مرفقات الفاتورة وبيانات البنك.</span>
       </div>
+      ${canCus ? `<div class="role-card nr-type" data-on-click="openNewCustody">
+        <span class="nr-type-i">💼</span><b>طلب عهدة</b>
+        <span>مبلغ تحت التسوية بيد موظف، يُغلق لاحقاً بالمستندات.</span>
+      </div>` : ''}
+      <div class="role-card nr-type" data-on-click="newDraft" data-on-click-args="${qa(['payroll'])}">
+        <span class="nr-type-i">👥</span><b>طلب راتب ومكافأة</b>
+        <span>رواتب ومكافآت العاملين من عقودهم، مع الخصم والإضافي.</span>
+      </div>
+    </div>
+    <h3 class="uf-h">أو انسخ من طلب سابق</h3>
+    <div class="role-grid">
       <div class="role-card" data-on-click="openDuplicateList" data-on-click-args="${qa(["recurring"])}">
         <b>من الطلبات المتكررة</b>
-        <span>قائمة مختصرة بالطلبات المعلّمة كمتكررة (رواتب، عهد...)</span>
+        <span>قائمة مختصرة بالطلبات المعلّمة كمتكررة (رواتب، اشتراكات...)</span>
       </div>
       <div class="role-card" data-on-click="openDuplicateList" data-on-click-args="${qa(["all"])}">
-        <b>من كل الطلبات المصروفة سابقاً</b>
-        <span>اختيار أي طلب سابق تم صرفه كنقطة بداية</span>
+        <b>من الطلبات السابقة</b>
+        <span>اختيار أي طلب سابق تم صرفه كنقطة بداية؛ يأخذ نوعه</span>
       </div>
     </div>
   `;
@@ -3777,6 +3798,7 @@ function editRequest(id){
     reason: req.reason, detailedReason: req.detailedReason||'', salutationText: req.salutationText||'', referenceText: req.referenceText||'', number: req.number, requestNotes: req.requestNotes||'',
     budgetItemId: req.budgetItemId || UNSPECIFIED_BUDGET,
     isRecurring: !!req.isRecurring,
+    requestType: (req.requestType==='payroll' || (req.beneficiaries||[]).some(b=>Number(b.deduction)>0 || Number(b.extra)>0)) ? 'payroll' : 'normal',
     beneficiaries: req.beneficiaries.map(b=>({...b, idFileName:'', idFileData:'', bankFileName:'', bankFileData:''}))
   };
   state.view='newRequest';
@@ -4479,7 +4501,8 @@ async function submitDraftInner(){
       deduction: deduction, deductionNote: (b.deductionNote||'').trim(),
       extra: extra, extraNote: (b.extraNote||'').trim(),
       _idFileName: b.idFileName||'', _idFileData: b.idFileData||'',
-      _bankFileName: b.bankFileName||'', _bankFileData: b.bankFileData||''
+      _bankFileName: b.bankFileName||'', _bankFileData: b.bankFileData||'',
+      contractId: (d.requestType==='payroll') ? ((nrWcMatch(b)||{}).id || null) : null
     });
   });
   if(beneficiaries.length===0){ fieldErr(document.querySelector('#beneficiaryList .b-name'), 'الرجاء إدخال بيانات مستفيد واحد على الأقل'); return; }
@@ -4549,14 +4572,14 @@ async function submitDraftInner(){
   if(state.editingReqId && ATT_REQ_QUEUE.length) await attFlushReqQueue(state.editingReqId);
 
   const total = Math.round(beneficiaries.reduce((s,b)=>s + Math.max(b.amount - b.deduction + (b.extra||0), 0), 0)*1000)/1000;
-  const beneRows = beneficiaries.map(b=>({name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, statement:b.statement, notes:b.notes, amount:b.amount, deduction:b.deduction, deduction_note:b.deductionNote, extra:b.extra||0, extra_note:b.extraNote}));
+  const beneRows = beneficiaries.map(b=>({name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, statement:b.statement, notes:b.notes, amount:b.amount, deduction:b.deduction, deduction_note:b.deductionNote, extra:b.extra||0, extra_note:b.extraNote, contract_id:b.contractId||null}));
 
   if(state.editingReqId){
     await applyRequestEdit({reqId: state.editingReqId, reasonInput, detailedReasonInput, budgetItemId, beneficiaries, beneRows, total, requestNotes, identityDiffs, isRecurring: !!d.isRecurring, salutationText: d.salutationText||'', referenceText: d.referenceText||''});
     return;
   }
 
-  await createNewRequest({reasonInput, detailedReasonInput, budgetItemId, beneficiaries, beneRows, total, requestNotes, identityDiffs, isRecurring: !!d.isRecurring, salutationText: d.salutationText||'', referenceText: d.referenceText||''});
+  await createNewRequest({reasonInput, detailedReasonInput, budgetItemId, beneficiaries, beneRows, total, requestNotes, identityDiffs, isRecurring: !!d.isRecurring, salutationText: d.salutationText||'', referenceText: d.referenceText||'', requestType: d.requestType||'normal'});
 }
 
 // إنشاء الطلب في القاعدة (مسار الاعتماد والمستفيدون والسجل ونافذة المراجعة) — مشترك بين طلب الصرف وطلب العهدة
@@ -4659,10 +4682,10 @@ async function createNewRequest(o){
     number_prefix: req.numberPrefix, number_suffix: req.numberSuffix, review_until: req.reviewUntil,
     request_notes: requestNotes || null,
     ...(cxRouteInsert()),
-    ...(isCustody ? {request_type:'custody'} : {})
+    ...(isCustody ? {request_type:'custody'} : (o.requestType==='payroll' ? {request_type:'payroll'} : {}))
   });
   if(!(await dbCheck(reqInsert, 'إنشاء الطلب'))) return false;
-  if(isCustody) req.requestType = 'custody';
+  if(isCustody) req.requestType = 'custody'; else if(o.requestType==='payroll') req.requestType = 'payroll';
   // سجل الإنشاء أولاً، فيأتي قبل «اعتمد بإنشائه الطلب» إن سجّله الخادم
   const h0 = req.history[0];
   await dbCheck(await db.from('request_history').insert({request_id:req.id, step:h0.step, actor:h0.actor, user_id:h0.userId, action:h0.action, note:h0.note, time:h0.time}), 'حفظ سجل الإنشاء');
@@ -6766,7 +6789,7 @@ function renderLetterPages(req){
       <p class="doc-greeting" style="margin:0;padding-right:0;">تحية طيبة وبعد،...</p>
       <span class="doc-red" style="font-size:14px;font-weight:600;text-decoration:underline;">رقم الطلب: ${req.number || '— قيد المراجعة —'}</span>
     </div>
-    <div class="doc-subject-bar" style="margin-top:4px;">${isCus ? 'طلب صرف عهدة' : 'طلب صرف'} – <span>${escH(req.reason)}</span></div>
+    <div class="doc-subject-bar" style="margin-top:4px;">${isCus ? 'طلب صرف عهدة' : (req.requestType==='payroll' ? 'طلب صرف رواتب ومكافآت' : 'طلب صرف')} – <span>${escH(req.reason)}</span></div>
     <div style="margin-top:4px;font-size:13px;">بند الصرف: <b>${requestBudgetName(req) ? escH(requestBudgetName(req)) : 'غير محدد'}</b></div>
     ${isCus
       ? `<p class="doc-body-text" style="margin-top:4px;">بالإشارة إلى الموضوع أعلاه، يرجى التكرم بالموافقة على صرف عهدة مالية باسم <span class="doc-red">${escH(cusHolder)}</span> لغرض <span class="doc-red">${escH(req.detailedReason || req.reason)}</span>${cusDue ? `، على أن تُسوّى بالفواتير في موعد أقصاه <span class="doc-red">${fmtDateDMY(cusDue)}</span>` : ''}، وفق الجدول الآتي:</p>`
@@ -14234,6 +14257,99 @@ function renderOldCoPanel(){
   </div>`;
 }
 
+// ---------- نوع الطلب: عادي / راتب ومكافأة ----------
+function nrTypeBarHtml(d){
+  if(state.editingReqId) return '';
+  const pay = d.requestType==='payroll';
+  return `<div class="nr-typebar"><span class="nr-type-tag">${pay ? '👥 طلب راتب ومكافأة' : '🧾 طلب عادي'}</span><span class="file-hint">${pay ? 'المستفيدون من عقود العاملين، مع الخصم والإضافي.' : 'لشركة أو مورد أو استرجاع اشتراك — بلا خصم ولا إضافي. أرفق الفاتورة وبيانات البنك وصورة الهوية.'}</span><button class="btn btn-ghost btn-sm" data-on-click="nrSwitchType" data-on-click-args="${qa([pay ? 'normal' : 'payroll'])}">${pay ? 'تحويل لطلب عادي' : 'تحويل لطلب راتب'}</button></div>`;
+}
+function nrSwitchType(t){
+  syncDraftFromDOM();
+  if(t==='normal' && state.draft.beneficiaries.some(b=>Number(b.deduction)>0 || Number(b.extra)>0) && !confirm('الطلب العادي بلا خصم ولا إضافي؛ سيُحذف ما كُتب منهما. متابعة؟')) return;
+  state.draft.requestType = t;
+  if(t==='normal') state.draft.beneficiaries.forEach(b=>{ b.deduction=''; b.deductionNote=''; b.extra=''; b.extraNote=''; });
+  else nrWcLoad();
+  render(); saveDraftToStorage();
+}
+// العقود السارية المتاحة لمنشئ الطلب (المالية وصلاحية العقود: كل الشركة؛ موظف المركز: عقود مركزه)
+async function nrWcLoad(){
+  const cid = state.currentCompanyId; if(!cid || state._nrWcBusy) return;
+  state._nrWcBusy = true;
+  try{
+    const r = await db.from('worker_contracts').select('*').eq('company_id', cid).eq('status','active');
+    state.nrWc = {cid, list:r.data||[]};
+  }catch(e){}
+  state._nrWcBusy = false;
+  if(state.view==='newRequest') nrRefreshBenNotes(true);
+}
+function nrWcList(){ return state.nrWc && state.nrWc.cid===state.currentCompanyId ? state.nrWc.list.filter(c=>(!c.start_date || c.start_date<=cxToday()) && (!c.end_date || c.end_date>=cxToday())) : []; }
+const nrNorm = v => String(v||'').replace(/\s+/g,'').toUpperCase();
+const nrNameN = v => String(v||'').trim().replace(/\s+/g,' ').replace(/[أإآ]/g,'ا').replace(/ة$/,'ه');
+// مطابقة المستفيد بعقد ساري: العقد المختار، ثم الرقم المدني، ثم الآيبان، ثم الاسم كاملاً
+function nrWcMatch(b){
+  const L = nrWcList(); if(!L.length) return null;
+  if(b.contractId){ const c = L.find(x=>x.id===b.contractId); if(c) return c; }
+  const civ = nrNorm(b.civilId), iban = nrNorm(b.iban), nm = nrNameN(b.name);
+  const who = c => { const u = c.user_id ? (state.users||[]).find(x=>x.id===c.user_id) : null; return {civ:nrNorm(c.civil_id || (u && u.civilId)), iban:nrNorm(c.iban || (u && u.iban)), nm:nrNameN(c.person_name || (u && u.name))}; };
+  return (civ && L.find(c=>who(c).civ===civ)) || (iban && L.find(c=>who(c).iban===iban)) || (nm && L.find(c=>who(c).nm===nm)) || null;
+}
+function nrBenAttCount(b){
+  const name = (b.name||'').trim();
+  const mst = name ? state.beneficiaries.find(x=>x.name===name && x.companyId===state.currentCompanyId && x.id) : null;
+  return (mst ? ((state.attCounts||{})[mst.id]||0) + (mst.idFileData?1:0) + (mst.bankFileData?1:0) : 0) + (b._pend||[]).length + (b.idFileData?1:0) + (b.bankFileData?1:0);
+}
+// تحذير واحد بجوار «مستفيد رقم»: الراتب = عقد، والعادي = مرفقات
+function nrBenNoteHtml(d, i, b){
+  if(!(b.name||'').trim() && !(b.civilId||'').trim()) return '<span class="bbh-note"></span>';
+  if(d.requestType==='payroll'){
+    const c = nrWcMatch(b);
+    return c ? `<span class="bbh-note bbh-ok" title="${escH(WC_TYPES[c.contract_type]||'')}">✓ عقد ساري${c.job_title ? ' · ' + escH(c.job_title) : ''}</span>` : `<span class="bbh-note bbh-warn">⚠️ تأكد أن للمستفيد عقداً</span>`;
+  }
+  return nrBenAttCount(b) ? '<span class="bbh-note"></span>' : `<span class="bbh-note bbh-warn">📎 أضف مرفقات مثل الفاتورة وبيانات البنك وصورة الهوية</span>`;
+}
+// تحديث التحذيرات أثناء الكتابة دون إعادة رسم النموذج
+function nrRefreshBenNotes(){
+  const d = state.draft; if(!d || state.view!=='newRequest') return;
+  document.querySelectorAll('#beneficiaryList .beneficiary-block').forEach((el,i)=>{
+    const b = d.beneficiaries[i]; if(!b) return;
+    const v = cls => { const x = el.querySelector(cls); return x ? x.value : ''; };
+    const tmp = Object.assign({}, b, {name:v('.b-name'), civilId:v('.b-civilId'), iban:v('.b-iban')});
+    if(tmp.name!==b.name || nrNorm(tmp.civilId)!==nrNorm(b.civilId) || nrNorm(tmp.iban)!==nrNorm(b.iban)) tmp.contractId = null;
+    const old = el.querySelector('.bbh-note'); if(!old) return;
+    const w = document.createElement('span'); w.innerHTML = nrBenNoteHtml(d, i, tmp); old.replaceWith(w.firstChild);
+  });
+}
+document.addEventListener('change', e=>{ if(e.target && e.target.closest && e.target.closest('#beneficiaryList') && /\bb-(name|civilId|iban)\b/.test(e.target.className)) nrRefreshBenNotes(); });
+// «+ من العقود»: اختيار عاملين من العقود السارية، فيُملأ الاسم والهوية والآيبان والمبلغ والبيان
+function nrWcPickToggle(){ syncDraftFromDOM(); state.nrPickOpen = !state.nrPickOpen; if(state.nrPickOpen && !state.nrWc) nrWcLoad(); render(); }
+function nrWcPickHtml(d){
+  const used = new Set(d.beneficiaries.map(b=>{ const c = nrWcMatch(b); return c && c.id; }).filter(Boolean));
+  const L = nrWcList();
+  if(!state.nrPickOpen) return `<span class="add-beneficiary nr-wide nr-pick-btn" data-on-click="nrWcPickToggle">👥 + اختيار من عقود العاملين${L.length ? ' (' + L.length + ')' : ''}</span>`;
+  const wname = c => { const u = c.user_id ? (state.users||[]).find(x=>x.id===c.user_id) : null; return (u && u.name) || c.person_name || '—'; };
+  return `<div class="nr-wide nr-pick">
+    <div class="nr-pick-h"><b>عقود العاملين السارية</b><span class="file-hint">اختر من تريد إضافتهم؛ المضاف من قبل معطّل.</span></div>
+    ${!state.nrWc ? '<div class="ct-empty">جارٍ التحميل…</div>' : L.length ? `<div class="nr-pick-l">${L.map(c=>`<label class="pj-pick-i${used.has(c.id)?' pj-have':''}"><input type="checkbox" data-nr-pick="${escH(c.id)}" ${used.has(c.id)?'disabled':''}><span>${escH(wname(c))}${c.job_title ? ' <small class="pj-muted">· ' + escH(c.job_title) + '</small>' : ''}</span><small>${c.amount==null ? '—' : fmtKWDHtml(c.amount)} ${escH(WC_CYCLES[c.pay_cycle]||'')}</small></label>`).join('')}</div>` : '<div class="ct-empty">لا عقود سارية ظاهرة لك. أضف المستفيد يدوياً، أو اطلب من المالية تسجيل العقد في «العقود ← عقود العاملين».</div>'}
+    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="nrWcPickApply">إضافة المختارين</button><button class="btn btn-ghost btn-sm" data-on-click="nrWcPickToggle">إغلاق</button></div>
+  </div>`;
+}
+function nrWcPickApply(){
+  const ids = [...document.querySelectorAll('[data-nr-pick]')].filter(x=>x.checked).map(x=>x.dataset.nrPick);
+  if(!ids.length){ showToast('اختر عاملاً واحداً على الأقل','error'); return; }
+  syncDraftFromDOM();
+  const d = state.draft, L = nrWcList(), mon = PRJ_MONTHS[new Date().getMonth()] + ' ' + new Date().getFullYear();
+  ids.forEach(id=>{
+    const c = L.find(x=>x.id===id); if(!c) return;
+    const u = c.user_id ? (state.users||[]).find(x=>x.id===c.user_id) : null;
+    const row = {name:(u && u.name) || c.person_name || '', nameEn:'', iban:c.iban || (u && u.iban) || '', civilId:c.civil_id || (u && u.civilId) || '',
+      statement:(c.contract_type==='employment' ? 'راتب ' : c.contract_type==='reward' ? 'مكافأة ' : 'مستحقات ') + mon + (c.job_title ? ' — ' + c.job_title : ''),
+      notes:'', amount:c.amount==null ? '' : String(c.amount), deduction:'', deductionNote:'', extra:'', extraNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true, contractId:c.id};
+    const empty = d.beneficiaries.findIndex(b=>!(b.name||'').trim() && !(String(b.amount||'').trim()));
+    if(empty>=0) d.beneficiaries[empty] = row; else d.beneficiaries.push(row);
+  });
+  state.nrPickOpen = false; render(); saveDraftToStorage();
+  showToast('أُضيف ' + ids.length + ' من العقود — راجع المبالغ والخصم والإضافي','success');
+}
 function renderNewRequest(app){
   // بلا مسوّدة لا صفحة. كانت تنهار إلى بياض إن وصلها أحد بلا مسوّدة —
   // بعد تحديث الصفحة، أو برجوع المتصفح، أو برابط محفوظ.
@@ -14272,7 +14388,8 @@ function renderNewRequest(app){
         </div>
       </div>`;
   app.innerHTML = `
-    <h1>${state.editingReqId ? 'تعديل الطلب' : 'طلب صرف جديد'}</h1>
+    <h1>${state.editingReqId ? 'تعديل الطلب' : (d.requestType==='payroll' ? 'طلب راتب ومكافأة' : 'طلب صرف جديد')}${d.requestType==='payroll' ? '' : ''}</h1>
+    ${nrTypeBarHtml(d)}
     ${(()=>{ const rq = state.editingReqId && state.requests.find(r=>r.id===state.editingReqId); return rq && rq.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid #b91c1c;padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوض</b> — عدّل الطلب ثم أعد إرساله.</div>' : ''; })()}
     <div class="card nr-form">
       ${canSend ? '' : `<div class="warn-box nr-wide" style="background:rgba(180,83,9,.12);border-right:4px solid #b45309;padding:8px 12px;border-radius:8px;margin-bottom:12px;">${state.editingReqId ? 'ليست لديك صلاحية «تعديل طلباتي» (صلاحيتك: قراءة فقط). يمكنك الاطلاع على الطلب فقط.' : 'ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.'}</div>`}
@@ -14313,7 +14430,7 @@ function renderNewRequest(app){
           const link = (type, txt) => `<button type="button" class="btn btn-ghost btn-sm nr-abtn" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">+ ${txt}</button>`;
           return `
           <div class="beneficiary-block nr-ben" ${dndAttrs('ben', i)}>
-            <div class="beneficiary-block-header"><span class="bbh-t">${d.beneficiaries.length>1 ? dndGrip() : ''}مستفيد رقم ${i+1}</span>${d.beneficiaries.length>1 ? `<span class="remove-b" data-on-click="removeBeneficiaryRow" data-on-click-args="${qa([(i)])}">إزالة ✕</span>` : ''}</div>
+            <div class="beneficiary-block-header"><span class="bbh-t">${d.beneficiaries.length>1 ? dndGrip() : ''}مستفيد رقم ${i+1}</span>${nrBenNoteHtml(d, i, b)}${d.beneficiaries.length>1 ? `<span class="remove-b" data-on-click="removeBeneficiaryRow" data-on-click-args="${qa([(i)])}">إزالة ✕</span>` : ''}</div>
             <div class="nr-grid">
               <div class="nr-f"><label>الاسم</label>
                 <input class="b-name" type="text" data-combo="benList" autocomplete="off" value="${escH(b.name||'')}" placeholder="اسم الشخص أو الجهة" data-on-change="onBeneficiaryNameChange" data-on-change-args="${qa([(i), QA.v])}">
@@ -14341,7 +14458,9 @@ function renderNewRequest(app){
                 <input class="b-notes" type="text" value="${escH(b.notes||'')}" placeholder="أي ملاحظة إضافية"></div>` : ''}
               <div class="nr-f nr-wide"><label>البيان <span style="color:var(--red);">*</span></label>
                 <input class="b-statement" type="text" value="${escH(b.statement||'')}" placeholder="مثال: مستحقات شهر أغسطس"></div>
-              ${desk ? `
+              ${desk && d.requestType!=='payroll' ? `
+              <input class="b-deduction" type="hidden" value=""><input class="b-deductionNote" type="hidden" value=""><input class="b-extra" type="hidden" value=""><input class="b-extraNote" type="hidden" value="">
+` : desk ? `
               <div class="nr-adjrow nr-wide">
               <div class="nr-f"><label>خصم (اختياري)</label>
                 <div class="field-with-calc"><input class="b-deduction" type="number" value="${b.deduction||''}" placeholder="0.000" data-on-input="updateTotalPreview"><button type="button" class="calc-in" tabindex="-1" title="احسب الخصم" data-on-click="toggleCalcBox" data-on-click-args="${qa([(i), "deduction"])}">احسب</button></div>
@@ -14377,8 +14496,8 @@ function renderNewRequest(app){
               <input class="b-extra" type="hidden" value="${escH(String(b.extra||''))}">
               <input class="b-extraNote" type="hidden" value="${escH(b.extraNote||'')}">
               <div class="nr-adj nr-wide">
-                ${ded>0 ? chip('deduction','خصم', ded, b.deductionNote) : link('deduction','خصم')}
-                ${ext>0 ? chip('extra','إضافي', ext, b.extraNote) : link('extra','إضافي')}
+                ${d.requestType==='payroll' ? (ded>0 ? chip('deduction','خصم', ded, b.deductionNote) : link('deduction','خصم')) : ''}
+                ${d.requestType==='payroll' ? (ext>0 ? chip('extra','إضافي', ext, b.extraNote) : link('extra','إضافي')) : ''}
                 ${showNotes ? '' : `<button type="button" class="btn btn-ghost btn-sm nr-abtn" data-on-click="nrShowNotes" data-on-click-args="${qa([(i)])}">+ ملاحظة</button>`}
               </div>`}
               <div class="nr-foot nr-wide">${attButtonHtml(i, b)}<span class="b-net"></span></div>
@@ -14386,7 +14505,8 @@ function renderNewRequest(app){
           </div>
         `}).join('')}
       </div>
-      <span class="add-beneficiary nr-wide" data-on-click="addBeneficiaryRow">+ إضافة مستفيد آخر</span>
+      ${d.requestType==='payroll' ? nrWcPickHtml(d) : ''}
+      <span class="add-beneficiary nr-wide" data-on-click="addBeneficiaryRow">+ إضافة مستفيد ${d.requestType==='payroll' ? 'يدوياً' : 'آخر'}</span>
 
       <div class="total-box nr-wide" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:nowrap;">
         <div style="flex-shrink:0;">

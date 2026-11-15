@@ -1883,6 +1883,16 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-pick-i.pj-have{opacity:.5;}
   @media (max-width:1000px){ #app .cx-stats.pj-stats{grid-template-columns:repeat(2,minmax(0,1fr));} .pj-flow{grid-template-columns:repeat(3,minmax(0,1fr));} .pj-step::after{display:none;} .pj-kvs{grid-template-columns:repeat(2,minmax(0,1fr));} }
   @media (max-width:699px){ .pj-flow{grid-template-columns:minmax(0,1fr);gap:4px;} .pj-step{display:flex;align-items:center;gap:8px;padding:6px 8px;} .pj-step-h{flex:0 0 86px;margin:0;} .pj-step-b{flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px 8px;} .pj-step:last-child{display:none;} .pj-step-b .pj-kv{width:auto;gap:4px;} .pj-card{padding:12px;} .pj-kvs,.pj-kvs.pj-kvs-2{grid-template-columns:minmax(0,1fr);} .pj-csel{min-width:0;width:100% !important;} .pj-card-h{flex-wrap:wrap;} }
+  /* أنواع طلب الصرف */
+  .nr-types .nr-type{position:relative;} .nr-type-i{font-size:28px;line-height:1;margin-bottom:6px;display:block;}
+  .nr-typebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:#faf9f6;}
+  .nr-typebar .file-hint{flex:1 1 260px;margin:0;} .nr-type-tag{font-weight:800;}
+  .beneficiary-block-header .bbh-note{margin-inline-start:auto;margin-inline-end:10px;font-size:var(--fs-xs);font-weight:700;text-align:left;}
+  .bbh-warn{color:#8a5a00;background:#fff1dc;border-radius:999px;padding:3px 10px;} .bbh-ok{color:#16794a;background:#e3f4ea;border-radius:999px;padding:3px 10px;}
+  .nr-pick{border:1.5px solid var(--ink);border-radius:10px;padding:12px;background:#fff;margin:4px 0 10px;}
+  .nr-pick-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px;} .nr-pick-l{max-height:320px;overflow:auto;}
+  .nr-pick-btn{font-weight:800;}
+  @media (max-width:699px){ .beneficiary-block-header{flex-wrap:wrap;} .beneficiary-block-header .bbh-note{order:3;flex-basis:100%;margin:6px 0 0;text-align:right;} }
   /* السحب والإفلات لتغيير الترتيب (عام) */
   .bbh-t{display:inline-flex;align-items:center;gap:6px;} #app td .dnd-grip{display:inline-flex;height:24px;vertical-align:middle;margin-inline-end:6px;}
   .dnd-grip{display:inline-flex;align-items:center;justify-content:center;width:20px;flex:0 0 20px;align-self:stretch;cursor:grab;color:var(--muted);font-size:12px;letter-spacing:1px;font-weight:900;line-height:1;user-select:none;-webkit-user-select:none;touch-action:none;border-radius:5px;}
@@ -2831,6 +2841,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=e967e4fbcd"></script>
+<script src="app.js?v=1450b053ba"></script>
 </body>
 </html>
