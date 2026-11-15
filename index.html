@@ -1522,9 +1522,10 @@
   .cus-a4 iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
   #cusPrintSheet{display:none;}
   @media print{
-    @page{size:A4;margin:12mm;}
+    /* هامش 12 ملم لكشف العهدة وحده (صفحة مسمّاة) — لا يغلب هامش الصفر لورقة الطلب A4 */
+    @page cus2{size:A4;margin:12mm;}
     body.printing-cus2 > *:not(#cusPrintSheet){display:none !important;}
-    body.printing-cus2 #cusPrintSheet{display:block !important;color:#000;background:#fff;font-size:13px;direction:rtl;text-align:right;}
+    body.printing-cus2 #cusPrintSheet{page:cus2;display:block !important;color:#000;background:#fff;font-size:13px;direction:rtl;text-align:right;}
     #cusPrintSheet .ps-sub{color:#444;margin-bottom:8px;}
     #cusPrintSheet table{width:100%;border-collapse:collapse;margin:6px 0;}
     #cusPrintSheet th,#cusPrintSheet td{border:1px solid #888;padding:5px 8px;text-align:right;}
@@ -2830,6 +2831,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=2213cb9a97"></script>
+<script src="app.js?v=a83d556baf"></script>
 </body>
 </html>
