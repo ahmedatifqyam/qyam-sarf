@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.11.4', APP_VERSION_DATE = '2026-11-15';
+const APP_VERSION = '1.11.5', APP_VERSION_DATE = '2026-11-15';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:3.9, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:4.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -17659,6 +17659,23 @@ const PRJ_EXEC_ST = {not_started:'لم يبدأ', in_progress:'جارٍ', done:'
 function prjReqs(p){ return p && p.budget_item_id ? (state.requests||[]).filter(r=>r.budgetItemId===p.budget_item_id && !r.isCancelled) : []; }
 // الحالة الفعلية: «لم يبدأ» تصير «جارٍ» تلقائياً عند أول طلب صرف على البند
 function prjExecSt(p){ const st = p.exec_status || 'not_started'; return st==='not_started' && prjReqs(p).length ? 'in_progress' : st; }
+// ---------- مسار مبلغ المشروع: عادي (طلبات صرف) أو تحويل لمركز (الصافي إلى دفتر المركز بعد نسبة الشركة) ----------
+function prjCenters(){ return (state.centers||[]).filter(c=>c.companyId===state.currentCompanyId && (c.kind||'center')==='center' && c.scope!=='org' && c.stage!=='closed').sort(_byUnit); }
+function prjCenterName(id){ const c = (state.centers||[]).find(x=>x.id===id); return c ? c.name : ''; }
+// المحوَّل للمركز = طلبات «تحويل لمركز» على بند المشروع (غير الملغاة والمرفوضة)
+function prjTransferred(p){ return cxR3(prjReqs(p).filter(r=>r.amountRoute==='center' && r.status!=='rejected').reduce((s,r)=>s+Number(r.totalAmount||0),0)); }
+function prjToTransfer(p){ return p.amount_route==='center' ? Math.max(0, cxR3(prjCollected(p) - prjTransferred(p))) : 0; }
+// يفتح طلب صرف جاهزاً: بند المشروع، مسار «تحويل لمركز»، والمبلغ = المحصّل غير المحوَّل؛ ويمر بمسار الاعتماد المعتاد
+function prjTransferReq(pid){
+  const p = state.prj.projects.find(x=>x.id===pid); if(!p || newReqBlocked()) return;
+  const amt = prjToTransfer(p), cn = prjCenterName(p.route_center_id);
+  state.editingReqId = null;
+  state.draft = {reason:'دعم ' + cn + ' — ' + p.name, detailedReason:'تحويل المحصّل من المشروع إلى ' + cn + '؛ تُخصم نسبة الشركة ويُسجَّل الصافي في دفتر المركز عند اكتمال الصرف.', number:null, isRecurring:false,
+    budgetItemId:p.budget_item_id, amountRoute:'center', routeCenterId:p.route_center_id,
+    beneficiaries:[{name:cn, nameEn:'', iban:'', civilId:'', statement:'دعم المركز من المشروع', notes:'', amount:amt ? String(amt) : '', deduction:'', deductionNote:'', extra:'', extraNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true}]};
+  state.view = 'newRequest'; render(); window.scrollTo(0,0);
+  showToast('طلب التحويل للمركز جاهز — راجعه ثم أرسله','success');
+}
 // ===================== صفحة المشاريع =====================
 function openProjects(){ state.view='projects'; state.prj.openId=null; state.prj.docForm=null; render(); window.scrollTo(0,0); prjLoad(); if(cxCid()) cxLoadClients(); }
 function openProject(id){ state.view='project'; state.prj.openId=id; state.prj.approve=null; state.prj.invForm=null; state.prj.colForm=null; state.prj.editSet=false; state.prj.docForm=null; render(); window.scrollTo(0,0); if(!state.prj.loaded) prjLoad(); }
@@ -17694,8 +17711,8 @@ function prjCardHtml(r){
     step2 = `<b>${inv.length} فاتورة</b><span>${p.invoice_mode==='monthly' ? 'شهرية' : 'واحدة'}</span>` + (due.length ? prjBadge(due.length===1 && !due[0] ? 'مستحقة' : due.length + ' مستحقة', 'due') : (inv.length ? prjBadge('محدّثة','ok') : '')) + (rc.length ? prjBadge('ينقص علم الوصول','due') : '');
     s2c = due.length || rc.length ? 'warn' : (inv.length ? 'done' : '');
     const val = prjValue(p), col = prjCollected(p), sp = prjSpent(p);
-    step3 = `<div class="pj-kv"><span>القيمة</span><b>${fmtKWDHtml(val)}</b></div><div class="pj-kv"><span>محصّل</span><b>${fmtKWDHtml(col)}</b></div><div class="pj-kv"><span>مصروف</span><b>${fmtKWDHtml(sp)}</b></div>`;
-    s3c = col >= val && val > 0 ? 'done' : '';
+    step3 = `<div class="pj-kv"><span>القيمة</span><b>${fmtKWDHtml(val)}</b></div><div class="pj-kv"><span>محصّل</span><b>${fmtKWDHtml(col)}</b></div><div class="pj-kv"><span>${p.amount_route==='center' ? 'للمركز' : 'مصروف'}</span><b>${fmtKWDHtml(p.amount_route==='center' ? prjTransferred(p) : sp)}</b></div>` + (prjToTransfer(p) > 0 ? prjBadge('بانتظار التحويل للمركز','due') : '');
+    s3c = prjToTransfer(p) > 0 ? 'warn' : (col >= val && val > 0 ? 'done' : '');
     step4 = p.report_path ? `<b>مرفوع</b>${prjBadge('✓','ok')}` : '<span class="pj-muted">لم يُرفع</span>'; s4c = p.report_path ? 'done' : '';
   } else if(d){
     step3 = `<div class="pj-kv"><span>القيمة</span><b>${fmtKWDHtml(d.amount)}</b>${d.amount_kind==='monthly' ? '<small>/شهر</small>' : ''}</div>`;
@@ -17856,6 +17873,7 @@ function prjNextHtml(p, d){
   const due = prjDuePeriods(p), rc = prjMissingReceipts(p);
   if(due.length && !state.prj.invForm) return bar(due[0] ? 'فاتورة ' + prjYmName(due[0]) + ' مستحقة — سجّلها بصورتيها.' : 'سجّل فاتورة المشروع بصورتيها (الفاتورة وعلم الوصول).', ed ? b('prjInvNew', [p.id], '+ فاتورة الآن') : '');
   if(rc.length) return bar('ارفع علم وصول الفاتورة ' + escH(rc[0].inv_no||'') + '.', ed ? b('prjRcpOpen', [rc[0].id], '+ علم الوصول') : '');
+  if(prjToTransfer(p) > 0) return bar('حُصّل ' + fmtKWD(prjToTransfer(p)) + ' لم يُحوَّل بعد إلى ' + escH(prjCenterName(p.route_center_id)) + '. أنشئ طلب التحويل؛ عند اكتمال صرفه يُسجَّل الصافي في دفتر المركز بعد نسبة الشركة.', b('prjTransferReq', [p.id], 'تحويل للمركز'));
   if(!p.exec_by) return bar('حدّد منفذ المشروع: الشركة أو جهة خارجية.', ed ? b('prjExecEdit', [p.id], 'تحديد المنفذ') : '');
   const unpaid = prjInvs(p).find(i=>prjInvCollected(i) < Number(i.amount));
   if(unpaid) return bar('عند دفع العميل سجّل التحصيل للفاتورة ' + escH(unpaid.inv_no||'') + ' فيدخل المبلغ بند المشروع.', fin ? b('prjColOpen', [unpaid.id], 'تحصيل') : '<span class="file-hint">التحصيل للمالية</span>');
@@ -17908,14 +17926,14 @@ async function prjDocDelete(id){
 // ---------- اعتماد العميل: يفتح المشروع وبند ميزانيته، مع قرار الصرف قبل الدفع ونوع الفاتورة ----------
 function prjApproveOpen(docId){
   const d = state.prj.docs.find(x=>x.id===docId); if(!d) return;
-  state.prj.approve = {docId, name:d.title, item:'new', itemId:'', mode: d.amount_kind==='monthly' ? 'monthly' : 'single', start:d.start_date||cxToday(),
+  state.prj.approve = {docId, name:d.title, item:'new', itemId:'', route:'normal', center:'', mode: d.amount_kind==='monthly' ? 'monthly' : 'single', start:d.start_date||cxToday(),
     months:d.months||'', open:!!d.open_ended, prepay:false, pct: Number(prjCo().prepayDefaultPct ?? 80)};
   render();
 }
 function prjApproveSync(){
   const a = state.prj.approve; if(!a) return;
   const g = k => { const el = document.getElementById('pja_'+k); return el ? (el.type==='checkbox' ? el.checked : el.value) : undefined; };
-  ['name','item','itemId','mode','start','months','open','prepay','pct'].forEach(k=>{ const v = g(k); if(v!==undefined) a[k] = v; });
+  ['name','item','itemId','route','center','mode','start','months','open','prepay','pct'].forEach(k=>{ const v = g(k); if(v!==undefined) a[k] = v; });
 }
 function prjApproveRefresh(){ prjApproveSync(); render(); }
 function prjApproveCancel(){ state.prj.approve = null; render(); }
@@ -17929,8 +17947,12 @@ function prjApproveFormHtml(d){
       <div class="f-lg"><label for="pja_item">بند الميزانية</label><select id="pja_item" data-on-change="prjApproveRefresh"><option value="new" ${a.item==='new'?'selected':''}>بند جديد باسم المشروع</option><option value="old" ${a.item==='old'?'selected':''}>بند موجود</option></select></div>
       ${a.item==='old' ? `<div class="f-lg"><label for="pja_itemId">البند</label><select id="pja_itemId"><option value="">— اختر —</option>${items.map(b=>`<option value="${escH(b.id)}" ${a.itemId===b.id?'selected':''}>${escH(b.name)}</option>`).join('')}</select></div>` : ''}
     </div>
+    ${prjCenters().length ? `<div class="uf-flex">
+      <div class="f-lg"><label for="pja_route">مسار المبلغ</label><select id="pja_route" data-on-change="prjApproveRefresh"><option value="normal" ${a.route!=='center'?'selected':''}>مشروع عادي — الصرف بطلبات صرف</option><option value="center" ${a.route==='center'?'selected':''}>تحويل لمركز — الصافي لدفتر المركز</option></select></div>
+      ${a.route==='center' ? `<div class="f-lg"><label for="pja_center">المركز</label><select id="pja_center"><option value="">— اختر المركز —</option>${prjCenters().map(c=>`<option value="${escH(c.id)}" ${a.center===c.id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>` : ''}
+    </div>` : ''}
     <div class="uf-flex">
-      <div class="f-md"><label for="pja_mode">الفاتورة</label><select id="pja_mode" data-on-change="prjApproveRefresh" ${forcedMonthly?'disabled':''}><option value="single" ${a.mode==='single'?'selected':''}>فاتورة واحدة بالإجمالي</option><option value="monthly" ${a.mode==='monthly'||forcedMonthly?'selected':''}>فاتورة كل شهر</option></select></div>
+      <div class="f-lg"><label for="pja_mode">الفاتورة</label><select id="pja_mode" data-on-change="prjApproveRefresh" ${forcedMonthly?'disabled':''}><option value="single" ${a.mode==='single'?'selected':''}>فاتورة واحدة بالإجمالي</option><option value="monthly" ${a.mode==='monthly'||forcedMonthly?'selected':''}>فاتورة كل شهر</option></select></div>
       <div class="f-md"><label for="pja_start">بداية المشروع</label><input id="pja_start" type="date" value="${escH(a.start||'')}"></div>
       <div class="f-sm"><label for="pja_months">المدة (أشهر)</label><input id="pja_months" type="number" min="1" value="${escH(String(a.months||''))}" ${a.open?'disabled':''}></div>
       <div class="f-md"><label>&nbsp;</label><label class="chk-card pj-chk"><input id="pja_open" type="checkbox" ${a.open?'checked':''} data-on-change="prjApproveRefresh"><span>مفتوح بلا نهاية</span></label></div>
@@ -17949,6 +17971,7 @@ async function prjApproveSave(){
   const a = state.prj.approve, d = a && state.prj.docs.find(x=>x.id===a.docId); if(!d) return;
   const name = String(a.name||'').trim(); if(!name){ fieldErr('#pja_name','اكتب اسم المشروع'); return; }
   if(a.item==='old' && !a.itemId){ fieldErr('#pja_itemId','اختر البند'); return; }
+  if(a.route==='center' && !a.center){ fieldErr('#pja_center','اختر المركز'); return; }
   const mode = d.amount_kind==='monthly' ? 'monthly' : a.mode;
   const months = a.open ? null : (parseInt(a.months,10) || null);
   if(mode==='monthly' && !a.open && !months){ fieldErr('#pja_months','اكتب عدد الأشهر أو اختر «مفتوح»'); return; }
@@ -17966,7 +17989,8 @@ async function prjApproveSave(){
     const monthly = d.amount_kind==='monthly' ? Number(d.amount) : (mode==='monthly' && months ? cxR3(Number(d.amount)/months) : null);
     const prow = {company_id:state.currentCompanyId, client_id:d.client_id, document_id:d.id, name, budget_item_id:itemId, status:'active',
       value: d.amount_kind==='monthly' ? cxR3(Number(d.amount)*(months||1)) : Number(d.amount), invoice_mode:mode, monthly_amount:monthly,
-      months, open_ended:!!a.open, start_date:a.start||cxToday(), prepay:!!a.prepay, prepay_pct:pct, created_by:state.user.id};
+      months, open_ended:!!a.open, start_date:a.start||cxToday(), prepay:!!a.prepay, prepay_pct:pct, created_by:state.user.id,
+      amount_route: a.route==='center' ? 'center' : 'normal', route_center_id: a.route==='center' ? a.center : null};
     const rp = await db.from('projects').insert(prow).select().single();
     if(!(await dbCheck(rp,'فتح المشروع'))) throw new Error('-');
     const du = {status:'approved', decided_at:new Date().toISOString(), decided_by:state.user.id};
@@ -17992,6 +18016,7 @@ function prjMoneyPanelHtml(p){
       <div class="pj-kv2"><span>بند الميزانية</span><b>${escH(item ? item.name : '—')}</b></div>
       <div class="pj-kv2"><span>الفاتورة</span><b>${p.invoice_mode==='monthly' ? 'كل شهر' : 'واحدة بالإجمالي'}</b></div>
       <div class="pj-kv2"><span>البداية والمدة</span><b>${cxDate(p.start_date)} · ${dur}</b></div>
+      ${p.amount_route==='center' ? `<div class="pj-kv2"><span>مسار المبلغ</span><b>تحويل إلى ${escH(prjCenterName(p.route_center_id)||'—')} · محوَّل ${fmtKWDHtml(prjTransferred(p))}${prjToTransfer(p)>0 ? ' · بانتظار التحويل ' + fmtKWDHtml(prjToTransfer(p)) : ''}</b></div>` : `<div class="pj-kv2"><span>مسار المبلغ</span><b>مشروع عادي — الصرف بطلبات صرف</b></div>`}
       <div class="pj-kv2"><span>الصرف قبل الدفع</span><b>${p.prepay ? `مسموح حتى ${escH(String(p.prepay_pct))}% = ${fmtKWDHtml(cap)}` : 'غير مسموح — الصرف بعد التحصيل'}</b></div>
     </div>
     ${es ? `<div class="pj-approve">
@@ -18005,6 +18030,10 @@ function prjMoneyPanelHtml(p){
         <div class="f-sm"><label for="pjs_pct">بنسبة %</label><input id="pjs_pct" type="number" min="0" max="100" value="${escH(String(p.prepay_pct))}"></div>
         <div class="f-md"><label for="pjs_start">بداية المشروع</label><input id="pjs_start" type="date" value="${escH(p.start_date||'')}"></div>
       </div>
+      ${prjCenters().length || p.amount_route==='center' ? `<div class="uf-flex">
+        <div class="f-lg"><label for="pjs_route">مسار المبلغ</label><select id="pjs_route"><option value="normal" ${p.amount_route!=='center'?'selected':''}>مشروع عادي — الصرف بطلبات صرف</option><option value="center" ${p.amount_route==='center'?'selected':''}>تحويل لمركز — الصافي لدفتر المركز</option></select></div>
+        <div class="f-lg"><label for="pjs_center">المركز (للتحويل)</label><select id="pjs_center"><option value="">—</option>${prjCenters().map(c=>`<option value="${escH(c.id)}" ${p.route_center_id===c.id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
+      </div>` : ''}
       <p class="file-hint">تمديد المدة (مثلاً من شهرين إلى أربعة) يُكمل الفواتير الشهرية حتى آخرها؛ و«مفتوح» تستمر فواتيره حتى الإغلاق.</p>
       <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="prjSetSave" data-on-click-args="${qa([p.id])}">حفظ</button><button class="btn btn-ghost btn-sm" data-on-click="prjSetEdit">إلغاء</button></div>
     </div>` : ''}
@@ -18017,6 +18046,8 @@ async function prjSetSave(id){
   const p = state.prj.projects.find(x=>x.id===id); if(!p) return;
   if(p.invoice_mode==='monthly' && !open && !months){ fieldErr('#pjs_months','اكتب عدد الأشهر أو اختر «مفتوح»'); return; }
   const row = {name:String(g('name').value||'').trim()||p.name, months, open_ended:open, prepay:g('prepay').checked, prepay_pct:Math.min(100, Math.max(0, Number(g('pct').value)||0)), start_date:g('start').value||p.start_date};
+  if(g('route')){ row.amount_route = g('route').value==='center' ? 'center' : 'normal'; row.route_center_id = row.amount_route==='center' ? (g('center').value||null) : null;
+    if(row.amount_route==='center' && !row.route_center_id){ fieldErr('#pjs_center','اختر المركز'); return; } }
   if(Number(p.monthly_amount)>0 && months) row.value = cxR3(Number(p.monthly_amount)*months);
   const r = await db.from('projects').update(row).eq('id', id);
   if(!(await dbCheck(r,'حفظ إعدادات المشروع'))) return;
