@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.13.3', APP_VERSION_DATE = '2026-11-15';
+const APP_VERSION = '1.13.4', APP_VERSION_DATE = '2026-11-15';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:356, base:350, extra:6.1, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:356, base:350, extra:6.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7707,9 +7707,40 @@ function scrollActiveTabIntoView(){
 }
 window.addEventListener('resize', syncBottomBarMetrics);
 // عند الانتقال لحقل (Tab أو ضغط)، لا يبقى مخفياً خلف الشريط السفلي
+// ===== لوحة المفاتيح في الهاتف: «عائمة» فوق الصفحة بدل أن تدفعها (Android Chrome: VirtualKeyboard API) =====
+// الصفحة لا تتغير مقاساتها ولا تقفز؛ نُخفي الشريطين السفليين أثناء الكتابة، ونرفع الحقل وحده إن غطّته اللوحة.
+const QY_TOUCH = (window.matchMedia && matchMedia('(pointer:coarse)').matches) || ('ontouchstart' in window);
+let qyKbH = 0;
+function qyIsTyping(el){ return !!el && (/^(TEXTAREA)$/.test(el.tagName) || (el.tagName==='INPUT' && !/^(checkbox|radio|file|button|submit|range|color|date|month|time|datetime-local)$/i.test(el.type)) || el.isContentEditable); }
+function qyKbSet(h){
+  qyKbH = Math.max(0, Math.round(h||0));
+  document.body.classList.toggle('kb-open', qyKbH > 80);
+  document.documentElement.style.setProperty('--kb-h', qyKbH + 'px');
+  if(qyKbH > 80) qyKbReveal();
+}
+// الحقل المكتوب فيه يبقى ظاهراً فوق اللوحة بمسافة صغيرة (مرة واحدة، بلا قفزة مزدوجة)
+function qyKbReveal(){
+  const el = document.activeElement; if(!qyIsTyping(el) || el.closest('.modal-box')) return;
+  const r = el.getBoundingClientRect(), limit = window.innerHeight - qyKbH - 16;
+  if(r.bottom > limit) window.scrollBy({top: r.bottom - limit, behavior:'smooth'});
+  else if(r.top < 70) window.scrollBy({top: r.top - 90, behavior:'smooth'});
+}
+try{
+  if(QY_TOUCH && navigator.virtualKeyboard){
+    navigator.virtualKeyboard.overlaysContent = true;
+    navigator.virtualKeyboard.addEventListener('geometrychange', e=>{ qyKbSet(e.target.boundingRect.height); });
+  } else if(QY_TOUCH && window.visualViewport){
+    // احتياط (iPhone وغيره): نستنتج ارتفاع اللوحة من نقص الشاشة الظاهرة
+    const vv = window.visualViewport;
+    vv.addEventListener('resize', ()=>{ const h = window.innerHeight - vv.height; qyKbSet(h > 120 ? h : 0); });
+  }
+}catch(e){}
+document.addEventListener('focusout', ()=>{ setTimeout(()=>{ if(!qyIsTyping(document.activeElement) && !(navigator.virtualKeyboard && qyKbH>80)) document.body.classList.remove('kb-open'); }, 150); });
 document.addEventListener('focusin', function(e){
   const el = e.target;
   if(!el || !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.closest('.modal-box')) return;
+  // في الهاتف لا نرفع الصفحة هنا: لوحة المفاتيح عائمة، والرفع يتم مرة واحدة في qyKbReveal
+  if(QY_TOUCH){ if(qyKbH > 80) setTimeout(qyKbReveal, 60); return; }
   setTimeout(()=>{
     const bar = document.querySelector('.global-floating-bar') || document.querySelector('.sticky-submit-bar');
     if(!bar) return;
