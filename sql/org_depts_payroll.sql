@@ -130,3 +130,27 @@ begin
   perform set_config('qy.sys', '', true);
   return query select * from public.request_approval_steps where request_id = p_req order by sequence_order;
 end $function$;
+
+-- 5) (16 نوفمبر، 1.17.1) الدور الوظيفي «يُنشئ طلبات الرواتب»، ومعتمد الموارد البشرية بالاسم: الشركة ← المؤسسة ← مدير القسم
+alter table public.custom_roles add column if not exists can_payroll boolean not null default false;
+alter table public.companies add column if not exists hr_approver_id text references public.users(id) on delete set null;
+create or replace function public.qy_can_payroll(p_user text, p_company text)
+returns boolean language sql stable security definer set search_path = public as $fn$
+  select coalesce(public.qy_user_dept_func(p_user) in ('hr','secretary'), false)
+      or exists (select 1 from public.users u join public.custom_roles cr on cr.id = u.role where u.id = p_user and cr.can_payroll)
+      or coalesce((select p.level in ('edit','full') from public.page_permissions p join public.users u on u.id = p_user
+                   where p.company_id = p_company and p.role = u.role and p.page_key = 'payroll' limit 1),
+                  (select u.role in ('accountant','cfo','admin') from public.users u where u.id = p_user), false);
+$fn$;
+create or replace function public.qy_hr_approver(p_company text)
+returns text language sql stable security definer set search_path = public as $fn$
+  with ok as (select u.id from public.users u where not coalesce(u.is_suspended,false) and (p_company is null or public.qy_user_in_company(u.id, p_company))),
+  m as (
+    select u.* from public.users u join public.org_departments d on d.id = u.org_dept_id
+    where d.func = 'hr' and coalesce(u.is_general,false) and u.id in (select id from ok)),
+  head as (select id from m order by (case when m.manager_id is null or m.manager_id not in (select id from m) then 0 else 1 end), m.name limit 1)
+  select coalesce(
+    (select c.hr_approver_id from public.companies c where c.id = p_company and c.hr_approver_id in (select id from ok)),
+    (select s.value from public.app_settings s where s.key = 'hr_approver_id' and s.value in (select id from ok)),
+    (select id from head));
+$fn$;

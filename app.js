@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.17.0', APP_VERSION_DATE = '2026-11-16';
+const APP_VERSION = '1.17.1', APP_VERSION_DATE = '2026-11-16';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:1.7, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.3, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -572,7 +572,7 @@ function dbBeneficiaryToState(b){
 }
 function dbCompanyToState(c){
   return {
-    id:c.id, invoiceAlertUserIds:(Array.isArray(c.invoice_alert_user_ids) ? c.invoice_alert_user_ids : []), prepayDefaultPct:(c.prepay_default_pct==null ? 80 : Number(c.prepay_default_pct)), gatewayCompanyPct:(c.gateway_company_pct==null?5:Number(c.gateway_company_pct)), supportCompanyPct:(c.support_company_pct==null?10:Number(c.support_company_pct)), importStaleDays:(c.import_stale_days==null?7:Number(c.import_stale_days)), nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'', brandLogo:c.brand_logo_data||'',
+    id:c.id, hrApproverId:c.hr_approver_id||null, invoiceAlertUserIds:(Array.isArray(c.invoice_alert_user_ids) ? c.invoice_alert_user_ids : []), prepayDefaultPct:(c.prepay_default_pct==null ? 80 : Number(c.prepay_default_pct)), gatewayCompanyPct:(c.gateway_company_pct==null?5:Number(c.gateway_company_pct)), supportCompanyPct:(c.support_company_pct==null?10:Number(c.support_company_pct)), importStaleDays:(c.import_stale_days==null?7:Number(c.import_stale_days)), nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'', brandLogo:c.brand_logo_data||'',
     footerText:(c.footer_text===undefined ? null : c.footer_text), footerFontMode:c.footer_font_mode||'auto', footerFontSize:(c.footer_font_size!=null ? Number(c.footer_font_size) : 10), footerShowText:c.footer_show_text!==false, footerShowLine:c.footer_show_line!==false,
     footerTextColor:c.footer_text_color||'#111111', footerNumColor:c.footer_num_color||'#111111', footerLineColor:c.footer_line_color||'#888888', pageNumStyle:c.page_num_style||'full', footerOffset:(c.footer_offset_mm!=null ? Number(c.footer_offset_mm) : 4),
     primaryColor:c.primary_color||'#C0392B', verifyPrefix:c.verify_prefix||'', code:c.code, hqCode:c.hq_code||'HQ',
@@ -724,7 +724,7 @@ async function loadAll(){
   state.orgDepts         = d(18);
   if(r[2] && r[2].error) console.error('تحميل المستخدمين', r[2].error);
   state.userCompanyLinks = d(3).map(x=>({userId:x.user_id, companyId:x.company_id}));
-  state.customRoles      = d(4).map(r0=>({id:r0.id, companyId:r0.company_id, name:r0.name, description:r0.description||'', defaultLevelName:r0.default_level_name||'موظف', generalDefault:!!r0.general_default}));
+  state.customRoles      = d(4).map(r0=>({id:r0.id, companyId:r0.company_id, name:r0.name, description:r0.description||'', defaultLevelName:r0.default_level_name||'موظف', generalDefault:!!r0.general_default, canPayroll:!!r0.can_payroll}));
   state.beneficiaries    = d(5).map(dbBeneficiaryToState);
   state.requests         = d(6).map(mapRequestRow);
 
@@ -2256,6 +2256,32 @@ async function orgDeptDel(id){
   const r = await db.from('org_departments').delete().eq('id', id);
   if(await dbCheck(r,'حذف القسم')){ (state.users||[]).forEach(u=>{ if(u.orgDeptId===id) u.orgDeptId = null; }); orgDeptsReload(); }
 }
+// معتمد الموارد البشرية لطلبات الرواتب: الشركة ← المؤسسة ← مدير قسم الموارد البشرية (مطابق لدالة الخادم qy_hr_approver)
+function hrUserOk(id){ const u = id && (state.users||[]).find(x=>x.id===id); return u && !u.isSuspended ? u : null; }
+function hrDeptHead(){
+  const m = (state.users||[]).filter(u=>u.isGeneral && !u.isSuspended && u.orgDeptId && ((state.orgDepts||[]).find(d=>d.id===u.orgDeptId)||{}).func==='hr');
+  const ids = new Set(m.map(u=>u.id));
+  return m.sort((a,b)=>((!a.managerId || !ids.has(a.managerId)) ? 0 : 1) - ((!b.managerId || !ids.has(b.managerId)) ? 0 : 1) || _byName(a,b))[0] || null;
+}
+function hrApproverFor(companyId){
+  const co = (state.companies||[]).find(c=>c.id===companyId) || {};
+  const a = hrUserOk(co.hrApproverId); if(a) return {u:a, src:'الشركة'};
+  const b = hrUserOk((state.appSettings||{}).hr_approver_id); if(b) return {u:b, src:'المؤسسة'};
+  const c = hrDeptHead(); if(c) return {u:c, src:'مدير قسم الموارد البشرية'};
+  return null;
+}
+function hrApproverOptions(sel, firstLabel){
+  const act = (state.users||[]).filter(u=>!u.isSuspended);
+  const gen = act.filter(u=>u.isGeneral).sort(_byName), oth = act.filter(u=>!u.isGeneral).sort(_byName);
+  const o = u => `<option value="${escH(u.id)}" ${u.id===sel?'selected':''}>${escH(u.name)}${u.jobTitle ? ' — ' + escH(u.jobTitle) : ''}</option>`;
+  return `<option value="">${firstLabel}</option>${gen.length ? '<option disabled>── المستخدمون العامّون ──</option>' + gen.map(o).join('') : ''}${oth.length ? '<option disabled>── مستخدمو الشركات ──</option>' + oth.map(o).join('') : ''}`;
+}
+async function hrOrgApproverSet(v){
+  const r = await db.from('app_settings').upsert({key:'hr_approver_id', value:v||''});
+  if(!(await dbCheck(r,'معتمد الموارد البشرية'))) return;
+  state.appSettings = state.appSettings || {}; state.appSettings.hr_approver_id = v||'';
+  showToast(v ? 'حُدّد معتمد الموارد البشرية للمؤسسة' : 'عاد الاختيار تلقائياً لمدير قسم الموارد البشرية','success'); render();
+}
 function orgDeptPanelHtml(){
   const opt = sel => Object.keys(ORG_DEPT_FUNC).map(k=>`<option value="${k}" ${k===sel?'selected':''}>${ORG_DEPT_FUNC[k]}</option>`).join('');
   const ds = state.orgDepts||[];
@@ -2266,6 +2292,9 @@ function orgDeptPanelHtml(){
       <td data-label="الأعضاء" class="num">${(state.users||[]).filter(u=>u.orgDeptId===x.id).length}</td>
       <td class="cx-act"><div><button class="btn btn-reject btn-xs" data-on-click="orgDeptDel" data-on-click-args="${qa([x.id])}">${qi('trash')}حذف</button></div></td></tr>`).join('')}</tbody></table>` : '<div class="ct-empty">لا أقسام بعد.</div>'}
     <div class="org-dept-add"><input id="odNewName" type="text" placeholder="اسم القسم، مثل: قسم الموارد البشرية"><select id="odNewFunc">${opt('none')}</select><button class="btn btn-primary btn-md" data-on-click="orgDeptAdd">+ إضافة قسم</button></div>
+    <div class="org-hr-appr"><label for="hrOrgAppr">معتمد الموارد البشرية لطلبات الرواتب (للمؤسسة)</label>
+      <select id="hrOrgAppr" data-on-change="hrOrgApproverSet" data-on-change-args="${qa([QA.v])}">${hrApproverOptions((state.appSettings||{}).hr_approver_id||'', '— تلقائي: مدير قسم الموارد البشرية' + (hrDeptHead() ? ' (' + hrDeptHead().name + ')' : '') + ' —')}</select>
+      <span class="file-hint">يأتي في مسار الراتب بعد المدراء وقبل المحاسب. ولكل شركة أن تختار معتمداً آخر من «المنشأة ← الشركات ← تعديل الشركة».</span></div>
   </div>`;
 }
 function userTreeHtml(list){
@@ -11699,6 +11728,12 @@ function renderCompanyEditForm(){
           <div class="file-hint" style="margin-top:3px;">ملخص المبلغ بالحروف وعدد المستفيدين والبند وصندوق الملاحظات قبل إرسال الطلب.</div>
         </div>
       </div>
+      <div class="card" style="background:var(--paper);margin-top:10px;">
+        <label>👥 الرواتب</label>
+        <div class="row"><div><label for="editCoHrAppr">معتمد الموارد البشرية لهذه الشركة</label>
+          <select id="editCoHrAppr" style="--fw:380px;">${hrApproverOptions(c.hrApproverId||'', '— حسب المؤسسة —')}</select>
+          <p class="file-hint" style="margin:4px 0 0;">${(()=>{ const h = hrApproverFor(c.id); return h ? 'المعتمد الآن: <b>' + escH(h.u.name) + '</b> (من ' + h.src + ')' : 'لا معتمد موارد بشرية بعد — يمضي طلب الراتب على المسار العادي'; })()}. يأتي بعد المدراء وقبل المحاسب.</p></div></div>
+      </div>
       ${c.hasCustodyCols ? `<div class="card" style="background:var(--paper);margin-top:10px;">
         <label>💼 العهد</label>
         ${c.hasCustodyPath ? `<div class="row"><div>
@@ -11949,6 +11984,8 @@ async function saveCompanyEdit(){
   if(file){ updates.logo_data = await readFileAsDataURL(file); }
   const result = await db.from('companies').update(updates).eq('id', c.id);
   if(!(await dbCheck(result, 'تعديل الشركة'))) return;
+  { const hs = document.getElementById('editCoHrAppr');
+    if(hs && (hs.value||null) !== (c.hrApproverId||null)){ const hr = await db.from('companies').update({hr_approver_id: hs.value||null}).eq('id', c.id); if(await dbCheck(hr, 'معتمد الموارد البشرية')) c.hrApproverId = hs.value||null; } }
   c.nameAr=nameAr; c.nameEn=nameEn; c.taxNumber=tax; c.code=code; c.hqCode=hqCode; c.primaryColor=color; c.cfoDelegationMode=cfoMode;
   c.currency_symbol = currencySymbolVal;
   c.cfoDelegateUserId = cfoUserId||null; c.cfoDelegateUntil = cfoUntil||'';
@@ -13452,6 +13489,7 @@ function renderRolesPanel(){
       <div style="flex:1 1 200px;"><label>اسم الدور</label><input id="jr_name_${r.id}" type="text" value="${escH(r.name)}" maxlength="60"></div>
       <div style="flex:0 1 210px;"><label>المستوى الافتراضي</label><select id="jr_lv_${r.id}">${lvOpts(r.defaultLevelName)}</select></div>
       <label style="flex:0 0 auto;display:flex;align-items:center;gap:6px;font-weight:600;margin:0 0 10px;"><input type="checkbox" id="jr_gen_${r.id}" ${r.generalDefault?'checked':''} style="width:auto;"> 🌐 عام افتراضياً</label>
+      <label style="flex:0 0 auto;display:flex;align-items:center;gap:6px;font-weight:600;margin:0 0 10px;" title="يرى بطاقة «طلب راتب» في كل الشركات"><input type="checkbox" id="jr_pay_${r.id}" ${r.canPayroll?'checked':''} style="width:auto;"> 👥 يُنشئ طلبات الرواتب</label>
       <span class="sub" style="margin:0 0 12px;">${n} مستخدم</span>
       <div style="display:flex;gap:8px;margin-bottom:6px;">
         <button type="button" class="btn btn-primary btn-xs" data-on-click="saveJobRole" data-on-click-args="${qa([(''+(r.id))])}">حفظ</button>
@@ -13474,6 +13512,7 @@ function renderRolesPanel(){
         <div><label>اسم الدور</label><input id="newRoleName" type="text" maxlength="60" placeholder="مثال: مندوب"></div>
         <div><label>المستوى الافتراضي</label><select id="newRoleLevel">${lvOpts('موظف')}</select></div>
         <div style="flex:0 0 auto;align-self:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-weight:600;margin:0 0 10px;"><input type="checkbox" id="newRoleGeneral" style="width:auto;"> 🌐 عام افتراضياً</label></div>
+        <div style="flex:0 0 auto;align-self:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-weight:600;margin:0 0 10px;"><input type="checkbox" id="newRolePayroll" style="width:auto;"> 👥 يُنشئ طلبات الرواتب</label></div>
       </div>
       <div class="actions-row" data-bar-actions><button class="btn btn-primary btn-md" data-on-click="addJobRole">إضافة الدور</button></div>
     </div>
@@ -13503,8 +13542,9 @@ async function addJobRole(){
   const gen = document.getElementById('newRoleGeneral').checked;
   if(!name){ showToast('الرجاء إدخال اسم الدور','error'); return; }
   if(state.customRoles.some(r=>r.name===name) || ROLES.some(r=>findRole(r.id).name===name)){ showToast('يوجد دور بهذا الاسم','error'); return; }
-  const role = {id:'role_'+Date.now(), companyId:null, name, description:'', defaultLevelName:lv, generalDefault:gen};
-  const result = await db.from('custom_roles').insert({id:role.id, company_id:null, name, description:null, default_level_name:lv, general_default:gen});
+  const pay = !!(document.getElementById('newRolePayroll')||{}).checked;
+  const role = {id:'role_'+Date.now(), companyId:null, name, description:'', defaultLevelName:lv, generalDefault:gen, canPayroll:pay};
+  const result = await db.from('custom_roles').insert({id:role.id, company_id:null, name, description:null, default_level_name:lv, general_default:gen, can_payroll:pay});
   if(!(await dbCheck(result, 'إضافة الدور'))) return;
   state.customRoles.push(role);
   showToast('تمت إضافة الدور','success'); render();
@@ -13516,9 +13556,10 @@ async function saveJobRole(id){
   const gen = document.getElementById('jr_gen_'+id).checked;
   if(!name){ showToast('اسم الدور لا يكون فارغاً','error'); return; }
   if(state.customRoles.some(x=>x.id!==id && x.name===name)){ showToast('يوجد دور بهذا الاسم','error'); return; }
-  const result = await db.from('custom_roles').update({name, default_level_name:lv, general_default:gen}).eq('id', id);
+  const pay = !!(document.getElementById('jr_pay_'+id)||{}).checked;
+  const result = await db.from('custom_roles').update({name, default_level_name:lv, general_default:gen, can_payroll:pay}).eq('id', id);
   if(!(await dbCheck(result, 'حفظ الدور'))) return;
-  r.name = name; r.defaultLevelName = lv; r.generalDefault = gen;
+  r.name = name; r.defaultLevelName = lv; r.generalDefault = gen; r.canPayroll = pay;
   showToast('تم حفظ الدور','success'); render();
 }
 async function saveIdleCaps(){
@@ -14507,7 +14548,7 @@ function orgDeptFunc(u){ u = u || userById(state.user && state.user.id); if(!u |
 function nrCanType(t){
   if(t==='custody') return pageLevel('custody')!=='none';
   if(t==='reward') return pageLevel('reward')!=='none';
-  if(t==='payroll') return ['hr','secretary'].includes(orgDeptFunc()) || pageLevel('payroll')!=='none';
+  if(t==='payroll'){ const cr = state.user && (state.customRoles||[]).find(r=>r.id===state.user.role); return !!(cr && cr.canPayroll) || ['hr','secretary'].includes(orgDeptFunc()) || pageLevel('payroll')!=='none'; }
   return true;
 }
 const NR_TYPE_ORDER = ['normal','reward','custody','payroll'];
