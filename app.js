@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.16.0', APP_VERSION_DATE = '2026-11-16';
+const APP_VERSION = '1.17.0', APP_VERSION_DATE = '2026-11-16';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:351, base:350, extra:0.8, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:1.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -550,6 +550,7 @@ function dbUserToState(u){
     isSuspended:!!u.is_suspended, suspendedAt:u.suspended_at||null, suspendedNote:u.suspended_note||'', skipReview:!!u.skip_review,
     isGeneral:!!u.is_general, noRequestApprover:!!u.no_request_approver, noNextApprover:!!u.no_next_approver, directToTransfer:!!u.direct_to_transfer,
     approvalDeadlineDays:(u.approval_deadline_days===undefined||u.approval_deadline_days===null ? null : Number(u.approval_deadline_days)), escalateMode:u.escalate_mode||'', escalateUserId:u.escalate_user_id||null,
+    orgDeptId:u.org_dept_id||null,
     paperApproval:!!u.paper_approval, paperProxyIds:Array.isArray(u.paper_proxy_ids) ? u.paper_proxy_ids : []
   };
 }
@@ -638,7 +639,7 @@ const USER_COLS = 'id,phone,name,role,center_id,signature_data,stamp_data,email,
   + 'signature_mode,signature_color,signature_width,company_id,'
   + 'stamp_data_2,manager_id,notif_seen_at,job_title,level_id,request_approver_id,'
   + 'next_approver_id,exec_substitute_id,is_general,no_request_approver,no_next_approver,direct_to_transfer,'
-  + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id,is_suspended,suspended_at,suspended_note,skip_review,paper_approval,paper_proxy_ids';
+  + 'approval_deadline_days,escalate_mode,escalate_user_id,auth_id,is_suspended,suspended_at,suspended_note,skip_review,paper_approval,paper_proxy_ids,org_dept_id';
 
 async function reloadUsers(){
   const {data, error} = await db.from('users').select(USER_COLS);
@@ -711,7 +712,8 @@ async function loadAll(){
     db.from('budget_revenues').select('*').order('revenue_date', {ascending:false}),
     db.from('transactions').select('*').order('tx_date', {ascending:false}),
     db.from('password_reset_requests').select('*').order('requested_at', {ascending:false}),
-    db.from('page_permissions').select('*')
+    db.from('page_permissions').select('*'),
+    db.from('org_departments').select('*').order('sort').order('name')
   ];
   const r = await Promise.all(q);
   const d = i => (r[i] && r[i].data) || [];
@@ -719,6 +721,7 @@ async function loadAll(){
   state.companies        = d(0).map(dbCompanyToState);
   state.centers          = d(1).map(dbCenterToState);
   state.users            = d(2).map(dbUserToState);
+  state.orgDepts         = d(18);
   if(r[2] && r[2].error) console.error('تحميل المستخدمين', r[2].error);
   state.userCompanyLinks = d(3).map(x=>({userId:x.user_id, companyId:x.company_id}));
   state.customRoles      = d(4).map(r0=>({id:r0.id, companyId:r0.company_id, name:r0.name, description:r0.description||'', defaultLevelName:r0.default_level_name||'موظف', generalDefault:!!r0.general_default}));
@@ -2231,6 +2234,40 @@ try{ state.userView = localStorage.getItem('qy_user_view') || 'tree'; }catch(e){
 function userViewSet(v){ state.userView = v==='list' ? 'list' : 'tree'; try{ localStorage.setItem('qy_user_view', state.userView); }catch(e){} render(); }
 function userTreeToggle(id){ state.userTreeClosed = state.userTreeClosed || {}; state.userTreeClosed[id] = !state.userTreeClosed[id]; render(); }
 function userTreeFold(open){ state.userTreeClosed = {}; if(!open) (state.users||[]).forEach(u=>{ state.userTreeClosed[u.id] = true; }); render(); }
+// ---------- أقسام المستخدمين العامّين (على مستوى المؤسسة): المالية، الموارد البشرية، السكرتارية... ----------
+const ORG_DEPT_FUNC = {none:'بلا وظيفة خاصة', hr:'الموارد البشرية', secretary:'السكرتارية', finance:'المالية'};
+function orgDeptToggle(){ state.orgDeptOpen = !state.orgDeptOpen; render(); }
+async function orgDeptsReload(){ const r = await db.from('org_departments').select('*').order('sort').order('name'); if(!r.error) state.orgDepts = r.data||[]; render(); }
+async function orgDeptAdd(){
+  const nm = (document.getElementById('odNewName')||{}).value||'', fn = (document.getElementById('odNewFunc')||{}).value||'none';
+  if(!nm.trim()){ showToast('اكتب اسم القسم','error'); return; }
+  const r = await db.from('org_departments').insert({name:nm.trim(), func:fn, sort:(state.orgDepts||[]).length*10});
+  if(await dbCheck(r,'إضافة القسم')){ showToast('أُضيف القسم','success'); orgDeptsReload(); }
+}
+async function orgDeptSet(id, k, v){
+  if(k==='name' && !String(v||'').trim()) return;
+  const r = await db.from('org_departments').update({[k]: k==='name' ? String(v).trim() : v}).eq('id', id);
+  if(await dbCheck(r,'تعديل القسم')) orgDeptsReload();
+}
+async function orgDeptDel(id){
+  const dp = (state.orgDepts||[]).find(x=>x.id===id); if(!dp) return;
+  const n = (state.users||[]).filter(u=>u.orgDeptId===id).length;
+  if(!confirm('حذف قسم «' + dp.name + '»؟' + (n ? '\n\nيبقى أعضاؤه (' + n + ') مستخدمين عامّين بلا قسم.' : ''))) return;
+  const r = await db.from('org_departments').delete().eq('id', id);
+  if(await dbCheck(r,'حذف القسم')){ (state.users||[]).forEach(u=>{ if(u.orgDeptId===id) u.orgDeptId = null; }); orgDeptsReload(); }
+}
+function orgDeptPanelHtml(){
+  const opt = sel => Object.keys(ORG_DEPT_FUNC).map(k=>`<option value="${k}" ${k===sel?'selected':''}>${ORG_DEPT_FUNC[k]}</option>`).join('');
+  const ds = state.orgDepts||[];
+  return `<div class="card org-dept-panel"><div class="cx-panel-h"><div><h3 style="margin:0;">📁 الأقسام العامة</h3><div class="file-hint">أقسام للمستخدمين العامّين تخدم كل الشركات. «الموارد البشرية» يعتمد طلبات الرواتب (بعد المدراء وقبل المحاسب) ومعه «السكرتارية» يُنشئانها. يُضاف العضو من تعديل المستخدم العام.</div></div></div>
+    ${ds.length ? `<table class="exec-table cx-tbl"><thead><tr><th>القسم</th><th>الوظيفة</th><th class="num">الأعضاء</th><th></th></tr></thead><tbody>${ds.map(x=>`<tr>
+      <td data-label="القسم"><input type="text" value="${escH(x.name)}" aria-label="اسم القسم" data-on-change="orgDeptSet" data-on-change-args="${qa([x.id,'name',QA.v])}"></td>
+      <td data-label="الوظيفة"><select aria-label="الوظيفة" data-on-change="orgDeptSet" data-on-change-args="${qa([x.id,'func',QA.v])}">${opt(x.func)}</select></td>
+      <td data-label="الأعضاء" class="num">${(state.users||[]).filter(u=>u.orgDeptId===x.id).length}</td>
+      <td class="cx-act"><div><button class="btn btn-reject btn-xs" data-on-click="orgDeptDel" data-on-click-args="${qa([x.id])}">${qi('trash')}حذف</button></div></td></tr>`).join('')}</tbody></table>` : '<div class="ct-empty">لا أقسام بعد.</div>'}
+    <div class="org-dept-add"><input id="odNewName" type="text" placeholder="اسم القسم، مثل: قسم الموارد البشرية"><select id="odNewFunc">${opt('none')}</select><button class="btn btn-primary btn-md" data-on-click="orgDeptAdd">+ إضافة قسم</button></div>
+  </div>`;
+}
 function userTreeHtml(list){
   if(!list.length) return '<div class="empty">لا مستخدمين.</div>';
   const gen = list.filter(u=>u.isGeneral), mem = list.filter(u=>!u.isGeneral), ids = new Set(mem.map(u=>u.id)), closed = state.userTreeClosed || {};
@@ -2257,8 +2294,14 @@ function userTreeHtml(list){
   const roots = mem.filter(u=>!u.managerId || !ids.has(u.managerId)).sort((a,b)=>rank(a)-rank(b) || _byName(a,b));
   const body = roots.map(u=>node(u,0)).join('') + mem.filter(u=>!seen.has(u.id)).map(u=>node(u,0)).join('');
   const anyOpen = mem.some(u=>kidsOf(u.id).length && !closed[u.id]);
-  return `<div class="ut-tools"><span class="file-hint">الإزاحة تبيّن المدير المباشر: تحت كل مدير موظفوه. اضغط الاسم للتعديل (ومنه يُغيَّر المدير المباشر).</span><button class="btn btn-ghost btn-sm" data-on-click="userTreeFold" data-on-click-args="${qa([!anyOpen])}">${anyOpen ? 'طي الكل' : 'فتح الكل'}</button></div>
-    ${gen.length ? `<div class="ct-tree ut-tree ut-gen"><div class="ut-grp">🌐 مستخدمون عامّون — في كل الشركات</div>${gen.sort(_byName).map(u=>`<div class="ct-node">${row(u, [], 0)}</div>`).join('')}</div>` : ''}
+  return `<div class="ut-tools"><span class="file-hint">الإزاحة تبيّن المدير المباشر: تحت كل مدير موظفوه. اضغط الاسم للتعديل (ومنه يُغيَّر المدير المباشر).</span><button class="btn btn-ghost btn-sm" data-on-click="userTreeFold" data-on-click-args="${qa([!anyOpen])}">${anyOpen ? 'طي الكل' : 'فتح الكل'}</button>${state.user && state.user.role==='admin' ? `<button class="btn btn-ghost btn-sm" data-on-click="orgDeptToggle">${state.orgDeptOpen ? 'إغلاق الأقسام' : '📁 الأقسام العامة'}</button>` : ''}</div>
+    ${state.orgDeptOpen ? orgDeptPanelHtml() : ''}
+    ${gen.length ? `<div class="ct-tree ut-tree ut-gen"><div class="ut-grp">🌐 مستخدمون عامّون — في كل الشركات</div>${
+      (()=>{ const ds = (state.orgDepts||[]), byD = id => gen.filter(u=>(u.orgDeptId||'')===id).sort(_byName);
+        const parts = ds.map(dp=>{ const m = byD(dp.id); return m.length ? `<div class="ut-dept">📁 ${escH(dp.name)}${dp.func!=='none' ? ' <small>· ' + escH(ORG_DEPT_FUNC[dp.func]||'') + '</small>' : ''}</div>${m.map(u=>`<div class="ct-node">${row(u, [], 0)}</div>`).join('')}` : ''; }).join('');
+        const rest = gen.filter(u=>!u.orgDeptId || !ds.some(x=>x.id===u.orgDeptId)).sort(_byName);
+        return parts + (rest.length ? (parts ? '<div class="ut-dept">بلا قسم</div>' : '') + rest.map(u=>`<div class="ct-node">${row(u, [], 0)}</div>`).join('') : ''); })()
+    }</div>` : ''}
     <div class="ct-tree ut-tree">${body}</div>`;
 }
 function unitSibCount(c){ return state.centers.filter(x=>x.companyId===c.companyId && x.scope!=='org' && (x.parentId||null)===(c.parentId||null)).length; }
@@ -2667,6 +2710,8 @@ const PAGE_LEVELS = [['none','لا يرى'],['read','قراءة فقط'],['edit'
 const PAGE_LEVEL_RANK = {none:0, read:1, edit:2, full:3};
 const PAGE_CATALOG = [
   {key:'newreq',    label:'طلب صرف جديد',     hint:'من يستطيع إنشاء طلب صرف'},
+  {key:'reward',    label:'طلب مكافأة',        hint:'بطاقة «طلب مكافأة» في طلب صرف جديد. افتراضياً: الجميع'},
+  {key:'payroll',   label:'طلب راتب',          hint:'بطاقة «طلب راتب». افتراضياً: المالية ومدير النظام، ومعهم أعضاء قسمي الموارد البشرية والسكرتارية من المستخدمين العامّين دائماً'},
   {key:'custody',   label:'العهد',              hint:'«عهدة جديدة» و«عهدي»: طلب عهدة مالية لموظف، وتأكيد استلامها. لا يرى: لا تظهر · قراءة: يرى عهده ولا يطلب جديدة · تعديل أو تحكم كامل: يطلب عهدة. افتراضياً: الجميع'},
   {key:'editreq',   label:'تعديل طلباتي',     hint:'تعديل طلب أرسله المستخدم وما زال مفتوحاً للتعديل (قبل أول اعتماد أو بعد إرجاعه). لا يرى أو قراءة: يرى طلبه ولا يعدّله · تعديل أو تحكم كامل: يعدّله'},
   {key:'revenues',  label:'الإيرادات',         hint:'قراءة: يرى · تعديل: يرد الإيراد · تحكم كامل: يسجّل ويحذف'},
@@ -2691,7 +2736,7 @@ function pageDefaultLevel(role, key){
   if(key==='newreq' || key==='editreq' || key==='analytics') return 'full';          // الوضع الحالي: الجميع
   if(key==='revenues' || key==='ledger' || key==='recurring' || key==='budgetReport' || key==='cancelled') return fin ? 'full' : 'none';
   if(key==='handovers') return role==='employee' ? 'none' : 'full';
-  if(key==='clients' || key==='suppliers') return fin ? 'full' : 'none';
+  if(key==='clients' || key==='suppliers' || key==='payroll') return fin ? 'full' : 'none';
   if(key==='projects') return fin ? 'full' : (role==='executive_manager' ? 'read' : 'none');
   if(key==='contracts') return fin ? 'full' : 'none';
   if(key==='monitor') return (fin || role==='executive_manager') ? 'full' : 'none';   // المالية والمدير التنفيذي افتراضياً، ومن يُمنح من صفحة الصلاحيات
@@ -3704,6 +3749,7 @@ function switchCompany(companyId){
 function newDraft(type){
   if(newReqBlocked()) return;
   type = NR_TYPES[type] ? type : 'normal';
+  if(!nrCanType(type)){ showToast('ليست لديك صلاحية «' + NR_TYPES[type].t + '»','error'); return; }
   if(nrIsWc(type)) nrWcLoad(); else nrSupLoad();
   const saved = loadDraftFromStorage();
   // تُسترجع المسودة المحفوظة إن كانت من النوع نفسه (عادي أو راتب)
@@ -3781,7 +3827,8 @@ function duplicateFromRequest(id){
   const req = state.requests.find(r=>r.id===id);
   if(!req) return;
   state.editingReqId = null;
-  const ptype = nrTypeOfReq(req);
+  let ptype = nrTypeOfReq(req);
+  if(!nrCanType(ptype)){ showToast('ليست لديك صلاحية «' + NR_TYPES[ptype].t + '» — نُسخ كطلب عادي','info'); ptype = 'normal'; }
   if(nrIsWc(ptype)) nrWcLoad(); else nrSupLoad();
   state.draft = {
     requestType: ptype,
@@ -3798,16 +3845,12 @@ function duplicateFromRequest(id){
 }
 
 function renderNewRequestChoice(app){
-  const canCus = pageLevel('custody')!=='none';
   const card = (fn, args, i, t, d) => `<div class="role-card nr-type" data-on-click="${fn}"${args ? ` data-on-click-args="${qa(args)}"` : ''}><span class="nr-type-i">${i}</span><b class="nr-type-t">${t}</b><span class="nr-type-d">${d}</span></div>`;
+  const types = NR_TYPE_ORDER.filter(nrCanType);
   app.innerHTML = `<div class="nr-choice">
     <h1>طلب صرف جديد</h1>
-    <p class="sub">اختر نوع الطلب</p>
-    <div class="nr-types${canCus ? '' : ' nr-types-3'}">
-      ${card('newDraft', ['normal'], NR_TYPES.normal.i, NR_TYPES.normal.t, NR_TYPES.normal.d)}
-      ${canCus ? card('openNewCustody', null, '💼', 'طلب عهدة', 'مبلغ تحت التسوية بيد موظف، يُغلق لاحقاً بالمستندات.') : ''}
-      ${card('newDraft', ['payroll'], NR_TYPES.payroll.i, NR_TYPES.payroll.t, NR_TYPES.payroll.d)}
-      ${card('newDraft', ['reward'], NR_TYPES.reward.i, NR_TYPES.reward.t, NR_TYPES.reward.d)}
+    <div class="nr-types nr-types-${types.length}">
+      ${types.map(k=>k==='custody' ? card('openNewCustody', null, NR_TYPES[k].i, NR_TYPES[k].t, NR_TYPES[k].d) : card('newDraft', [k], NR_TYPES[k].i, NR_TYPES[k].t, NR_TYPES[k].d)).join('')}
     </div>
     <div class="nr-choice-sep"><span>أو انسخ من طلب سابق</span></div>
     <div class="nr-copy">
@@ -13548,6 +13591,7 @@ function changeMgrFilter(selectId, companyId, excludeId, allId, mode){
 
 function toggleGeneralAccess(){
   const g = document.getElementById('editUserGeneral'); if(!g) return;
+  const ob = document.getElementById('orgDeptBox'); if(ob) ob.style.display = g.checked ? 'flex' : 'none';
   document.querySelectorAll('[data-access-company]').forEach(c=>{
     if(g.checked){ c.checked = true; c.disabled = true; }
     else { c.disabled = false; c.checked = c.getAttribute('data-was-linked')==='1'; }   // عند إلغاء "عام" نرجع للروابط الفعلية السابقة
@@ -13689,6 +13733,9 @@ function renderUserEditForm(){
             <input type="checkbox" id="editUserGeneral" ${u.isGeneral?'checked':''} data-on-change="toggleGeneralAccess" style="width:auto;">
             🌐 مستخدم عام على مستوى المؤسسة (يصل لكل الشركات الحالية والمستقبلية)
           </label>
+          <div id="orgDeptBox" class="org-dept-box" style="display:${u.isGeneral ? 'flex' : 'none'};"><label for="editUserOrgDept">القسم بين العامّين</label>
+            <select id="editUserOrgDept"><option value="">— بلا قسم —</option>${(state.orgDepts||[]).map(x=>`<option value="${escH(x.id)}" ${x.id===u.orgDeptId?'selected':''}>${escH(x.name)}${ORG_DEPT_FUNC[x.func] && x.func!=='none' ? ' · ' + ORG_DEPT_FUNC[x.func] : ''}</option>`).join('')}</select>
+            <span class="file-hint">${(state.orgDepts||[]).length ? 'قسم الموارد البشرية يعتمد طلبات الرواتب، وقسما الموارد البشرية والسكرتارية يُنشئانها.' : 'لا أقسام بعد — أنشئها من «الأقسام العامة» أعلى قائمة المستخدمين.'}</span></div>
           <p class="sub" style="margin:6px 0 8px;font-size:var(--fs-hint);">أو حدّد شركات بعينها يعمل بها، مع مديره المباشر في كل شركة. شركته الأساسية: <b>${escH((state.companies.find(c=>c.id===u.companyId)||{}).nameAr||'—')}</b>.</p>
           ${others.map(co=>{
             const linked = (state.userCompanyLinks||[]).some(l=>l.userId===u.id && l.companyId===co.id);
@@ -13814,6 +13861,9 @@ async function saveUserEdit(){
     approval_deadline_days: approvalDeadlineDays, escalate_mode: escalateMode||null, escalate_user_id: escalateUserId||null
   } : { name, phone, job_title: jobTitle||null }).eq('id', u.id);
   if(!(await dbCheck(result, 'تعديل المستخدم'))) return;
+  { const od = document.getElementById('editUserOrgDept');
+    if(isAdminNow && od){ const v = isGeneral ? (od.value||null) : null;
+      if(v !== (u.orgDeptId||null)){ const rr = await db.from('users').update({org_dept_id:v}).eq('id', u.id); if(await dbCheck(rr, 'قسم المستخدم')) u.orgDeptId = v; } } }
   u.name = name; u.phone = phone; u.role = role; u.centerId = centerId || null; u.managerId = managerId || null; u.companyId = companyId || null;
   u.jobTitle = jobTitle || ''; u.levelId = levelId || null; u.requestApproverId = requestApproverId || null; u.nextApproverId = nextApproverId || null;
   u.isGeneral = isGeneral; u.noRequestApprover = noRequestApprover; u.noNextApprover = noNextApprover; u.directToTransfer = directToTransfer;
@@ -14447,24 +14497,33 @@ function nrXlsApply(){
 // ---------- نوع الطلب: عادي / راتب / مكافأة (والعهدة نموذجها مستقل) ----------
 const NR_TYPES = {
   normal:{i:'🧾', t:'طلب عادي', d:'لشركة أو مورد أو استرجاع اشتراك، مع الفاتورة وبيانات البنك.'},
-  payroll:{i:'👥', t:'طلب راتب', d:'رواتب العاملين الشهرية من عقود العمل، مع الخصم والإضافي.'},
-  reward:{i:'🎁', t:'طلب مكافأة', d:'مكافآت ومستحقات العمل الحر من عقودها، والمبلغ تكتبه.'}
+  reward:{i:'🎁', t:'طلب مكافأة', d:'مكافآت ومستحقات العمل الحر من عقودها، والمبلغ تكتبه.'},
+  custody:{i:'💼', t:'طلب عهدة', d:'مبلغ تحت التسوية بيد موظف، يُغلق لاحقاً بالمستندات.'},
+  payroll:{i:'👥', t:'طلب راتب', d:'رواتب العاملين الشهرية من عقود العمل، مع الخصم والإضافي.'}
 };
 function nrIsWc(t){ return t==='payroll' || t==='reward'; }
+// وظيفة قسم المستخدم العام (الموارد البشرية / السكرتارية / المالية)
+function orgDeptFunc(u){ u = u || userById(state.user && state.user.id); if(!u || !u.isGeneral || !u.orgDeptId) return ''; const d = (state.orgDepts||[]).find(x=>x.id===u.orgDeptId); return d ? d.func : ''; }
+function nrCanType(t){
+  if(t==='custody') return pageLevel('custody')!=='none';
+  if(t==='reward') return pageLevel('reward')!=='none';
+  if(t==='payroll') return ['hr','secretary'].includes(orgDeptFunc()) || pageLevel('payroll')!=='none';
+  return true;
+}
+const NR_TYPE_ORDER = ['normal','reward','custody','payroll'];
 function nrTypeOfReq(req){ const t = req && req.requestType; if(t==='payroll' || t==='reward') return t; return (req && req.beneficiaries||[]).some(b=>Number(b.deduction)>0 || Number(b.extra)>0) ? 'payroll' : 'normal'; }
 // قائمة منسدلة صغيرة بجوار عنوان الصفحة (بدل شريط النوع)
 function nrTypeSelHtml(d){
-  if(state.editingReqId) return `<span class="nr-type-ro">${NR_TYPES[d.requestType||'normal'].i} ${NR_TYPES[d.requestType||'normal'].t}</span>`;
-  const t = d.requestType || 'normal', canCus = pageLevel('custody')!=='none';
-  return `<label class="nr-type-sel"><span>نوع الطلب</span><select data-on-change="nrSwitchType" data-on-change-args="${qa([QA.v])}" title="${escH(NR_TYPES[t].d)}">
-    ${Object.keys(NR_TYPES).map(k=>`<option value="${k}" ${k===t?'selected':''}>${NR_TYPES[k].i} ${NR_TYPES[k].t}</option>`).join('')}
-    ${canCus ? '<option value="custody">💼 طلب عهدة</option>' : ''}</select></label>`;
+  const t = d.requestType || 'normal';
+  if(state.editingReqId) return `<div class="nr-type-ro">${NR_TYPES[t].i} ${NR_TYPES[t].t}</div>`;
+  return `<select class="nr-type-sel" aria-label="نوع الطلب" data-on-change="nrSwitchType" data-on-change-args="${qa([QA.v])}" title="${escH(NR_TYPES[t].d)}">
+    ${NR_TYPE_ORDER.filter(k=>k===t || nrCanType(k)).map(k=>`<option value="${k}" ${k===t?'selected':''}>${NR_TYPES[k].i} ${NR_TYPES[k].t}</option>`).join('')}</select>`;
 }
 function nrSwitchType(t){
   syncDraftFromDOM();
   const d = state.draft; if(!d || t===d.requestType) return;
+  if(!NR_TYPES[t] || !nrCanType(t)){ render(); return; }
   if(t==='custody'){ saveDraftToStorage(); openNewCustody(); return; }
-  if(!NR_TYPES[t]){ render(); return; }
   const hasAdj = d.beneficiaries.some(b=>Number(b.deduction)>0 || Number(b.extra)>0);
   if(t==='normal' && hasAdj && !confirm('الطلب العادي بلا خصم ولا إضافي؛ سيُحذف ما كُتب منهما. متابعة؟')){ render(); return; }
   d.requestType = t;
@@ -14598,12 +14657,13 @@ function renderNewRequest(app){
         </div>
       </div>`;
   app.innerHTML = `
-    <div class="nr-head"><h1>${state.editingReqId ? 'تعديل الطلب' : (d.requestType==='normal' || !d.requestType ? 'طلب صرف جديد' : NR_TYPES[d.requestType].t)}</h1>${nrTypeSelHtml(d)}</div>
+    <h1>${state.editingReqId ? 'تعديل الطلب' : (d.requestType==='normal' || !d.requestType ? 'طلب صرف جديد' : NR_TYPES[d.requestType].t)}</h1>
     ${(()=>{ const rq = state.editingReqId && state.requests.find(r=>r.id===state.editingReqId); return rq && rq.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid #b91c1c;padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوض</b> — عدّل الطلب ثم أعد إرساله.</div>' : ''; })()}
     <div class="card nr-form">
       ${canSend ? '' : `<div class="warn-box nr-wide" style="background:rgba(180,83,9,.12);border-right:4px solid #b45309;padding:8px 12px;border-radius:8px;margin-bottom:12px;">${state.editingReqId ? 'ليست لديك صلاحية «تعديل طلباتي» (صلاحيتك: قراءة فقط). يمكنك الاطلاع على الطلب فقط.' : 'ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.'}</div>`}
-      <div class="nr-f nr-wide"><label>عنوان الطلب</label>
-        <div class="field-with-btn nr-title-row"><input id="reasonInput" type="text" value="${escH(d.reason||'')}" placeholder="مثال: رواتب شهر 8-2026">${docBtn('nr-dt-desk')}</div></div>
+      <div class="nr-f nr-wide nr-ts-ph"><label>نوع الطلب</label>${nrTypeSelHtml(d)}</div>
+      <div class="nr-f nr-wide"><div class="nr-lblrow"><span class="nr-lbl-side nr-ts-desk">نوع الطلب</span><label>عنوان الطلب</label><span class="nr-lbl-side nr-dt-desk"></span></div>
+        <div class="field-with-btn nr-title-row"><span class="nr-ts-desk nr-ts-box">${nrTypeSelHtml(d)}</span><input id="reasonInput" type="text" value="${escH(d.reason||'')}" placeholder="${d.requestType==='payroll' ? 'مثال: رواتب شهر 8-2026' : d.requestType==='reward' ? 'مثال: مكافآت فريق المعرض' : 'مثال: فاتورة طباعة كتيّبات'}">${docBtn('nr-dt-desk')}</div></div>
       ${docBox}
       <div class="nr-f nr-wide"><div class="nr-lblrow"><label>سبب تفصيلي (اختياري)</label><span class="nr-xls-t">المستفيدون من Excel</span></div>
         <div class="field-with-btn nr-title-row nr-xls-row"><textarea id="detailedReasonInput" class="grow-1" rows="1" placeholder="فارغ = يُستخدم عنوان الطلب">${escH(d.detailedReason||'')}</textarea>

@@ -1904,7 +1904,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* اختيار نوع الطلب: أربع بطاقات في صف بعرض 820، والعنوان أكبر من الشرح */
   .nr-choice{max-width:820px;}
   .nr-types,.nr-copy{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px;}
-  .nr-types.nr-types-3{grid-template-columns:repeat(3,1fr);} .nr-copy{grid-template-columns:repeat(2,1fr);}
+  .nr-types.nr-types-3{grid-template-columns:repeat(3,1fr);} .nr-types.nr-types-2{grid-template-columns:repeat(2,1fr);} .nr-types.nr-types-1{grid-template-columns:repeat(2,1fr);} .nr-copy{grid-template-columns:repeat(2,1fr);}
   .nr-type{position:relative;display:flex;flex-direction:column;gap:4px;padding:14px 12px;}
   .nr-type-i{font-size:26px;line-height:1;margin-bottom:4px;display:block;}
   .role-card b.nr-type-t{font-size:var(--fs-h2);font-weight:800;margin:0;color:var(--ink);}
@@ -1914,7 +1914,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .nr-choice-sep::before,.nr-choice-sep::after{content:"";flex:1;border-top:1px solid var(--line);}
   @media (max-width:699px){
     .nr-choice h1{margin-bottom:0;} .nr-choice .sub{margin:2px 0 0;}
-    .nr-types,.nr-types.nr-types-3{grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px;}
+    .nr-types,.nr-types.nr-types-3,.nr-types.nr-types-2{grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px;}
     .nr-copy{gap:8px;margin-top:8px;}
     .nr-type{padding:10px;gap:2px;} .nr-type-i{font-size:22px;margin-bottom:2px;}
     .role-card b.nr-type-t{font-size:var(--fs-h3);}
@@ -1922,18 +1922,17 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .nr-choice-sep{margin:14px 0 0;}
   }
   /* نوع الطلب: قائمة صغيرة بجوار عنوان الصفحة */
-  .nr-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;} .nr-head h1{margin:0;}
-  .nr-type-sel{display:flex;align-items:center;gap:8px;margin:0;font-size:var(--fs-label);white-space:nowrap;} .nr-type-sel span{white-space:nowrap;} .nr-type-sel select{width:190px;max-width:190px;height:40px;padding:6px 10px;font-weight:700;}
-  .nr-type-ro{font-weight:700;color:var(--muted);font-size:var(--fs-label);}
-  /* الموردون */
-  .sup-tools{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;} .sup-tools input{width:280px;max-width:280px;height:40px;} .sup-tools .btn{width:150px;flex:0 0 150px;}
-  @media (max-width:699px){ .sup-tools{flex-wrap:wrap;width:100%;} .sup-tools input{flex:1 1 100%;width:100%;max-width:none;} }
-  .uf-grid.sup-files{grid-template-columns:repeat(3,minmax(0,1fr));} @media (max-width:699px){ .uf-grid.sup-files{grid-template-columns:1fr;} }
-  .sup-files .sup-file label{margin-top:10px;} .sup-file-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap;} .sup-file-r input[type=file]{font-size:var(--fs-xs);max-width:240px;}
-  .cx-tbl tr.cx-click{cursor:pointer;} .cx-tbl tr.cx-click:hover td{background:#f7f5f0;}
-  .sup-pick-l{display:flex;flex-direction:column;gap:2px;margin-top:8px;}
-  .sup-pick-i{display:flex;align-items:center;gap:6px;width:100%;text-align:start;background:none;border:0;border-radius:6px;padding:8px 6px;font:inherit;cursor:pointer;color:var(--ink);}
-  .sup-pick-i:hover{background:#f4f2ec;} .sup-pick-i.pj-have{opacity:.5;cursor:default;} .sup-pick-ib{margin-inline-start:auto;font-size:var(--fs-xs);color:var(--muted);}
+  /* نوع الطلب: قائمة بعرض 150 قبل «عنوان الطلب» (والهاتف: صف مستقل بعنوانه) */
+  .nr-lblrow .nr-lbl-side{flex:0 0 var(--btn-w,150px);font-size:var(--fs-label);color:var(--muted);margin:14px 0 6px;}
+  #app .nr-ts-box{flex:0 0 var(--btn-w,150px);display:flex;} #app select.nr-type-sel{width:var(--btn-w,150px);max-width:var(--btn-w,150px);height:40px;padding:6px 8px;font-weight:700;}
+  #app .nr-ts-box .nr-type-ro,#app .nr-type-ro{height:40px;display:flex;align-items:center;font-weight:700;color:var(--muted);font-size:var(--fs-label);}
+  #app .nr-ts-ph{display:none;}
+  /* الأقسام العامة */
+  .ut-grp{display:flex;align-items:center;justify-content:space-between;gap:10px;} .ut-grp-btn{flex:0 0 auto;}
+  .ut-dept{font-size:var(--fs-xs);font-weight:800;color:var(--ink);padding:8px 8px 2px;border-top:1px dashed var(--line);margin-top:4px;} .ut-dept small{color:var(--muted);font-weight:600;}
+  .org-dept-panel{margin:0 0 12px;} .org-dept-panel input,.org-dept-panel select{height:40px;}
+  .org-dept-add{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;} .org-dept-add input{flex:1 1 220px;max-width:380px;} .org-dept-add select{width:180px;}
+  .org-dept-box{flex-direction:column;gap:4px;margin:8px 0 4px;} .org-dept-box label{margin:0;} .org-dept-box select{max-width:280px;}
   .bbh-soft{color:#5b6573;background:#eef1f4;border-radius:999px;padding:3px 10px;}
   .beneficiary-block-header .bbh-note{margin-inline-start:auto;margin-inline-end:10px;font-size:var(--fs-xs);font-weight:700;text-align:left;}
   .bbh-warn{color:#8a5a00;background:#fff1dc;border-radius:999px;padding:3px 10px;} .bbh-ok{color:#16794a;background:#e3f4ea;border-radius:999px;padding:3px 10px;}
@@ -2733,6 +2732,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app #docTextsBox input{width:100% !important;max-width:100% !important;}
   @media (max-width:699px){
     #app .nr-dt-desk{display:none !important;}
+    #app .nr-ts-desk{display:none !important;} #app .nr-ts-ph{display:grid;} #app .nr-ts-ph select.nr-type-sel{width:100%;max-width:none;}
     #app .nr-dt-ph{display:inline-flex !important;}
     #app .nr-dt-acts .btn{flex:1 1 calc(50% - 4px);}
   }
@@ -2890,6 +2890,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=f07acc0f7a"></script>
+<script src="app.js?v=d53dc88725"></script>
 </body>
 </html>
