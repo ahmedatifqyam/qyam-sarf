@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.18.0', APP_VERSION_DATE = '2026-11-16';
+const APP_VERSION = '1.18.1', APP_VERSION_DATE = '2026-11-16';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:3.8, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:355, base:350, extra:5.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -1615,7 +1615,7 @@ function renderExecTab(app){
     ${analyticsTabsHtml('exec')}
     <div style="display:none;" class="print-header">
       <h2 style="margin:0 0 4px;">اللوحة التنفيذية — ${escH(coName)}</h2>
-      <div style="font-size:var(--fs-hint);color:#666;">سنة ${escH(String(state.execYear || new Date().getFullYear()))} · طُبع في ${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
+      <div style="font-size:var(--fs-hint);color:var(--muted);">سنة ${escH(String(state.execYear || new Date().getFullYear()))} · طُبع في ${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
       <hr class="qy-hr">
     </div>
     <p class="sub no-print">${escH(coName)} — اللوحة التنفيذية (الطلبات المصروفة وغير الملغاة، حسب شهر الإنشاء).</p>
@@ -1759,14 +1759,14 @@ function renderSecurityLog(app){
       return `<tr data-date="${r.at ? qylIso(new Date(r.at)) : ''}"><td>${secWhen(r.at)}</td><td><b style="color:${r.kind==='login_failed'?'#b91c1c':r.kind==='login_suspended'?'#b45309':'inherit'}">${escH(SEC_KIND_AR[r.kind]||r.kind)}</b></td>
       <td>${r.kind==='login_failed' ? `<span dir="ltr">${escH(r.phone_tried||'—')}</span>` : (r.kind==='login_suspended' && !r.user_id) ? (()=>{ const su = (state.users||[]).find(u=>u.phone && u.phone===r.phone_tried); return su ? escH(su.name)+` <span class="file-hint" dir="ltr">${escH(r.phone_tried||'')}</span>` : `<span dir="ltr">${escH(r.phone_tried||'—')}</span>`; })() : escH(secUserName(r.user_id))}${r.message?`<div class="file-hint">${escH(r.message)}</div>`:''}</td>
       <td dir="ltr">${escH(r.ip||'—')}</td><td title="${escH((r.device&&r.device.ua)||'')}">${escH(qyUaShort(r.device))}<div class="file-hint">${escH((r.device&&r.device.tz)||'')}</div></td>
-      <td>${n ? (n>=5?`<b style="color:#b91c1c">${n} ⚠</b>`:n) : ''}</td><td>${r.kind==='login_failed' ? done('qy_client_events',r.id,r) : ''}</td></tr>`; }).join('');
+      <td>${n ? (n>=5?`<b style="color:var(--red)">${n} ⚠</b>`:n) : ''}</td><td>${r.kind==='login_failed' ? done('qy_client_events',r.id,r) : ''}</td></tr>`; }).join('');
   }
   const tbl = rows.length ? `<div style="overflow-x:auto;"><table class="exec-table sec-tbl" data-qyl="sec_${tab}" data-qyl-title="سجل الأمان — ${tab==='alerts'?'التنبيهات':tab==='errors'?'الأخطاء':'الدخول'}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` :
     `<p class="file-hint" style="padding:18px 4px;">${!L||L.loading?'جارٍ التحميل…':'لا توجد سجلات في هذا العرض.'}</p>`;
   app.innerHTML = wrapWithAdminSidebar(`
     <h1>سجل الأمان والأخطاء</h1>
     <div class="card">
-      ${L && L.err ? `<p style="color:#b91c1c;margin:0 0 10px;">${escH(L.err)}</p>` : ''}
+      ${L && L.err ? `<p style="color:var(--red);margin:0 0 10px;">${escH(L.err)}</p>` : ''}
       <div class="row" style="align-items:end;">
         <div style="--fw:280px;"><label>بحث</label><input type="search" class="qy-search" value="${escH(state.secQ||'')}" placeholder="اسم، رقم طلب، IP، رسالة…" data-on-input="#28" data-secq></div>
         <div style="--fw:280px;"><label>النوع</label><select data-on-change="#29"><option value="">الكل</option>${kinds.map(k=>`<option value="${escH(k)}" ${state.secKind===k?'selected':''}>${escH(SEC_KIND_AR[k]||k)}</option>`).join('')}</select></div>
@@ -2096,7 +2096,7 @@ async function renderVerifyPage(reqId){
             <tbody>${beneRowsHtml || '<tr><td colspan="3" style="padding:12px;text-align:center;color:var(--muted);">لا يوجد مستفيدون</td></tr>'}</tbody>
           </table>` : ''}
           <!-- الإجمالي والتفقيط بنفس الخلفية الداكنة -->
-          <div style="background:var(--ink,#1B2733);color:#fff;padding:12px 16px 10px;">
+          <div style="background:var(--ink,var(--ink));color:#fff;padding:12px 16px 10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <b style="font-size:var(--fs-body);">الإجمالي الكلي</b>
               <b style="font-size:var(--fs-h3);direction:ltr;font-variant-numeric:tabular-nums;">${fmtAmt(totalNet)} <span style="font-size:0.75em;font-weight:600;">د.ك</span></b>
@@ -3615,7 +3615,7 @@ setInterval(()=>{
     if(!w){
       w = document.createElement('div'); w.id='idleWarn'; w.className='no-print'; w.dataset.keep='1';
       w.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(15,25,35,.55);display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl;';
-      w.innerHTML = '<div role="alertdialog" aria-modal="true" style="background:#fff;border-radius:14px;padding:22px 24px;max-width:380px;width:100%;text-align:right;box-shadow:0 10px 40px rgba(0,0,0,.3);"><h2 style="margin:0 0 8px;font-size:var(--fs-h2);">هل ما زلت هنا؟</h2><p style="margin:0 0 16px;line-height:1.7;">سيُغلق دخولك بعد <b id="idleLeft"></b> ثانية لعدم النشاط، حمايةً لبياناتك.</p><button type="button" class="btn btn-primary btn-md" data-on-click="idleStay" title="يبقيك داخل النظام">ابقَ متصلاً</button></div>';
+      w.innerHTML = '<div role="alertdialog" aria-modal="true" style="background:var(--card);border-radius:14px;padding:22px 24px;max-width:380px;width:100%;text-align:right;box-shadow:0 10px 40px rgba(0,0,0,.3);"><h2 style="margin:0 0 8px;font-size:var(--fs-h2);">هل ما زلت هنا؟</h2><p style="margin:0 0 16px;line-height:1.7;">سيُغلق دخولك بعد <b id="idleLeft"></b> ثانية لعدم النشاط، حمايةً لبياناتك.</p><button type="button" class="btn btn-primary btn-md" data-on-click="idleStay" title="يبقيك داخل النظام">ابقَ متصلاً</button></div>';
       document.body.appendChild(w);
     }
     const sp = document.getElementById('idleLeft'); if(sp) sp.textContent = left;
@@ -3682,7 +3682,7 @@ async function attemptLogin(){
       if(suspendedAcc) qyLog('login_suspended', 'محاولة دخول بحساب موقوف', '', idInput);
       else qyLog('login_failed', (error && error.message) || 'بيانات غير صحيحة', '', idInput);
       if(suspendedAcc){
-        qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,460px);text-align:center;"><h2 style="margin-top:0;color:#b42318;"><span style="font-size:.7em;">⛔</span> حسابك موقوف <span style="font-size:.7em;">⛔</span></h2><p style="line-height:1.9;"><b style="font-size:var(--fs-h2);">🤍 شكراً لك 🤍</b><br>على ما قدّمته للشركة خلال فترة عملك معنا.<br>سنسعد بعودتك في أي وقت، وللعودة تواصل مع الإدارة لإعادة تفعيل حسابك.</p><div class="actions-row" style="justify-content:center;"><button class="btn btn-primary btn-md" data-on-click="qyBodyModalClose" data-on-click-args="${qa(["banned"])}">حسناً</button></div></div>`, 'banned');
+        qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,460px);text-align:center;"><h2 style="margin-top:0;color:var(--red);"><span style="font-size:.7em;">⛔</span> حسابك موقوف <span style="font-size:.7em;">⛔</span></h2><p style="line-height:1.9;"><b style="font-size:var(--fs-h2);">🤍 شكراً لك 🤍</b><br>على ما قدّمته للشركة خلال فترة عملك معنا.<br>سنسعد بعودتك في أي وقت، وللعودة تواصل مع الإدارة لإعادة تفعيل حسابك.</p><div class="actions-row" style="justify-content:center;"><button class="btn btn-primary btn-md" data-on-click="qyBodyModalClose" data-on-click-args="${qa(["banned"])}">حسناً</button></div></div>`, 'banned');
         return;
       }
       showToast('رقم الهاتف أو كلمة المرور غير صحيحة','error');
@@ -4257,7 +4257,7 @@ function showBudgetBalance(){
   // «بند غير محدد»: تحذير صريح بأن الطلب ناقص ولن يُصرف قبل إسناده لبند حقيقي
   if(itemId === UNSPECIFIED_BUDGET){
     box.style.cssText = 'display:block;margin-top:-2px;padding:8px 11px;border-radius:8px;font-size:var(--fs-hint);'
-      + 'line-height:1.75;background:rgba(245,158,11,.1);color:#8a5a00;border:1px solid var(--amber);';
+      + 'line-height:1.75;background:rgba(245,158,11,.1);color:var(--amber);border:1px solid var(--amber);';
     box.innerHTML = '<b style="font-size:var(--fs-label);">⚠️ الطلب لن يكتمل بهذا الاختيار</b><br>'
       + 'سيمضي في سلسلة الاعتماد، لكن <b>الصرف سيتوقف</b> حتى يُفتح بند مناسب '
       + 'أو يُغيَّر إلى بند موجود. والمحاسب هو من يُسنده قبل إتمام الصرف.';
@@ -5470,13 +5470,13 @@ async function pushPaint(){
   const isAdm = !!(sub && state.user && state.user.role==='admin');
   if(isAdm){ try{ const q = await db.from('push_subscriptions').select('admin_events').eq('endpoint', sub.endpoint).maybeSingle(); evOn = (q.data && q.data.admin_events) || []; }catch(e){} }
   const adminOpt = isAdm
-    ? `<div style="margin:0 0 10px;padding:10px;border:1px solid var(--border,#d9dde3);border-radius:10px;">
+    ? `<div style="margin:0 0 10px;padding:10px;border:1px solid var(--border,var(--line));border-radius:10px;">
         <div style="font-weight:800;margin-bottom:6px;color:var(--text);">إشعارات مدير النظام (على هذا الجهاز)</div>
         <label class="check-line" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;font-weight:800;color:var(--text);"><input id="pushEvAll" type="checkbox" style="width:auto;" ${PUSH_EVENTS.every(e=>evOn.includes(e[0]))?'checked':''} data-on-change="pushEvAll"> كل شيء</label>
         ${PUSH_EVENTS.map(e=>`<label class="check-line" style="display:flex;align-items:center;gap:8px;margin:0 0 4px;color:var(--text);"><input type="checkbox" class="pushEv" value="${e[0]}" style="width:auto;" ${evOn.includes(e[0])?'checked':''} data-on-change="pushEvSave"> ${e[1]}</label>`).join('')}
       </div>` : '';
   box.innerHTML = sub
-    ? `<div style="margin-bottom:8px;color:var(--green,#15803d);font-weight:700;">✅ مفعّلة على هذا الجهاز</div>${adminOpt}${btn('pushDisable','إيقاف الإشعارات على هذا الجهاز','btn-ghost')}`
+    ? `<div style="margin-bottom:8px;color:var(--green,var(--green));font-weight:700;">✅ مفعّلة على هذا الجهاز</div>${adminOpt}${btn('pushDisable','إيقاف الإشعارات على هذا الجهاز','btn-ghost')}`
     : `<div style="margin-bottom:8px;">غير مفعّلة على هذا الجهاز.</div>${btn('pushEnable','تفعيل الإشعارات على هذا الجهاز')}`;
 }
 async function pushEnable(){
@@ -6542,7 +6542,7 @@ function statusLegendHtml_unused(){
   return `<div class="status-legend no-print">${['review','decision','finance','done','rejected','cancelled','handed'].map(k=>`<span><i style="background:${REQ_CAT[k].c};"></i>${REQ_CAT[k].label}</span>`).join('')}</div>`;
 }
 function statusBadge(status, isCancelled, isOwnTurn, isBig, overdue){
-  if(isCancelled) return `<span class="badge" style="background:#E3E0D6;color:#56554F;">ملغى</span>`;
+  if(isCancelled) return `<span class="badge" style="background:var(--line);color:var(--muted);">ملغى</span>`;
   if(status==='completed') return `<span class="badge badge-paid">تم الصرف</span>`;
   if(status==='rejected') return `<span class="badge badge-rejected" title="مرفوض: يحتاج تعديلًا ثم إعادة إرسال" style="white-space:nowrap;">مرفوض</span>`;
   const role = STATUS_ROLE_MAP[status];
@@ -7874,7 +7874,7 @@ function renderGuide(app){
   app.innerHTML = `
     <h1>دليل المستخدم</h1>
     <p class="sub">شرح خطوة بخطوة لكل صفحات النظام. <a href="#" data-on-click="#52" style="color:var(--blue);text-decoration:underline;">🗺️ خريطة الموقع</a></p>
-    <iframe title="دليل المستخدم" src="user-guide.html${a}" style="width:100%;height:calc(100vh - 270px);min-height:420px;border:1px solid var(--line);border-radius:12px;background:#fff;"></iframe>`;
+    <iframe title="دليل المستخدم" src="user-guide.html${a}" style="width:100%;height:calc(100vh - 270px);min-height:420px;border:1px solid var(--line);border-radius:12px;background:var(--card);"></iframe>`;
 }
 function openSiteMap(){ state.view = 'sitemap'; render(); window.scrollTo(0,0); }
 
@@ -8472,7 +8472,7 @@ function openPathCheck(){
   state.view='pathCheck'; render(); window.scrollTo(0,0);
 }
 function pathBadgeHtml(st){
-  return st==='skip' ? '<span style="color:#b42318;font-weight:700;">⤼ تخطّى القرار</span>' : st==='ok' ? '<span style="color:#15803d;font-weight:700;">✓ سليم</span>' : st==='diff' ? '<span style="color:#b45309;font-weight:700;">≠ مختلف</span>' : '<span style="color:#b42318;font-weight:700;">⛔ معطّل</span>';
+  return st==='skip' ? '<span style="color:var(--red);font-weight:700;">⤼ تخطّى القرار</span>' : st==='ok' ? '<span style="color:var(--green);font-weight:700;">✓ سليم</span>' : st==='diff' ? '<span style="color:var(--amber);font-weight:700;">≠ مختلف</span>' : '<span style="color:var(--red);font-weight:700;">⛔ معطّل</span>';
 }
 function renderPathCheckPage(app){
   const co = state._pcCo || state.currentCompanyId;
@@ -8520,15 +8520,15 @@ function renderAccount(app){
       ${avatarEditorHtml(me)}
       <div class="row">
         <div style="--fw:280px;"><label>الجهة التابع لها</label>
-          <input type="text" value="${escH(getUserUnit(me))}" disabled style="background:#F0EEE7;"></div>
+          <input type="text" value="${escH(getUserUnit(me))}" disabled style="background:var(--paper-2);"></div>
         <div style="--fw:280px;"><label>المدير المباشر</label>
-          <input type="text" value="${escH((() => { const mgr = state.users.find(u=>u.id===me.managerId); return mgr ? (mgr.name + ' — ' + findRole(mgr.role).name) : 'غير محدد'; })())}" disabled style="background:#F0EEE7;"></div>
+          <input type="text" value="${escH((() => { const mgr = state.users.find(u=>u.id===me.managerId); return mgr ? (mgr.name + ' — ' + findRole(mgr.role).name) : 'غير محدد'; })())}" disabled style="background:var(--paper-2);"></div>
       </div>
       <div class="row">
         <div><label>الاسم (يظهر على المستندات والتوقيعات)</label>
           <input id="accName" type="text" value="${escH(me.name)}"></div>
         <div style="--fw:280px;"><label>رقم الهاتف</label>
-          <input type="text" value="${escH(me.phone)}" disabled style="background:#F0EEE7;"></div>
+          <input type="text" value="${escH(me.phone)}" disabled style="background:var(--paper-2);"></div>
       </div>
       <div class="row">
         <div><label>البريد الإلكتروني</label>
@@ -9112,7 +9112,7 @@ function renderSigDesigner(app){
   const checkboxesHtml = boxTypes.map(t=>{
     const isText = TEXT_TYPES.includes(t);
     return `
-    <div class="sig-el" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 8px 16px;font-size:13px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;">
+    <div class="sig-el" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 8px 16px;font-size:13px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);">
       <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
         <input type="checkbox" ${cfg[t].visible?'checked':''} data-on-change="toggleSigDesignerBoxVisible" data-on-change-args="${qa([(''+(t))])}">
         ${sigDesignerBoxLabel(t)}
@@ -9530,7 +9530,7 @@ function renderLedger(app){
     return escH(LEDGER_FILTER_LABELS[k] + ': ' + shown);
   };
   const banner = active.length ? `
-    <div class="card no-print" style="background:#fff7e0;border:1px solid #f0c36d;padding:10px 14px;margin:10px 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div class="card no-print" style="background:var(--amber-bg);border:1px solid var(--amber-line);padding:10px 14px;margin:10px 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
       <span>⚠ <b>ترشيح مفعّل (${active.length})</b> — تظهر ${rows.length} من ${rows._total} حركة. المرشّحات: ${active.map(describe).join(' · ')}</span>
       <button class="btn btn-ghost btn-sm" style="margin-right:auto;" data-on-click="ledgerClearFilters" title="يعرض كل حركات الدفتر دون ترشيح">مسح الترشيح</button>
     </div>` : '';
@@ -9559,13 +9559,13 @@ function renderLedger(app){
 
     <div class="lg-tot" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;">
       <div class="card" style="padding:14px;text-align:center;border-top:3px solid var(--green);">
-        <div style="font-size:var(--fs-label);font-weight:700;color:#6b7280;margin-bottom:6px;">إجمالي الدخول</div>
+        <div style="font-size:var(--fs-label);font-weight:700;color:var(--muted);margin-bottom:6px;">إجمالي الدخول</div>
         <div style="font-size:var(--fs-h2);font-weight:900;color:var(--green);">${fmtKWDHtml(totalIn)}</div></div>
       <div class="card" style="padding:14px;text-align:center;border-top:3px solid var(--red);">
-        <div style="font-size:var(--fs-label);font-weight:700;color:#6b7280;margin-bottom:6px;">إجمالي الخروج</div>
+        <div style="font-size:var(--fs-label);font-weight:700;color:var(--muted);margin-bottom:6px;">إجمالي الخروج</div>
         <div style="font-size:var(--fs-h2);font-weight:900;color:var(--red);">${fmtKWDHtml(totalOut)}</div></div>
       <div class="card" style="padding:14px;text-align:center;border-top:3px solid var(--blue);">
-        <div style="font-size:var(--fs-label);font-weight:700;color:#6b7280;margin-bottom:6px;">الصافي</div>
+        <div style="font-size:var(--fs-label);font-weight:700;color:var(--muted);margin-bottom:6px;">الصافي</div>
         <div style="font-size:var(--fs-h2);font-weight:900;color:var(--blue);">${fmtKWDHtml(totalIn-totalOut)}</div></div>
     </div>
 
@@ -10632,7 +10632,7 @@ function renderBudgetReportTab(){
         // ── أب داخلي: صف خاص مع زر toggle ──
         const pct = own.net>0?Math.min(100,Math.round((own.spent+own.committed+own.pending)/own.net*100)):0;
         const barC = pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
-        const midRow = `<tr class="bri-row" style="background:#fff;border-bottom:1px solid var(--line);">
+        const midRow = `<tr class="bri-row" style="background:var(--card);border-bottom:1px solid var(--line);">
           <td style="padding:7px 10px;padding-right:${pad}px;white-space:nowrap;font-weight:700;${SEP}">
             ${toggleBtn}
             <span style="color:var(--muted);font-size:var(--fs-xs);margin-left:2px;">└</span>
@@ -10663,27 +10663,27 @@ function renderBudgetReportTab(){
     <!-- رأس الطباعة (يظهر فقط عند الطباعة) -->
     <div style="display:none;" class="print-header">
       <h2 style="margin:0 0 4px;">تقرير الميزانية — القيم الكويتية</h2>
-      <div style="font-size:var(--fs-hint);color:#666;">${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
+      <div style="font-size:var(--fs-hint);color:var(--muted);">${new Date().toLocaleDateString('ar-KW-u-nu-latn',{year:'numeric',month:'long',day:'numeric'})}</div>
       <hr class="qy-hr">
     </div>
 
     <!-- بطاقات الإجمالي — أولاً -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;" class="summary-cards">
       <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid var(--green);">
-        <div style="font-size:var(--fs-h3);font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">إجمالي الإيرادات</div>
-        <div style="font-size:var(--fs-h1);font-weight:900;color:var(--green);white-space:nowrap;">${fmtKWD(totalRev,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
+        <div style="font-size:var(--fs-h3);font-weight:800;color:var(--muted);margin-bottom:8px;letter-spacing:0.2px;">إجمالي الإيرادات</div>
+        <div style="font-size:var(--fs-h1);font-weight:900;color:var(--green);white-space:nowrap;">${fmtKWD(totalRev,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:var(--muted);">${currencySymbol}</span></div>
       </div>
       <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid var(--amber);">
-        <div style="font-size:var(--fs-h3);font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">إجمالي الأرباح</div>
-        <div style="font-size:var(--fs-h1);font-weight:900;color:var(--amber);white-space:nowrap;">${fmtKWD(totalProfit,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
+        <div style="font-size:var(--fs-h3);font-weight:800;color:var(--muted);margin-bottom:8px;letter-spacing:0.2px;">إجمالي الأرباح</div>
+        <div style="font-size:var(--fs-h1);font-weight:900;color:var(--amber);white-space:nowrap;">${fmtKWD(totalProfit,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:var(--muted);">${currencySymbol}</span></div>
       </div>
       <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid var(--red);">
-        <div style="font-size:var(--fs-h3);font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">المصروف فعلاً</div>
-        <div style="font-size:var(--fs-h1);font-weight:900;color:var(--red);white-space:nowrap;">${fmtKWD(totalSpent,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
+        <div style="font-size:var(--fs-h3);font-weight:800;color:var(--muted);margin-bottom:8px;letter-spacing:0.2px;">المصروف فعلاً</div>
+        <div style="font-size:var(--fs-h1);font-weight:900;color:var(--red);white-space:nowrap;">${fmtKWD(totalSpent,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:var(--muted);">${currencySymbol}</span></div>
       </div>
       <div class="card" style="padding:16px 18px;text-align:center;border-top:3px solid ${totalBal>0?'var(--green)':'var(--red)'};">
-        <div style="font-size:var(--fs-h3);font-weight:800;color:#6b7280;margin-bottom:8px;letter-spacing:0.2px;">المتاح لطلب جديد</div>
-        <div style="font-size:var(--fs-h1);font-weight:900;color:${totalBal>0?'var(--green)':'var(--red)'};white-space:nowrap;">${fmtKWD(totalBal,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:#9ca3af;">${currencySymbol}</span></div>
+        <div style="font-size:var(--fs-h3);font-weight:800;color:var(--muted);margin-bottom:8px;letter-spacing:0.2px;">المتاح لطلب جديد</div>
+        <div style="font-size:var(--fs-h1);font-weight:900;color:${totalBal>0?'var(--green)':'var(--red)'};white-space:nowrap;">${fmtKWD(totalBal,{noUnit:true})} <span style="font-size:var(--fs-label);font-weight:600;color:var(--muted);">${currencySymbol}</span></div>
       </div>
     </div>
 
@@ -11209,7 +11209,7 @@ function recDetailsHtml(t){
   const row = (k,v)=>`<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line);"><span style="min-width:150px;color:var(--muted);">${k}</span><span>${v}</span></div>`;
   return `<div class="card" style="margin:6px 0 12px;background:var(--paper);">
     ${row('أنشأه', escH(recUserLabel(t.created_by_id, t.created_by))+' · '+fmtStamp(t.created_at))}
-    ${row('الاعتماد', t.approved_by_id ? escH(recUserLabel(t.approved_by_id, t.approved_by))+' · '+fmtStamp(t.approved_at)+(recSelfApproved(t)?' <b style="color:#b45309;">⚠ أنشأه واعتمده بنفسه</b>':'') : (t.status==='pending_approval' ? 'بانتظار الاعتماد' : '—'))}
+    ${row('الاعتماد', t.approved_by_id ? escH(recUserLabel(t.approved_by_id, t.approved_by))+' · '+fmtStamp(t.approved_at)+(recSelfApproved(t)?' <b style="color:var(--amber);">⚠ أنشأه واعتمده بنفسه</b>':'') : (t.status==='pending_approval' ? 'بانتظار الاعتماد' : '—'))}
     ${row('إشعار طلب الاعتماد يصل إلى', escH(recRecipientsText(ar))+(ar.custom?' (محدد لهذا القالب)':' (إعداد الشركة)'))}
     ${row('البند', escH(item.name||'—')+(center?' · الوحدة: '+escH(center.name):''))}
     ${t.category ? row('التصنيف', escH(t.category)) : ''}
@@ -11233,7 +11233,7 @@ function recTemplateCard(t){
   if(recCanEdit(t) && t.status==='paused') acts.push(`<button class="btn btn-ghost btn-xs" data-on-click="setRecurringStatus" data-on-click-args="${qa([(''+(t.id)), "active"])}" title="يعيد تجهيز الاستحقاقات من جديد">استئناف</button>`);
   if(recCanEdit(t) && (t.status==='active'||t.status==='paused')) acts.push(`<button class="btn btn-reject btn-xs" data-on-click="setRecurringStatus" data-on-click-args="${qa([(''+(t.id)), "ended"])}" title="ينهي القالب نهائياً وتبقى قيوده المرحَّلة في الدفتر">إنهاء</button>`);
   if(t.status==='pending_approval' && recCanManage() && pageAtLeast('recurring','full') && (t.created_by_id===(state.user||{}).id || (state.user||{}).role==='admin')) acts.push(`<button class="btn btn-reject btn-xs" data-on-click="deleteRecurringTemplate" data-on-click-args="${qa([(''+(t.id))])}" title="يحذف القالب (متاح قبل الاعتماد فقط)">حذف</button>`);
-  const stCls = t.status==='active' ? 'color:#15803d' : t.status==='pending_approval' ? 'color:#b45309' : 'color:var(--muted,#666)';
+  const stCls = t.status==='active' ? 'color:var(--green)' : t.status==='pending_approval' ? 'color:var(--amber)' : 'color:var(--muted,var(--muted))';
   const open = !!(state.recOpen||{})[t.id];
   const self = t.approved_by_id && recSelfApproved(t);
   const by = t.approved_by_id ? 'اعتمده '+escH(recUserLabel(t.approved_by_id, t.approved_by)) : '';
@@ -11243,7 +11243,7 @@ function recTemplateCard(t){
       <span>${t.direction==='in'?'إيراد':'صرف'}${t.category?' · '+escH(t.category):''} · البند: ${escH(item.name||'—')}</span>
       <span>${fmtKWDHtml(t.amount)}${t.amount_mode==='variable'?' <small>(مبلغ متغيّر — مقترح)</small>':''} · ${recFreqText(t)} · ${recEndText(t)}</span>
       <span style="${stCls}"><b>${REC_STATUS[t.status]||t.status}</b>${[by, t.auto_post?'ترحيل تلقائي':'', next?'الاستحقاق القادم '+fmtDateDMY(next.due_date):''].filter(Boolean).map(x=>' · '+x).join('')}</span>
-      ${self ? '<span style="color:#b45309;font-size:var(--fs-hint);">⚠ ملحوظة: أنشأه واعتمده الشخص نفسه</span>' : ''}
+      ${self ? '<span style="color:var(--amber);font-size:var(--fs-hint);">⚠ ملحوظة: أنشأه واعتمده الشخص نفسه</span>' : ''}
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">${acts.join('')}</div>
     ${open ? `<div style="flex-basis:100%;">${recDetailsHtml(t)}</div>` : ''}
@@ -12503,7 +12503,7 @@ async function renderOrgTree(app){
         <div style="padding:2px 4px;padding-right:${indent}px;line-height:1.5;">
           <span data-tnode="${pid}" data-on-click="toggleTreeNode" data-on-click-args="${qa([(''+(pid)), false])}" style="cursor:pointer;display:inline-block;width:16px;text-align:center;color:var(--muted);">${popen?'▼':'◀'}</span>
           <span style="cursor:pointer;color:var(--blue);font-size:var(--fs-body);font-weight:600;white-space:nowrap;" data-on-click="goEditUser" data-on-click-args="${qa([(''+(u.id))])}">👤 ${escH(u.name)}</span>
-          ${tag ? `<span class="badge" style="background:#fdf1dc;color:#7a4a00;font-size:var(--fs-xs);">${escH(tag)}</span>` : ''}
+          ${tag ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:var(--fs-xs);">${escH(tag)}</span>` : ''}
           ${(u.requestApproverId || u.nextApproverId || u.noRequestApprover || u.noNextApprover) ? `<span class="badge" style="background:var(--blue-bg);color:var(--blue);font-size:var(--fs-xs);">مسار معتمَد مخصَّص</span>` : ''}
         </div>
         ${popen ? `
@@ -12512,8 +12512,8 @@ async function renderOrgTree(app){
           <span style="display:inline-block;min-width:135px;">${jobTitleHtml}</span>
           <span style="display:inline-block;min-width:110px;cursor:pointer;text-decoration:underline dotted;" data-on-click="#97" data-on-click-args="${qa([(''+(u.id))])}">مستوى: ${escH(levelLabel(u))}</span>
           <span style="display:inline-block;min-width:130px;cursor:pointer;text-decoration:underline dotted;" data-on-click="#98" data-on-click-args="${qa([(''+(u.id))])}">${managerHtml}</span>
-          ${otherCompanies.length ? `<span style="display:inline-block;color:#8B0000;font-weight:700;">يعمل أيضاً في: ${otherCompanies.map(escH).join('، ')}</span>` : ''}
-          ${u.isGeneral ? `<span style="display:inline-block;color:#8B0000;font-weight:700;">🌐 عام — كل الشركات${ucmText ? ' · المدير بالشركات: '+escH(ucmText) : ''}</span>` : ''}
+          ${otherCompanies.length ? `<span style="display:inline-block;color:var(--red);font-weight:700;">يعمل أيضاً في: ${otherCompanies.map(escH).join('، ')}</span>` : ''}
+          ${u.isGeneral ? `<span style="display:inline-block;color:var(--red);font-weight:700;">🌐 عام — كل الشركات${ucmText ? ' · المدير بالشركات: '+escH(ucmText) : ''}</span>` : ''}
           ${(u.noNextApprover||u.noRequestApprover) ? `<span style="display:inline-block;color:var(--amber);">⏹ ${u.noRequestApprover?'طلبه يذهب مباشرة للتنفيذ':'المسار ينتهي عنده'}</span>` : ''}
         </div>` : ''}
       </div>`;
@@ -13266,7 +13266,7 @@ function renderAdminsPanel(){
       : `<button type="button" class="btn btn-reject btn-sm" ${why ? `disabled title="${escH(why)}"` : `title="حذف «${escH(u.name)}» — تُطلب كلمة مرورك، ومن له أثر في النظام يُوقف بدل حذفه"`} data-on-click="deleteAdminUser" data-on-click-args="${qa([(''+u.id)])}">حذف</button>`;
     return `<div class="list-item" style="cursor:default;"><div class="li-main">
       <b>${escH(u.name)}</b><span dir="ltr" style="text-align:right;">${escH(u.phone||'')}</span>
-      ${own ? '<span class="sub" style="color:var(--blue);font-weight:800;">مالك النظام</span>' : ''}${me ? '<span class="sub">أنت</span>' : ''}${u.isSuspended ? '<span class="sub" style="color:#b45309;">موقوف</span>' : ''}</div><div>${act}</div></div>`;
+      ${own ? '<span class="sub" style="color:var(--blue);font-weight:800;">مالك النظام</span>' : ''}${me ? '<span class="sub">أنت</span>' : ''}${u.isSuspended ? '<span class="sub" style="color:var(--amber);">موقوف</span>' : ''}</div><div>${act}</div></div>`;
   }).join('');
   return `
     <div class="card" style="margin-top:28px;"><h2>مديرو النظام (${admins.length})</h2>
@@ -13619,7 +13619,7 @@ function renderUserEditForm(){
           </select>
         </div>
         <div><label>المسمى الوظيفي</label><input id="editUserJobTitle" type="text" value="${escH(u.jobTitle||'')}" placeholder="اختياري، مثل: محاسب أول"></div>
-        <div><label>المستوى الوظيفي <span style="color:#b42318">*</span></label>
+        <div><label>المستوى الوظيفي <span style="color:var(--red)">*</span></label>
           <select id="editUserLevel" required>
             
             ${(()=>{ const dl=(!u.levelId)?(defaultLevelFor(u.role,u.companyId)||lowestLevelFor(u.companyId)):null; return levelsForCompany(u.companyId).map(l=>`<option value="${l.id}" ${(l.id===u.levelId||(dl&&l.id===dl.id))?'selected':''}>${escH(l.name)}</option>`).join(''); })()}
@@ -13989,8 +13989,8 @@ function resetRequestsBannerHtml(){
     const when = r.requestedAt ? fmtStamp(r.requestedAt) : '';
     return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid rgba(245,158,11,.3);">
       <b style="font-size:var(--fs-label);">${escH(u ? u.name : 'مستخدم غير معروف')}</b>
-      <span style="font-size:var(--fs-hint);color:#8a5a00;" dir="ltr">${escH(r.phone)}</span>
-      <span style="font-size:var(--fs-hint);color:#8a5a00;opacity:.8;">${escH(when)}</span>
+      <span style="font-size:var(--fs-hint);color:var(--amber);" dir="ltr">${escH(r.phone)}</span>
+      <span style="font-size:var(--fs-hint);color:var(--amber);opacity:.8;">${escH(when)}</span>
       <span class="rev-actions" style="margin-right:auto;display:flex;gap:6px;">
         ${u ? `<button class="btn btn-primary btn-xs" data-on-click="#111" data-on-click-args="${qa([(''+(u.id))])}">فتح الحساب</button>` : ''}
         <button class="btn btn-ghost btn-xs" data-on-click="closeResetRequest" data-on-click-args="${qa([(''+(r.id)), "dismissed"])}">إهمال</button>
@@ -13998,8 +13998,8 @@ function resetRequestsBannerHtml(){
     </div>`;
   }).join('');
   return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
-    <div style="font-weight:700;font-size:var(--fs-label);color:#8a5a00;">🔑 طلبات إعادة تعيين كلمة المرور (${list.length})</div>
-    <div style="font-size:var(--fs-hint);color:#8a5a00;line-height:1.7;margin-top:3px;">
+    <div style="font-weight:700;font-size:var(--fs-label);color:var(--amber);">🔑 طلبات إعادة تعيين كلمة المرور (${list.length})</div>
+    <div style="font-size:var(--fs-hint);color:var(--amber);line-height:1.7;margin-top:3px;">
       افتح حساب الطالب واكتب كلمة مرور جديدة، ويُغلق طلبه تلقائياً. ثم أبلغه بها.
     </div>
     ${rows}
@@ -14095,7 +14095,7 @@ function renderDashboard(app){
   const ownerSel = state.dashOwner || 'all';
   if(ownerSel==='mine') visibleRequests = visibleRequests.filter(r=>r.createdById===myId);
   else if(ownerSel!=='all') visibleRequests = visibleRequests.filter(r=>r.createdById===ownerSel);
-  const ownerFilterHtml = role!=='admin' ? '' : `<label class="fb fb-sel dash-own-sel"><span class="fb-ic" style="color:#475569;">${qi('me')}</span>
+  const ownerFilterHtml = role!=='admin' ? '' : `<label class="fb fb-sel dash-own-sel"><span class="fb-ic" style="color:var(--muted);">${qi('me')}</span>
     <select data-on-change="dashPickOwner" data-on-change-args="${qa([QA.v])}">
       <option value="all" ${(ownerSel==='all'||ownerSel==='mine')?'selected':''}>طلبات موظف…</option>
       ${role==='admin' ? ownerCandidates.filter(o=>o.id!==myId).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')).map(o=>`<option value="${escH(o.id)}" ${ownerSel===o.id?'selected':''}>${escH(o.name)}</option>`).join('') : ''}
@@ -14247,7 +14247,7 @@ function renderDashboard(app){
 
 
   // الفترة زرّ كبقية الأزرار: رمز التقويم ونص الاختيار يغنيان عن عنوان «الفترة» فوقه
-  const selBtn = (ico, inner) => `<label class="fb fb-sel"><span class="fb-ic" style="color:#0f766e;">${qi(ico)}</span>${inner}</label>`;
+  const selBtn = (ico, inner) => `<label class="fb fb-sel"><span class="fb-ic" style="color:var(--teal);">${qi(ico)}</span>${inner}</label>`;
   // شبكة واحدة بأزرار ثابتة العرض تصعد للأعلى كلما اتسع العرض: الكل · طلباتي · بانتظار قرارك · الحالات · ثم الفترة في آخرها
   // كل زر يعمل وحده بالتبادل (وإطفاؤه يعيد «الكل»)، والفترة وحدها تجتمع معها
   const statusBtns = ['review','decision','finance','done','rejected','cancelled','handed'].map(k=>fbtn(k, REQ_CAT[k].label,
@@ -14429,7 +14429,7 @@ function nrXlsPreviewHtml(){
   const bad = x.rows.filter(b=>nrBenIssues(b, d).length), tot = cxR3(x.rows.reduce((s,b)=>s + cxN(b.amount) - (pay ? cxN(b.deduction) : 0) + (pay ? cxN(b.extra) : 0), 0));
   const wc = nrIsWc(d.requestType), linked = wc ? x.rows.filter(b=>b.contractId).length : 0;
   return `<div class="nr-wide nr-pick" id="nrXlsPrev">
-    <div class="nr-pick-h"><b>معاينة «${escH(x.file)}»</b><span class="file-hint">${x.rows.length} مستفيد · المجموع ${fmtKWDHtml(tot)} د.ك${wc ? ' · مربوط بعقد: ' + linked : ''}${bad.length ? ' · <b style="color:#8a5a00">' + bad.length + ' صف فيه مشكلة</b>' : ' · كل الصفوف سليمة'}</span></div>
+    <div class="nr-pick-h"><b>معاينة «${escH(x.file)}»</b><span class="file-hint">${x.rows.length} مستفيد · المجموع ${fmtKWDHtml(tot)} د.ك${wc ? ' · مربوط بعقد: ' + linked : ''}${bad.length ? ' · <b style="color:var(--amber)">' + bad.length + ' صف فيه مشكلة</b>' : ' · كل الصفوف سليمة'}</span></div>
     ${bad.length ? `<div class="nr-xls-bad">${bad.map(b=>`<div>الصف ${b._row}: <b>${escH(b.name||'—')}</b> — ${escH(nrBenIssues(b, d).join('، '))}</div>`).join('')}<div class="file-hint">تُضاف وتظهر بلون تحذير لتصلحها قبل الإرسال.</div></div>` : ''}
     <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="nrXlsApply">إضافة ${x.rows.length} مستفيد</button><button class="btn btn-ghost btn-sm" data-on-click="nrXlsCancel">إلغاء</button></div>
   </div>`;
@@ -14610,9 +14610,9 @@ function renderNewRequest(app){
       </div>`;
   app.innerHTML = `
     <h1>${state.editingReqId ? 'تعديل الطلب' : (d.requestType==='normal' || !d.requestType ? 'طلب صرف جديد' : NR_TYPES[d.requestType].t)}</h1>
-    ${(()=>{ const rq = state.editingReqId && state.requests.find(r=>r.id===state.editingReqId); return rq && rq.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid #b91c1c;padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوض</b> — عدّل الطلب ثم أعد إرساله.</div>' : ''; })()}
+    ${(()=>{ const rq = state.editingReqId && state.requests.find(r=>r.id===state.editingReqId); return rq && rq.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid var(--red);padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوض</b> — عدّل الطلب ثم أعد إرساله.</div>' : ''; })()}
     <div class="card nr-form">
-      ${canSend ? '' : `<div class="warn-box nr-wide" style="background:rgba(180,83,9,.12);border-right:4px solid #b45309;padding:8px 12px;border-radius:8px;margin-bottom:12px;">${state.editingReqId ? 'ليست لديك صلاحية «تعديل طلباتي» (صلاحيتك: قراءة فقط). يمكنك الاطلاع على الطلب فقط.' : 'ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.'}</div>`}
+      ${canSend ? '' : `<div class="warn-box nr-wide" style="background:rgba(180,83,9,.12);border-right:4px solid var(--amber);padding:8px 12px;border-radius:8px;margin-bottom:12px;">${state.editingReqId ? 'ليست لديك صلاحية «تعديل طلباتي» (صلاحيتك: قراءة فقط). يمكنك الاطلاع على الطلب فقط.' : 'ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.'}</div>`}
       <div class="nr-f nr-wide nr-ts-ph"><label>نوع الطلب</label>${nrTypeSelHtml(d)}</div>
       <div class="nr-f nr-wide"><div class="nr-lblrow"><span class="nr-lbl-side nr-ts-desk">نوع الطلب</span><label>عنوان الطلب</label><span class="nr-lbl-side nr-dt-desk"></span></div>
         <div class="field-with-btn nr-title-row"><span class="nr-ts-desk nr-ts-box">${nrTypeSelHtml(d)}</span><input id="reasonInput" type="text" value="${escH(d.reason||'')}" placeholder="${d.requestType==='payroll' ? 'مثال: رواتب شهر 8-2026' : d.requestType==='reward' ? 'مثال: مكافآت فريق المعرض' : 'مثال: فاتورة طباعة كتيّبات'}">${docBtn('nr-dt-desk')}</div></div>
@@ -14744,7 +14744,7 @@ function renderNewRequest(app){
         <span id="totalPreviewWords" style="flex:1;text-align:center;font-size:var(--fs-hint);font-weight:600;color:#D8DEE6;overflow:hidden;"></span>
         <b id="totalPreview" style="font-size:var(--fs-h1);flex-shrink:0;">0.000 د.ك</b>
       </div>
-      <div id="amountLimitWarning" class="nr-wide" style="display:none;background:var(--amber-bg);color:#1B2733;border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:var(--fs-hint);margin-top:10px;"></div>
+      <div id="amountLimitWarning" class="nr-wide" style="display:none;background:var(--amber-bg);color:var(--ink);border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:var(--fs-hint);margin-top:10px;"></div>
 
       <div class="nr-wide nr-route-notes">
       ${cxRouteFieldHtml(d)}
@@ -14763,7 +14763,7 @@ function renderNewRequest(app){
     <div class="sticky-submit-bar no-print">
       ${qyBackBtn()}
       <button type="button" class="btn btn-ghost btn-md" title="إضافة مستفيد" style="flex:0 0 auto;" data-on-click="addBeneficiaryRow">+ إضافة مستفيد</button>
-      <button id="amountLimitBadge" type="button" data-on-click="scrollToAmountWarning" title="اضغط لعرض تفاصيل التحذير" style="display:none;background:var(--amber-bg);color:#1B2733;border:2px solid var(--amber);border-radius:24px;padding:9px 18px;font-size:var(--fs-h3);font-weight:700;white-space:nowrap;align-items:center;gap:8px;cursor:pointer;">
+      <button id="amountLimitBadge" type="button" data-on-click="scrollToAmountWarning" title="اضغط لعرض تفاصيل التحذير" style="display:none;background:var(--amber-bg);color:var(--ink);border:2px solid var(--amber);border-radius:24px;padding:9px 18px;font-size:var(--fs-h3);font-weight:700;white-space:nowrap;align-items:center;gap:8px;cursor:pointer;">
         <span style="font-size:var(--fs-h1);line-height:1;">⚠️</span> تجاوز الحد
       </button>
       <button class="btn btn-primary submit-draft-trigger btn-md" ${canSend?'':`disabled title="${noSendTip}"`} data-on-click="submitDraft">${state.editingReqId ? 'حفظ التعديلات' : 'إرسال للاعتماد'}</button>
@@ -14868,17 +14868,17 @@ function renderAppRequestView(req){
       const secs = reviewSecondsLeft(req);
       if(!mine){
         return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
-          <div style="font-weight:700;font-size:13px;color:#8a5a00;">⏳ طلب قيد المراجعة — لم يُرسل نهائياً بعد</div>
-          <div style="font-size:12px;color:#8a5a00;line-height:1.75;margin-top:4px;">لم يأخذ رقماً، ولا يدخل سلسلة الاعتماد حتى ينتهي صاحبه من مراجعته.</div>
+          <div style="font-weight:700;font-size:13px;color:var(--amber);">⏳ طلب قيد المراجعة — لم يُرسل نهائياً بعد</div>
+          <div style="font-size:12px;color:var(--amber);line-height:1.75;margin-top:4px;">لم يأخذ رقماً، ولا يدخل سلسلة الاعتماد حتى ينتهي صاحبه من مراجعته.</div>
         </div>`;
       }
       const expired = secs<=0;
       return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
-        <div style="font-weight:700;font-size:13px;color:#8a5a00;">
+        <div style="font-weight:700;font-size:13px;color:var(--amber);">
           ${expired ? '⏳ انتهت المدة — يُمنح الرقم الآن…'
                     : `⏳ راجع طلبك قبل الإرسال النهائي — تبقّى <span data-countdown="${req.id}" dir="ltr" style="unicode-bidi:isolate;font-variant-numeric:tabular-nums;">${fmtCountdown(secs)}</span>`}
         </div>
-        <div style="font-size:12px;color:#8a5a00;line-height:1.75;margin-top:4px;">
+        <div style="font-size:12px;color:var(--amber);line-height:1.75;margin-top:4px;">
           الطلب محفوظ بلا رقم ولم يره المعتمدون بعد. وما دامت المدة قائمة يمكنك تعديله أو حذفه،
           فإن انقضت أخذ رقمه ومضى في سلسلة الاعتماد.
         </div>
@@ -14901,9 +14901,9 @@ function renderAppRequestView(req){
         const opts = (state.budgetItems||[])
           .filter(b=>b.company_id===req.companyId && b.is_active!==false)
           .map(b=>`<option value="${b.id}">${BUDGET_TYPE_ICONS[b.type]||''} ${escH(b.name)} (الرصيد: ${fmtKWDPlain(computeBudgetItemBalance(b.id)||0)})</option>`).join('');
-        return `<div class="unspec-box" style="padding:12px 14px;background:#f5f0fe;border:1.5px solid #7c3aed;border-radius:8px;margin-bottom:12px;">
-          <div style="font-weight:700;font-size:13px;color:#5b21b6;">⚠️ بند غير محدد — الطلب غير مكتمل</div>
-          <div style="font-size:12px;color:#5b21b6;line-height:1.75;margin-top:4px;">
+        return `<div class="unspec-box" style="padding:12px 14px;background:var(--violet-bg);border:1.5px solid var(--violet);border-radius:8px;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:13px;color:var(--violet);">⚠️ بند غير محدد — الطلب غير مكتمل</div>
+          <div style="font-size:12px;color:var(--violet);line-height:1.75;margin-top:4px;">
             يمضي الطلب في سلسلة الاعتماد، لكن <b>الصرف لن يتم</b> حتى يُسنَد إلى بند ميزانية.
             افتح بنداً مناسباً من لوحة التحكم إن لم يوجد، ثم اختره هنا.
           </div>
@@ -15246,7 +15246,7 @@ function renderNewCustody(app){
     : atLimit ? `لدى «${holder ? holder.name : ''}» ${open} عهدة مفتوحة، وهو الحد الأقصى في هذه الشركة (${lim})` : '';
   app.innerHTML = `
     <h1>${editing ? 'تعديل العهدة' : 'عهدة جديدة'}</h1>
-    ${req && req.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid #b91c1c;padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوضة</b> — عدّل العهدة ثم أعد إرسالها.</div>' : ''}
+    ${req && req.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid var(--red);padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوضة</b> — عدّل العهدة ثم أعد إرسالها.</div>' : ''}
     <div class="card cus-form">
       <div class="cf-sec"><span class="cf-n">1</span>لمن العهدة ولماذا</div>
       <div class="cf-grid">
@@ -15529,7 +15529,7 @@ function custodyLinesTableHtml(kc){
   const rows = L.map((l,i)=>{
     run = Math.round((run + (l.kind==='receipt' ? l.amount : -l.amount))*1000)/1000;
     const es = cusEffStatus(kc,l);
-    return `<tr${es==='rejected' ? ' style="background:#FDECEC;"' : (es==='draft' && reviewing ? ' class="cus-unreviewed" title="لم تراجعه بعد"' : '')}>
+    return `<tr${es==='rejected' ? ' style="background:var(--red-bg);"' : (es==='draft' && reviewing ? ' class="cus-unreviewed" title="لم تراجعه بعد"' : '')}>
       <td class="num" data-l="#">${i+1}</td>
       <td data-l="النوع">${l.kind==='expense' ? 'مصروف' : 'مقبوض'}</td>
       <td data-l="الوصف"><div>${escH(l.description)}${l.noDoc ? ` <span class="nodoc-tag" title="${escH(l.noDocReason)}">بلا سند</span>` : ''}</div>${l.reviewNote && es==='rejected' ? `<div style="color:var(--red);font-size:var(--fs-hint);">${escH(l.reviewNote)}</div>` : ''}</td>
@@ -15763,7 +15763,7 @@ function cusDocsHtml(kc){
   if(editable){
     left = `<div class="cus-doc-fields">
       <h2 style="margin:0 0 8px;font-size:var(--fs-h3);">${l ? 'تعديل السند '+(d.idx+1) : 'سند جديد'}</h2>
-      ${l && l.status==='rejected' && l.reviewNote ? `<div class="note-box" style="background:#FDECEC;color:var(--red);">ملاحظة المراجِع: ${escH(l.reviewNote)}</div>` : ''}
+      ${l && l.status==='rejected' && l.reviewNote ? `<div class="note-box" style="background:var(--red-bg);color:var(--red);">ملاحظة المراجِع: ${escH(l.reviewNote)}</div>` : ''}
       <label>صور السند ${l && l.hasImage ? '(محفوظة — أضف أو احذف)' : '*'}</label>
       <div class="cus-pick no-print" id="cusPickBox" tabindex="-1">
         <label class="btn btn-primary btn-md cus-pickbtn">📷 تصوير<input id="cusCam" type="file" accept="image/*" capture="environment" hidden data-on-change="cusPicAdd"></label>
@@ -15790,10 +15790,10 @@ function cusDocsHtml(kc){
     left = `<div class="cus-doc-info">
       <div class="cus-doc-no">سند ${d.idx+1} من ${L.length} · ${l.kind==='expense' ? 'مصروف' : 'مقبوض'} <span class="badge cus-badge" style="--cb:${cusEffStatus(kc,l)==='accepted' ? '#15803d' : cusEffStatus(kc,l)==='rejected' ? '#b91c1c' : '#6b7280'};">${stLbl[cusEffStatus(kc,l)]||''}</span></div>
       <div class="cus-doc-desc">${escH(l.description)}</div>
-      ${l.noDoc ? `<div class="note-box" style="background:#FFF6E0;"><b>بلا سند</b> — ${escH(l.noDocReason)}</div>` : ''}
+      ${l.noDoc ? `<div class="note-box" style="background:var(--amber-bg);"><b>بلا سند</b> — ${escH(l.noDocReason)}</div>` : ''}
       <div class="cus-doc-amt" style="color:${l.kind==='expense' ? 'var(--red)' : 'var(--green)'};">${l.kind==='expense' ? '−' : '+'}${fmtKWDHtml(l.amount)} <span class="cus-unit">د.ك</span></div>
       <div class="cus-doc-meta">${l.lineDate ? 'التاريخ: <b>'+fmtDateDMY(l.lineDate)+'</b>' : ''}${l.invoiceNo ? ' · فاتورة <b>'+escH(l.invoiceNo)+'</b>' : ''}</div>
-      ${l.reviewNote ? `<div class="note-box" style="background:#FDECEC;color:var(--red);">${escH(l.reviewNote)}</div>` : ''}
+      ${l.reviewNote ? `<div class="note-box" style="background:var(--red-bg);color:var(--red);">${escH(l.reviewNote)}</div>` : ''}
       ${l.status==='rejected' && state.user.id===kc.holderId && kc.status==='close_requested' && !l.reopened ? '<div class="why-line">رُفض هذا السند. تُفتح لك التعديلات حين يضغط المراجِع «أعد للتصحيح».</div>' : ''}
       ${myTurn && kc.status==='acct_review' ? `<label style="margin-top:10px;">سبب الرفض (يراه صاحب العهدة)</label><input id="cusDocNote" type="text" maxlength="300" style="--fw:100%;" value="${l.status==='rejected' ? escH(l.reviewNote) : ''}" placeholder="اكتبه إن رفضت السند">
         <div class="cus-doc-btns no-print">
@@ -16529,8 +16529,8 @@ function renderDetail(app){
   const creatorName = req.createdBy || (creatorUser && creatorUser.name) || '';
   const creatorTime = (req.history&&req.history[0]&&req.history[0].time) || '';
   const creatorStepHtml = `<div class="step done" style="min-width:80px;">
-    ${avSrc(req.createdById) ? `<div class="dot dot-av" style="background:var(--primary,#1a56db);"><img src="${escH(avSrc(req.createdById))}" alt=""></div>` : `<div class="dot" style="background:var(--primary,#1a56db);font-size:var(--fs-xs);width:26px;height:26px;line-height:26px;">✎</div>`}
-    <p style="font-size:var(--fs-xs);color:var(--muted,#888);">منشئ الطلب</p>
+    ${avSrc(req.createdById) ? `<div class="dot dot-av" style="background:var(--primary,var(--info));"><img src="${escH(avSrc(req.createdById))}" alt=""></div>` : `<div class="dot" style="background:var(--primary,var(--info));font-size:var(--fs-xs);width:26px;height:26px;line-height:26px;">✎</div>`}
+    <p style="font-size:var(--fs-xs);color:var(--muted,var(--muted));">منشئ الطلب</p>
     <span class="step-approver">${escH(creatorName)}</span>
     <span class="step-approve-time">${escH(creatorTime)}</span>
   </div>`;
@@ -16655,12 +16655,12 @@ function renderDetail(app){
 
   app.innerHTML = `
     ${req.isCancelled ? `
-      <div class="note-box no-print" style="background:#F3F2ED;border-color:#B8B4A8;">
+      <div class="note-box no-print" style="background:var(--paper-2);border-color:var(--line-2);">
         <b>هذا الطلب ملغى</b> — تم إبطاله ${req.cancelledAt ? 'بتاريخ ' + fmtDateDMY(req.cancelledAt) : ''}.
         ${canRestoreReq(req) ? `<button class="btn btn-approve btn-sm2" style="margin-right:10px;" data-on-click="restoreRequest" data-on-click-args="${qa([(''+(req.id))])}"><span class="bl1">استرجاع</span><span class="bl2">الطلب</span></button>` : ''}
       </div>` : ''}
     ${req.fastTracked ? `
-      <div class="note-box no-print" style="background:#e6f6f4;border-color:#0f766e;color:#0f766e;">
+      <div class="note-box no-print" style="background:var(--teal-bg);border-color:var(--teal);color:var(--teal);">
         <b>⚡ طلب بالحد الأدنى</b> — تخطّى بعض خطوات الاعتماد لأن مبلغه ضمن الحد الأدنى المحدد لمركزه.
       </div>` : ''}
     ${renderBudgetFloat(req)}
@@ -17141,7 +17141,7 @@ function renderSuppliers(app){
     <p class="sub">الشركات والجهات التي تشتري منها الشركة. يُختار المورد في «طلب صرف جديد ← طلب عادي» فيُملأ اسمه وآيبانه، وتظهر مدفوعاته هنا.</p>
     ${state.cx.cEditId ? cxClientFormHtml() : ''}
     ${state.cx.supHist ? supHistHtml() : ''}
-    <div class="card cx-panel"><div class="cx-panel-h"><div><h2>الموردون</h2><div class="file-hint">${list.length} مورد${noIban ? ' · <b style="color:#8a5a00">' + noIban + ' بلا آيبان</b>' : ''}</div></div>
+    <div class="card cx-panel"><div class="cx-panel-h"><div><h2>الموردون</h2><div class="file-hint">${list.length} مورد${noIban ? ' · <b style="color:var(--amber)">' + noIban + ' بلا آيبان</b>' : ''}</div></div>
       <div class="sup-tools"><input type="search" class="qy-search" placeholder="بحث بالاسم أو النشاط أو الآيبان" value="${escH(state.cx.supQ||'')}" data-on-input="supSearch" data-on-input-args="${qa([QA.v])}">${state.cx.cEditId || !canW ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ مورد جديد</button>`}</div></div>
     <table class="exec-table cx-tbl" data-qyl="suppliers" data-qyl-title="الموردون"><thead><tr><th>الاسم</th><th>النشاط</th><th>الآيبان</th><th>الهاتف</th><th class="num">المصروف</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -17241,7 +17241,7 @@ function cxAvailFor(id){ const b = cxB(id), u = cxUnit(id) || {}; const v = Numb
 function cxStaffBalLine(id){
   if(!(state.cx.balances||[]).length) return '<span class="file-hint">جارٍ تحميل الرصيد…</span>';
   const a = cxAvailFor(id);
-  return `<span>الرصيد <b ${a.balance<0?'style="color:var(--red)"':''}>${fmtKWDHtml(a.balance)}</b></span><span>طلبات مفتوحة <b>${fmtKWDHtml(a.pending)}</b></span><span>المتاح للصرف <b ${a.avail<0?'style="color:var(--red)"':'style="color:var(--green,#16794a)"'}>${fmtKWDHtml(a.avail)}</b></span>${a.od ? `<span class="file-hint">حد السالب ${fmtKWDHtml(a.od)}</span>` : ''}`;
+  return `<span>الرصيد <b ${a.balance<0?'style="color:var(--red)"':''}>${fmtKWDHtml(a.balance)}</b></span><span>طلبات مفتوحة <b>${fmtKWDHtml(a.pending)}</b></span><span>المتاح للصرف <b ${a.avail<0?'style="color:var(--red)"':'style="color:var(--green,var(--green))"'}>${fmtKWDHtml(a.avail)}</b></span>${a.od ? `<span class="file-hint">حد السالب ${fmtKWDHtml(a.od)}</span>` : ''}`;
 }
 // بطاقة «رصيد مركزي» في الرئيسية لموظف المركز
 function cxStaffCardHtml(){
@@ -17251,7 +17251,7 @@ function cxStaffCardHtml(){
   return `<div class="card cx-staff no-print" id="cxStaffCard">
     <div class="cx-staff-h"><div><small>${subs.length ? 'رصيد مركزي مع بنوده' : (root===id ? 'رصيد مركزي' : 'رصيد بندي')}</small><b>${escH(u.name)}</b>${cxStageBadge(u)}</div>
       <button class="btn btn-ghost btn-md" data-on-click="openCenterBook">الدفتر</button></div>
-    <div class="cx-staff-v">${agg ? `<span>الرصيد <b ${agg.balance<0?'style="color:var(--red)"':''}>${fmtKWDHtml(agg.balance)}</b></span><span>طلبات مفتوحة <b>${fmtKWDHtml(agg.pending_requests)}</b></span><span>المتاح للصرف <b ${agg.balance-agg.pending_requests<0?'style="color:var(--red)"':'style="color:var(--green,#16794a)"'}>${fmtKWDHtml(cxR3(agg.balance-agg.pending_requests))}</b></span>` : '<span class="file-hint">جارٍ تحميل الرصيد…</span>'}</div>
+    <div class="cx-staff-v">${agg ? `<span>الرصيد <b ${agg.balance<0?'style="color:var(--red)"':''}>${fmtKWDHtml(agg.balance)}</b></span><span>طلبات مفتوحة <b>${fmtKWDHtml(agg.pending_requests)}</b></span><span>المتاح للصرف <b ${agg.balance-agg.pending_requests<0?'style="color:var(--red)"':'style="color:var(--green,var(--green))"'}>${fmtKWDHtml(cxR3(agg.balance-agg.pending_requests))}</b></span>` : '<span class="file-hint">جارٍ تحميل الرصيد…</span>'}</div>
     ${cxStageNoteHtml(u)}
   </div>`;
 }
@@ -17772,10 +17772,10 @@ function renderCenterBooks(app){
       <div class="card cx-panel"><div class="cx-panel-h"><h2>مقارنة الأرصدة</h2></div>
         ${rows.map(({c,b})=>{ const v = Number(b.balance||0); return `<div class="cx-bar"><div class="cx-bar-n">${escH(c.name)}</div><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Math.abs(v)/mx*100))}%;background:${v<0?'var(--red)':'var(--green,#16794a)'};"></div></div><div class="cx-bar-v" ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</div></div>`; }).join('')}
       </div>
-      <div class="card cx-panel"><div class="cx-panel-h"><h2>الدخل مقابل المصروف</h2><div class="cx-legend"><span><i style="background:var(--green,#16794a)"></i>دخل صافٍ</span><span><i style="background:#c27c0e"></i>مصروف</span></div></div>
+      <div class="card cx-panel"><div class="cx-panel-h"><h2>الدخل مقابل المصروف</h2><div class="cx-legend"><span><i style="background:var(--green,var(--green))"></i>دخل صافٍ</span><span><i style="background:var(--amber)"></i>مصروف</span></div></div>
         ${rows.map(({c,b})=>`<div class="cx-bar2"><div class="cx-bar-n">${escH(c.name)}</div><div class="cx-bar2-b">
-          <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.income||0)/mx2*100))}%;background:var(--green,#16794a);"></div></div><b class="cx-bv">${fmtKWDHtml(b.income)}</b></div>
-          <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.expense||0)/mx2*100))}%;background:#c27c0e;"></div></div><b class="cx-bv">${fmtKWDHtml(b.expense)}</b></div></div></div>`).join('')}
+          <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.income||0)/mx2*100))}%;background:var(--green,var(--green));"></div></div><b class="cx-bv">${fmtKWDHtml(b.income)}</b></div>
+          <div class="cx-bar2-r"><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Number(b.expense||0)/mx2*100))}%;background:var(--amber);"></div></div><b class="cx-bv">${fmtKWDHtml(b.expense)}</b></div></div></div>`).join('')}
       </div></div>` : ''}`;
 }
 
@@ -20076,7 +20076,7 @@ function renderGlLinks(app){
   const centers = units.filter(u=>u.kind==='center');
   const unitTypeName = k => { try{ const t = (typeof unitTypes==='function' ? unitTypes() : []).find(x=>x.id===k); return t ? t.name : ({center:'مركز',department:'إدارة',section:'قسم',branch:'فرع'})[k]||k; }catch(e){ return k; } };
   const nItem = items.filter(b=>!b.gl_expense).length, nCen = centers.filter(u=>!u.gl_trust).length, nHold = g.holders.filter(h=>!(g.cust||[]).some(c=>c.holder_id===h)).length;
-  const badge = n => n ? ` <span class="cx-badge" style="background:#fdecea;color:var(--red);">${n} بلا حساب</span>` : ' <span class="cx-badge" style="background:#e8f5ee;color:var(--green);">مكتمل</span>';
+  const badge = n => n ? ` <span class="cx-badge" style="background:var(--red-bg);color:var(--red);">${n} بلا حساب</span>` : ' <span class="cx-badge" style="background:var(--green-bg);color:var(--green);">مكتمل</span>';
   const sugg = centers.filter(u=>!u.gl_trust && glSuggestTrust(u)).length;
   app.innerHTML = `
     <h1>ربط الحسابات</h1>
@@ -20150,7 +20150,7 @@ function renderGlMonth(app){
   const tile = (label, val, color, sub) => `<div class="card tile" style="flex:1 1 150px;margin:0;border-top:4px solid ${color};"><div class="sub" style="margin-bottom:4px;">${label}</div><div style="font-size:var(--fs-h2);font-weight:800;">${val}</div>${sub ? `<div class="sub" style="font-size:var(--fs-hint);">${sub}</div>` : ''}</div>`;
   let shade = false, prev = '';
   const body = rows.map(r=>{ if(r.entry_key!==prev){ shade = !shade; prev = r.entry_key; }
-    return `<tr data-date="${escH(r.entry_date)}"${shade ? ' style="background:#faf9f6;"' : ''}>
+    return `<tr data-date="${escH(r.entry_date)}"${shade ? ' style="background:var(--paper-2);"' : ''}>
       <td data-label="التاريخ" style="white-space:nowrap;">${dmyStr(r.entry_date)}</td>
       <td data-label="المرجع" style="white-space:nowrap;">${escH(r.ref||'')}</td>
       <td data-label="المصدر" style="white-space:nowrap;">${escH(r.source||'')}</td>
