@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.13.6', APP_VERSION_DATE = '2026-11-15';
+const APP_VERSION = '1.14.0', APP_VERSION_DATE = '2026-11-16';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:357, base:350, extra:7.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:350, base:350, extra:0.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -14351,6 +14351,91 @@ function renderOldCoPanel(){
   </div>`;
 }
 
+// ---------- Excel المستفيدين: نموذج للتعبئة ثم رفعه لإنشاء الطلب بسرعة ----------
+const NR_XLS_BASE = [['name','الاسم'],['nameEn','الاسم بالإنجليزية'],['civilId','الرقم المدني'],['iban','الآيبان'],['statement','البيان'],['amount','المبلغ'],['notes','ملاحظات']];
+const NR_XLS_PAY = [['deduction','الخصم'],['deductionNote','سبب الخصم'],['extra','الإضافي'],['extraNote','سبب الإضافي']];
+function nrXlsCols(d){ return d.requestType==='payroll' ? NR_XLS_BASE.concat(NR_XLS_PAY) : NR_XLS_BASE; }
+async function nrXlsTemplate(){
+  const d = state.draft; if(!d) return;
+  try{
+    const X = await qylLoadXlsx(), cols = nrXlsCols(d), pay = d.requestType==='payroll';
+    const ex = {name:'مثال — احذف هذا الصف', nameEn:'Example Name', civilId:'290010100000', iban:'KW81CBKU0000000000001234560101', statement: pay ? 'راتب ' + PRJ_MONTHS[new Date().getMonth()] : 'فاتورة توريد', amount:150.5, notes:'', deduction:10, deductionNote:'غياب يوم', extra:20, extraNote:'ساعات إضافية'};
+    const ws = X.utils.aoa_to_sheet([cols.map(c=>c[1]), cols.map(c=>ex[c[0]]===undefined ? '' : ex[c[0]])]);
+    ws['!cols'] = cols.map(c=>({wch: c[0]==='iban' ? 34 : c[0]==='name' || c[0]==='statement' ? 28 : c[0]==='civilId' ? 16 : c[0].endsWith('Note') || c[0]==='notes' ? 22 : 14}));
+    const help = X.utils.aoa_to_sheet([['تعليمات تعبئة ملف المستفيدين'],[''],['1. سطر لكل مستفيد بدءاً من الصف الثاني؛ احذف صف المثال.'],['2. الاسم والمبلغ إلزاميان؛ والرقم المدني 12 رقماً، والآيبان الكويتي 30 خانة يبدأ بـ KW.'],['3. المبلغ بالدينار الكويتي حتى 3 أرقام عشرية (مثل 150.500).'],
+      pay ? ['4. الخصم والإضافي اختياريان، وسبب كل منهما يُكتب في عموده؛ ويُربط كل مستفيد بعقده تلقائياً بالرقم المدني أو الآيبان أو الاسم.'] : ['4. بعد الرفع أرفق لكل مستفيد مستنداته (الفاتورة، بيانات البنك، صورة الهوية) من النموذج.'],
+      ['5. لا تغيّر عناوين الأعمدة. ثم من نموذج الطلب: «⬆ رفع Excel».']]);
+    help['!cols'] = [{wch:110}];
+    const wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
+    X.utils.book_append_sheet(wb, ws, 'المستفيدون'); X.utils.book_append_sheet(wb, help, 'تعليمات');
+    X.writeFile(wb, (pay ? 'نموذج مستفيدي طلب راتب' : 'نموذج مستفيدي طلب صرف') + '.xlsx');
+  }catch(e){ showToast('تعذّر إنشاء النموذج: ' + (e.message||e), 'error'); }
+}
+// مشكلات سطر مستفيد مرفوع من Excel (تظهر بلون تحذير حتى تُصلح)
+function nrBenIssues(b, d){
+  const out = [], iban = nrNorm(b.iban), civ = String(b.civilId||'').replace(/\D/g,''), amt = cxN(b.amount);
+  if(!String(b.name||'').trim()) out.push('الاسم فارغ');
+  if(!(amt > 0)) out.push('المبلغ فارغ أو غير صحيح');
+  if(iban && !/^KW\d{2}[A-Z0-9]{26}$/.test(iban)) out.push('الآيبان غير صحيح');
+  if(civ && civ.length!==12) out.push('الرقم المدني ليس 12 رقماً');
+  if(d && d.requestType==='payroll'){ const ded = cxN(b.deduction); if(ded > 0 && ded > amt + cxN(b.extra)) out.push('الخصم أكبر من المبلغ'); }
+  return out;
+}
+async function nrXlsUpload(){
+  const inp = document.getElementById('nrXlsFile'), f = inp && inp.files && inp.files[0]; if(!f) return;
+  inp.value = '';
+  const d = state.draft; if(!d) return;
+  try{
+    const X = await qylLoadXlsx();
+    const wb = X.read(await f.arrayBuffer(), {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = X.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+    if(!aoa.length){ showToast('الملف فارغ','error'); return; }
+    const all = NR_XLS_BASE.concat(NR_XLS_PAY), norm = h => toWesternDigits(String(h||'')).trim().replace(/\s+/g,' ');
+    const head = aoa[0].map(norm), idx = {};
+    all.forEach(([k,l])=>{ const j = head.indexOf(l); if(j>=0) idx[k] = j; });
+    if(idx.name==null || idx.amount==null){ showToast('لم أجد عمودي «الاسم» و«المبلغ» في الصف الأول — استعمل «⬇ نموذج Excel»','error'); return; }
+    const pay = d.requestType==='payroll', rows = [];
+    aoa.slice(1).forEach((r,ri)=>{
+      const g = k => idx[k]==null ? '' : toWesternDigits(String(r[idx[k]]==null ? '' : r[idx[k]])).trim();
+      const name = g('name'); if(!name && !g('amount') && !g('civilId') && !g('iban')) return;
+      if(/^مثال/.test(name)) return;
+      const num = k => { const v = g(k).replace(/[^\d.\-]/g,''); return v==='' ? '' : String(cxR3(Number(v))); };
+      const b = {name, nameEn:g('nameEn'), civilId:g('civilId').replace(/\D/g,''), iban:nrNorm(g('iban')), statement:g('statement'), notes:g('notes'), amount:num('amount'),
+        deduction: pay ? num('deduction') : '', deductionNote: pay ? g('deductionNote') : '', extra: pay ? num('extra') : '', extraNote: pay ? g('extraNote') : '',
+        idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true, _xls:true, _row:ri+2};
+      if(pay){ const c = nrWcMatch(b); if(c) b.contractId = c.id; }
+      rows.push(b);
+    });
+    if(!rows.length){ showToast('لا صفوف مستفيدين في الملف','error'); return; }
+    syncDraftFromDOM();
+    state.nrXls = {file:f.name, rows};
+    render();
+    setTimeout(()=>{ const el = document.getElementById('nrXlsPrev'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 60);
+  }catch(e){ showToast('تعذّرت قراءة الملف: ' + (e.message||e), 'error'); }
+}
+function nrXlsPreviewHtml(){
+  const x = state.nrXls, d = state.draft, pay = d.requestType==='payroll';
+  const bad = x.rows.filter(b=>nrBenIssues(b, d).length), tot = cxR3(x.rows.reduce((s,b)=>s + cxN(b.amount) - (pay ? cxN(b.deduction) : 0) + (pay ? cxN(b.extra) : 0), 0));
+  const linked = pay ? x.rows.filter(b=>b.contractId).length : 0;
+  return `<div class="nr-wide nr-pick" id="nrXlsPrev">
+    <div class="nr-pick-h"><b>معاينة «${escH(x.file)}»</b><span class="file-hint">${x.rows.length} مستفيد · المجموع ${fmtKWDHtml(tot)} د.ك${pay ? ' · مربوط بعقد: ' + linked : ''}${bad.length ? ' · <b style="color:#8a5a00">' + bad.length + ' صف فيه مشكلة</b>' : ' · كل الصفوف سليمة'}</span></div>
+    ${bad.length ? `<div class="nr-xls-bad">${bad.map(b=>`<div>الصف ${b._row}: <b>${escH(b.name||'—')}</b> — ${escH(nrBenIssues(b, d).join('، '))}</div>`).join('')}<div class="file-hint">تُضاف وتظهر بلون تحذير لتصلحها قبل الإرسال.</div></div>` : ''}
+    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="nrXlsApply">إضافة ${x.rows.length} مستفيد</button><button class="btn btn-ghost btn-sm" data-on-click="nrXlsCancel">إلغاء</button></div>
+  </div>`;
+}
+function nrXlsCancel(){ state.nrXls = null; render(); }
+function nrXlsApply(){
+  const x = state.nrXls; if(!x) return;
+  syncDraftFromDOM();
+  const d = state.draft;
+  // الصف الأول الفارغ يُستبدل، والباقي يُضاف بعد الموجودين
+  d.beneficiaries = d.beneficiaries.filter(b=>(b.name||'').trim() || String(b.amount||'').trim() || (b.civilId||'').trim() || (b.iban||'').trim());
+  d.beneficiaries.push(...x.rows);
+  state.nrXls = null; render(); saveDraftToStorage();
+  const bad = x.rows.filter(b=>nrBenIssues(b, d).length).length;
+  showToast('أُضيف ' + x.rows.length + ' مستفيد من Excel' + (bad ? ' — أصلح ' + bad + ' صف بلون التحذير' : ''), bad ? 'info' : 'success');
+}
 // ---------- نوع الطلب: عادي / راتب ومكافأة ----------
 function nrTypeBarHtml(d){
   if(state.editingReqId) return '';
@@ -14394,6 +14479,7 @@ function nrBenAttCount(b){
 }
 // تحذير واحد بجوار «مستفيد رقم»: الراتب = عقد، والعادي = مرفقات
 function nrBenNoteHtml(d, i, b){
+  if(b._xls){ const iss = nrBenIssues(b, d); if(iss.length) return `<span class="bbh-note bbh-warn">⚠️ ${escH(iss.join('، '))}</span>`; }
   if(!(b.name||'').trim() && !(b.civilId||'').trim()) return '<span class="bbh-note"></span>';
   if(d.requestType==='payroll'){
     const c = nrWcMatch(b);
@@ -14491,7 +14577,9 @@ function renderNewRequest(app){
         <div class="field-with-btn nr-title-row"><input id="reasonInput" type="text" value="${escH(d.reason||'')}" placeholder="مثال: رواتب شهر 8-2026">${docBtn('nr-dt-desk')}</div></div>
       ${docBox}
       <div class="nr-f nr-wide"><label>سبب تفصيلي (اختياري)</label>
-        <textarea id="detailedReasonInput" class="grow-1" rows="1" placeholder="فارغ = يُستخدم عنوان الطلب">${escH(d.detailedReason||'')}</textarea></div>
+        <div class="field-with-btn nr-title-row nr-xls-row"><textarea id="detailedReasonInput" class="grow-1" rows="1" placeholder="فارغ = يُستخدم عنوان الطلب">${escH(d.detailedReason||'')}</textarea>
+        <div class="nr-xls"><button type="button" class="btn btn-ghost btn-md" data-on-click="nrXlsTemplate" title="ملف Excel فارغ بأعمدة المستفيدين لتملأه">⬇ نموذج Excel</button>
+          <label class="btn btn-ghost btn-md" title="ارفع ملف المستفيدين المملوء فيُضافون للطلب">⬆ رفع Excel<input id="nrXlsFile" type="file" accept=".xlsx,.xls,.csv" hidden data-on-change="nrXlsUpload"></label></div></div></div>
       <div class="nr-bi-row nr-wide">
       <div class="nr-bi-col">
       ${isCenterStaff() ? nrCenterUnitHtml(d) : `<div class="nr-f"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
@@ -14510,6 +14598,7 @@ function renderNewRequest(app){
       </div>
 
       <div class="nr-sec nr-wide">المستفيدون</div>
+      ${state.nrXls ? nrXlsPreviewHtml() : ''}
       <div id="beneficiaryList" class="nr-wide">
         ${d.beneficiaries.map((b,i)=>{
           const mst = (b.name||'').trim() ? state.beneficiaries.find(x=>x.name===(b.name||'').trim() && x.companyId===state.currentCompanyId && x.id) : null;
@@ -14523,7 +14612,7 @@ function renderNewRequest(app){
           const chip = (type, word, val, note) => `<button type="button" class="btn btn-sm nr-abtn nr-chip nr-chip-${type}" title="${escH((note ? note+' — ' : '')+'اضغط للتعديل')}" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}"><span class="nr-cw">${type==='deduction' ? '−' : '+'} ${word}</span><b>${fmtKWDHtml(val)}</b></button>`;
           const link = (type, txt) => `<button type="button" class="btn btn-ghost btn-sm nr-abtn" data-on-click="nrAdjOpen" data-on-click-args="${qa([(i), type])}">+ ${txt}</button>`;
           return `
-          <div class="beneficiary-block nr-ben" ${dndAttrs('ben', i)}>
+          <div class="beneficiary-block nr-ben${b._xls && nrBenIssues(b, d).length ? ' nr-ben-warn' : ''}" ${dndAttrs('ben', i)}>
             <div class="beneficiary-block-header"><span class="bbh-t">${d.beneficiaries.length>1 ? dndGrip() : ''}مستفيد رقم ${i+1}</span>${nrBenNoteHtml(d, i, b)}${d.beneficiaries.length>1 ? `<span class="remove-b" data-on-click="removeBeneficiaryRow" data-on-click-args="${qa([(i)])}">إزالة ✕</span>` : ''}</div>
             <div class="nr-grid">
               <div class="nr-f"><label>الاسم</label>

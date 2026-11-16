@@ -1893,6 +1893,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   body.kb-open .global-floating-bar,body.kb-open .sticky-submit-bar,body.kb-open .mtab,body.kb-open .budget-fab,body.kb-open #n8n-chat,body.kb-open .chat-window-toggle{display:none !important;}
   body.kb-open{padding-bottom:calc(var(--kb-h,0px) + 24px) !important;}
   /* أنواع طلب الصرف */
+  #app .nr-xls-row{align-items:flex-start;} #app .nr-xls-row textarea{flex:1 1 auto !important;max-width:none !important;min-width:0;width:auto !important;}
+  .nr-xls{display:flex;flex-direction:column;gap:8px;flex:0 0 auto;} .nr-xls .btn{width:var(--btn-w,150px);}
+  .nr-xls-bad{background:#fff6e8;border:1px solid #f3d7a6;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:var(--fs-label);display:flex;flex-direction:column;gap:3px;}
+  .beneficiary-block.nr-ben-warn{border-color:#f0b54a;background:#fffaf0;}
+  @media (max-width:699px){ #app .nr-xls-row{flex-wrap:wrap;} .nr-xls{flex-direction:row;flex:1 1 100%;} .nr-xls .btn{flex:1 1 0;width:auto;} }
   .nr-types .nr-type{position:relative;} .nr-type-i{font-size:28px;line-height:1;margin-bottom:6px;display:block;}
   .nr-typebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:#faf9f6;}
   .nr-typebar .file-hint{flex:1 1 260px;margin:0;} .nr-type-tag{font-weight:800;}
@@ -2850,6 +2855,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=0bca13f140"></script>
+<script src="app.js?v=656125fa0d"></script>
 </body>
 </html>
