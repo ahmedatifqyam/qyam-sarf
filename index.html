@@ -491,6 +491,7 @@
   .mini-add:hover{background:var(--blue-bg);}
   .mini-add.mini-edit{font-size:var(--fs-h3);}
   /* رأس الصفحات: العنوان في الشريط العلوي، واسم الشركة أبرز، وشريط التنقل ثابت، و«رجوع» يسارًا */
+  .tb-tip{flex:0 0 auto;background:none;border:0;color:#E8C766;opacity:.75;font-size:var(--fs-h3);cursor:help;padding:0 4px;line-height:1;} .tb-tip:hover{opacity:1;} .tb-tip[hidden]{display:none;}
   .tb-page{color:#E8C766;font-weight:700;font-size:var(--fs-h2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;}
   .tb-page:empty{display:none;}
   .combo-panel{position:fixed;z-index:400;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.18);overflow-y:auto;padding:4px;}
@@ -1832,7 +1833,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-chips{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 12px;}
   .pj-chip{height:34px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:var(--fs-label);font-weight:700;color:var(--muted);cursor:pointer;}
   .pj-chip.on{background:var(--ink);border-color:var(--ink);color:#fff;}
-  .pj-csel{width:auto !important;min-width:180px;}
+  .pj-csel{width:180px !important;min-width:0;}
   .pj-list{display:flex;flex-direction:column;gap:12px;}
   .pj-card{padding:14px 16px;cursor:pointer;border:1px solid var(--line);margin:0;transition:box-shadow .12s,border-color .12s;}
   .pj-card:hover{border-color:var(--ink);box-shadow:0 6px 18px rgba(20,20,20,.08);}
@@ -2141,6 +2142,19 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 
   /* ===== نماذج متوازنة موحّدة (uf) وصناديق الاختيار (chk-card) ===== */
+  /* نموذج تعديل الشركة: أقسام متشابهة وشبكة ثلاثة أعمدة متساوية */
+  .exec-cards.exec-cards-yr{grid-template-columns:repeat(4,minmax(0,1fr));} .exec-yr{display:flex;flex-direction:column;justify-content:center;gap:6px;} #app .exec-yr select{width:100%;max-width:none;height:40px;} .exec-yr label{margin:0;}
+  @media (max-width:699px){ .exec-cards.exec-cards-yr{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .nr-route-notes{display:flex;gap:12px 18px;align-items:flex-start;flex-wrap:wrap;} .nr-route-notes > .nr-f{flex:0 0 auto;min-width:0;margin:0;} .nr-route-notes > .nr-notes-f{flex:1 1 320px;}
+  #app .nr-route-notes .nr-notes-f textarea{width:100% !important;max-width:none !important;min-height:40px;}
+  .co-sec{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:12px;}
+  .co-sec h3{margin:0 0 10px;font-size:var(--fs-h3);}
+  .co-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 18px;align-items:start;}
+  #app .co-g label{margin:0 0 6px;} #app .co-g input:not([type=checkbox]):not([type=color]),#app .co-g select{width:100%;max-width:none;height:40px;}
+  .co-f{min-width:0;} #app .co-g .sel-add,#app .co-g .field-with-btn{width:100% !important;max-width:none !important;} .co-f .file-hint{margin-top:4px;} .co-full{grid-column:1/-1;}
+  .co-two{display:flex;gap:8px;align-items:center;} .co-two > *{flex:1 1 0;min-width:0;} .co-sub{margin-top:8px;}
+  #app .co-brand input[type=color]{flex:0 0 56px;width:56px;height:40px;padding:2px;} .co-brand .file-pick{flex:1 1 auto;} #app .co-brand .file-pick > label.file-btn{width:100%;}
+  @media (max-width:699px){ .co-g{grid-template-columns:minmax(0,1fr);} }
   .uf-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px 18px;margin-top:12px;align-items:end;}
   .uf-2{grid-template-columns:minmax(0,1fr) auto;} .uf-2b{grid-template-columns:repeat(2,minmax(0,1fr));}
   .uf-3{grid-template-columns:repeat(3,minmax(0,1fr));}
@@ -2217,7 +2231,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .cx-drop-note{margin:10px 0 0;}
   #app table td.cx-name{white-space:nowrap;}
   #app table th.cx-cb input,#app table td.cx-cb input{width:18px;height:18px;margin:0;}
-  .cx-ph-tools .qy-search{width:300px !important;max-width:100% !important;}
+  .cx-ph-tools .qy-search{width:280px !important;max-width:100% !important;}
+  /* (16 نوفمبر) فوق كل الجداول: البحث 280 والفلتر 180 */
+  @media (min-width:700px){ #app input.qy-search{width:280px !important;max-width:100% !important;flex:0 0 280px;}
+    #app :is(.row,.uf-flex,.filt-bar):has(input.qy-search) > * :is(select), #app :is(.row,.uf-flex,.filt-bar):has(input.qy-search) > select,
+    #app .pj-csel,#app .cx-ph-tools select,#app .qyl-bar select,#app .seclog-filt select,#app .gl-tools select,#app .led-tools select{width:180px !important;min-width:0 !important;max-width:180px !important;flex:0 0 180px;}
+    #app :is(.row,.uf-flex):has(input.qy-search) > *:has(> select){flex:0 0 180px !important;max-width:180px !important;} #app :is(.row,.uf-flex):has(input.qy-search) > *:has(> input.qy-search){flex:0 0 280px !important;max-width:280px !important;} }
   #qylPrintSheet{display:none;}
   @media print{
     body.printing-qyl > *:not(#qylPrintSheet){display:none !important;}
@@ -2632,7 +2651,14 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .brand-btns{display:flex;flex-direction:column;gap:8px;}
   .brand-btns .btn{width:150px !important;}
   .file-btn{cursor:pointer;}
-  @media (max-width:699px){ #app .lf > label.file-btn{width:100% !important;} }
+  /* زر الملف الموحّد: 150×40 ونصه في الوسط، واسم الملف بجانبه */
+  label.btn{display:inline-flex;align-items:center;justify-content:center;margin:0;}
+  .file-pick{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%;}
+  #app .file-pick > label.file-btn{width:var(--btn-w,150px);height:40px;min-height:40px;margin:0;}
+  .file-pick-name{display:inline-flex;align-items:center;gap:6px;max-width:260px;font-size:var(--fs-label);color:var(--text);background:#eef5fc;border:1px solid #cfe0f1;border-radius:8px;padding:4px 8px;}
+  .file-pick-name > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+  .file-pick-x{background:none;border:0;color:var(--red);cursor:pointer;font-size:var(--fs-label);padding:0 2px;line-height:1;}
+  @media (max-width:699px){ #app .lf > .file-pick, #app .lf > label.file-btn{width:100% !important;} }
   @media (max-width:699px){
     .perm-grid{grid-template-columns:1fr;gap:6px;}
     .perm-row{grid-template-columns:104px minmax(0,1fr);}
@@ -2891,6 +2917,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=fc1192cfc6"></script>
+<script src="app.js?v=33bc8913cc"></script>
 </body>
 </html>

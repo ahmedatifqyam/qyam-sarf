@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.17.1', APP_VERSION_DATE = '2026-11-16';
+const APP_VERSION = '1.18.0', APP_VERSION_DATE = '2026-11-16';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.3, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:3.8, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -978,7 +978,7 @@ function fitNavBleed(){
 window.addEventListener('resize', ()=>{ clearTimeout(window._nbT); window._nbT=setTimeout(()=>{ try{ fitNavBleed(); }catch(e){} }, 160); });
 const PAGE_INTRO = {
   'المنشأة':'الشركات والوحدات والهيكل التنظيمي للمؤسسة.',
-  'المستخدمون والصلاحيات':'حسابات المستخدمين وأدوارهم وما يظهر لكل منهم.',
+  'المستخدمون والصلاحيات':'حسابات المستخدمين وأدوارهم ومستوياتهم. ما يظهر لكل دور من الصفحات في «صلاحيات الصفحات».',
   'المالية':'بنود الميزانية: إنشاؤها وتعديلها وترتيبها. التقارير في «المتابعة والتقارير».',
   'الهوية والمستندات':'هوية النظام والشركات وترويسة المستندات المطبوعة.',
   'القيود الدورية والإشعارات':'من يُنشئ القوالب الدورية ومن يصله إشعارها.'
@@ -1000,16 +1000,18 @@ function syncPageTitleInner(){
   const kids = [...app.children];
   let intro = kids.find(e=>e.tagName==='P' && e.classList.contains('sub'));
   const nav = app.querySelector(':scope > .adm-nav2') || app.querySelector(':scope > .adm-subs-solo');
-  if(!intro && PAGE_INTRO[title]){ intro = document.createElement('p'); intro.className='sub'; intro.textContent = PAGE_INTRO[title]; }
-  if(!intro) return;
-  intro.classList.add('page-intro');
-  if(nav){ if(nav.nextElementSibling!==intro) nav.after(intro); }
-  else {
-    const first = kids.find(e=>!e.matches('.adm-head,.back-link,.org-tree-print-head,.global-floating-bar,.sticky-submit-bar,.modal-overlay') && e!==intro && e.offsetParent!==null) || null;
-    const bl = kids.find(e=>e.classList.contains('back-link'));
-    if(bl){ if(bl.nextElementSibling!==intro) bl.after(intro); }
-    else if(first && first.previousElementSibling!==intro) first.before(intro);
-  }
+  // (16 نوفمبر) لا سطر شرح أعلى الصفحات: يُحذف، ويبقى نصه في علامة ⓘ بجوار عنوان الصفحة في الشريط العلوي
+  const txt = intro ? intro.textContent.replace(/\s+/g,' ').trim() : (PAGE_INTRO[title] || '');
+  if(intro) intro.remove();
+  setPageTip(txt);
+}
+function setPageTip(txt){
+  const tb = document.getElementById('tbPage'); if(!tb) return;
+  let b = document.getElementById('tbTip');
+  if(!b){ b = document.createElement('button'); b.type = 'button'; b.id = 'tbTip'; b.className = 'tb-tip'; b.textContent = 'ⓘ';
+    b.addEventListener('click', ()=>{ if(b.dataset.tip) showToast(b.dataset.tip, 'info'); }); tb.after(b); }
+  if(txt && txt.length > 2 && txt!==' '){ b.hidden = false; b.dataset.tip = txt; b.title = txt; b.setAttribute('aria-label', 'عن هذه الصفحة: ' + txt); }
+  else { b.hidden = true; b.dataset.tip = ''; b.removeAttribute('title'); }
 }
 // وسيط آمن لنصٍّ يدخل داخل onclick: سلسلة JSON مهرَّبة لـ HTML
 function jsq(v){ return escH(JSON.stringify(String(v==null?'':v))); }
@@ -1578,12 +1580,9 @@ function execBodyHtml(){
       <div class="exec-card"><span class="num" style="font-size:var(--fs-h3);">${d.limitCount} تجاوزت الحد<br>${d.rejectedCount} مرفوضة</span><span class="lbl">تحتاج انتباهاً</span></div>
     </div>
 
-    <div class="filt-bar filt-narrow no-print" style="margin:6px 0 10px;">
-      <div><label>السنة</label>
-        <select data-on-change="setExecYear" data-on-change-args="${qa([QA.v])}">${execYears().map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}</select>
-      </div>
-    </div>
-    <div class="exec-cards">
+    <div class="exec-cards exec-cards-yr">
+      <div class="exec-card exec-yr no-print"><label for="execYearSel" class="lbl">السنة</label>
+        <select id="execYearSel" data-on-change="setExecYear" data-on-change-args="${qa([QA.v])}">${execYears().map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}</select></div>
       <div class="exec-card"><span class="num" style="color:var(--blue);">${fmtKWDHtml(d.spent)} د.ك</span><span class="lbl">إجمالي مصروفات ${year}</span></div>
       <div class="exec-card"><span class="num" style="color:var(--green);">${d.approved}</span><span class="lbl">الطلبات المعتمدة (المصروفة)</span></div>
       <div class="exec-card"><span class="num">${fmtKWDHtml(d.avg)} د.ك</span><span class="lbl">متوسط قيمة الطلب</span></div>
@@ -3114,22 +3113,20 @@ function viewNote(){
 }
 function fillSecNote(){
   const host = document.getElementById('secTabs'), app = document.getElementById('app');
-  if(!host || !app || host.children.length) return;           // فيه أجزاء الصفحة أو ملاحظتها
+  if(!host || !app) return;
+  if(host.children.length){ host.classList.remove('sec-hide'); return; }   // فيه أجزاء الصفحة
   // سطر التعريف هو أول ما بعد الصفّين (يُتخطّى العنوان المنقول للشريط العلوي وزر الرجوع)، لا أي ملاحظة في وسط الصفحة
   const nv = host.closest('.adm-nav2');
   let e = nv ? nv.nextElementSibling : null;
   while(e && (e.tagName==='H1' || e.classList.contains('adm-head') || e.classList.contains('back-link') || e.classList.contains('print-header') || e.classList.contains('page-seg') || (e.tagName!=='P' && getComputedStyle(e).display==='none'))) e = e.nextElementSibling;
   const p = (e && e.tagName==='P' && e.classList.contains('sub')) ? e : null;
-  const note = document.createElement('div'); note.className = 'sec-note';
-  if(p){ while(p.firstChild) note.appendChild(p.firstChild); p.remove(); note.dataset.moved = '1'; }
-  else {
-    const vn = viewNote();
-    // صفحة الطلب الجديد: بلا سطر تعريف، فيرتفع النموذج
-    if(!vn && state.view==='newRequest'){ host.classList.add('sec-hide'); return; }
-    note.innerHTML = vn || '&nbsp;';
-  }
-  host.classList.remove('sec-hide');
-  host.appendChild(note);
+  // (16 نوفمبر) الصف الفاتح لا يحمل سطر شرح: يُخفى، والنص في ⓘ بجوار عنوان الصفحة
+  let txt = '';
+  if(p){ txt = p.textContent; p.remove(); }
+  else { const d = document.createElement('div'); d.innerHTML = viewNote() || ''; txt = d.textContent; }
+  host.classList.add('sec-hide');
+  txt = String(txt||'').replace(/\s+/g,' ').trim();
+  if(txt) setPageTip(txt);
 }
 function setAccountSec(i){
   state.accountSec = i;
@@ -7703,13 +7700,55 @@ document.addEventListener('input', e=>{ const t = e.target; if(!t) return; if(t.
 document.addEventListener('keydown', e=>{ if(e.key==='Enter' && e.target && e.target.matches && e.target.matches('textarea.grow-ta')) e.preventDefault(); });
 // زر رفع ملف بشكل أزرار النظام بدل الشكل الافتراضي للمتصفح («Choose File»)
 function fileButtons(){
+  // زر موحّد «📎 إرفاق ملف» (150×40)؛ بعد الاختيار يظهر اسم الملف بجانبه مع ✕ لإلغائه
   document.querySelectorAll('#app input[type=file]').forEach(inp=>{
     if(inp.closest('label') || inp.dataset.fb) return;   // ملف داخل زر جاهز (مثل «إضافة صورة»): لا يُلفّ بزر ثانٍ
     inp.dataset.fb = '1';
-    const lb = document.createElement('label'); lb.className = 'btn btn-ghost btn-sm file-btn';
-    const tx = document.createElement('span'); tx.textContent = inp.multiple ? 'اختيار ملفات' : 'اختيار ملف';
-    lb.appendChild(tx); inp.before(lb); lb.appendChild(inp); inp.hidden = true;
-    inp.addEventListener('change', ()=>{ const f = inp.files || []; if(f.length) tx.textContent = f.length>1 ? f.length+' ملفات' : (f[0].name.length>22 ? f[0].name.slice(0,20)+'…' : f[0].name); });
+    const wrap = document.createElement('span'); wrap.className = 'file-pick';
+    const lb = document.createElement('label'); lb.className = 'btn btn-ghost btn-md file-btn'; lb.title = inp.multiple ? 'اختر ملفاً أو أكثر' : 'اختر ملفاً من جهازك';
+    lb.textContent = inp.multiple ? '📎 إرفاق ملفات' : '📎 إرفاق ملف';
+    const nm = document.createElement('span'); nm.className = 'file-pick-name'; nm.hidden = true;
+    inp.before(wrap); wrap.appendChild(lb); lb.appendChild(inp); wrap.appendChild(nm); inp.hidden = true;
+    const show = ()=>{ const f = inp.files || [];
+      if(!f.length){ nm.hidden = true; nm.innerHTML = ''; return; }
+      nm.hidden = false; nm.innerHTML = '';
+      const t = document.createElement('span'); t.textContent = f.length>1 ? f.length+' ملفات' : f[0].name; t.title = [...f].map(x=>x.name).join('، ');
+      const x = document.createElement('button'); x.type = 'button'; x.className = 'file-pick-x'; x.textContent = '✕'; x.title = 'إلغاء اختيار الملف';
+      x.addEventListener('click', e=>{ e.preventDefault(); inp.value = ''; show(); });
+      nm.append(t, x); };
+    inp.addEventListener('change', show);
+  });
+}
+// (16 نوفمبر) شبكة النماذج على الحاسوب: داخل البطاقة الواحدة كل الحقول بعرض واحد (أعرضها، مقرّباً لمقاس معتمد)،
+// والصف الذي فيه حقل واحد يصعد إلى الصف السابق إن كان فيه مكان — فلا حقل وحده في صف ولا أعراض متفاوتة
+const FORM_W = [180, 280, 380, 580];
+function alignRows(){
+  const app = document.getElementById('app'); if(!app || isPhone()) return;
+  const isField = c => c.querySelector('input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=color]),select') && !c.querySelector('textarea,table,.row') && !c.matches('[data-nogrid]');
+  const boxes = new Set();
+  app.querySelectorAll('.row').forEach(r=>{ if(r.closest('table,.modal-overlay,.sig-ed,.perm-row,.list-item,.tcards,.filt-bar,[data-nogrid]')) return; boxes.add(r.parentElement); });
+  boxes.forEach(box=>{
+    const rows = [...box.children].filter(r=>r.classList.contains('row'));
+    if(!rows.length) return;
+    const fields = rows.flatMap(r=>[...r.children].filter(isField));
+    if(fields.length < 2) return;
+    // العرض المشترك: أعرض حقل في المجموعة (بلا حقول الأرقام الصغيرة جداً التي صُمّمت 80)
+    let mx = 0; fields.forEach(c=>{ c.style.flexBasis = ''; c.style.maxWidth = ''; const fw = parseFloat(getComputedStyle(c).getPropertyValue('--fw')) || c.getBoundingClientRect().width; if(fw > 100) mx = Math.max(mx, fw); });
+    if(!mx) return;
+    const W = FORM_W.find(x=>x >= mx - 2) || 580;
+    fields.forEach(c=>{ c.style.flex = '0 1 ' + W + 'px'; c.style.maxWidth = W + 'px'; c.style.width = W + 'px'; });
+    // صعود الحقل المنفرد إلى الصف السابق المجاور
+    for(let i = rows.length - 1; i > 0; i--){
+      const r = rows[i], prev = r.previousElementSibling;
+      if(prev !== rows[i-1]) continue;
+      const kids = [...r.children].filter(c=>getComputedStyle(c).display!=='none');
+      if(!kids.length || !kids.every(isField)) continue;
+      const pk = [...prev.children].filter(c=>getComputedStyle(c).display!=='none');
+      if(!pk.length || !pk.every(isField)) continue;
+      const gap = parseFloat(getComputedStyle(prev).columnGap) || 20;
+      const room = prev.clientWidth - pk.length * (W + gap);
+      if(room >= kids.length * (W + gap) - gap){ kids.forEach(k=>prev.appendChild(k)); r.remove(); }
+    }
   });
 }
 // أجزاء تُرسم دون إعادة رسم الصفحة كلها (تبويب فرعي، نافذة داخل الصفحة): تأخذ نفس الترتيب تلقائياً
@@ -10023,7 +10062,6 @@ function renderAdmin(app){
     centers: `    <div class="card uf-card" style="margin-top:20px;">
       <h2>إضافة وحدة تنظيمية جديدة (للشركة الحالية)</h2>
       ${unitBasicFieldsHtml('newCenter', null)}
-      <div class="uf-grid"><div><label>صورة ترويسة الوحدة (اختياري)</label><input id="newCenterLetterhead" type="file" accept="image/*"></div></div>
       <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" data-on-click="addCenter">إضافة الوحدة</button>
       </div>
@@ -10108,15 +10146,13 @@ function renderAdmin(app){
     impersonate: `    <div class="card" style="margin-top:28px;">
       <h2>تصفّح كمستخدم آخر (للمراجعة)</h2>
       <p class="file-hint">يسمح لك بمعاينة النظام تماماً كما يراه أي مستخدم، دون الحاجة لكلمة مروره. تقدر ترجع لحسابك في أي وقت.</p>
-      <div class="row">
-        <div><label>اختر المستخدم</label>
+      <div class="row" style="align-items:flex-end;">
+        <div style="--fw:380px;"><label for="impersonateSelect">اختر المستخدم</label>
           <select id="impersonateSelect">
             ${impersonateOptionsHtml(true)}
           </select>
         </div>
-      </div>
-      <div class="actions-row">
-        <button class="btn btn-ghost btn-md2" data-on-click="#80"><span class="bl1">تصفّح كهذا</span><span class="bl2">المستخدم</span></button>
+        <div style="--fw:150px;"><button class="btn btn-primary btn-md" data-on-click="#80" title="تصفّح النظام كما يراه هذا المستخدم">تصفّح كهذا</button></div>
       </div>
     </div>
 `
@@ -11691,181 +11727,73 @@ function toggleCfoDelegationConfirm(){
 function renderCompanyEditForm(){
   const c = state.companies.find(x=>x.id===state.editingCompanyId);
   if(!c) return '';
+  // (16 نوفمبر) أقسام متشابهة، وفي كل قسم شبكة ثلاثة أعمدة متساوية: العنوان فوق الحقل والشرح تحته، ولا حقل وحده في صف
+  const F = (label, ctl, hint, id) => `<div class="co-f"><label${id ? ` for="${id}"` : ''}>${label}</label>${ctl}${hint ? `<div class="file-hint">${hint}</div>` : ''}</div>`;
+  const num = (id, v, min, max, step, ph) => `<input id="${id}" type="number" min="${min}"${max!=null ? ` max="${max}"` : ''} step="${step||1}" dir="ltr" value="${v==null ? '' : escH(String(v))}"${ph ? ` placeholder="${ph}"` : ''}>`;
+  const opt = (arr, cur) => arr.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('');
+  const hr = hrApproverFor(c.id);
+  const users = companyUsers(c.id).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const cus = [];
+  if(c.hasCustodyCols){
+    if(c.hasCustodyPath) cus.push(F('مسار اعتماد طلب العهدة', `<select id="editCoCusPath">${opt([['exec','المدير التنفيذي ثم المالية (الافتراضي)'],['direct','المدير المباشر ثم المالية'],['full','المسار كاملاً كالطلب العادي']], c.custodyPathMode)}</select>`, 'يُبنى من صاحب العهدة لا من منشئ الطلب.', 'editCoCusPath'));
+    cus.push(F('أقصى عدد عهد مفتوحة للشخص', num('editCoCusMax', c.custodyMaxOpen||1, 1, 20), 'من 1 إلى 20.', 'editCoCusMax'));
+    if(c.hasCustodyLimits){
+      cus.push(F('أقصى مبلغ للعهدة الواحدة (د.ك)', num('editCoCusAmt', c.custodyMaxAmount, 0, null, '0.001', 'بلا حد'), 'فارغ = بلا حد.', 'editCoCusAmt'));
+      cus.push(F('أقصى مجموع لعهد الشخص المفتوحة (د.ك)', num('editCoCusTot', c.custodyMaxTotal, 0, null, '0.001', 'بلا حد'), 'فارغ = بلا حد، ومعها العهدة الجديدة.', 'editCoCusTot'));
+    }
+    cus.push(F('مدة العهدة الافتراضية (أيام)', num('editCoCusDays', c.custodyDefaultDays||30, 1, 365), 'موعد الإقفال المقترح، ويتغير لكل عهدة.', 'editCoCusDays'));
+    cus.push(F('مهلة تأكيد الاستلام (أيام)', num('editCoCusRcpt', c.custodyReceiptDays||3, 1, 60), 'بعدها يُنبَّه صاحب العهدة والمحاسب.', 'editCoCusRcpt'));
+    if(c.hasCustodyLines){
+      cus.push(F('صورة سند المصروف إلزامية من مبلغ (د.ك)', num('editCoCusImg', c.custodyImgMin||0, 0, null, '0.001'), '0 = إلزامية لكل مصروف.', 'editCoCusImg'));
+      cus.push(F('مراجعة المحاسب للعهدة', `<select id="editCoCusReview">${opt([['line','كل سطر وحده (قبول أو رفض بملاحظة)'],['whole','العهدة كلها مرة واحدة']], c.custodyReviewMode==='whole'?'whole':'line')}</select>`, '', 'editCoCusReview'));
+    }
+    if(c.hasCustodyOver){
+      cus.push(F('حدّ الصرف فوق العهدة', `<div class="co-two"><select id="editCoCusOverMode">${opt([['none','بلا حد (تحذير فقط)'],['percent','نسبة (%)'],['amount','مبلغ ثابت (د.ك)']], c.custodyOverMode)}</select>${num('editCoCusOverVal', c.custodyOverValue||0, 0, null, '0.001')}</div>`, 'ما زاد لا يُسجَّل على العهدة ويلزمه طلب صرف.', 'editCoCusOverMode'));
+      cus.push(F('من يصله تنبيه الصرف الزائد (مع المحاسب)', `<select id="editCoCusAlert"><option value="">لا أحد</option>${users.map(u=>`<option value="${escH(u.id)}" ${c.custodyAlertUserId===u.id?'selected':''}>${escH(u.name)}</option>`).join('')}</select>`, 'مثلاً سكرتير الشركة.', 'editCoCusAlert'));
+    }
+    if(c.hasCustodyNodoc){
+      cus.push(F('الصرف بلا سند (إكراميات، هدايا، مواصلات)', `<select id="editCoNodocOn" data-on-change="coNodocToggle"><option value="0" ${!c.custodyNodocOn?'selected':''}>غير مسموح — السند إلزامي</option><option value="1" ${c.custodyNodocOn?'selected':''}>مسموح بسقف</option></select>
+        <div id="editCoNodocBox" class="co-two co-sub" ${c.custodyNodocOn ? '' : 'hidden'}><select id="editCoNodocMode"><option value="amount" ${c.custodyNodocMode!=='percent'?'selected':''}>سقف بمبلغ (د.ك)</option><option value="percent" ${c.custodyNodocMode==='percent'?'selected':''}>سقف بنسبة (%)</option></select><input id="editCoNodocVal" type="number" min="0" step="0.001" dir="ltr" value="${c.custodyNodocValue==null?'':c.custodyNodocValue}" placeholder="بلا سقف"></div>`, 'يكتب صاحب العهدة السبب، ويظهر السطر بعلامة «بلا سند».', 'editCoNodocOn'));
+      cus.push(F('توقيع الإدارة لإقفال العهدة', `<select id="editCoSignOn" data-on-change="coNodocToggle"><option value="1" ${c.custodySignOn?'selected':''}>مفعّل — تُقفل بعد التوقيع</option><option value="0" ${!c.custodySignOn?'selected':''}>غير مفعّل — تُقفل بعد اعتماد المحاسب</option></select>
+        <select id="editCoSigners" class="co-sub" ${c.custodySignOn ? '' : 'hidden'}>${opt([['any','يوقّع: المدير المالي أو محاسب آخر'],['cfo','يوقّع: المدير المالي وحده'],['acct','يوقّع: محاسب آخر وحده']], c.custodySigners)}</select>
+        <div id="editCoSignMsg" class="file-hint">${c.custodySignOn ? 'تُقفل بعد توقيع ' + ({any:'المدير المالي أو محاسب آخر',cfo:'المدير المالي',acct:'محاسب آخر'}[c.custodySigners]||'') + '.' : 'تُقفل مباشرة بعد اعتماد المحاسب.'}</div>`, '', 'editCoSignOn'));
+    }
+  }
+  const late = c.hasLate ? [
+    F('التذكيرات', `<select id="editCoLateOn"><option value="1" ${c.lateOn?'selected':''}>تعمل</option><option value="0" ${!c.lateOn?'selected':''}>متوقفة</option></select>`, '', 'editCoLateOn'),
+    F('ساعات الهدوء (لا تذكير)', `<div class="co-two"><input id="editCoLateFrom" type="number" min="0" max="23" dir="ltr" value="${c.lateFrom}" aria-label="من الساعة" title="من الساعة"><input id="editCoLateTo" type="number" min="1" max="24" dir="ltr" value="${c.lateTo}" aria-label="إلى الساعة" title="إلى الساعة"></div>`, 'من الساعة … إلى الساعة', 'editCoLateFrom'),
+    F('أيام العطلة (لا تذكير فيها)', `<select id="editCoLateWe">${opt([['fri_sat','الجمعة والسبت'],['fri','الجمعة فقط'],['none','بدون عطلة']], c.lateWeekend)}</select>`, '', 'editCoLateWe'),
+    F('تكرار التذكير كل (ساعات)', num('editCoLateRep', c.lateRepeat, 1, 24), '', 'editCoLateRep'),
+    F('نسخة للمالي ومنشئ الطلب بعد (أيام)', num('editCoLateCopy', c.lateCopyDays, 0, 60), '', 'editCoLateCopy'),
+    F('الحد الأقصى لأيام التذكير', num('editCoLateMax', c.lateMax, 1, 60), 'بعده يتوقف التذكير. الافتراضي 10.', 'editCoLateMax')] : [];
   return `
-    <div class="card" style="border-color:var(--blue);">
+    <div class="card co-edit" style="border-color:var(--blue);">
       <h2>تعديل شركة</h2>
-      <div class="row">
-        <div><label>الاسم بالعربي</label><input id="editCoNameAr" type="text" value="${escH(c.nameAr)}"></div>
-        <div><label>الاسم بالإنجليزي</label><input id="editCoNameEn" type="text" value="${escH(c.nameEn||'')}"></div>
-        <div><label>الرقم الضريبي / السجل التجاري</label><input id="editCoTax" type="text" value="${escH(c.taxNumber||'')}"></div>
-      </div>
-      <div class="row">
-        <div><label>رمز الشركة</label><input id="editCoCode" type="text" value="${escH(c.code)}"></div>
-        <div><label>رمز الإدارة</label><input id="editCoHqCode" type="text" value="${escH(c.hqCode)}"></div>
-        <div style="--fw:180px;"><label>اللون الرئيسي</label><input id="editCoColor" type="color" value="${c.primaryColor||'#C0392B'}" dir="ltr" style="height:40px;padding:2px;direction:ltr;max-width:180px;"></div>
-      </div>
-      <div class="row">
-        <div>
-          <label>رمز العملة</label>
-          <input id="editCoCurrency" type="text" value="${escH(c.currency_symbol||'د.ك')}" placeholder="مثال: د.ك أو $ أو ر.س" maxlength="10">
-          <div class="file-hint" style="margin-top:3px;">يظهر في التقارير المالية بدلاً من «د.ك»</div>
-        </div>
-        <div>
-          <label>⏳ نافذة المراجعة (دقائق)</label>
-          <input id="editCoReviewWindow" type="number" min="0" max="120" step="1" dir="ltr"
-                 value="${c.reviewWindowMinutes==null ? 10 : c.reviewWindowMinutes}" style="direction:ltr;text-align:center;">
-          <div class="file-hint" style="margin-top:3px;">
-            بعد الإرسال يبقى الطلب بلا رقم هذه المدة، لا يراه المعتمدون، ويستطيع صاحبه تعديله أو حذفه. القيمة 0 تُعطّلها فيُرقَّم فوراً.
-          </div>
-        </div>
-        <div>
-          <label>📝 نافذة «مراجعة قبل الإرسال»</label>
-          <select id="editCoReviewMode">
-            <option value="optional" ${(c.reviewMode||'optional')==='optional'?'selected':''}>اختيارية لكل مستخدم (يستطيع إيقافها لنفسه)</option>
-            <option value="required" ${c.reviewMode==='required'?'selected':''}>إلزامية للجميع</option>
-            <option value="off" ${c.reviewMode==='off'?'selected':''}>معطّلة (إرسال مباشر للجميع)</option>
-          </select>
-          <div class="file-hint" style="margin-top:3px;">ملخص المبلغ بالحروف وعدد المستفيدين والبند وصندوق الملاحظات قبل إرسال الطلب.</div>
-        </div>
-      </div>
-      <div class="card" style="background:var(--paper);margin-top:10px;">
-        <label>👥 الرواتب</label>
-        <div class="row"><div><label for="editCoHrAppr">معتمد الموارد البشرية لهذه الشركة</label>
-          <select id="editCoHrAppr" style="--fw:380px;">${hrApproverOptions(c.hrApproverId||'', '— حسب المؤسسة —')}</select>
-          <p class="file-hint" style="margin:4px 0 0;">${(()=>{ const h = hrApproverFor(c.id); return h ? 'المعتمد الآن: <b>' + escH(h.u.name) + '</b> (من ' + h.src + ')' : 'لا معتمد موارد بشرية بعد — يمضي طلب الراتب على المسار العادي'; })()}. يأتي بعد المدراء وقبل المحاسب.</p></div></div>
-      </div>
-      ${c.hasCustodyCols ? `<div class="card" style="background:var(--paper);margin-top:10px;">
-        <label>💼 العهد</label>
-        ${c.hasCustodyPath ? `<div class="row"><div>
-            <label>مسار اعتماد طلب العهدة</label>
-            <select id="editCoCusPath" style="--fw:380px;">
-              ${[['exec','المدير التنفيذي ثم المالية (الافتراضي)'],['direct','المدير المباشر ثم المالية'],['full','المسار كاملاً كالطلب العادي']].map(([v,l])=>`<option value="${v}" ${c.custodyPathMode===v?'selected':''}>${l}</option>`).join('')}
-            </select>
-            <div class="file-hint" style="margin-top:3px;">يُبنى من صاحب العهدة لا من منشئ الطلب. لا أحد يعتمد طلباً أنشأه: إن كان هو المعتمِد صعد الاعتماد لمن فوقه، وإن لم يكن فوقه أحد حُسب إنشاؤه اعتماداً له (توقيعه وختمه في الموضع الثاني).</div>
-          </div></div>` : ''}
-        <div class="row">
-          <div>
-            <label>أقصى عدد عهد مفتوحة للشخص</label>
-            <input id="editCoCusMax" type="number" min="1" max="20" step="1" dir="ltr" value="${c.custodyMaxOpen||1}" style="direction:ltr;text-align:center;">
-            <div class="file-hint" style="margin-top:3px;">لا تُفتح للموظف عهدة جديدة إذا بلغت عهده المفتوحة هذا العدد (من 1 إلى 20).</div>
-          </div>
-          ${c.hasCustodyLimits ? `<div>
-            <label>أقصى مبلغ للعهدة الواحدة (د.ك)</label>
-            <input id="editCoCusAmt" type="number" min="0" step="0.001" dir="ltr" value="${c.custodyMaxAmount==null ? '' : c.custodyMaxAmount}" placeholder="بلا حد" style="direction:ltr;text-align:center;">
-            <div class="file-hint" style="margin-top:3px;">فارغ = بلا حد. لا تُطلب عهدة بمبلغ أكبر منه.</div>
-          </div>
-          <div>
-            <label>أقصى مجموع لعهد الشخص المفتوحة (د.ك)</label>
-            <input id="editCoCusTot" type="number" min="0" step="0.001" dir="ltr" value="${c.custodyMaxTotal==null ? '' : c.custodyMaxTotal}" placeholder="بلا حد" style="direction:ltr;text-align:center;">
-            <div class="file-hint" style="margin-top:3px;">فارغ = بلا حد. مجموع ما في عهدة الشخص من عهد غير مقفلة، ومعها العهدة الجديدة.</div>
-          </div>` : ''}
-          <div>
-            <label>مدة العهدة الافتراضية (أيام)</label>
-            <input id="editCoCusDays" type="number" min="1" max="365" step="1" dir="ltr" value="${c.custodyDefaultDays||30}" style="direction:ltr;text-align:center;">
-            <div class="file-hint" style="margin-top:3px;">موعد الإقفال المقترح في نموذج «عهدة جديدة»، ويمكن تغييره لكل عهدة.</div>
-          </div>
-          ${c.hasLate ? `<div style="grid-column:1/-1;font-weight:800;margin-top:6px;">تذكيرات الطلبات المتأخرة (إشعارات الجهاز)</div>
-          <div><label>التذكيرات</label><select id="editCoLateOn"><option value="1" ${c.lateOn?'selected':''}>تعمل</option><option value="0" ${!c.lateOn?'selected':''}>متوقفة</option></select></div>
-          <div><label>لا تصل من الساعة</label><input id="editCoLateFrom" type="number" min="0" max="23" dir="ltr" value="${c.lateFrom}" style="direction:ltr;text-align:center;"></div>
-          <div><label>إلى الساعة</label><input id="editCoLateTo" type="number" min="1" max="24" dir="ltr" value="${c.lateTo}" style="direction:ltr;text-align:center;"></div>
-          <div><label>تكرار التذكير كل (ساعات)</label><input id="editCoLateRep" type="number" min="1" max="24" dir="ltr" value="${c.lateRepeat}" style="direction:ltr;text-align:center;"></div>
-          <div><label>نسخة للمالي ومنشئ الطلب بعد (أيام تأخير)</label><input id="editCoLateCopy" type="number" min="0" max="60" dir="ltr" value="${c.lateCopyDays}" style="direction:ltr;text-align:center;"></div>
-          <div><label>الحد الأقصى لأيام التذكير</label><input id="editCoLateMax" type="number" min="1" max="60" dir="ltr" value="${c.lateMax}" style="direction:ltr;text-align:center;"><div class="file-hint" style="margin-top:3px;">بعده يتوقف التذكير. الافتراضي 10.</div></div>
-          <div><label>أيام العطلة (لا تذكير فيها)</label><select id="editCoLateWe"><option value="fri_sat" ${c.lateWeekend==='fri_sat'?'selected':''}>الجمعة والسبت</option><option value="fri" ${c.lateWeekend==='fri'?'selected':''}>الجمعة فقط</option><option value="none" ${c.lateWeekend==='none'?'selected':''}>بدون عطلة</option></select></div>` : ''}
-          <div>
-            <label>مهلة تأكيد الاستلام (أيام)</label>
-            <input id="editCoCusRcpt" type="number" min="1" max="60" step="1" dir="ltr" value="${c.custodyReceiptDays||3}" style="direction:ltr;text-align:center;">
-            <div class="file-hint" style="margin-top:3px;">بعدها يُنبَّه صاحب العهدة والمحاسب (التنبيه في مرحلة لاحقة).</div>
-          </div>
-          ${c.hasCustodyLines ? `<div>
-            <label>صورة سند المصروف إلزامية من مبلغ (د.ك)</label>
-            <input id="editCoCusImg" type="number" min="0" step="0.001" dir="ltr" value="${c.custodyImgMin||0}" style="direction:ltr;text-align:center;">
-            <div class="file-hint" style="margin-top:3px;">0 = إلزامية لكل مصروف. صورة سند المقبوضات إلزامية دائماً.</div>
-          </div>
-          <div>
-            <label>مراجعة المحاسب للعهدة</label>
-            <select id="editCoCusReview">
-              <option value="line" ${c.custodyReviewMode!=='whole'?'selected':''}>كل سطر وحده (قبول أو رفض بملاحظة)</option>
-              <option value="whole" ${c.custodyReviewMode==='whole'?'selected':''}>العهدة كلها مرة واحدة</option>
-            </select>
-            <div class="file-hint" style="margin-top:3px;">حسب رأي محاسب الشركة.</div>
-          </div>` : ''}
-          ${c.hasCustodyOver ? `<div>
-            <label>حدّ الصرف فوق العهدة</label>
-            <select id="editCoCusOverMode">
-              <option value="none" ${c.custodyOverMode==='none'?'selected':''}>بلا حد (تحذير فقط)</option>
-              <option value="percent" ${c.custodyOverMode==='percent'?'selected':''}>نسبة من مبلغ العهدة (%)</option>
-              <option value="amount" ${c.custodyOverMode==='amount'?'selected':''}>مبلغ ثابت (د.ك)</option>
-            </select>
-            <input id="editCoCusOverVal" type="number" min="0" step="0.001" dir="ltr" value="${c.custodyOverValue||0}" style="direction:ltr;text-align:center;margin-top:6px;">
-            <div class="file-hint" style="margin-top:3px;">ما زاد عليه لا يُسجَّل على العهدة، ويلزم طلب صرف فعلي. يمكن تخصيصه لعهدة واحدة من صفحتها.</div>
-          </div>
-          <div>
-            <label>من يصله تنبيه الصرف الزائد (مع المحاسب)</label>
-            <select id="editCoCusAlert"><option value="">لا أحد</option>${companyUsers(c.id).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')).map(u=>`<option value="${escH(u.id)}" ${c.custodyAlertUserId===u.id?'selected':''}>${escH(u.name)}</option>`).join('')}</select>
-            <div class="file-hint" style="margin-top:3px;">مثلاً سكرتير الشركة؛ يرى العهد المتجاوزة في «عهد الشركة المفتوحة».</div>
-          </div>` : ''}
-          ${c.hasCustodyNodoc ? `<div>
-            <label>الصرف بلا سند (إكراميات، هدايا، مواصلات)</label>
-            <select id="editCoNodocOn" data-on-change="coNodocToggle"><option value="0" ${!c.custodyNodocOn?'selected':''}>غير مسموح — السند إلزامي دائماً</option><option value="1" ${c.custodyNodocOn?'selected':''}>مسموح بسقف</option></select>
-            <div id="editCoNodocBox" ${c.custodyNodocOn ? '' : 'hidden'} style="margin-top:6px;">
-              <select id="editCoNodocMode"><option value="amount" ${c.custodyNodocMode!=='percent'?'selected':''}>سقف بمبلغ ثابت لكل عهدة (د.ك)</option><option value="percent" ${c.custodyNodocMode==='percent'?'selected':''}>سقف بنسبة من مبلغ العهدة (%)</option></select>
-              <input id="editCoNodocVal" type="number" min="0" step="0.001" dir="ltr" value="${c.custodyNodocValue==null?'':c.custodyNodocValue}" placeholder="فارغ = بلا سقف" style="direction:ltr;text-align:center;margin-top:6px;">
-            </div>
-            <div class="file-hint" style="margin-top:3px;">عند السماح يكتب صاحب العهدة سبب عدم وجود السند، ويظهر السطر بعلامة «بلا سند» للمراجِع والمحاسب وفي كشف التسوية.</div>
-          </div>
-          <div>
-            <label>توقيع الإدارة لإقفال العهدة</label>
-            <select id="editCoSignOn" data-on-change="coNodocToggle"><option value="1" ${c.custodySignOn?'selected':''}>مفعّل — تُقفل بعد التوقيع</option><option value="0" ${!c.custodySignOn?'selected':''}>غير مفعّل — تُقفل مباشرة بعد اعتماد المحاسب</option></select>
-            <select id="editCoSigners" style="margin-top:6px;" ${c.custodySignOn ? '' : 'hidden'}><option value="any" ${c.custodySigners==='any'?'selected':''}>يوقّع: المدير المالي أو محاسب آخر</option><option value="cfo" ${c.custodySigners==='cfo'?'selected':''}>يوقّع: المدير المالي وحده</option><option value="acct" ${c.custodySigners==='acct'?'selected':''}>يوقّع: محاسب آخر وحده</option></select>
-            <div id="editCoSignMsg" class="file-hint" style="margin-top:3px;">${c.custodySignOn ? 'ستُقفل العهدة بعد توقيع ' + ({any:'المدير المالي أو محاسب آخر',cfo:'المدير المالي',acct:'محاسب آخر'}[c.custodySigners]||'') + '، بعد اعتماد المحاسب.' : 'ستُقفل العهدة مباشرة بعد اعتماد المحاسب دون الرجوع إلى الإدارة.'}</div>
-          </div>` : ''}
-        </div>
-      </div>` : ''}
-      ${c.logoData ? `<div class="file-hint">✓ يوجد شعار/ترويسة محفوظة</div>` : ''}
-      <label>تحديث الشعار/الترويسة (اختياري)</label>
-      <input id="editCoLogo" type="file" accept="image/*">
-      <div class="card" style="background:var(--paper);margin-top:10px;">
-        <label>⏱ مهلة الاعتماد الافتراضية للمعتمدين (يمكن تخصيصها لكل معتمد)</label>
-        <div class="row">
-          <div style="flex:0 0 100%;max-width:100%;">${deadlineSelectHtml('editCoDeadline', (c.defaultDeadlineDays>0 ? c.defaultDeadlineDays : null), 'بدون مهلة')}</div>
-          <div><select id="editCoEscMode">
-            <option value="manager" ${(c.defaultEscalateMode||'manager')==='manager'?'selected':''}>عند انتهائها يُحال إلى: المدير المباشر للمعتمد</option>
-            <option value="next" ${c.defaultEscalateMode==='next'?'selected':''}>عند انتهائها يُحال إلى: من يعتمد بعده</option>
-          </select></div>
-          <div><select id="editCoDayMode">
-            <option value="work" ${(c.deadlineDayMode||'work')==='work'?'selected':''}>تُحسب بأيام العمل (بدون الجمعة والسبت)</option>
-            <option value="calendar" ${c.deadlineDayMode==='calendar'?'selected':''}>تُحسب بأيام تقويمية عادية</option>
-          </select></div>
-        </div>
-      </div>
-      <div class="card" style="background:var(--paper);margin-top:10px;">
-        <label>اعتماد التحويل البنكي (مرحلة المدير المالي)</label>
-        <select id="editCoCfoMode" data-on-change="toggleCfoDelegationConfirm">
-          <option value="normal" ${c.cfoDelegationMode==='normal'?'selected':''}>المدير المالي يعتمد بنفسه بالنظام (الوضع الطبيعي)</option>
-          <option value="delegate_manager" ${c.cfoDelegationMode==='delegate_manager'?'selected':''}>يُفوَّض مدير المحاسب المباشر</option>
-          <option value="delegate_self" ${c.cfoDelegationMode==='delegate_self'?'selected':''}>يُفوَّض المحاسب نفسه (خطوة ثانية بتوقيعه هو)</option>
-          <option value="delegate_user" ${c.cfoDelegationMode==='delegate_user'?'selected':''}>يُفوَّض شخص محدد (مع تاريخ انتهاء اختياري)</option>
-          <option value="skip" ${c.cfoDelegationMode==='skip'?'selected':''}>تخطّي الخطوة كلياً (المدير المالي لا يستخدم النظام)</option>
-        </select>
-        <div id="cfoDelegateUserBox" style="display:${c.cfoDelegationMode==='delegate_user'?'block':'none'};margin-top:8px;">
-          <div class="row">
-            <div><label>الشخص المفوَّض</label>
-              <select id="editCoCfoUser">
-                <option value="">— اختر —</option>
-                ${companyUsers(c.id).sort((a,b)=>userRank(a)-userRank(b)).map(x=>`<option value="${x.id}" ${x.id===c.cfoDelegateUserId?'selected':''}>${escH(x.name)} — ${escH(findRole(x.role).name)}</option>`).join('')}
-              </select></div>
-            <div style="max-width:200px;"><label>ينتهي التفويض في (اختياري)</label><input id="editCoCfoUntil" type="date" value="${escH(c.cfoDelegateUntil||'')}"></div>
-          </div>
-          <p class="sub" style="margin:4px 0 0;font-size:var(--fs-hint);">المدير المالي يبقى قادراً على الاعتماد أثناء التفويض. بعد تاريخ الانتهاء يعود الاعتماد للمدير المالي وحده تلقائياً. يظهر على المستند «بالتفويض».</p>
-        </div>
-        <div id="cfoDelegationConfirmBox" style="display:${(c.cfoDelegationMode==='delegate_self')?'block':'none'};margin-top:8px;">
-          <label style="display:flex;align-items:flex-start;gap:6px;font-weight:600;">
-            <input type="checkbox" id="editCoCfoConfirm" ${c.cfoDelegationMode==='delegate_self'?'checked':''}>
-            <span>أقرّ أن المدير المالي فوّض المحاسب نفسه باعتماد التحويل، وسيظهر هذا صراحة بالمستند المطبوع</span>
-          </label>
-        </div>
-      </div>
+      <section class="co-sec"><h3>البيانات الأساسية</h3><div class="co-g">
+        ${F('الاسم بالعربي', `<input id="editCoNameAr" type="text" value="${escH(c.nameAr)}">`, '', 'editCoNameAr')}
+        ${F('الاسم بالإنجليزي', `<input id="editCoNameEn" type="text" value="${escH(c.nameEn||'')}" dir="ltr">`, '', 'editCoNameEn')}
+        ${F('الرقم الضريبي / السجل التجاري', `<input id="editCoTax" type="text" value="${escH(c.taxNumber||'')}" dir="ltr">`, '', 'editCoTax')}
+        ${F('رمز الشركة', `<input id="editCoCode" type="text" value="${escH(c.code)}" dir="ltr">`, 'يدخل في رقم الطلب.', 'editCoCode')}
+        ${F('رمز الإدارة', `<input id="editCoHqCode" type="text" value="${escH(c.hqCode)}" dir="ltr">`, '', 'editCoHqCode')}
+        ${F('اللون الرئيسي والشعار', `<div class="co-two co-brand"><input id="editCoColor" type="color" value="${c.primaryColor||'#C0392B'}" aria-label="اللون الرئيسي"><input id="editCoLogo" type="file" accept="image/*"></div>`, c.logoData ? '✓ يوجد شعار/ترويسة محفوظة' : 'الشعار أو الترويسة (اختياري)', 'editCoColor')}
+        ${F('رمز العملة', `<input id="editCoCurrency" type="text" value="${escH(c.currency_symbol||'د.ك')}" placeholder="د.ك أو $ أو ر.س" maxlength="10">`, 'يظهر في التقارير بدلاً من «د.ك».', 'editCoCurrency')}
+        ${F('⏳ نافذة المراجعة (دقائق)', num('editCoReviewWindow', c.reviewWindowMinutes==null ? 10 : c.reviewWindowMinutes, 0, 120), 'يبقى الطلب بلا رقم هذه المدة ويستطيع صاحبه تعديله. 0 = يُرقَّم فوراً.', 'editCoReviewWindow')}
+        ${F('📝 «مراجعة قبل الإرسال»', `<select id="editCoReviewMode">${opt([['optional','اختيارية لكل مستخدم'],['required','إلزامية للجميع'],['off','معطّلة (إرسال مباشر)']], c.reviewMode||'optional')}</select>`, 'ملخص المبلغ والمستفيدين والبند قبل الإرسال.', 'editCoReviewMode')}
+      </div></section>
+      <section class="co-sec"><h3>الاعتماد والمهل</h3><div class="co-g">
+        ${F('⏱ مهلة الاعتماد الافتراضية (أيام)', num('editCoDeadline', c.defaultDeadlineDays>0 ? c.defaultDeadlineDays : '', 1, 365, 1, 'بدون مهلة'), 'فارغ = بدون مهلة. يمكن تخصيصها لكل معتمد.', 'editCoDeadline')}
+        ${F('عند انتهاء المهلة يُحال إلى', `<select id="editCoEscMode">${opt([['manager','المدير المباشر للمعتمد'],['next','من يعتمد بعده']], c.defaultEscalateMode||'manager')}</select>`, '', 'editCoEscMode')}
+        ${F('تُحسب المهلة بـ', `<select id="editCoDayMode">${opt([['work','أيام العمل (بدون الجمعة والسبت)'],['calendar','أيام تقويمية عادية']], c.deadlineDayMode||'work')}</select>`, '', 'editCoDayMode')}
+        ${F('اعتماد التحويل البنكي (مرحلة المدير المالي)', `<select id="editCoCfoMode" data-on-change="toggleCfoDelegationConfirm">${opt([['normal','المدير المالي يعتمد بنفسه (الطبيعي)'],['delegate_manager','يُفوَّض مدير المحاسب المباشر'],['delegate_self','يُفوَّض المحاسب نفسه (خطوة ثانية بتوقيعه)'],['delegate_user','يُفوَّض شخص محدد'],['skip','تخطّي الخطوة كلياً']], c.cfoDelegationMode)}</select>`, '', 'editCoCfoMode')}
+        <div class="co-f" id="cfoDelegateUserBox" style="display:${c.cfoDelegationMode==='delegate_user'?'block':'none'};"><label for="editCoCfoUser">الشخص المفوَّض وتاريخ انتهاء التفويض</label>
+          <div class="co-two"><select id="editCoCfoUser"><option value="">— اختر —</option>${companyUsers(c.id).sort((a,b)=>userRank(a)-userRank(b)).map(x=>`<option value="${x.id}" ${x.id===c.cfoDelegateUserId?'selected':''}>${escH(x.name)}</option>`).join('')}</select><input id="editCoCfoUntil" type="date" value="${escH(c.cfoDelegateUntil||'')}" aria-label="ينتهي التفويض في"></div>
+          <div class="file-hint">يبقى المدير المالي قادراً على الاعتماد، وبعد التاريخ يعود الاعتماد له وحده.</div></div>
+        ${F('👥 معتمد الموارد البشرية لطلبات الرواتب', `<select id="editCoHrAppr">${hrApproverOptions(c.hrApproverId||'', '— حسب المؤسسة —')}</select>`, (hr ? 'المعتمد الآن: <b>' + escH(hr.u.name) + '</b> (من ' + hr.src + ')' : 'لا معتمد بعد — يمضي الراتب على المسار العادي') + '. بعد المدراء وقبل المحاسب.', 'editCoHrAppr')}
+        <div class="co-f co-full" id="cfoDelegationConfirmBox" style="display:${(c.cfoDelegationMode==='delegate_self')?'block':'none'};">
+          <label class="check-line"><input type="checkbox" id="editCoCfoConfirm" ${c.cfoDelegationMode==='delegate_self'?'checked':''}> <span>أقرّ أن المدير المالي فوّض المحاسب نفسه باعتماد التحويل، وسيظهر هذا صراحة بالمستند المطبوع</span></label></div>
+      </div></section>
+      ${late.length ? `<section class="co-sec"><h3>تذكيرات الطلبات المتأخرة (إشعارات الجهاز)</h3><div class="co-g">${late.join('')}</div></section>` : ''}
+      ${cus.length ? `<section class="co-sec"><h3>💼 العهد</h3><div class="co-g">${cus.join('')}</div></section>` : ''}
       <div class="actions-row" data-bar-actions>
         <button class="btn btn-primary btn-md" data-on-click="saveCompanyEdit">حفظ التعديلات</button>
         <button class="btn btn-ghost btn-sm" data-on-click="#88">إلغاء</button>
@@ -12015,14 +11943,13 @@ function unitBasicFieldsHtml(prefix, c){
   c = c || {};
   const kind = c.kind || 'center';
   return `
-      <div class="uf-grid uf-2">
-        <div><label>اسم الوحدة</label><input id="${prefix}Name" type="text" value="${escH(c.name||'')}" placeholder="مثال: مركز حولي"></div>
-        <div class="f-sm"><label>الرمز (للترقيم)</label><input id="${prefix}Code" type="text" dir="ltr" value="${escH(c.code||'')}" placeholder="HWL"></div>
-      </div>
-      <div class="uf-grid uf-3">
-        <div><label>النوع</label><select id="${prefix}Kind" data-on-change="unitKindToggle" data-on-change-args="${qa([prefix])}">${unitTypeOptionsHtml(kind)}</select></div>
-        <div><label>تتبع الوحدة</label><select id="${prefix}Parent">${unitOptionsHtml(c.companyId||state.currentCompanyId, c.parentId||'', c.id ? {noneLabel:'تحت الشركة مباشرة', excludeId:c.id} : {noneLabel:'تحت الشركة مباشرة'})}</select></div>
-        <div id="${prefix}ClientBox" ${kind==='center'?'':'style="display:none;"'}><label>الجهة التابع لها (اختياري)</label><select id="${prefix}Client">${unitClientOptionsHtml(c.clientId||'')}</select></div>
+      <div class="co-g">
+        <div class="co-f"><label for="${prefix}Name">اسم الوحدة</label><input id="${prefix}Name" type="text" value="${escH(c.name||'')}" placeholder="مثال: مركز حولي"></div>
+        <div class="co-f"><label for="${prefix}Code">الرمز (للترقيم)</label><input id="${prefix}Code" type="text" dir="ltr" value="${escH(c.code||'')}" placeholder="HWL"></div>
+        <div class="co-f"><label for="${prefix}Kind">النوع</label><select id="${prefix}Kind" data-on-change="unitKindToggle" data-on-change-args="${qa([prefix])}">${unitTypeOptionsHtml(kind)}</select></div>
+        <div class="co-f"><label for="${prefix}Parent">تتبع الوحدة</label><select id="${prefix}Parent">${unitOptionsHtml(c.companyId||state.currentCompanyId, c.parentId||'', c.id ? {noneLabel:'تحت الشركة مباشرة', excludeId:c.id} : {noneLabel:'تحت الشركة مباشرة'})}</select></div>
+        <div class="co-f" id="${prefix}ClientBox" ${kind==='center'?'':'style="display:none;"'}><label for="${prefix}Client">الجهة التابع لها (اختياري)</label><select id="${prefix}Client">${unitClientOptionsHtml(c.clientId||'')}</select></div>
+        <div class="co-f"><label for="${prefix}Letterhead">صورة الترويسة (اختياري)</label><input id="${prefix}Letterhead" type="file" accept="image/*">${c.letterheadData ? '<div class="file-hint">✓ يوجد ترويسة خاصة محفوظة</div>' : ''}</div>
       </div>
       <div class="uf-grid"><div><label>الوصف (اختياري)</label><textarea id="${prefix}Desc" rows="2" placeholder="مثال: مركز نسائي لتحفيظ القرآن، يعمل مساءً">${escH(c.description||'')}</textarea></div></div>`;
 }
@@ -12044,17 +11971,18 @@ function renderCenterEditForm(){
     <div class="card uf-card" style="border-color:var(--blue);">
       <h2>تعديل وحدة</h2>
       ${unitBasicFieldsHtml('editCenter', c)}
-      <div class="uf-grid"><div><label>تحديث صورة الترويسة (اختياري)${c.letterheadData ? ' <span class="file-hint">· يوجد ترويسة خاصة محفوظة ✓</span>' : ''}</label><input id="editCenterLetterhead" type="file" accept="image/*"></div></div>
 
       <h3 class="uf-h">حوكمة المصروفات</h3>
-      <div class="uf-flex">
-        <div class="f-md"><label>الميزانية الشهرية (د.ك)</label><input id="editCenterMonthlyBudget" type="number" step="0.001" min="0" value="${c.monthlyBudget??''}" placeholder="اختياري"></div>
-        <div class="f-md"><label>الميزانية السنوية (د.ك)</label><input id="editCenterAnnualBudget" type="number" step="0.001" min="0" value="${c.annualBudget??''}" placeholder="اختياري"></div>
-      </div>
-      <div class="uf-flex">
-        <div class="f-md"><label>حد إجمالي الطلب (تحذير)</label><input id="editCenterMaxRequest" type="number" step="0.001" min="0" value="${c.maxRequestAmount??''}" placeholder="اختياري"></div>
-        <div class="f-md"><label>حد المستفيد الواحد (تحذير)</label><input id="editCenterMaxBene" type="number" step="0.001" min="0" value="${c.maxBeneficiaryAmount??''}" placeholder="اختياري"></div>
-        <div class="f-md"><label>حد التخطّي التلقائي (د.ك)</label><input id="editCenterMinThreshold" type="number" step="0.001" min="0" value="${c.minThreshold??''}" placeholder="فارغ = معطّل"></div>
+      <div class="co-g">
+        <div class="co-f"><label>الميزانية الشهرية (د.ك)</label><input id="editCenterMonthlyBudget" type="number" step="0.001" min="0" value="${c.monthlyBudget??''}" placeholder="اختياري"></div>
+        <div class="co-f"><label>الميزانية السنوية (د.ك)</label><input id="editCenterAnnualBudget" type="number" step="0.001" min="0" value="${c.annualBudget??''}" placeholder="اختياري"></div>
+        <div class="co-f"><label>حد إجمالي الطلب (تحذير)</label><input id="editCenterMaxRequest" type="number" step="0.001" min="0" value="${c.maxRequestAmount??''}" placeholder="اختياري"></div>
+        <div class="co-f"><label>حد المستفيد الواحد (تحذير)</label><input id="editCenterMaxBene" type="number" step="0.001" min="0" value="${c.maxBeneficiaryAmount??''}" placeholder="اختياري"></div>
+        <div class="co-f"><label>حد التخطّي التلقائي (د.ك)</label><input id="editCenterMinThreshold" type="number" step="0.001" min="0" value="${c.minThreshold??''}" placeholder="فارغ = معطّل"></div>
+        ${c.hasMinSingle ? `<div class="co-f"><label for="editCenterMinSingle">المعتمِد الوحيد إذا حذف التخطّي الجميع</label>
+        <select id="editCenterMinSingle">
+          ${[['exec','المدير التنفيذي (الافتراضي)'],['direct','المدير المباشر'],['senior','المدير العام']].map(([v,l])=>`<option value="${v}" ${(c.minSingleApprover||'exec')===v?'selected':''}>${l}</option>`).join('')}
+        </select><div class="file-hint">إن لم يكن في المسار من يحمل هذا الدور يبقى أول معتمِد.</div></div>` : ''}
       </div>
       <p class="file-hint">الطلب بمبلغ «حد التخطّي» أو أقل يتخطى تلقائياً الأدوار المحددة هنا:</p>
       <div class="chk-grid">
@@ -12062,13 +11990,6 @@ function renderCenterEditForm(){
         ${chk('editCenterSkipSenior', c.skipSeniorManager, 'تخطي المدير الأعلى')}
         ${chk('editCenterSkipExec', c.skipExecutiveManager, 'تخطي المدير التنفيذي')}
       </div>
-      ${c.hasMinSingle ? `<div class="uf-grid uf-3" style="margin-top:12px;">
-        <div><label>المعتمِد الوحيد إذا حذف التخطّي الجميع</label>
-        <select id="editCenterMinSingle">
-          ${[['exec','المدير التنفيذي (الافتراضي)'],['direct','المدير المباشر'],['senior','المدير العام']].map(([v,l])=>`<option value="${v}" ${(c.minSingleApprover||'exec')===v?'selected':''}>${l}</option>`).join('')}
-        </select></div>
-        <div class="uf-span2 file-hint" style="align-self:end;">لا يصل طلب للمالية قبل اعتماد واحد على الأقل. إن لم يكن في مسار الطلب من يحمل هذا الدور، يبقى أول معتمِد فيه.</div>
-      </div>` : ''}
       <div class="chk-grid" style="margin-top:12px;">${chk('editCenterRequireTransferRef', c.requireBankTransferRef, 'يطلب من المحاسب تسجيل رقم/مرجع التحويل البنكي قبل الاعتماد', true)}</div>
 
       <div class="actions-row" data-bar-actions style="margin-top:16px;">
@@ -13422,11 +13343,11 @@ function renderPermissionsPanel(){
       <div class="row cx-item">
         <div style="--fw:320px;"><label>الشركة التي تضبط صلاحياتها</label>
           <select data-on-change="permPickCo" data-on-change-args="${qa([QA.v])}">${state.companies.map(c=>`<option value="${escH(c.id)}" ${c.id===co?'selected':''}>${escH(c.nameAr)}</option>`).join('')}</select></div>
+        <div style="--fw:320px;"><label>الدور</label>${roleSel}</div>
         ${state.companies.length>1 ? `<div><button type="button" class="btn btn-ghost btn-md" data-on-click="copyPagePermsToAll" title="يجعل صلاحيات كل الشركات مثل صلاحيات هذه الشركة">نسخ هذه الصلاحيات لكل الشركات</button></div>` : ''}
       </div>
       <p class="sub">لكل دور في الشركة الحالية: هل يرى الصفحة، وماذا يفعل فيها. الخيار «افتراضي» هو الوضع المعمول به الآن. مدير النظام يرى كل شيء دائماً. لوحة التحكم لا تظهر لغير مدير النظام مهما كانت الصلاحية.</p>
       <p class="sub" style="font-size:var(--fs-hint);">ملاحظة: هذه الصلاحيات تتحكم في ظهور الصفحات والأزرار. أما البيانات المالية نفسها فتحميها قاعدة البيانات للأدوار المالية فقط، فمنح صفحة مالية لدور غير مالي لا يكشف له بيانات لا يملك حق قراءتها.</p>
-      <div class="row" style="align-items:flex-end;margin:10px 0 6px;"><div style="--fw:320px;"><label>الدور</label>${roleSel}</div></div>
       <div class="perm-grid">${rowsHtml}</div>
       <p class="sub" style="font-size:var(--fs-hint);margin:8px 0 0;">الإطار البرتقالي = مختلف عن الافتراضي. تغييراتك على كل الأدوار تُحفظ معاً بزر «حفظ الصلاحيات».</p>
       <div id="permSaveBar" class="actions-row">
@@ -13664,7 +13585,7 @@ function renderUserEditForm(){
     <div class="card" id="userEditAnchor" style="border-color:var(--blue);">
       <h2>تعديل مستخدم</h2>
       ${avatarEditorHtml(u)}
-      <div class="row">
+      <div class="co-g">
         <div style="--fw:380px;"><label>الاسم</label><input id="editUserName" type="text" value="${escH(u.name)}" style="--fw:380px;"></div>
         <div><label>الدور</label>
           <select id="editUserRole" data-on-change="onRoleDefaults" data-on-change-args="${qa(["edit"])}">
@@ -13672,19 +13593,13 @@ function renderUserEditForm(){
             ${state.customRoles.map(r=>`<option value="${r.id}" ${r.id===u.role?'selected':''}>${escH(r.name)} (وظيفي)</option>`).join('')}
           </select>
         </div>
-      </div>
-      <div class="row">
         <div><label>رقم الهاتف (وهو رقم الدخول)</label><input id="editUserPhone" type="text" name="qz-edit-user-phone" autocomplete="off" value="${escH(u.phone)}">
           ${(()=>{ const al=(state.loginAliases||[]).filter(a=>a.userId===u.id);
             return al.length ? `<div class="file-hint" style="margin-top:4px;">أرقام قديمة ما زالت تصلح للدخول:${al.map(a=>
               ` <span style="white-space:nowrap;"><bdi>${escH(a.phone)}</bdi> <button type="button" class="btn btn-ghost btn-xs" data-on-click="removeLoginAlias" data-on-click-args="${qa([qs(a.phone)])}">إلغاء</button></span>`).join(' ·')}</div>` : ''; })()}
         </div>
-      </div>
-      <div class="row">
         <div><label>كلمة المرور</label><input id="editUserPass" type="password" name="qz-edit-user-pass" autocomplete="new-password" placeholder="اتركها فارغة لإبقائها كما هي">
           <div class="file-hint">مشفّرة في الخادم ولا يمكن عرضها. اكتب كلمة جديدة لتغييرها فقط.</div></div>
-      </div>
-      <div class="row">
         <div><label>الشركة</label>
           <select id="editUserCompany">
             ${state.companies.map(c=>`<option value="${c.id}" ${c.id===u.companyId?'selected':''}>${escH(c.nameAr)}</option>`).join('')}
@@ -13696,8 +13611,6 @@ function renderUserEditForm(){
             ${unitOptionsHtml(u.companyId, u.centerId||'')}
           </select>
         </div>
-      </div>
-      <div class="row">
         <div><label>المدير المباشر</label>
           ${mgrFilterBtns('editUserManager', u.companyId, u.id, null, (()=>{ const mgr=u.managerId?state.users.find(x=>x.id===u.managerId):null; return (mgr&&mgr.isGeneral)?'general':(mgr&&mgr.companyId!==u.companyId?'general':'company'); })())}
           <select id="editUserManager">
@@ -13706,8 +13619,6 @@ function renderUserEditForm(){
           </select>
         </div>
         <div><label>المسمى الوظيفي</label><input id="editUserJobTitle" type="text" value="${escH(u.jobTitle||'')}" placeholder="اختياري، مثل: محاسب أول"></div>
-      </div>
-      <div class="row">
         <div><label>المستوى الوظيفي <span style="color:#b42318">*</span></label>
           <select id="editUserLevel" required>
             
@@ -13748,8 +13659,8 @@ function renderUserEditForm(){
         return `
         <div class="card" style="background:var(--paper);margin:10px 0 0;">
           <p class="sub" style="margin:0 0 8px;font-size:var(--fs-hint);">⏱ مهلة الاعتماد: إن تأخر هذا الشخص عن الاعتماد تُحال خطوته تلقائياً (يبقى هو قادراً على الاعتماد، والأسبق منهما يحسم). تُحسب بأيام ${coU.deadlineDayMode==='calendar'?'تقويمية':'عمل (بدون الجمعة والسبت)'} حسب إعداد الشركة.</p>
-          <div class="row">
-            <div style="flex:0 0 100%;max-width:100%;"><label>مهلة الاعتماد</label>${deadlineSelectHtml('editUserDeadline', u.approvalDeadlineDays, 'افتراضي الشركة ('+dflt+')')}</div>
+          <div class="co-g">
+            <div><label>مهلة الاعتماد</label>${deadlineSelectHtml('editUserDeadline', u.approvalDeadlineDays, 'افتراضي الشركة ('+dflt+')')}</div>
             <div><label>عند انتهائها يُحال إلى</label>
               <select id="editUserEscMode" data-on-change="#106">
                 <option value="" ${!u.escalateMode?'selected':''}>افتراضي الشركة (${modeName})</option>
@@ -14835,11 +14746,12 @@ function renderNewRequest(app){
       </div>
       <div id="amountLimitWarning" class="nr-wide" style="display:none;background:var(--amber-bg);color:#1B2733;border:1px solid var(--amber);border-radius:6px;padding:10px 14px;font-size:var(--fs-hint);margin-top:10px;"></div>
 
+      <div class="nr-wide nr-route-notes">
       ${cxRouteFieldHtml(d)}
-
-      ${(desk || (d.requestNotes||'').trim() || d._showNotes) ? `<div class="nr-f nr-wide"><label>ملاحظة داخلية (لا تُطبع، يراها المعتمدون والمالية)</label>
+      ${(desk || (d.requestNotes||'').trim() || d._showNotes) ? `<div class="nr-f nr-wide nr-notes-f"><label>ملاحظة داخلية (لا تُطبع، يراها المعتمدون والمالية)</label>
       <textarea id="requestNotesInput" class="grow-1" rows="1" placeholder="مثال: الفاتورة الأصلية مع المحاسب">${escH(d.requestNotes||'')}</textarea></div>`
       : `<div class="nr-wide"><button type="button" class="nr-link" data-on-click="nrShowReqNotes">+ ملاحظة داخلية للمعتمدين</button></div>`}
+      </div>
 
       <div class="actions-row nr-actions nr-wide" style="align-items:center;">
         <button id="submitDraftBtn" class="btn btn-primary submit-draft-trigger btn-md" ${canSend?'':`disabled title="${noSendTip}"`} data-on-click="submitDraft">${state.editingReqId ? 'حفظ التعديلات' : 'إرسال للاعتماد'}</button>
@@ -17230,7 +17142,7 @@ function renderSuppliers(app){
     ${state.cx.cEditId ? cxClientFormHtml() : ''}
     ${state.cx.supHist ? supHistHtml() : ''}
     <div class="card cx-panel"><div class="cx-panel-h"><div><h2>الموردون</h2><div class="file-hint">${list.length} مورد${noIban ? ' · <b style="color:#8a5a00">' + noIban + ' بلا آيبان</b>' : ''}</div></div>
-      <div class="sup-tools"><input type="text" placeholder="بحث بالاسم أو النشاط أو الآيبان" value="${escH(state.cx.supQ||'')}" data-on-input="supSearch" data-on-input-args="${qa([QA.v])}">${state.cx.cEditId || !canW ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ مورد جديد</button>`}</div></div>
+      <div class="sup-tools"><input type="search" class="qy-search" placeholder="بحث بالاسم أو النشاط أو الآيبان" value="${escH(state.cx.supQ||'')}" data-on-input="supSearch" data-on-input-args="${qa([QA.v])}">${state.cx.cEditId || !canW ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ مورد جديد</button>`}</div></div>
     <table class="exec-table cx-tbl" data-qyl="suppliers" data-qyl-title="الموردون"><thead><tr><th>الاسم</th><th>النشاط</th><th>الآيبان</th><th>الهاتف</th><th class="num">المصروف</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 let _supQT = null;
@@ -18873,8 +18785,7 @@ function prjSettingsHtml(){
   return `<details class="card cx-fold"><summary><span>إعدادات المشاريع</span><span class="file-hint">تنبيه الفواتير · النسبة الافتراضية للصرف قبل الدفع</span></summary>
     <h3 class="uf-h">من يصله تنبيه «اعمل فاتورة» مع المحاسب</h3>
     ${users.length ? `<div class="chk-grid">${users.map(u=>`<label class="chk-card"><input type="checkbox" data-pj-alert="${escH(u.id)}" ${sel.has(u.id)?'checked':''}><span>${escH(u.name)} <small class="file-hint">· ${escH((u.jobTitle&&u.jobTitle.trim()) || findRole(u.role).name)}</small></span></label>`).join('')}</div>` : '<div class="ct-empty">لا مستخدمين آخرين.</div>'}
-    <div class="uf-flex"><div class="f-sm"><label for="pjset_pct">النسبة الافتراضية للصرف قبل الدفع %</label><input id="pjset_pct" type="number" min="0" max="100" value="${escH(String(co.prepayDefaultPct ?? 80))}"></div></div>
-    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="prjSettingsSave">حفظ الإعدادات</button></div>
+    <div class="uf-flex"><div class="f-sm"><label for="pjset_pct">النسبة الافتراضية للصرف قبل الدفع %</label><input id="pjset_pct" type="number" min="0" max="100" value="${escH(String(co.prepayDefaultPct ?? 80))}"></div><div class="uf-act"><button class="btn btn-primary btn-md" data-on-click="prjSettingsSave">حفظ الإعدادات</button></div></div>
   </details>`;
 }
 async function prjSettingsSave(){
@@ -20173,7 +20084,7 @@ function renderGlLinks(app){
     ${g.error ? `<div class="card" style="border-right:4px solid var(--red);"><p class="sub" style="color:var(--red);margin:0;">${escH(g.error)}</p></div>` : ''}
     <div class="card cx-panel">
       <div class="cx-panel-h"><h2>إعدادات الشركة</h2></div>
-      <div class="uf-grid uf-2b">
+      <div class="co-g">
         <div><label>حساب الصرف (النقد أو البنك)</label>${glSel('company','', 'cash', co.gl_cash, GL_F.cash, 0)}</div>
         <div><label>حصة الشركة من إيراد المراكز</label>${glSel('company','', 'share', co.gl_share, GL_F.income, 0)}</div>
         <div><label>حساب الأرصدة الافتتاحية</label>${glSel('company','', 'opening', co.gl_opening, GL_F.equity, 0)}</div>
