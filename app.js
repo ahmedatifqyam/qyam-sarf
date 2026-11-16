@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.14.0', APP_VERSION_DATE = '2026-11-16';
+const APP_VERSION = '1.15.0', APP_VERSION_DATE = '2026-11-16';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:350, base:350, extra:0.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -3159,6 +3159,7 @@ function navSections(){
     if(cp.length) out.push({key:'ctr', ico:'contract', label:'العقود', pages:cp}); }
   if(canSeeClients()) out.push({key:'cli', ico:'me', label:'العملاء', pages:[{label:'العملاء', views:['clients'], js:[["openClients",[]]]}]});
   if(canSeeRecurring()) out.push({key:'rec', ico:'repeat', label:'القيود الدورية', count:recDueCount(), pages:[{label:'القيود الدورية', views:['recurring'], js:[["openRecurring",[0]]]}]});
+  if(canSeeAccounts()) out.push({key:'acc', ico:'bank', label:'المحاسبة', pages:[{label:'كشف الحركات الشهري', views:['glMonth'], js:[["openGlMonth",[]]]}, {label:'دليل الحسابات', views:['glChart'], js:[["openGlChart",[]]]}, {label:'ربط الحسابات', views:['glLinks'], js:[["openGlLinks",[]]]}]});
   const rep = [];
   if(canSeeMonitor()) rep.push({label:'لوحة المتابعة', views:['monitor'], js:[["openMonitor",[]]]});
   if(pageLevel('ledger')!=='none') rep.push({label:'دفتر الحركات', views:['ledger'], js:[["#6",[]]]});
@@ -4009,7 +4010,7 @@ async function logBudgetOverrun(requestId, budgetItemId, stage, requestedAmount,
 function friendlyLedgerError(msg){
   msg = String(msg||'');
   if(/transactions_reverses_once_idx|duplicate key/.test(msg)) return 'هذه الحركة عُكست من قبل (ربما بيد مستخدم آخر قبل لحظات). حدّثت الدفتر لك.';
-  const known = ['عُكست من قبل','عليها استرداد قائم','يتجاوز المبلغ الأصلي','معكوسة، فلا استرداد','لا يُسترد من حركة','حركة عاكسة','اتجاه الاسترداد'];
+  const known = ['لا يُصرف قبل ربط','عُكست من قبل','عليها استرداد قائم','يتجاوز المبلغ الأصلي','معكوسة، فلا استرداد','لا يُسترد من حركة','حركة عاكسة','اتجاه الاسترداد'];
   for(const k of known){ if(msg.indexOf(k)>-1) return msg; }
   return 'تعذّر تسجيل الحركة في الدفتر: ' + msg;
 }
@@ -7119,6 +7120,9 @@ function render(){
   else if(state.view==='oldRequests') renderOldRequests(app);
   else if(state.view==='pathCheck') renderPathCheckPage(app);
   else if(state.view==='monitor') renderMonitor(app);
+  else if(state.view==='glChart') renderGlChart(app);
+  else if(state.view==='glLinks') renderGlLinks(app);
+  else if(state.view==='glMonth') renderGlMonth(app);
   else if(state.view==='custodyList') renderCustodyList(app);
   else if(state.view==='custody') renderCustodyPage(app);
   else if(state.view==='newCustody') renderNewCustody(app);
@@ -7782,6 +7786,11 @@ function siteMapPages(){
   if(canSeeMonitor()) P.push({g:'المالية', ico:'📡', label:'لوحة المتابعة', desc:'من ينتظر قراره ومنذ متى، وما في يد المالية، وآخر الحركات.', js:[["openMonitor",[]]], guide:'', btns:[['تحديث','يعيد تحميل الأرقام']]});
   if(pageLevel('ledger')!=='none' || isAdmin) P.push({g:'المالية', ico:'📒', label:'دفتر الحركات', desc:'سجل كل دخول وخروج مال، مع فرز وفلاتر.', js:[["openLedger",[]]], guide:'ledger',
     btns:[['استرداد','المال عاد فعلاً بعد خروجه'],['عكس','التسجيل نفسه خطأ'],['+ قيد يدوي','تسوية أو رصيد افتتاحي']]});
+  if(canSeeAccounts()){
+    P.push({g:'المحاسبة', ico:'📑', label:'كشف الحركات الشهري', desc:'حركات الشهر قيوداً مدينة ودائنة بأرقام دليل الحسابات، مع مجاميع الحسابات والتصدير.', js:[["openGlMonth",[]]], guide:'gl', btns:[['تصدير الكشف','ملف Excel بالقيود ومجاميع الحسابات، ويُسجَّل التصدير'],['تحديث','يعيد حساب الكشف من حركات النظام']]});
+    P.push({g:'المحاسبة', ico:'📚', label:'دليل الحسابات', desc:'حسابات الشركة بأرقامها: إضافة وتعديل وإيقاف.', js:[["openGlChart",[]]], guide:'gl', btns:[['+ حساب جديد','يضيف حساباً إلى الدليل'],['تعديل / حذف','الحذف للحساب غير المربوط فقط']]});
+    P.push({g:'المحاسبة', ico:'🔗', label:'ربط الحسابات', desc:'حساب كل بند ومركز وصاحب عهدة، وإعدادات حسابات الشركة.', js:[["openGlLinks",[]]], guide:'gl', btns:[['اقتراح بالاسم','يربط المراكز بحسابات أماناتها المطابقة لأسمائها بعد تأكيدك'],['حساب باسمه','ينشئ حساب عهدة لصاحب العهدة ويربطه']]});
+  }
   if(pageLevel('analytics')!=='none' || isAdmin) P.push({g:'المالية', ico:'📊', label:'التحليلات المالية', desc:'رسوم وأرقام المصروف والمتاح.', js:[["openAnalytics",[]]], guide:'acct', btns:[]});
   if(!isAdmin) P.push({g:'حسابي', ico:'👤', label:'حسابي', desc:'بياناتك وتوقيعك وكلمة مرورك.', js:[["openAccount",[]]], guide:'start', btns:[['حفظ','يحفظ التعديلات']]});
   P.push({g:'مساعدة', ico:'📖', label:'دليل المستخدم', desc:'الشرح الكامل داخل النظام.', js:[["openGuide",[]]], guide:'', btns:[]});
@@ -19693,4 +19702,347 @@ function cxRouteInsert(){
   const d = state.draft || {};
   if(!d.amountRoute || d.amountRoute==='normal' || !d.routeCenterId) return {};
   return {amount_route:d.amountRoute, route_center_id:d.routeCenterId};
+}
+
+// ═════════════ المحاسبة (المرحلة 0): دليل الحسابات · ربط الحسابات · كشف الحركات الشهري ═════════════
+// الدليل والربط والكشف من إجراءات الخادم (qy_gl_*) التي تتحقق بنفسها: للمالية ومدير النظام فقط.
+// الكشف قراءة فقط: يحوّل حركات النظام (الصرف، العهد، الإيرادات، دفاتر المراكز) إلى قيود مدين ودائن دون أن يغيّر شيئاً.
+const GL_KINDS = [['asset','أصول'],['liability','خصوم'],['equity','حقوق ملكية'],['income','إيرادات'],['expense','مصروفات']];
+function glKindLabel(k){ return (GL_KINDS.find(x=>x[0]===k)||[0,k||''])[1]; }
+function canSeeAccounts(){ return !!state.user && ['admin','accountant','cfo'].includes(state.user.role); }
+function glSt(){ return state.gl = state.gl || {kind:'', q:'', month:'', draft:null}; }
+function glCid(){ return state.currentCompanyId; }
+async function glLoad(force){
+  const g = glSt(), cid = glCid();
+  if(!cid || g.loading) return;
+  if(!force && g.company===cid && g.at && (Date.now()-g.at) < 60000) return;
+  g.loading = true;
+  try{
+    const [acc, cust, co, items, units, holders, exps] = await Promise.all([
+      db.from('gl_accounts').select('*').eq('company_id', cid).order('code'),
+      db.from('gl_custody_accounts').select('*').eq('company_id', cid),
+      db.from('companies').select('id,gl_cash,gl_share,gl_opening,gl_custody_parent,gl_unlinked_mode').eq('id', cid).maybeSingle(),
+      db.from('budget_items').select('id,name,type,parent_id,is_active,gl_expense,gl_income').eq('company_id', cid),
+      db.from('centers').select('id,name,kind,parent_id,stage,sort,gl_trust,gl_expense').eq('company_id', cid),
+      db.from('custodies').select('holder_id').eq('company_id', cid),
+      db.from('gl_exports').select('*').eq('company_id', cid).order('exported_at', {ascending:false}).limit(60)
+    ]);
+    const err = [acc, cust, co, items, units, holders, exps].find(r=>r && r.error);
+    g.error = err ? (err.error.message||'تعذّر التحميل') : null;
+    if(!err){
+      g.accounts = acc.data||[]; g.cust = cust.data||[]; g.co = co.data||{}; g.items = items.data||[]; g.units = units.data||[];
+      g.holders = [...new Set((holders.data||[]).map(h=>h.holder_id).filter(Boolean))]; g.exports = exps.data||[];
+      g.company = cid; g.at = Date.now();
+    }
+  }catch(e){ g.error = String(e && e.message || e); }
+  g.loading = false;
+  if(['glChart','glLinks','glMonth'].includes(state.view)) render();
+}
+function glReady(app, title){
+  const g = glSt();
+  if(!canSeeAccounts()){ app.innerHTML = `<div class="card"><h2>${title}</h2><p class="sub">صفحات المحاسبة للمحاسب والمدير المالي ومدير النظام.</p></div>`; return false; }
+  if(g.company!==glCid() || !g.at){ if(!g.loading) setTimeout(()=>glLoad(true), 0); app.innerHTML = `<h1>${title}</h1><div class="card"><div class="spinner"></div></div>`; return false; }
+  return true;
+}
+function openGlChart(){ state.view='glChart'; glSt().draft = null; render(); window.scrollTo(0,0); glLoad(); }
+function openGlLinks(){ state.view='glLinks'; render(); window.scrollTo(0,0); glLoad(); }
+function openGlMonth(){ const g = glSt(); if(!g.month) g.month = glDefaultMonth(); state.view='glMonth'; render(); window.scrollTo(0,0); glLoad(); glLoadJournal(); }
+// الحسابات مرتبة شجرياً: كل حساب تحت الحساب الذي يتبعه
+function glTree(){
+  const acc = glSt().accounts||[], kids = {}, codes = new Set(acc.map(a=>a.code));
+  acc.forEach(a=>{ const p = a.parent_code && codes.has(a.parent_code) ? a.parent_code : ''; (kids[p] = kids[p]||[]).push(a); });
+  Object.values(kids).forEach(l=>l.sort((a,b)=>a.code.localeCompare(b.code, 'en', {numeric:false})));
+  const out = [], seen = new Set();
+  const walk = (p, d) => (kids[p]||[]).forEach(a=>{ if(seen.has(a.code)) return; seen.add(a.code); out.push({a, depth:d}); walk(a.code, d+1); });
+  walk('', 0); acc.filter(a=>!seen.has(a.code)).forEach(a=>out.push({a, depth:0}));
+  return out;
+}
+function glAcc(code){ return (glSt().accounts||[]).find(a=>a.code===code); }
+function glAccLabel(code){ const a = glAcc(code); return a ? `${a.code} — ${a.name}` : (code ? `${code} (غير موجود في الدليل)` : ''); }
+// مواضع استخدام الحساب (ما يمنع حذفه)
+function glUsage(code){
+  const g = glSt(), co = g.co||{}; const n = [];
+  const it = (g.items||[]).filter(b=>b.gl_expense===code || b.gl_income===code).length; if(it) n.push(it+' بند');
+  const un = (g.units||[]).filter(u=>u.gl_trust===code || u.gl_expense===code).length; if(un) n.push(un+' وحدة');
+  const ho = (g.cust||[]).filter(c=>c.code===code).length; if(ho) n.push(ho+' صاحب عهدة');
+  if([co.gl_cash, co.gl_share, co.gl_opening, co.gl_custody_parent].includes(code)) n.push('إعداد الشركة');
+  return n;
+}
+
+// ── صفحة دليل الحسابات ──
+function renderGlChart(app){
+  if(!glReady(app, 'دليل الحسابات')) return;
+  const g = glSt(), q = String(g.q||'').trim();
+  const rows = glTree().filter(({a})=>(!g.kind || a.kind===g.kind) && (!q || a.code.includes(q) || a.name.includes(q)));
+  const others = (state.companies||[]).filter(c=>c.id!==glCid());
+  const body = rows.map(({a, depth})=>{
+    const use = glUsage(a.code);
+    return `<tr${a.is_active===false ? ' style="opacity:.55;"' : ''}>
+      <td data-label="الرقم" class="num" style="white-space:nowrap;"><bdi dir="ltr">${escH(a.code)}</bdi></td>
+      <td data-label="اسم الحساب" style="padding-inline-start:${10+depth*20}px;">${depth ? '<span class="sub">↳ </span>' : ''}${a.is_group ? `<b>${escH(a.name)}</b>` : escH(a.name)}${a.is_active===false ? ' <span class="cx-badge">موقوف</span>' : ''}</td>
+      <td data-label="النوع">${escH(glKindLabel(a.kind))}${a.is_group ? ' <span class="sub">· مجموعة</span>' : ''}</td>
+      <td data-label="مربوط بـ">${use.length ? escH(use.join('، ')) : '<span class="sub">—</span>'}</td>
+      <td data-label="ملاحظة" class="sub">${escH(a.note||'')}</td>
+      <td class="cx-act"><span class="ct-acts"><button class="ct-ico ct-ico-e" data-on-click="glEditAccount" data-on-click-args="${qa([a.code])}" title="تعديل الحساب" aria-label="تعديل">${qi('pen')}</button><button class="ct-ico ct-ico-d" data-on-click="glDeleteAccount" data-on-click-args="${qa([a.code])}" title="${use.length ? 'مربوط، أوقفه بدل حذفه' : 'حذف الحساب'}" aria-label="حذف">${qi('trash')}</button></span></td></tr>`;
+  }).join('') || `<tr class="cx-empty"><td colspan="6">${(g.accounts||[]).length ? 'لا حسابات بهذا الترشيح.' : 'لا حسابات بعد لهذه الشركة.'}</td></tr>`;
+  const counts = GL_KINDS.map(k=>[k, (g.accounts||[]).filter(a=>a.kind===k[0]).length]);
+  app.innerHTML = `
+    <h1>دليل الحسابات</h1>
+    <p class="sub">حسابات ${escH(currentCompanyName())} بأرقامها. بُني من ميزان المراجعة كما في 30-06-2026، والحسابات المعلَّمة «مضاف» أضيفت لأن الميزانية السنوية تحتاجها.</p>
+    ${g.error ? `<div class="card" style="border-right:4px solid var(--red);"><p class="sub" style="color:var(--red);margin:0;">${escH(g.error)}</p></div>` : ''}
+    ${g.draft ? glAccountFormHtml() : ''}
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><div><h2>الحسابات</h2><div class="file-hint">${(g.accounts||[]).length} حساب · ${counts.map(([k,n])=>`${k[1]} ${n}`).join(' · ')}</div></div>
+        <div class="actions-row" data-bar-actions style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${g.draft ? '' : `<button class="btn btn-primary btn-md" data-on-click="glNewAccount" title="إضافة حساب جديد إلى الدليل">+ حساب جديد</button>`}
+        </div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
+        <div><label for="glKind">النوع</label><select id="glKind" style="width:160px;" data-on-change="glSetFilter" data-on-change-args="${qa(['kind', QA.v])}"><option value="">كل الأنواع</option>${GL_KINDS.map(k=>`<option value="${k[0]}" ${g.kind===k[0]?'selected':''}>${k[1]}</option>`).join('')}</select></div>
+        <div><label for="glQ">بحث</label><input id="glQ" type="search" class="qy-search" style="width:220px;" autocomplete="off" placeholder="رقم الحساب أو اسمه" value="${escH(g.q||'')}" data-on-change="glSetFilter" data-on-change-args="${qa(['q', QA.v])}"></div>
+        ${!(g.accounts||[]).length && others.length ? `<div><label for="glCopyFrom">نسخ الدليل من</label><span style="display:flex;gap:8px;"><select id="glCopyFrom" style="width:220px;">${others.map(c=>`<option value="${c.id}">${escH(c.nameAr||c.name||c.id)}</option>`).join('')}</select><button class="btn btn-ghost btn-sm" data-on-click="glCopyChart" title="ينسخ حسابات الشركة المختارة إلى هذه الشركة لتعدّلها">نسخ</button></span></div>` : ''}
+      </div>
+      <div style="overflow-x:auto;"><table class="exec-table cx-tbl" data-qyl="glChart" data-qyl-title="دليل الحسابات"><thead><tr><th>الرقم</th><th>اسم الحساب</th><th>النوع</th><th>مربوط بـ</th><th>ملاحظة</th><th data-noexport></th></tr></thead><tbody>${body}</tbody></table></div>
+    </div>`;
+}
+function glSetFilter(k, v){ glSt()[k] = v; render(); }
+function glNewAccount(){ glSt().draft = {old:'', code:'', name:'', kind:'expense', parent_code:'', is_group:false, is_active:true, note:''}; render(); window.scrollTo(0,0); }
+function glEditAccount(code){ const a = glAcc(code); if(!a) return; glSt().draft = Object.assign({old:a.code}, a); render(); window.scrollTo(0,0); }
+function glCancelAccount(){ glSt().draft = null; render(); }
+function glAccountFormHtml(){
+  const d = glSt().draft; if(!d) return '';
+  const groups = (glSt().accounts||[]).filter(a=>a.is_group && a.code!==d.old);
+  return `<div class="card cx-panel">
+    <div class="cx-panel-h"><h2>${d.old ? 'تعديل حساب' : 'حساب جديد'}</h2><button class="btn btn-ghost btn-sm" data-on-click="glCancelAccount" title="إغلاق النموذج دون حفظ">إغلاق</button></div>
+    <div class="uf-grid uf-2b">
+      <div><label for="gla_code">رقم الحساب *</label><input id="gla_code" type="text" dir="ltr" inputmode="numeric" value="${escH(d.code||'')}" placeholder="مثال: 610124"></div>
+      <div><label for="gla_name">اسم الحساب *</label><input id="gla_name" type="text" value="${escH(d.name||'')}" placeholder="مثال: مصروفات تسويق"></div>
+      <div><label for="gla_kind">النوع</label><select id="gla_kind">${GL_KINDS.map(k=>`<option value="${k[0]}" ${d.kind===k[0]?'selected':''}>${k[1]}</option>`).join('')}</select></div>
+      <div><label for="gla_parent">يتبع</label><select id="gla_parent"><option value="">— حساب رئيسي —</option>${groups.map(a=>`<option value="${a.code}" ${a.code===d.parent_code?'selected':''}>${escH(a.code+' — '+a.name)}</option>`).join('')}</select></div>
+      <div><label for="gla_group">طبيعة الحساب</label><select id="gla_group"><option value="0" ${!d.is_group?'selected':''}>حساب تُسجَّل عليه الحركات</option><option value="1" ${d.is_group?'selected':''}>مجموعة تضم حسابات</option></select></div>
+      <div><label for="gla_active">الحالة</label><select id="gla_active"><option value="1" ${d.is_active!==false?'selected':''}>نشط</option><option value="0" ${d.is_active===false?'selected':''}>موقوف</option></select></div>
+    </div>
+    <div class="uf-grid"><div><label for="gla_note">ملاحظة</label><input id="gla_note" type="text" value="${escH(d.note||'')}"></div></div>
+    <div class="cx-actions" data-bar-actions>
+      <button class="btn btn-primary btn-md" data-on-click="glSaveAccount" title="حفظ الحساب في الدليل">حفظ</button>
+      <button class="btn btn-ghost btn-sm" data-on-click="glCancelAccount" title="تجاهل التعديل">إلغاء</button>
+    </div></div>`;
+}
+async function glSaveAccount(){
+  const d = glSt().draft; if(!d) return;
+  const v = id => (document.getElementById(id)||{}).value || '';
+  const code = v('gla_code').trim().replace(/[٠-٩]/g, c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)), name = v('gla_name').trim();
+  if(!code){ fieldErr(document.getElementById('gla_code'), 'اكتب رقم الحساب'); return; }
+  if(!/^\d+$/.test(code)){ fieldErr(document.getElementById('gla_code'), 'رقم الحساب أرقام فقط'); return; }
+  if(!name){ fieldErr(document.getElementById('gla_name'), 'اكتب اسم الحساب'); return; }
+  const {error} = await db.rpc('qy_gl_save_account', {p_company:glCid(), p_old_code:d.old||'', p_code:code, p_name:name, p_kind:v('gla_kind'),
+    p_parent:v('gla_parent'), p_is_group:v('gla_group')==='1', p_active:v('gla_active')!=='0', p_note:v('gla_note')});
+  if(error){ showToast(error.message||'تعذّر الحفظ','error'); return; }
+  showToast('حُفظ الحساب','success'); glSt().draft = null; await glLoad(true);
+}
+async function glDeleteAccount(code){
+  const a = glAcc(code); if(!a) return;
+  if(glUsage(code).length){ showToast('الحساب مربوط ببند أو مركز أو إعداد؛ أوقفه من «تعديل» بدل حذفه','error'); return; }
+  if(!confirm(`حذف الحساب ${a.code} — ${a.name}؟`)) return;
+  const {error} = await db.rpc('qy_gl_delete_account', {p_company:glCid(), p_code:code});
+  if(error){ showToast(error.message||'تعذّر الحذف','error'); return; }
+  showToast('حُذف الحساب','success'); await glLoad(true);
+}
+async function glCopyChart(){
+  const from = (document.getElementById('glCopyFrom')||{}).value; if(!from) return;
+  const {data, error} = await db.rpc('qy_gl_copy_chart', {p_from:from, p_to:glCid()});
+  if(error){ showToast(error.message||'تعذّر النسخ','error'); return; }
+  showToast(`نُسخ ${data||0} حساب`,'success'); await glLoad(true);
+}
+
+// ── صفحة ربط الحسابات ──
+function glOpts(sel, filter, emptyLabel){
+  const leaves = (glSt().accounts||[]).filter(a=>a.is_active!==false && filter(a));
+  return `<option value="">${emptyLabel||'— بلا حساب —'}</option>` + leaves.map(a=>`<option value="${a.code}" ${a.code===sel?'selected':''}>${escH(a.code+' — '+a.name)}</option>`).join('')
+    + (sel && !leaves.some(a=>a.code===sel) ? `<option value="${escH(sel)}" selected>${escH(glAccLabel(sel))}</option>` : '');
+}
+const GL_F = {
+  expense: a=>!a.is_group && a.kind==='expense',
+  income:  a=>!a.is_group && a.kind==='income',
+  trust:   a=>!a.is_group && a.kind==='liability',
+  cash:    a=>!a.is_group && a.kind==='asset',
+  equity:  a=>!a.is_group && a.kind==='equity',
+  group:   a=>a.is_group && a.kind==='asset',
+  custody: a=>!a.is_group && a.kind==='asset'
+};
+function glSel(target, id, field, val, filter, w){
+  return `<select style="width:${w||260}px;max-width:100%;" title="اختر الحساب؛ يُحفظ فور الاختيار" data-on-change="glLink" data-on-change-args="${qa([target, id, field, QA.v])}">${glOpts(val, filter)}</select>`;
+}
+async function glLink(target, id, field, code){
+  const {error} = await db.rpc('qy_gl_link', {p_company:glCid(), p_target:target, p_id:id||'', p_field:field||'', p_code:code||''});
+  if(error){ showToast(error.message||'تعذّر الحفظ','error'); await glLoad(true); return; }
+  showToast(code ? 'رُبط الحساب' : 'أُزيل الربط','success'); await glLoad(true);
+}
+async function glNewCustodyAccount(holder){
+  const {data, error} = await db.rpc('qy_gl_new_custody_account', {p_company:glCid(), p_holder:holder});
+  if(error){ showToast(error.message||'تعذّر الإنشاء','error'); return; }
+  showToast('أُنشئ الحساب '+data+' وربط','success'); await glLoad(true);
+}
+// اقتراح حساب أمانات لكل مركز بلا ربط: أكثر حساب خصوم يشاركه كلمات الاسم
+function glSuggestTrust(u){
+  const stop = new Set(['مركز','امانات','أمانات','لجنة','اللجنة','نادي','نادى','فرع','شباب','-','—','و']);
+  const words = s => String(s||'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').split(/[\s\-—،,()]+/).filter(w=>w.length>2 && !stop.has(w));
+  const uw = words(u.name); if(!uw.length) return null;
+  let best = null, bestN = 0;
+  (glSt().accounts||[]).filter(GL_F.trust).forEach(a=>{ const aw = new Set(words(a.name)); const n = uw.filter(w=>aw.has(w)).length; if(n>bestN){ best = a; bestN = n; } });
+  return best;
+}
+async function glApplySuggestions(){
+  const ps = (glSt().units||[]).filter(u=>u.kind==='center' && !u.gl_trust).map(u=>({u, a:glSuggestTrust(u)})).filter(x=>x.a);
+  if(!ps.length){ showToast('لا اقتراحات: كل المراكز مربوطة أو لا يطابقها حساب بالاسم','error'); return; }
+  if(!confirm('ربط المراكز بالحسابات المقترحة؟\n\n' + ps.map(x=>`${x.u.name} ← ${x.a.code} ${x.a.name}`).join('\n'))) return;
+  for(const x of ps){ const {error} = await db.rpc('qy_gl_link', {p_company:glCid(), p_target:'unit', p_id:x.u.id, p_field:'trust', p_code:x.a.code}); if(error){ showToast(error.message,'error'); break; } }
+  showToast('رُبطت المراكز المقترحة','success'); await glLoad(true);
+}
+function renderGlLinks(app){
+  if(!glReady(app, 'ربط الحسابات')) return;
+  const g = glSt(), co = g.co||{};
+  const name = id => { const u = (state.users||[]).find(x=>x.id===id); return u ? u.name : id; };
+  const items = (g.items||[]).filter(b=>b.is_active!==false).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const units = (g.units||[]).filter(u=>u.stage!=='closed').sort(typeof _byUnit==='function' ? _byUnit : (a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const centers = units.filter(u=>u.kind==='center');
+  const unitTypeName = k => { try{ const t = (typeof unitTypes==='function' ? unitTypes() : []).find(x=>x.id===k); return t ? t.name : ({center:'مركز',department:'إدارة',section:'قسم',branch:'فرع'})[k]||k; }catch(e){ return k; } };
+  const nItem = items.filter(b=>!b.gl_expense).length, nCen = centers.filter(u=>!u.gl_trust).length, nHold = g.holders.filter(h=>!(g.cust||[]).some(c=>c.holder_id===h)).length;
+  const badge = n => n ? ` <span class="cx-badge" style="background:#fdecea;color:var(--red);">${n} بلا حساب</span>` : ' <span class="cx-badge" style="background:#e8f5ee;color:var(--green);">مكتمل</span>';
+  const sugg = centers.filter(u=>!u.gl_trust && glSuggestTrust(u)).length;
+  app.innerHTML = `
+    <h1>ربط الحسابات</h1>
+    <p class="sub">لكل بند وكل مركز وكل صاحب عهدة حسابه في دليل الحسابات، فيعرف النظام أين يُقيَّد كل صرف وإيراد في «كشف الحركات الشهري». الاختيار يُحفظ فوراً.</p>
+    ${g.error ? `<div class="card" style="border-right:4px solid var(--red);"><p class="sub" style="color:var(--red);margin:0;">${escH(g.error)}</p></div>` : ''}
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><h2>إعدادات الشركة</h2></div>
+      <div class="uf-grid uf-2b">
+        <div><label>حساب الصرف (النقد أو البنك)</label>${glSel('company','', 'cash', co.gl_cash, GL_F.cash, 0)}</div>
+        <div><label>حصة الشركة من إيراد المراكز</label>${glSel('company','', 'share', co.gl_share, GL_F.income, 0)}</div>
+        <div><label>حساب الأرصدة الافتتاحية</label>${glSel('company','', 'opening', co.gl_opening, GL_F.equity, 0)}</div>
+        <div><label>مجموعة حسابات العهد</label>${glSel('company','', 'custody_parent', co.gl_custody_parent, GL_F.group, 0)}</div>
+        <div><label for="glMode">صرف طلب بند بلا حساب</label><select id="glMode" title="تنبيه: يُصرف ويظهر في الكشف «بلا حساب» · منع: لا يُصرف حتى يُربط" data-on-change="glLink" data-on-change-args="${qa(['company','','unlinked_mode', QA.v])}">
+          <option value="warn" ${co.gl_unlinked_mode!=='block'?'selected':''}>يُصرف مع تنبيه في الكشف</option><option value="block" ${co.gl_unlinked_mode==='block'?'selected':''}>لا يُصرف حتى يُربط</option></select></div>
+      </div>
+    </div>
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><h2>بنود الصرف${badge(nItem)}</h2></div>
+      <div style="overflow-x:auto;"><table class="exec-table cx-tbl" data-qyl="glItems" data-qyl-title="ربط بنود الصرف"><thead><tr><th>البند</th><th>حساب المصروف</th><th>حساب الإيراد</th></tr></thead><tbody>
+        ${items.map(b=>`<tr><td data-label="البند">${escH(b.name)}</td><td data-label="حساب المصروف" data-x="${escH(glAccLabel(b.gl_expense))}">${glSel('item', b.id, 'expense', b.gl_expense, GL_F.expense)}</td><td data-label="حساب الإيراد" data-x="${escH(glAccLabel(b.gl_income))}">${glSel('item', b.id, 'income', b.gl_income, GL_F.income)}</td></tr>`).join('') || '<tr class="cx-empty"><td colspan="3">لا بنود.</td></tr>'}
+      </tbody></table></div>
+    </div>
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><div><h2>المراكز والوحدات${badge(nCen)}</h2><div class="file-hint">صرف المركز يُخصم من «أماناته» لأن ماله ليس مال الشركة؛ وصرف الإدارات والأقسام يُقيَّد على حساب مصروفها إن لم يكن للبند حساب.</div></div>
+        ${sugg ? `<button class="btn btn-ghost btn-sm" data-on-click="glApplySuggestions" title="يقترح لكل مركز بلا ربط حساب الأمانات الأقرب لاسمه، ويطلب تأكيدك">اقتراح بالاسم (${sugg})</button>` : ''}</div>
+      <div style="overflow-x:auto;"><table class="exec-table cx-tbl" data-qyl="glUnits" data-qyl-title="ربط المراكز والوحدات"><thead><tr><th>الوحدة</th><th>النوع</th><th>حساب الأمانات</th><th>حساب المصروف</th></tr></thead><tbody>
+        ${units.map(u=>`<tr><td data-label="الوحدة">${u.parent_id ? '<span class="sub">↳ </span>' : ''}${escH(u.name)}</td><td data-label="النوع">${escH(unitTypeName(u.kind))}</td>
+          <td data-label="حساب الأمانات" data-x="${escH(glAccLabel(u.gl_trust))}">${u.kind==='center' || u.parent_id ? glSel('unit', u.id, 'trust', u.gl_trust, GL_F.trust) : '<span class="sub">—</span>'}</td>
+          <td data-label="حساب المصروف" data-x="${escH(glAccLabel(u.gl_expense))}">${glSel('unit', u.id, 'expense', u.gl_expense, GL_F.expense)}</td></tr>`).join('') || '<tr class="cx-empty"><td colspan="4">لا وحدات.</td></tr>'}
+      </tbody></table></div>
+    </div>
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><div><h2>أصحاب العهد${badge(nHold)}</h2><div class="file-hint">كل من استلم عهدة في هذه الشركة. «حساب باسمه» ينشئ حساباً تحت مجموعة العهد ويربطه.</div></div></div>
+      <div style="overflow-x:auto;"><table class="exec-table cx-tbl" data-qyl="glHolders" data-qyl-title="ربط أصحاب العهد"><thead><tr><th>صاحب العهدة</th><th>حساب العهدة</th><th data-noexport></th></tr></thead><tbody>
+        ${g.holders.map(h=>{ const c = (g.cust||[]).find(x=>x.holder_id===h); return `<tr><td data-label="صاحب العهدة">${escH(name(h))}</td><td data-label="حساب العهدة" data-x="${escH(glAccLabel(c && c.code))}">${glSel('holder', h, '', c && c.code, a=>GL_F.custody(a) && (!co.gl_custody_parent || a.parent_code===co.gl_custody_parent))}</td>
+          <td class="cx-act">${c ? '' : `<button class="btn btn-ghost btn-sm" data-on-click="glNewCustodyAccount" data-on-click-args="${qa([h])}" title="ينشئ حساب «عهدة ${escH(name(h))}» ويربطه">حساب باسمه</button>`}</td></tr>`; }).join('') || '<tr class="cx-empty"><td colspan="3">لا عهد في هذه الشركة بعد.</td></tr>'}
+      </tbody></table></div>
+    </div>`;
+}
+
+// ── صفحة كشف الحركات الشهري ──
+function glDefaultMonth(){ const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return d.toISOString().slice(0,7); }
+function glMonthRange(m){ const [y, mo] = String(m).split('-').map(Number); const last = new Date(y, mo, 0).getDate(); return {from:`${m}-01`, to:`${m}-${String(last).padStart(2,'0')}`}; }
+function glMonthLabel(m){ const [y, mo] = String(m||'').split('-'); return mo ? `${mo}-${y}` : ''; }
+async function glLoadJournal(){
+  const g = glSt(); if(!g.month) g.month = glDefaultMonth();
+  const r = glMonthRange(g.month), key = glCid()+'|'+g.month;
+  g.jLoading = true; g.jError = null; if(state.view==='glMonth') render();
+  const {data, error} = await db.rpc('qy_gl_journal', {p_company:glCid(), p_from:r.from, p_to:r.to});
+  g.jLoading = false;
+  if(error){ g.jError = error.message||'تعذّر التحميل'; g.journal = []; } else { g.journal = data||[]; }
+  g.jKey = key;
+  if(state.view==='glMonth') render();
+}
+function glSetMonth(v){ if(!v) return; glSt().month = v; glLoadJournal(); }
+function glSummary(rows){
+  const keys = new Set(rows.map(r=>r.entry_key));
+  const dr = Math.round(rows.reduce((a,r)=>a+Number(r.debit||0),0)*1000)/1000, cr = Math.round(rows.reduce((a,r)=>a+Number(r.credit||0),0)*1000)/1000;
+  const unl = rows.filter(r=>!r.account_code), unlE = new Set(unl.map(r=>r.entry_key)).size;
+  const by = {}; rows.forEach(r=>{ const k = r.account_code||''; const x = by[k] = by[k] || {code:k, name:r.account_name||'', dr:0, cr:0}; x.dr += Number(r.debit||0); x.cr += Number(r.credit||0); });
+  const accts = Object.values(by).sort((a,b)=>(a.code||'~').localeCompare(b.code||'~'));
+  return {entries:keys.size, dr, cr, unl:unl.length, unlE, accts};
+}
+function renderGlMonth(app){
+  if(!glReady(app, 'كشف الحركات الشهري')) return;
+  const g = glSt(), rows = (g.jKey===glCid()+'|'+g.month && g.journal) || [];
+  if(g.jKey!==glCid()+'|'+g.month && !g.jLoading) setTimeout(glLoadJournal, 0);
+  const s = glSummary(rows), balanced = Math.abs(s.dr - s.cr) < 0.0005;
+  const lastExp = (g.exports||[]).find(e=>String(e.month).slice(0,7)===g.month);
+  const changed = lastExp && (Number(lastExp.entries)!==s.entries || Math.abs(Number(lastExp.total)-s.dr) > 0.0005);
+  const tile = (label, val, color, sub) => `<div class="card tile" style="flex:1 1 150px;margin:0;border-top:4px solid ${color};"><div class="sub" style="margin-bottom:4px;">${label}</div><div style="font-size:var(--fs-h2);font-weight:800;">${val}</div>${sub ? `<div class="sub" style="font-size:var(--fs-hint);">${sub}</div>` : ''}</div>`;
+  let shade = false, prev = '';
+  const body = rows.map(r=>{ if(r.entry_key!==prev){ shade = !shade; prev = r.entry_key; }
+    return `<tr data-date="${escH(r.entry_date)}"${shade ? ' style="background:#faf9f6;"' : ''}>
+      <td data-label="التاريخ" style="white-space:nowrap;">${dmyStr(r.entry_date)}</td>
+      <td data-label="المرجع" style="white-space:nowrap;">${escH(r.ref||'')}</td>
+      <td data-label="المصدر" style="white-space:nowrap;">${escH(r.source||'')}</td>
+      <td data-label="البيان">${escH(r.description||'')}</td>
+      <td data-label="رقم الحساب" style="white-space:nowrap;">${r.account_code ? `<bdi dir="ltr">${escH(r.account_code)}</bdi>` : ''}</td>
+      <td data-label="اسم الحساب">${r.account_code ? escH(r.account_name||'') : '<b style="color:var(--red);">بلا حساب</b>'}</td>
+      <td data-label="مدين" style="text-align:right;direction:rtl;white-space:nowrap;">${Number(r.debit) ? fmtKWDHtml(Number(r.debit)) : ''}</td>
+      <td data-label="دائن" style="text-align:right;direction:rtl;white-space:nowrap;">${Number(r.credit) ? fmtKWDHtml(Number(r.credit)) : ''}</td>
+      <td data-label="ملاحظة" class="sub">${escH(r.flag||'')}</td></tr>`; }).join('');
+  const accRows = s.accts.map(a=>`<tr><td data-label="رقم الحساب">${a.code ? `<bdi dir="ltr">${escH(a.code)}</bdi>` : ''}</td><td data-label="اسم الحساب">${a.code ? escH(a.name) : '<b style="color:var(--red);">بلا حساب</b>'}</td>
+    <td data-label="مدين" style="text-align:right;direction:rtl;">${fmtKWDHtml(a.dr)}</td><td data-label="دائن" style="text-align:right;direction:rtl;">${fmtKWDHtml(a.cr)}</td>
+    <td data-label="الصافي" style="text-align:right;direction:rtl;">${fmtKWDHtml(Math.round((a.dr-a.cr)*1000)/1000)}</td></tr>`).join('');
+  app.innerHTML = `
+    <h1>كشف الحركات الشهري</h1>
+    <p class="sub">كل حركة مالية في النظام خلال الشهر في صورة قيد: حساب مدين وحساب دائن بأرقام دليل الحسابات. الكشف للقراءة والتصدير، ولا يغيّر شيئاً في النظام.</p>
+    <div class="card cx-panel">
+      <div class="cx-panel-h">
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div><label for="glMonthIn">الشهر</label><input id="glMonthIn" type="month" dir="ltr" style="width:180px;" value="${escH(g.month)}" data-on-change="glSetMonth" data-on-change-args="${qa([QA.v])}"></div>
+          <button class="btn btn-ghost btn-sm" data-on-click="glLoadJournal" title="إعادة حساب الكشف من حركات النظام">${g.jLoading ? '<span class="spin"></span>' : '↻'} تحديث</button>
+        </div>
+        <div class="actions-row" data-bar-actions><button class="btn btn-primary btn-md" data-on-click="glExportMonth" title="ملف Excel فيه القيود ومجاميع الحسابات، ويُسجَّل أنك صدّرت هذا الشهر" ${rows.length ? '' : 'disabled'}>تصدير الكشف</button></div>
+      </div>
+      ${g.jError ? `<p class="sub" style="color:var(--red);">${escH(g.jError)}</p>` : ''}
+      <div class="tile-row" style="display:flex;flex-wrap:wrap;gap:10px;">
+        ${tile('عدد القيود', s.entries, 'var(--blue)', glMonthLabel(g.month))}
+        ${tile('مجموع المدين', fmtKWDHtml(s.dr), 'var(--ink)')}
+        ${tile('مجموع الدائن', fmtKWDHtml(s.cr), balanced ? 'var(--green)' : 'var(--red)', balanced ? 'متوازن' : 'غير متوازن')}
+        ${tile('بلا حساب', s.unlE ? `<span style="color:var(--red);">${s.unlE}</span>` : '0', s.unlE ? 'var(--red)' : 'var(--green)', s.unlE ? 'قيود تحتاج ربطاً' : 'كل القيود لها حسابات')}
+      </div>
+      ${s.unlE ? `<div class="pj-next pj-next-info" style="margin-top:12px;"><span>${s.unlE} قيد بلا حساب: اربط بنودها أو مراكزها أو أصحاب عهدها، ثم «تحديث».</span><button class="btn btn-ghost btn-sm" data-on-click="openGlLinks" title="فتح صفحة ربط الحسابات">ربط الحسابات</button></div>` : ''}
+      ${lastExp ? `<p class="sub" style="margin:10px 0 0;">${changed ? '<b style="color:var(--amber);">تغيّر الكشف بعد آخر تصدير؛ أعد التصدير.</b> ' : ''}آخر تصدير لهذا الشهر: ${escH(lastExp.exported_by_name||'')} · ${escH(monitorWhen(lastExp.exported_at))}</p>` : ''}
+    </div>
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><h2>القيود</h2></div>
+      ${g.jLoading && !rows.length ? '<div class="spinner"></div>' : `<div style="overflow-x:auto;"><table class="exec-table cx-tbl" data-qyl="glJournal" data-qyl-title="كشف الحركات ${escH(glMonthLabel(g.month))}"><thead><tr><th>التاريخ</th><th>المرجع</th><th>المصدر</th><th>البيان</th><th>رقم الحساب</th><th>اسم الحساب</th><th data-sum>مدين</th><th data-sum>دائن</th><th>ملاحظة</th></tr></thead>
+        <tbody>${body || '<tr class="cx-empty"><td colspan="9">لا حركات في هذا الشهر.</td></tr>'}</tbody></table></div>`}
+    </div>
+    <div class="card cx-panel">
+      <div class="cx-panel-h"><h2>مجاميع الحسابات</h2></div>
+      <div style="overflow-x:auto;"><table class="exec-table cx-tbl" data-qyl="glTotals" data-qyl-title="مجاميع الحسابات ${escH(glMonthLabel(g.month))}"><thead><tr><th>رقم الحساب</th><th>اسم الحساب</th><th data-sum>مدين</th><th data-sum>دائن</th><th data-sum>الصافي</th></tr></thead>
+        <tbody>${accRows || '<tr class="cx-empty"><td colspan="5">—</td></tr>'}</tbody></table></div>
+    </div>`;
+}
+async function glExportMonth(){
+  const g = glSt(), rows = g.journal||[]; if(!rows.length){ showToast('لا حركات في هذا الشهر','error'); return; }
+  let X; try{ X = await qylLoadXlsx(); }catch(e){ showToast('تعذّر تحميل أداة Excel','error'); return; }
+  const s = glSummary(rows), co = currentCompanyName(), ml = glMonthLabel(g.month);
+  const num = (ws, cols, r0, n) => { for(let r=r0; r<r0+n; r++) cols.forEach(c=>{ const cell = ws[X.utils.encode_cell({r, c})]; if(cell && cell.t==='n') cell.z = '#,##0.000'; }); };
+  const head1 = ['التاريخ','المرجع','المصدر','البيان','رقم الحساب','اسم الحساب','مدين','دائن','ملاحظة'];
+  const b1 = rows.map(r=>[dmyStr(r.entry_date).replace(/[⁦-⁩‏]/g,''), r.ref||'', r.source||'', r.description||'', r.account_code||'', r.account_code ? (r.account_name||'') : 'بلا حساب', Number(r.debit)||0, Number(r.credit)||0, r.flag||'']);
+  const ws1 = X.utils.aoa_to_sheet([['كشف الحركات الشهري — ' + ml], [co + ' · ' + s.entries + ' قيد'], [], head1, ...b1, ['المجموع','','','','','', s.dr, s.cr, '']]);
+  num(ws1, [6,7], 4, b1.length+1); ws1['!cols'] = [{wch:12},{wch:16},{wch:16},{wch:48},{wch:12},{wch:34},{wch:14},{wch:14},{wch:16}];
+  const head2 = ['رقم الحساب','اسم الحساب','مدين','دائن','الصافي'];
+  const b2 = s.accts.map(a=>[a.code, a.code ? a.name : 'بلا حساب', Math.round(a.dr*1000)/1000, Math.round(a.cr*1000)/1000, Math.round((a.dr-a.cr)*1000)/1000]);
+  const ws2 = X.utils.aoa_to_sheet([['مجاميع الحسابات — ' + ml], [co], [], head2, ...b2, ['المجموع','', s.dr, s.cr, Math.round((s.dr-s.cr)*1000)/1000]]);
+  num(ws2, [2,3,4], 4, b2.length+1); ws2['!cols'] = [{wch:12},{wch:36},{wch:14},{wch:14},{wch:14}];
+  const wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
+  X.utils.book_append_sheet(wb, ws1, 'القيود'); X.utils.book_append_sheet(wb, ws2, 'مجاميع الحسابات');
+  X.writeFile(wb, `كشف الحركات ${ml} - ${co}.xlsx`.replace(/[\\/:*?"<>|]+/g,' '));
+  const {error} = await db.rpc('qy_gl_mark_exported', {p_company:glCid(), p_month:g.month+'-01', p_entries:s.entries, p_total:s.dr, p_unlinked:s.unlE});
+  if(error) showToast('صُدّر الملف، وتعذّر تسجيل التصدير: '+(error.message||''),'error'); else showToast('صُدّر الكشف وسُجّل التصدير','success');
+  await glLoad(true);
 }
