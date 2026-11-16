@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.15.0', APP_VERSION_DATE = '2026-11-16';
+const APP_VERSION = '1.15.1', APP_VERSION_DATE = '2026-11-16';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:350, base:350, extra:0.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -14587,8 +14587,8 @@ function renderNewRequest(app){
       ${docBox}
       <div class="nr-f nr-wide"><label>سبب تفصيلي (اختياري)</label>
         <div class="field-with-btn nr-title-row nr-xls-row"><textarea id="detailedReasonInput" class="grow-1" rows="1" placeholder="فارغ = يُستخدم عنوان الطلب">${escH(d.detailedReason||'')}</textarea>
-        <div class="nr-xls"><button type="button" class="btn btn-ghost btn-md" data-on-click="nrXlsTemplate" title="ملف Excel فارغ بأعمدة المستفيدين لتملأه">⬇ نموذج Excel</button>
-          <label class="btn btn-ghost btn-md" title="ارفع ملف المستفيدين المملوء فيُضافون للطلب">⬆ رفع Excel<input id="nrXlsFile" type="file" accept=".xlsx,.xls,.csv" hidden data-on-change="nrXlsUpload"></label></div></div></div>
+        <div class="nr-xls"><button type="button" class="btn btn-ghost btn-md" data-on-click="nrXlsTemplate" title="تحميل نموذج Excel فارغ بأعمدة المستفيدين لتملأه">⬇ نموذج</button>
+          <label class="btn btn-ghost btn-md" title="رفع ملف Excel للمستفيدين بعد ملئه فيُضافون للطلب">⬆ رفع<input id="nrXlsFile" type="file" accept=".xlsx,.xls,.csv" hidden data-on-change="nrXlsUpload"></label></div></div></div>
       <div class="nr-bi-row nr-wide">
       <div class="nr-bi-col">
       ${isCenterStaff() ? nrCenterUnitHtml(d) : `<div class="nr-f"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
