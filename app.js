@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.15.2', APP_VERSION_DATE = '2026-11-16';
+const APP_VERSION = '1.16.0', APP_VERSION_DATE = '2026-11-16';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.2, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:0.8, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -617,7 +617,7 @@ function mapRequestRow(r){
     beneficiaries:(r.request_beneficiaries||[]).slice().sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0)).map(b=>({
       name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', statement:b.statement||'', notes:b.notes||'',
       amount:Number(b.amount), deduction:Number(b.deduction||0), deductionNote:b.deduction_note||'',
-      extra:Number(b.extra||0), extraNote:b.extra_note||'', contractId:b.contract_id||null
+      extra:Number(b.extra||0), extraNote:b.extra_note||'', contractId:b.contract_id||null, supplierId:b.supplier_id||null
     })),
     history:(r.request_history||[]).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).map(h=>({
       step:h.step, actor:h.actor, userId:h.user_id, action:h.action, note:h.note||'', time:h.time, signatureOverride:h.signature_override||'', createdAt:h.created_at
@@ -2678,6 +2678,7 @@ const PAGE_CATALOG = [
   {key:'cancelled', label:'أرشيف الملغاة',     hint:'الطلبات الملغاة: عرضها واسترجاعها لمن يملك الاسترجاع. الحذف النهائي لمدير النظام وحده. افتراضياً: المالية'},
   {key:'projects',  label:'المشاريع وخدمات الشركة', hint:'خدمات الشركة وأسعارها وعقود العملاء والمشاريع. افتراضياً: المالية والمدير التنفيذي (تعديل الخدمات للمالية ومدير النظام)'},
   {key:'clients',   label:'العملاء',            hint:'العملاء وفروعهم وجهات الاتصال. افتراضياً: المالية'},
+  {key:'suppliers', label:'الموردون',           hint:'الموردون وبياناتهم البنكية ومدفوعاتهم. افتراضياً: المالية. واختيار مورد في طلب الصرف متاح لكل من ينشئ طلباً'},
   {key:'contracts', label:'عقود العاملين',       hint:'عقود العاملين مع الشركة أو مراكزها. افتراضياً: المالية (ويضيف مدير النظام غيرها كالسكرتير)'},
   {key:'centerBooks', label:'دفاتر المراكز',    hint:'رصيد كل مركز ودخله وحركاته. من يرى أي مركز يحدده مدير النظام من شاشة المركز، وعاملو المركز يرون مركزهم فقط'},
   {key:'gatewayImport', label:'استيراد بوابة الدفع', hint:'رفع كشف الحساب وملف الفواتير. للمالية، ومن يختاره مدير النظام من شاشة الاستيراد'},
@@ -2690,7 +2691,7 @@ function pageDefaultLevel(role, key){
   if(key==='newreq' || key==='editreq' || key==='analytics') return 'full';          // الوضع الحالي: الجميع
   if(key==='revenues' || key==='ledger' || key==='recurring' || key==='budgetReport' || key==='cancelled') return fin ? 'full' : 'none';
   if(key==='handovers') return role==='employee' ? 'none' : 'full';
-  if(key==='clients') return fin ? 'full' : 'none';
+  if(key==='clients' || key==='suppliers') return fin ? 'full' : 'none';
   if(key==='projects') return fin ? 'full' : (role==='executive_manager' ? 'read' : 'none');
   if(key==='contracts') return fin ? 'full' : 'none';
   if(key==='monitor') return (fin || role==='executive_manager') ? 'full' : 'none';   // المالية والمدير التنفيذي افتراضياً، ومن يُمنح من صفحة الصلاحيات
@@ -2718,7 +2719,7 @@ function pageLevel(key){
   return pageDefaultLevel(u.role, key);
 }
 function pageAtLeast(key, need){ return PAGE_LEVEL_RANK[pageLevel(key)] >= PAGE_LEVEL_RANK[need]; }
-const VIEW_PAGE_KEY = {wcontracts:'contracts', catalog:'projects', projects:'projects', project:'projects', contracts:'projects', contract:'projects', clients:'clients', centerBooks:'centerBooks', centerBook:'centerBooks', gwImport:'gatewayImport', newCustody:'custody', custodyList:'custody', newRequest:'newreq', newRequestChoice:'newreq', analytics:'analytics', revenues:'revenues', recurring:'recurring', ledger:'ledger', budgetReport:'budgetReport', cancelledArchive:'cancelled'};
+const VIEW_PAGE_KEY = {wcontracts:'contracts', catalog:'projects', projects:'projects', project:'projects', contracts:'projects', contract:'projects', clients:'clients', suppliers:'suppliers', centerBooks:'centerBooks', centerBook:'centerBooks', gwImport:'gatewayImport', newCustody:'custody', custodyList:'custody', newRequest:'newreq', newRequestChoice:'newreq', analytics:'analytics', revenues:'revenues', recurring:'recurring', ledger:'ledger', budgetReport:'budgetReport', cancelledArchive:'cancelled'};
 function viewAllowed(v){
   const u = state.user; if(!u || u.role==='admin') return true;
   if(v==='newRequest' && state.editingReqId) return pageLevel('editreq')!=='none';   // التعديل له صلاحيته الخاصة
@@ -3065,7 +3066,7 @@ function setAccountSec(i){
 // مجموعات الشريط الجانبي القابلة للفتح والإغلاق: المعاملات المالية | لوحة التحكم | المساعدة
 function inFinArea(){
   const v = state.view;
-  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','catalog','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(v)) return true;
+  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','suppliers','catalog','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(v)) return true;
   return !inAdminArea() && ['ledger','analytics'].includes(v);
 }
 function inHelpArea(){ return ['guide','sitemap'].includes(state.view); }
@@ -3157,7 +3158,8 @@ function navSections(){
   // العقود: عقود العملاء (صلاحية المشاريع) وعقود العاملين (صلاحية العقود)
   { const cp = []; if(canSeeCatalog()) cp.push({label:'عقود العملاء', views:['contracts','contract'], js:[["openContracts",[]]]}); if(canSeeWContracts()) cp.push({label:'عقود العاملين', views:['wcontracts'], js:[["openWContracts",[]]]});
     if(cp.length) out.push({key:'ctr', ico:'contract', label:'العقود', pages:cp}); }
-  if(canSeeClients()) out.push({key:'cli', ico:'me', label:'العملاء', pages:[{label:'العملاء', views:['clients'], js:[["openClients",[]]]}]});
+  { const cl = []; if(canSeeClients()) cl.push({label:'العملاء', views:['clients'], js:[["openClients",[]]]}); if(canSeeSuppliers()) cl.push({label:'الموردون', views:['suppliers'], js:[["openSuppliers",[]]]});
+    if(cl.length) out.push({key:'cli', ico:'me', label:cl.length>1 ? 'العملاء والموردون' : cl[0].label, pages:cl}); }
   if(canSeeRecurring()) out.push({key:'rec', ico:'repeat', label:'القيود الدورية', count:recDueCount(), pages:[{label:'القيود الدورية', views:['recurring'], js:[["openRecurring",[0]]]}]});
   if(canSeeAccounts()) out.push({key:'acc', ico:'bank', label:'المحاسبة', pages:[{label:'كشف الحركات الشهري', views:['glMonth'], js:[["openGlMonth",[]]]}, {label:'دليل الحسابات', views:['glChart'], js:[["openGlChart",[]]]}, {label:'ربط الحسابات', views:['glLinks'], js:[["openGlLinks",[]]]}]});
   const rep = [];
@@ -3701,8 +3703,8 @@ function switchCompany(companyId){
 
 function newDraft(type){
   if(newReqBlocked()) return;
-  type = type==='payroll' ? 'payroll' : 'normal';
-  if(type==='payroll') nrWcLoad();
+  type = NR_TYPES[type] ? type : 'normal';
+  if(nrIsWc(type)) nrWcLoad(); else nrSupLoad();
   const saved = loadDraftFromStorage();
   // تُسترجع المسودة المحفوظة إن كانت من النوع نفسه (عادي أو راتب)
   if(saved && saved.draft && ((saved.draft.requestType||'normal')===type || saved.editingReqId)){
@@ -3779,12 +3781,12 @@ function duplicateFromRequest(id){
   const req = state.requests.find(r=>r.id===id);
   if(!req) return;
   state.editingReqId = null;
-  const ptype = (req.requestType==='payroll' || (req.beneficiaries||[]).some(b=>Number(b.deduction)>0 || Number(b.extra)>0)) ? 'payroll' : 'normal';
-  if(ptype==='payroll') nrWcLoad();
+  const ptype = nrTypeOfReq(req);
+  if(nrIsWc(ptype)) nrWcLoad(); else nrSupLoad();
   state.draft = {
     requestType: ptype,
     reason: req.reason, detailedReason: req.detailedReason||'', salutationText: req.salutationText||'', referenceText: req.referenceText||'', number: null, isRecurring: !!req.isRecurring,
-    beneficiaries: req.beneficiaries.map(b=>({contractId:b.contractId||null,
+    beneficiaries: req.beneficiaries.map(b=>({contractId:b.contractId||null, supplierId:b.supplierId||null,
       name:b.name, nameEn:b.nameEn, iban:b.iban, civilId:b.civilId, statement:b.statement, notes:b.notes,
       amount:b.amount, deduction:b.deduction, deductionNote:b.deductionNote, extra:b.extra||0, extraNote:b.extraNote,
       idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:false
@@ -3797,35 +3799,28 @@ function duplicateFromRequest(id){
 
 function renderNewRequestChoice(app){
   const canCus = pageLevel('custody')!=='none';
-  app.innerHTML = `
+  const card = (fn, args, i, t, d) => `<div class="role-card nr-type" data-on-click="${fn}"${args ? ` data-on-click-args="${qa(args)}"` : ''}><span class="nr-type-i">${i}</span><b class="nr-type-t">${t}</b><span class="nr-type-d">${d}</span></div>`;
+  app.innerHTML = `<div class="nr-choice">
     <h1>طلب صرف جديد</h1>
     <p class="sub">اختر نوع الطلب</p>
-    <div class="role-grid nr-types">
-      <div class="role-card nr-type" data-on-click="newDraft" data-on-click-args="${qa(['normal'])}">
-        <span class="nr-type-i">🧾</span><b>طلب عادي</b>
-        <span>صرف لشركة أو مورد أو استرجاع اشتراك لمستفيد من خارج الشركة. بلا خصم ولا إضافي، مع مرفقات الفاتورة وبيانات البنك.</span>
+    <div class="nr-types${canCus ? '' : ' nr-types-3'}">
+      ${card('newDraft', ['normal'], NR_TYPES.normal.i, NR_TYPES.normal.t, NR_TYPES.normal.d)}
+      ${canCus ? card('openNewCustody', null, '💼', 'طلب عهدة', 'مبلغ تحت التسوية بيد موظف، يُغلق لاحقاً بالمستندات.') : ''}
+      ${card('newDraft', ['payroll'], NR_TYPES.payroll.i, NR_TYPES.payroll.t, NR_TYPES.payroll.d)}
+      ${card('newDraft', ['reward'], NR_TYPES.reward.i, NR_TYPES.reward.t, NR_TYPES.reward.d)}
+    </div>
+    <div class="nr-choice-sep"><span>أو انسخ من طلب سابق</span></div>
+    <div class="nr-copy">
+      <div class="role-card nr-type" data-on-click="openDuplicateList" data-on-click-args="${qa(["recurring"])}">
+        <span class="nr-type-i">🔁</span><b class="nr-type-t">من الطلبات المتكررة</b>
+        <span class="nr-type-d">الطلبات المعلّمة كمتكررة (رواتب، اشتراكات…)</span>
       </div>
-      ${canCus ? `<div class="role-card nr-type" data-on-click="openNewCustody">
-        <span class="nr-type-i">💼</span><b>طلب عهدة</b>
-        <span>مبلغ تحت التسوية بيد موظف، يُغلق لاحقاً بالمستندات.</span>
-      </div>` : ''}
-      <div class="role-card nr-type" data-on-click="newDraft" data-on-click-args="${qa(['payroll'])}">
-        <span class="nr-type-i">👥</span><b>طلب راتب ومكافأة</b>
-        <span>رواتب ومكافآت العاملين من عقودهم، مع الخصم والإضافي.</span>
+      <div class="role-card nr-type" data-on-click="openDuplicateList" data-on-click-args="${qa(["all"])}">
+        <span class="nr-type-i">🗂</span><b class="nr-type-t">من الطلبات السابقة</b>
+        <span class="nr-type-d">أي طلب مصروف كنقطة بداية؛ يأخذ نوعه</span>
       </div>
     </div>
-    <h3 class="uf-h">أو انسخ من طلب سابق</h3>
-    <div class="role-grid">
-      <div class="role-card" data-on-click="openDuplicateList" data-on-click-args="${qa(["recurring"])}">
-        <b>من الطلبات المتكررة</b>
-        <span>قائمة مختصرة بالطلبات المعلّمة كمتكررة (رواتب، اشتراكات...)</span>
-      </div>
-      <div class="role-card" data-on-click="openDuplicateList" data-on-click-args="${qa(["all"])}">
-        <b>من الطلبات السابقة</b>
-        <span>اختيار أي طلب سابق تم صرفه كنقطة بداية؛ يأخذ نوعه</span>
-      </div>
-    </div>
-  `;
+  </div>`;
 }
 
 function renderDuplicateList(app){
@@ -3860,7 +3855,7 @@ function editRequest(id){
     reason: req.reason, detailedReason: req.detailedReason||'', salutationText: req.salutationText||'', referenceText: req.referenceText||'', number: req.number, requestNotes: req.requestNotes||'',
     budgetItemId: req.budgetItemId || UNSPECIFIED_BUDGET,
     isRecurring: !!req.isRecurring,
-    requestType: (req.requestType==='payroll' || (req.beneficiaries||[]).some(b=>Number(b.deduction)>0 || Number(b.extra)>0)) ? 'payroll' : 'normal',
+    requestType: nrTypeOfReq(req),
     beneficiaries: req.beneficiaries.map(b=>({...b, idFileName:'', idFileData:'', bankFileName:'', bankFileData:''}))
   };
   state.view='newRequest';
@@ -4242,6 +4237,8 @@ function onBeneficiaryNameChange(index, value){
   syncDraftFromDOM();
   const item = state.draft.beneficiaries[index];
   if(!item) return;
+  if(item.supplierId){ const sp = nrSupList().find(x=>x.id===item.supplierId); if(!sp || sp.name!==value) item.supplierId = null; }
+  if(!item.supplierId && (state.draft.requestType||'normal')==='normal'){ const sp = nrSupList().find(x=>x.name===(value||'').trim()); if(sp){ item.supplierId = sp.id; if(sp.iban && !item.iban) item.iban = sp.iban; if(sp.name_en && !item.nameEn) item.nameEn = sp.name_en; } }
   const known = state.beneficiaries.find(x=>x.name===value);
   if(known){
     item.nameEn = known.nameEn || item.nameEn;
@@ -4564,7 +4561,8 @@ async function submitDraftInner(){
       extra: extra, extraNote: (b.extraNote||'').trim(),
       _idFileName: b.idFileName||'', _idFileData: b.idFileData||'',
       _bankFileName: b.bankFileName||'', _bankFileData: b.bankFileData||'',
-      contractId: (d.requestType==='payroll') ? ((nrWcMatch(b)||{}).id || null) : null
+      contractId: nrIsWc(d.requestType) ? ((nrWcMatch(b)||{}).id || null) : null,
+      supplierId: ((d.requestType||'normal')==='normal' && b.supplierId) ? b.supplierId : null
     });
   });
   if(beneficiaries.length===0){ fieldErr(document.querySelector('#beneficiaryList .b-name'), 'الرجاء إدخال بيانات مستفيد واحد على الأقل'); return; }
@@ -4634,7 +4632,7 @@ async function submitDraftInner(){
   if(state.editingReqId && ATT_REQ_QUEUE.length) await attFlushReqQueue(state.editingReqId);
 
   const total = Math.round(beneficiaries.reduce((s,b)=>s + Math.max(b.amount - b.deduction + (b.extra||0), 0), 0)*1000)/1000;
-  const beneRows = beneficiaries.map(b=>({name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, statement:b.statement, notes:b.notes, amount:b.amount, deduction:b.deduction, deduction_note:b.deductionNote, extra:b.extra||0, extra_note:b.extraNote, contract_id:b.contractId||null}));
+  const beneRows = beneficiaries.map(b=>({name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, statement:b.statement, notes:b.notes, amount:b.amount, deduction:b.deduction, deduction_note:b.deductionNote, extra:b.extra||0, extra_note:b.extraNote, contract_id:b.contractId||null, supplier_id:b.supplierId||null}));
 
   if(state.editingReqId){
     await applyRequestEdit({reqId: state.editingReqId, reasonInput, detailedReasonInput, budgetItemId, beneficiaries, beneRows, total, requestNotes, identityDiffs, isRecurring: !!d.isRecurring, salutationText: d.salutationText||'', referenceText: d.referenceText||''});
@@ -4744,10 +4742,10 @@ async function createNewRequest(o){
     number_prefix: req.numberPrefix, number_suffix: req.numberSuffix, review_until: req.reviewUntil,
     request_notes: requestNotes || null,
     ...(cxRouteInsert()),
-    ...(isCustody ? {request_type:'custody'} : (o.requestType==='payroll' ? {request_type:'payroll'} : {}))
+    ...(isCustody ? {request_type:'custody'} : (nrIsWc(o.requestType) ? {request_type:o.requestType} : {}))
   });
   if(!(await dbCheck(reqInsert, 'إنشاء الطلب'))) return false;
-  if(isCustody) req.requestType = 'custody'; else if(o.requestType==='payroll') req.requestType = 'payroll';
+  if(isCustody) req.requestType = 'custody'; else if(nrIsWc(o.requestType)) req.requestType = o.requestType;
   // سجل الإنشاء أولاً، فيأتي قبل «اعتمد بإنشائه الطلب» إن سجّله الخادم
   const h0 = req.history[0];
   await dbCheck(await db.from('request_history').insert({request_id:req.id, step:h0.step, actor:h0.actor, user_id:h0.userId, action:h0.action, note:h0.note, time:h0.time}), 'حفظ سجل الإنشاء');
@@ -6851,7 +6849,7 @@ function renderLetterPages(req){
       <p class="doc-greeting" style="margin:0;padding-right:0;">تحية طيبة وبعد،...</p>
       <span class="doc-red" style="font-size:14px;font-weight:600;text-decoration:underline;">رقم الطلب: ${req.number || '— قيد المراجعة —'}</span>
     </div>
-    <div class="doc-subject-bar" style="margin-top:4px;">${isCus ? 'طلب صرف عهدة' : (req.requestType==='payroll' ? 'طلب صرف رواتب ومكافآت' : 'طلب صرف')} – <span>${escH(req.reason)}</span></div>
+    <div class="doc-subject-bar" style="margin-top:4px;">${isCus ? 'طلب صرف عهدة' : (req.requestType==='payroll' ? 'طلب صرف رواتب' : req.requestType==='reward' ? 'طلب صرف مكافآت' : 'طلب صرف')} – <span>${escH(req.reason)}</span></div>
     <div style="margin-top:4px;font-size:13px;">بند الصرف: <b>${requestBudgetName(req) ? escH(requestBudgetName(req)) : 'غير محدد'}</b></div>
     ${isCus
       ? `<p class="doc-body-text" style="margin-top:4px;">بالإشارة إلى الموضوع أعلاه، يرجى التكرم بالموافقة على صرف عهدة مالية باسم <span class="doc-red">${escH(cusHolder)}</span> لغرض <span class="doc-red">${escH(req.detailedReason || req.reason)}</span>${cusDue ? `، على أن تُسوّى بالفواتير في موعد أقصاه <span class="doc-red">${fmtDateDMY(cusDue)}</span>` : ''}، وفق الجدول الآتي:</p>`
@@ -7082,7 +7080,7 @@ function render(){
   renderDbBadge();
   const app = document.getElementById('app');
   document.body.classList.toggle('on-login', state.view==='login');
-  app.classList.toggle('cxv', ['clients','catalog','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(state.view));
+  app.classList.toggle('cxv', ['clients','suppliers','catalog','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(state.view));
   if(state.view==='login') renderLogin(app);
   else if(state.view==='dashboard') { renderDashboard(app); cxStaffBanner(app); cxDashBanner(app); }
   else if(state.view==='newRequest') renderNewRequest(app);
@@ -7098,6 +7096,7 @@ function render(){
   else if(state.view==='ledger') renderLedger(app);
   else if(state.view==='revenues') renderRevenues(app);
   else if(state.view==='clients') renderClients(app);
+  else if(state.view==='suppliers') renderSuppliers(app);
   else if(state.view==='catalog') renderCatalog(app);
   else if(state.view==='projects') renderProjects(app);
   else if(state.view==='project') renderProject(app);
@@ -14368,16 +14367,16 @@ async function nrXlsTemplate(){
   const d = state.draft; if(!d) return;
   try{
     const X = await qylLoadXlsx(), cols = nrXlsCols(d), pay = d.requestType==='payroll';
-    const ex = {name:'مثال — احذف هذا الصف', nameEn:'Example Name', civilId:'290010100000', iban:'KW81CBKU0000000000001234560101', statement: pay ? 'راتب ' + PRJ_MONTHS[new Date().getMonth()] : 'فاتورة توريد', amount:150.5, notes:'', deduction:10, deductionNote:'غياب يوم', extra:20, extraNote:'ساعات إضافية'};
+    const ex = {name:'مثال — احذف هذا الصف', nameEn:'Example Name', civilId:'290010100000', iban:'KW81CBKU0000000000001234560101', statement: pay ? 'راتب ' + PRJ_MONTHS[new Date().getMonth()] : d.requestType==='reward' ? 'مكافأة ' + PRJ_MONTHS[new Date().getMonth()] : 'فاتورة توريد', amount:150.5, notes:'', deduction:10, deductionNote:'غياب يوم', extra:20, extraNote:'ساعات إضافية'};
     const ws = X.utils.aoa_to_sheet([cols.map(c=>c[1]), cols.map(c=>ex[c[0]]===undefined ? '' : ex[c[0]])]);
     ws['!cols'] = cols.map(c=>({wch: c[0]==='iban' ? 34 : c[0]==='name' || c[0]==='statement' ? 28 : c[0]==='civilId' ? 16 : c[0].endsWith('Note') || c[0]==='notes' ? 22 : 14}));
     const help = X.utils.aoa_to_sheet([['تعليمات تعبئة ملف المستفيدين'],[''],['1. سطر لكل مستفيد بدءاً من الصف الثاني؛ احذف صف المثال.'],['2. الاسم والمبلغ إلزاميان؛ والرقم المدني 12 رقماً، والآيبان الكويتي 30 خانة يبدأ بـ KW.'],['3. المبلغ بالدينار الكويتي حتى 3 أرقام عشرية (مثل 150.500).'],
-      pay ? ['4. الخصم والإضافي اختياريان، وسبب كل منهما يُكتب في عموده؛ ويُربط كل مستفيد بعقده تلقائياً بالرقم المدني أو الآيبان أو الاسم.'] : ['4. بعد الرفع أرفق لكل مستفيد مستنداته (الفاتورة، بيانات البنك، صورة الهوية) من النموذج.'],
-      ['5. لا تغيّر عناوين الأعمدة. ثم من نموذج الطلب: «⬆ رفع Excel».']]);
+      pay ? ['4. الخصم والإضافي اختياريان، وسبب كل منهما يُكتب في عموده؛ ويُربط كل مستفيد بعقده تلقائياً بالرقم المدني أو الآيبان أو الاسم.'] : d.requestType==='reward' ? ['4. يُربط كل مستفيد بعقد المكافأة أو العمل الحر تلقائياً بالرقم المدني أو الآيبان أو الاسم إن وُجد.'] : ['4. بعد الرفع أرفق لكل مستفيد مستنداته (الفاتورة، بيانات البنك، صورة الهوية) من النموذج.'],
+      ['5. لا تغيّر عناوين الأعمدة. ثم من نموذج الطلب: زر «⬆ رفع».']]);
     help['!cols'] = [{wch:110}];
     const wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
     X.utils.book_append_sheet(wb, ws, 'المستفيدون'); X.utils.book_append_sheet(wb, help, 'تعليمات');
-    X.writeFile(wb, (pay ? 'نموذج مستفيدي طلب راتب' : 'نموذج مستفيدي طلب صرف') + '.xlsx');
+    X.writeFile(wb, (pay ? 'نموذج مستفيدي طلب راتب' : d.requestType==='reward' ? 'نموذج مستفيدي طلب مكافأة' : 'نموذج مستفيدي طلب صرف') + '.xlsx');
   }catch(e){ showToast('تعذّر إنشاء النموذج: ' + (e.message||e), 'error'); }
 }
 // مشكلات سطر مستفيد مرفوع من Excel (تظهر بلون تحذير حتى تُصلح)
@@ -14403,8 +14402,8 @@ async function nrXlsUpload(){
     const all = NR_XLS_BASE.concat(NR_XLS_PAY), norm = h => toWesternDigits(String(h||'')).trim().replace(/\s+/g,' ');
     const head = aoa[0].map(norm), idx = {};
     all.forEach(([k,l])=>{ const j = head.indexOf(l); if(j>=0) idx[k] = j; });
-    if(idx.name==null || idx.amount==null){ showToast('لم أجد عمودي «الاسم» و«المبلغ» في الصف الأول — استعمل «⬇ نموذج Excel»','error'); return; }
-    const pay = d.requestType==='payroll', rows = [];
+    if(idx.name==null || idx.amount==null){ showToast('لم أجد عمودي «الاسم» و«المبلغ» في الصف الأول — استعمل زر «⬇ نموذج»','error'); return; }
+    const pay = d.requestType==='payroll', wc = nrIsWc(d.requestType), rows = [];
     aoa.slice(1).forEach((r,ri)=>{
       const g = k => idx[k]==null ? '' : toWesternDigits(String(r[idx[k]]==null ? '' : r[idx[k]])).trim();
       const name = g('name'); if(!name && !g('amount') && !g('civilId') && !g('iban')) return;
@@ -14413,7 +14412,7 @@ async function nrXlsUpload(){
       const b = {name, nameEn:g('nameEn'), civilId:g('civilId').replace(/\D/g,''), iban:nrNorm(g('iban')), statement:g('statement'), notes:g('notes'), amount:num('amount'),
         deduction: pay ? num('deduction') : '', deductionNote: pay ? g('deductionNote') : '', extra: pay ? num('extra') : '', extraNote: pay ? g('extraNote') : '',
         idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true, _xls:true, _row:ri+2};
-      if(pay){ const c = nrWcMatch(b); if(c) b.contractId = c.id; }
+      if(wc){ const c = nrWcMatch(b); if(c) b.contractId = c.id; }
       rows.push(b);
     });
     if(!rows.length){ showToast('لا صفوف مستفيدين في الملف','error'); return; }
@@ -14426,9 +14425,9 @@ async function nrXlsUpload(){
 function nrXlsPreviewHtml(){
   const x = state.nrXls, d = state.draft, pay = d.requestType==='payroll';
   const bad = x.rows.filter(b=>nrBenIssues(b, d).length), tot = cxR3(x.rows.reduce((s,b)=>s + cxN(b.amount) - (pay ? cxN(b.deduction) : 0) + (pay ? cxN(b.extra) : 0), 0));
-  const linked = pay ? x.rows.filter(b=>b.contractId).length : 0;
+  const wc = nrIsWc(d.requestType), linked = wc ? x.rows.filter(b=>b.contractId).length : 0;
   return `<div class="nr-wide nr-pick" id="nrXlsPrev">
-    <div class="nr-pick-h"><b>معاينة «${escH(x.file)}»</b><span class="file-hint">${x.rows.length} مستفيد · المجموع ${fmtKWDHtml(tot)} د.ك${pay ? ' · مربوط بعقد: ' + linked : ''}${bad.length ? ' · <b style="color:#8a5a00">' + bad.length + ' صف فيه مشكلة</b>' : ' · كل الصفوف سليمة'}</span></div>
+    <div class="nr-pick-h"><b>معاينة «${escH(x.file)}»</b><span class="file-hint">${x.rows.length} مستفيد · المجموع ${fmtKWDHtml(tot)} د.ك${wc ? ' · مربوط بعقد: ' + linked : ''}${bad.length ? ' · <b style="color:#8a5a00">' + bad.length + ' صف فيه مشكلة</b>' : ' · كل الصفوف سليمة'}</span></div>
     ${bad.length ? `<div class="nr-xls-bad">${bad.map(b=>`<div>الصف ${b._row}: <b>${escH(b.name||'—')}</b> — ${escH(nrBenIssues(b, d).join('، '))}</div>`).join('')}<div class="file-hint">تُضاف وتظهر بلون تحذير لتصلحها قبل الإرسال.</div></div>` : ''}
     <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="nrXlsApply">إضافة ${x.rows.length} مستفيد</button><button class="btn btn-ghost btn-sm" data-on-click="nrXlsCancel">إلغاء</button></div>
   </div>`;
@@ -14445,18 +14444,33 @@ function nrXlsApply(){
   const bad = x.rows.filter(b=>nrBenIssues(b, d).length).length;
   showToast('أُضيف ' + x.rows.length + ' مستفيد من Excel' + (bad ? ' — أصلح ' + bad + ' صف بلون التحذير' : ''), bad ? 'info' : 'success');
 }
-// ---------- نوع الطلب: عادي / راتب ومكافأة ----------
-function nrTypeBarHtml(d){
-  if(state.editingReqId) return '';
-  const pay = d.requestType==='payroll';
-  return `<div class="nr-typebar"><span class="nr-type-tag">${pay ? '👥 طلب راتب ومكافأة' : '🧾 طلب عادي'}</span><span class="file-hint">${pay ? 'المستفيدون من عقود العاملين، مع الخصم والإضافي.' : 'لشركة أو مورد أو استرجاع اشتراك — بلا خصم ولا إضافي. أرفق الفاتورة وبيانات البنك وصورة الهوية.'}</span><button class="btn btn-ghost btn-sm" data-on-click="nrSwitchType" data-on-click-args="${qa([pay ? 'normal' : 'payroll'])}">${pay ? 'تحويل لطلب عادي' : 'تحويل لطلب راتب'}</button></div>`;
+// ---------- نوع الطلب: عادي / راتب / مكافأة (والعهدة نموذجها مستقل) ----------
+const NR_TYPES = {
+  normal:{i:'🧾', t:'طلب عادي', d:'لشركة أو مورد أو استرجاع اشتراك، مع الفاتورة وبيانات البنك.'},
+  payroll:{i:'👥', t:'طلب راتب', d:'رواتب العاملين الشهرية من عقود العمل، مع الخصم والإضافي.'},
+  reward:{i:'🎁', t:'طلب مكافأة', d:'مكافآت ومستحقات العمل الحر من عقودها، والمبلغ تكتبه.'}
+};
+function nrIsWc(t){ return t==='payroll' || t==='reward'; }
+function nrTypeOfReq(req){ const t = req && req.requestType; if(t==='payroll' || t==='reward') return t; return (req && req.beneficiaries||[]).some(b=>Number(b.deduction)>0 || Number(b.extra)>0) ? 'payroll' : 'normal'; }
+// قائمة منسدلة صغيرة بجوار عنوان الصفحة (بدل شريط النوع)
+function nrTypeSelHtml(d){
+  if(state.editingReqId) return `<span class="nr-type-ro">${NR_TYPES[d.requestType||'normal'].i} ${NR_TYPES[d.requestType||'normal'].t}</span>`;
+  const t = d.requestType || 'normal', canCus = pageLevel('custody')!=='none';
+  return `<label class="nr-type-sel"><span>نوع الطلب</span><select data-on-change="nrSwitchType" data-on-change-args="${qa([QA.v])}" title="${escH(NR_TYPES[t].d)}">
+    ${Object.keys(NR_TYPES).map(k=>`<option value="${k}" ${k===t?'selected':''}>${NR_TYPES[k].i} ${NR_TYPES[k].t}</option>`).join('')}
+    ${canCus ? '<option value="custody">💼 طلب عهدة</option>' : ''}</select></label>`;
 }
 function nrSwitchType(t){
   syncDraftFromDOM();
-  if(t==='normal' && state.draft.beneficiaries.some(b=>Number(b.deduction)>0 || Number(b.extra)>0) && !confirm('الطلب العادي بلا خصم ولا إضافي؛ سيُحذف ما كُتب منهما. متابعة؟')) return;
-  state.draft.requestType = t;
-  if(t==='normal') state.draft.beneficiaries.forEach(b=>{ b.deduction=''; b.deductionNote=''; b.extra=''; b.extraNote=''; });
-  else nrWcLoad();
+  const d = state.draft; if(!d || t===d.requestType) return;
+  if(t==='custody'){ saveDraftToStorage(); openNewCustody(); return; }
+  if(!NR_TYPES[t]){ render(); return; }
+  const hasAdj = d.beneficiaries.some(b=>Number(b.deduction)>0 || Number(b.extra)>0);
+  if(t==='normal' && hasAdj && !confirm('الطلب العادي بلا خصم ولا إضافي؛ سيُحذف ما كُتب منهما. متابعة؟')){ render(); return; }
+  d.requestType = t;
+  if(t==='normal'){ d.beneficiaries.forEach(b=>{ b.deduction=''; b.deductionNote=''; b.extra=''; b.extraNote=''; b.contractId=null; }); nrSupLoad(); }
+  else { d.beneficiaries.forEach(b=>{ b.supplierId=null; b.contractId=null; }); nrWcLoad(); }
+  state.nrPickOpen = false; state.nrSupOpen = false;
   render(); saveDraftToStorage();
 }
 // العقود السارية المتاحة لمنشئ الطلب (المالية وصلاحية العقود: كل الشركة؛ موظف المركز: عقود مركزه)
@@ -14470,7 +14484,12 @@ async function nrWcLoad(){
   state._nrWcBusy = false;
   if(state.view==='newRequest') nrRefreshBenNotes(true);
 }
-function nrWcList(){ return state.nrWc && state.nrWc.cid===state.currentCompanyId ? state.nrWc.list.filter(c=>(!c.start_date || c.start_date<=cxToday()) && (!c.end_date || c.end_date>=cxToday())) : []; }
+// الراتب يأخذ «عقد عمل»، والمكافأة تأخذ «مكافأة» و«عمل حر»
+function nrWcList(){
+  const t = state.draft && state.draft.requestType;
+  return state.nrWc && state.nrWc.cid===state.currentCompanyId ? state.nrWc.list.filter(c=>(!c.start_date || c.start_date<=cxToday()) && (!c.end_date || c.end_date>=cxToday())
+    && (t==='payroll' ? c.contract_type==='employment' : t==='reward' ? c.contract_type!=='employment' : true)) : [];
+}
 const nrNorm = v => String(v||'').replace(/\s+/g,'').toUpperCase();
 const nrNameN = v => String(v||'').trim().replace(/\s+/g,' ').replace(/[أإآ]/g,'ا').replace(/ة$/,'ه');
 // مطابقة المستفيد بعقد ساري: العقد المختار، ثم الرقم المدني، ثم الآيبان، ثم الاسم كاملاً
@@ -14490,10 +14509,12 @@ function nrBenAttCount(b){
 function nrBenNoteHtml(d, i, b){
   if(b._xls){ const iss = nrBenIssues(b, d); if(iss.length) return `<span class="bbh-note bbh-warn">⚠️ ${escH(iss.join('، '))}</span>`; }
   if(!(b.name||'').trim() && !(b.civilId||'').trim()) return '<span class="bbh-note"></span>';
-  if(d.requestType==='payroll'){
+  if(nrIsWc(d.requestType)){
     const c = nrWcMatch(b);
-    return c ? `<span class="bbh-note bbh-ok" title="${escH(WC_TYPES[c.contract_type]||'')}">✓ عقد ساري${c.job_title ? ' · ' + escH(c.job_title) : ''}</span>` : `<span class="bbh-note bbh-warn">⚠️ تأكد أن للمستفيد عقداً</span>`;
+    if(c) return `<span class="bbh-note bbh-ok" title="${escH(WC_TYPES[c.contract_type]||'')}">✓ عقد ساري${c.job_title ? ' · ' + escH(c.job_title) : ''}</span>`;
+    return d.requestType==='reward' ? `<span class="bbh-note bbh-soft">ℹ️ بلا عقد مكافأة مسجّل</span>` : `<span class="bbh-note bbh-warn">⚠️ تأكد أن للمستفيد عقداً</span>`;
   }
+  if(b.supplierId){ const sp = nrSupList().find(x=>x.id===b.supplierId); return `<span class="bbh-note bbh-ok">✓ مورد مسجّل${sp && sp.activity ? ' · ' + escH(sp.activity) : ''}</span>`; }
   return nrBenAttCount(b) ? '<span class="bbh-note"></span>' : `<span class="bbh-note bbh-warn">📎 أضف مرفقات مثل الفاتورة وبيانات البنك وصورة الهوية</span>`;
 }
 // تحديث التحذيرات أثناء الكتابة دون إعادة رسم النموذج
@@ -14514,10 +14535,10 @@ function nrWcPickToggle(){ syncDraftFromDOM(); state.nrPickOpen = !state.nrPickO
 function nrWcPickHtml(d){
   const used = new Set(d.beneficiaries.map(b=>{ const c = nrWcMatch(b); return c && c.id; }).filter(Boolean));
   const L = nrWcList();
-  if(!state.nrPickOpen) return `<span class="add-beneficiary nr-wide nr-pick-btn" data-on-click="nrWcPickToggle">👥 + اختيار من عقود العاملين${L.length ? ' (' + L.length + ')' : ''}</span>`;
+  if(!state.nrPickOpen) return `<span class="add-beneficiary nr-wide nr-pick-btn" data-on-click="nrWcPickToggle">${d.requestType==='reward' ? '🎁' : '👥'} + اختيار من ${d.requestType==='reward' ? 'عقود المكافآت والعمل الحر' : 'عقود العمل'}${L.length ? ' (' + L.length + ')' : ''}</span>`;
   const wname = c => { const u = c.user_id ? (state.users||[]).find(x=>x.id===c.user_id) : null; return (u && u.name) || c.person_name || '—'; };
   return `<div class="nr-wide nr-pick">
-    <div class="nr-pick-h"><b>عقود العاملين السارية</b><span class="file-hint">اختر من تريد إضافتهم؛ المضاف من قبل معطّل.</span></div>
+    <div class="nr-pick-h"><b>${d.requestType==='reward' ? 'عقود المكافآت والعمل الحر السارية' : 'عقود العمل السارية'}</b><span class="file-hint">اختر من تريد إضافتهم؛ المضاف من قبل معطّل.</span></div>
     ${!state.nrWc ? '<div class="ct-empty">جارٍ التحميل…</div>' : L.length ? `<div class="nr-pick-l">${L.map(c=>`<label class="pj-pick-i${used.has(c.id)?' pj-have':''}"><input type="checkbox" data-nr-pick="${escH(c.id)}" ${used.has(c.id)?'disabled':''}><span>${escH(wname(c))}${c.job_title ? ' <small class="pj-muted">· ' + escH(c.job_title) + '</small>' : ''}</span><small>${c.amount==null ? '—' : fmtKWDHtml(c.amount)} ${escH(WC_CYCLES[c.pay_cycle]||'')}</small></label>`).join('')}</div>` : '<div class="ct-empty">لا عقود سارية ظاهرة لك. أضف المستفيد يدوياً، أو اطلب من المالية تسجيل العقد في «العقود ← عقود العاملين».</div>'}
     <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="nrWcPickApply">إضافة المختارين</button><button class="btn btn-ghost btn-sm" data-on-click="nrWcPickToggle">إغلاق</button></div>
   </div>`;
@@ -14577,17 +14598,16 @@ function renderNewRequest(app){
         </div>
       </div>`;
   app.innerHTML = `
-    <h1>${state.editingReqId ? 'تعديل الطلب' : (d.requestType==='payroll' ? 'طلب راتب ومكافأة' : 'طلب صرف جديد')}${d.requestType==='payroll' ? '' : ''}</h1>
-    ${nrTypeBarHtml(d)}
+    <div class="nr-head"><h1>${state.editingReqId ? 'تعديل الطلب' : (d.requestType==='normal' || !d.requestType ? 'طلب صرف جديد' : NR_TYPES[d.requestType].t)}</h1>${nrTypeSelHtml(d)}</div>
     ${(()=>{ const rq = state.editingReqId && state.requests.find(r=>r.id===state.editingReqId); return rq && rq.status==='rejected' ? '<div class="warn-box" style="background:rgba(185,28,28,.10);border-right:4px solid #b91c1c;padding:8px 12px;border-radius:8px;margin:8px 0;"><b>✕ مرفوض</b> — عدّل الطلب ثم أعد إرساله.</div>' : ''; })()}
     <div class="card nr-form">
       ${canSend ? '' : `<div class="warn-box nr-wide" style="background:rgba(180,83,9,.12);border-right:4px solid #b45309;padding:8px 12px;border-radius:8px;margin-bottom:12px;">${state.editingReqId ? 'ليست لديك صلاحية «تعديل طلباتي» (صلاحيتك: قراءة فقط). يمكنك الاطلاع على الطلب فقط.' : 'ليست لديك صلاحية إرسال طلب صرف (صلاحيتك: قراءة فقط). يمكنك الاطلاع على النموذج فقط.'}</div>`}
       <div class="nr-f nr-wide"><label>عنوان الطلب</label>
         <div class="field-with-btn nr-title-row"><input id="reasonInput" type="text" value="${escH(d.reason||'')}" placeholder="مثال: رواتب شهر 8-2026">${docBtn('nr-dt-desk')}</div></div>
       ${docBox}
-      <div class="nr-f nr-wide"><label>سبب تفصيلي (اختياري)</label>
+      <div class="nr-f nr-wide"><div class="nr-lblrow"><label>سبب تفصيلي (اختياري)</label><span class="nr-xls-t">المستفيدون من Excel</span></div>
         <div class="field-with-btn nr-title-row nr-xls-row"><textarea id="detailedReasonInput" class="grow-1" rows="1" placeholder="فارغ = يُستخدم عنوان الطلب">${escH(d.detailedReason||'')}</textarea>
-        <div class="nr-xls"><button type="button" class="btn btn-ghost btn-md" data-on-click="nrXlsTemplate" title="تحميل نموذج Excel فارغ بأعمدة المستفيدين لتملأه">⬇ نموذج</button>
+        <div class="nr-xls"><span class="nr-xls-t nr-xls-tph">المستفيدون من Excel</span><button type="button" class="btn btn-ghost btn-md" data-on-click="nrXlsTemplate" title="تحميل نموذج Excel فارغ بأعمدة المستفيدين لتملأه">⬇ نموذج</button>
           <label class="btn btn-ghost btn-md" title="رفع ملف Excel للمستفيدين بعد ملئه فيُضافون للطلب">⬆ رفع<input id="nrXlsFile" data-csv type="file" accept=".xlsx,.xls,.csv" hidden data-on-change="nrXlsUpload"></label></div></div></div>
       <div class="nr-bi-row nr-wide">
       <div class="nr-bi-col">
@@ -14650,8 +14670,12 @@ function renderNewRequest(app){
                 <input class="b-notes" type="text" value="${escH(b.notes||'')}" placeholder="أي ملاحظة إضافية"></div>` : ''}
               <div class="nr-f nr-wide"><label>البيان <span style="color:var(--red);">*</span></label>
                 <input class="b-statement" type="text" value="${escH(b.statement||'')}" placeholder="مثال: مستحقات شهر أغسطس"></div>
-              ${desk && d.requestType!=='payroll' ? `
+              ${desk && d.requestType!=='payroll' && d.requestType!=='reward' ? `
               <input class="b-deduction" type="hidden" value=""><input class="b-deductionNote" type="hidden" value=""><input class="b-extra" type="hidden" value=""><input class="b-extraNote" type="hidden" value="">
+` : desk && d.requestType==='reward' ? `
+              <input class="b-deduction" type="hidden" value="${escH(String(b.deduction||''))}"><input class="b-deductionNote" type="hidden" value="${escH(b.deductionNote||'')}">
+              <input class="b-extra" type="hidden" value="${escH(String(b.extra||''))}"><input class="b-extraNote" type="hidden" value="${escH(b.extraNote||'')}">
+              <div class="nr-adj nr-adj-desk nr-wide">${ded>0 ? chip('deduction','خصم', ded, b.deductionNote) : link('deduction','خصم')}${ext>0 ? chip('extra','إضافي', ext, b.extraNote) : link('extra','إضافي')}</div>
 ` : desk ? `
               <div class="nr-adjrow nr-wide">
               <div class="nr-f"><label>خصم (اختياري)</label>
@@ -14688,8 +14712,8 @@ function renderNewRequest(app){
               <input class="b-extra" type="hidden" value="${escH(String(b.extra||''))}">
               <input class="b-extraNote" type="hidden" value="${escH(b.extraNote||'')}">
               <div class="nr-adj nr-wide">
-                ${d.requestType==='payroll' ? (ded>0 ? chip('deduction','خصم', ded, b.deductionNote) : link('deduction','خصم')) : ''}
-                ${d.requestType==='payroll' ? (ext>0 ? chip('extra','إضافي', ext, b.extraNote) : link('extra','إضافي')) : ''}
+                ${nrIsWc(d.requestType) ? (ded>0 ? chip('deduction','خصم', ded, b.deductionNote) : link('deduction','خصم')) : ''}
+                ${nrIsWc(d.requestType) ? (ext>0 ? chip('extra','إضافي', ext, b.extraNote) : link('extra','إضافي')) : ''}
                 ${showNotes ? '' : `<button type="button" class="btn btn-ghost btn-sm nr-abtn" data-on-click="nrShowNotes" data-on-click-args="${qa([(i)])}">+ ملاحظة</button>`}
               </div>`}
               <div class="nr-foot nr-wide">${attButtonHtml(i, b)}<span class="b-net"></span></div>
@@ -14697,8 +14721,8 @@ function renderNewRequest(app){
           </div>
         `}).join('')}
       </div>
-      ${d.requestType==='payroll' ? nrWcPickHtml(d) : ''}
-      <span class="add-beneficiary nr-wide" data-on-click="addBeneficiaryRow">+ إضافة مستفيد ${d.requestType==='payroll' ? 'يدوياً' : 'آخر'}</span>
+      ${nrIsWc(d.requestType) ? nrWcPickHtml(d) : nrSupPickHtml(d)}
+      <span class="add-beneficiary nr-wide" data-on-click="addBeneficiaryRow">+ إضافة مستفيد ${nrIsWc(d.requestType) ? 'يدوياً' : 'آخر'}</span>
 
       <div class="total-box nr-wide" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:nowrap;">
         <div style="flex-shrink:0;">
@@ -16814,6 +16838,7 @@ function cxUsersOfCompany(){
 }
 
 function canSeeClients(){ return !!state.user && pageLevel('clients')!=='none'; }
+function canSeeSuppliers(){ return !!state.user && pageLevel('suppliers')!=='none'; }
 // لوحة المراكز (كل المراكز معاً): المالية والمدير التنفيذي، ومن أُعطي رؤية مراكز أخرى. موظف المركز يرى دفتر مركزه فقط
 // شركة بلا مراكز (كشركة الدعاية): لا يظهر فيها شيء من المراكز حتى يُنشأ أول مركز من «المنشأة ← الوحدات التنظيمية»
 function coHasCenters(cid){ cid = cid || state.currentCompanyId; return (state.centers||[]).some(c=>c.companyId===cid && (c.kind||'center')==='center' && c.scope!=='org'); }
@@ -16871,13 +16896,13 @@ function cxDashBanner(app){
 }
 
 // ===================== العملاء =====================
-function openClients(){ state.view='clients'; state.cx.cEditId=null; state.cx.cDraft=null; render(); window.scrollTo(0,0); cxLoadClients(); }
+function openClients(){ state.view='clients'; state.cx.cMode='client'; state.cx.cEditId=null; state.cx.cDraft=null; render(); window.scrollTo(0,0); cxLoadClients(); }
 async function cxLoadClients(){
   const r = await db.from('clients').select('*').eq('company_id', cxCid()).order('name');
   if(await dbCheck(r,'تحميل العملاء')){ state.cx.clients = r.data||[]; if(state.view==='clients') render(); }
 }
 function cxClientTree(){
-  const list = state.cx.clients||[], byParent = {};
+  const list = (state.cx.clients||[]).filter(c=>(c.party||'client')!=='supplier'), byParent = {};
   list.forEach(c=>{ (byParent[c.parent_id||''] = byParent[c.parent_id||''] || []).push(c); });
   const out = [], seen = new Set();
   const walk = (pid, depth)=>{ (byParent[pid]||[]).forEach(c=>{ if(seen.has(c.id)) return; seen.add(c.id); out.push({c, depth}); walk(c.id, depth+1); }); };
@@ -16887,20 +16912,22 @@ function cxClientTree(){
 }
 function cxNewClient(parentId){
   state.cx.cEditId = 'new';
-  state.cx.cDraft = {id:null, parent_id:parentId||'', name:'', name_en:'', kind: parentId ? 'branch' : 'association', status:'active', address:'', email:'', website:'', tax_no:'', notes:'', phones:[{number:'',type:'mobile'}], contacts:[]};
+  const sup = state.cx.cMode==='supplier';
+  state.cx.cDraft = {id:null, parent_id:parentId||'', name:'', name_en:'', kind: parentId ? 'branch' : (sup ? 'company' : 'association'), party: sup ? 'supplier' : 'client', status:'active', address:'', email:'', website:'', tax_no:'', notes:'', phones:[{number:'',type:'mobile'}], contacts:[],
+    activity:'', bank_name:'', iban:'', account_name:'', license_no:'', files:[]};
   render(); window.scrollTo(0,0);
 }
 function cxEditClient(id){
   const c = (state.cx.clients||[]).find(x=>x.id===id); if(!c) return;
   state.cx.cEditId = id;
-  state.cx.cDraft = Object.assign({}, c, {parent_id:c.parent_id||'', phones:JSON.parse(JSON.stringify(c.phones||[])), contacts:JSON.parse(JSON.stringify(c.contacts||[]))});
+  state.cx.cDraft = Object.assign({}, c, {parent_id:c.parent_id||'', party:c.party||'client', phones:JSON.parse(JSON.stringify(c.phones||[])), contacts:JSON.parse(JSON.stringify(c.contacts||[])), files:JSON.parse(JSON.stringify(c.files||[]))});
   render(); window.scrollTo(0,0);
 }
 function cxCancelClient(){ state.cx.cEditId=null; state.cx.cDraft=null; if(state.prj.returnTo && prjClientBack(null)) return; render(); }
 function cxCSync(){
   const d = state.cx.cDraft; if(!d) return;
   const g = id => { const el = document.getElementById(id); return el ? el.value : null; };
-  ['name','name_en','kind','status','address','email','website','tax_no','notes'].forEach(k=>{ const v = g('cxc_'+k); if(v!==null) d[k] = v; });
+  ['name','name_en','kind','status','address','email','website','tax_no','notes','party','activity','bank_name','iban','account_name','license_no'].forEach(k=>{ const v = g('cxc_'+k); if(v!==null) d[k] = v; });
   const p = g('cxc_parent'); if(p!==null) d.parent_id = p;
   d.phones = (d.phones||[]).map((x,i)=>({number: g('cxc_ph_'+i+'_n') ?? x.number, type: g('cxc_ph_'+i+'_t') ?? x.type}));
   d.contacts = (d.contacts||[]).map((x,i)=>({name: g('cxc_ct_'+i+'_n') ?? x.name, title: g('cxc_ct_'+i+'_t') ?? x.title, phone: g('cxc_ct_'+i+'_p') ?? x.phone, email: g('cxc_ct_'+i+'_e') ?? x.email}));
@@ -16915,47 +16942,67 @@ function cxCAddContact(){ cxCSync(); state.cx.cDraft.contacts.push({name:'',titl
 function cxCDelContact(i){ cxCSync(); state.cx.cDraft.contacts.splice(i,1); render(); }
 async function cxSaveClient(){
   cxCSync(); const d = state.cx.cDraft; if(!d) return;
-  if(!String(d.name||'').trim()){ showToast('اسم العميل مطلوب','error'); return; }
+  const sup = state.cx.cMode==='supplier', who = sup ? 'المورد' : 'العميل';
+  if(!String(d.name||'').trim()){ showToast('اسم ' + who + ' مطلوب','error'); return; }
+  const iban = nrNorm(d.iban);
+  if(iban && !/^KW\d{2}[A-Z0-9]{26}$/.test(iban)){ fieldErr(document.getElementById('cxc_iban'), 'الآيبان الكويتي 30 خانة يبدأ بـ KW'); return; }
+  let files = (d.files||[]).slice();
+  try{
+    for(const [kind, el] of [['iban','cxc_f_iban'],['license','cxc_f_license'],['other','cxc_f_other']]){
+      const f = prjFileOf(el); if(!f) continue;
+      const up = await prjUpload(f, 'sup');
+      if(kind!=='other') files = files.filter(x=>x.kind!==kind);
+      files.push({kind, path:up.path, name:up.name});
+    }
+  }catch(e){ showToast('تعذّر رفع الملف: ' + e.message, 'error'); return; }
   const row = {company_id:cxCid(), parent_id:d.parent_id||null, name:d.name.trim(), name_en:(d.name_en||'').trim()||null, kind:d.kind, status:d.status,
+    party: d.party || (sup ? 'supplier' : 'client'), activity:(d.activity||'').trim()||null, bank_name:(d.bank_name||'').trim()||null, iban: iban||null,
+    account_name:(d.account_name||'').trim()||null, license_no:(d.license_no||'').trim()||null, files,
     address:(d.address||'').trim()||null, email:(d.email||'').trim()||null, website:(d.website||'').trim()||null, tax_no:(d.tax_no||'').trim()||null,
     notes:(d.notes||'').trim()||null,
     phones:(d.phones||[]).filter(x=>String(x.number||'').trim()).map(x=>({number:String(x.number).trim(), type:x.type})),
     contacts:(d.contacts||[]).filter(x=>String(x.name||'').trim()||String(x.phone||'').trim()).map(x=>({name:(x.name||'').trim(), title:(x.title||'').trim(), phone:(x.phone||'').trim(), email:(x.email||'').trim()}))};
-  if(d.id && d.parent_id===d.id){ showToast('لا يكون العميل تابعاً لنفسه','error'); return; }
+  if(d.id && d.parent_id===d.id){ showToast('لا يكون ' + who + ' تابعاً لنفسه','error'); return; }
   let r;
   if(d.id) r = await db.from('clients').update(row).eq('id', d.id);
   else { row.created_by = state.user.id; r = await db.from('clients').insert(row).select().single(); }
-  if(!(await dbCheck(r,'حفظ العميل'))) return;
-  showToast('تم حفظ العميل','success');
+  if(!(await dbCheck(r,'حفظ ' + who))) return;
+  showToast('تم حفظ ' + who,'success');
   state.cx.cEditId=null; state.cx.cDraft=null; await cxLoadClients();
   if(!d.id && state.prj.returnTo) prjClientBack(r.data && r.data.id);
 }
 async function cxDeleteClient(id){
   const c = (state.cx.clients||[]).find(x=>x.id===id); if(!c) return;
   if((state.cx.clients||[]).some(x=>x.parent_id===id)){ showToast('للعميل فروع تابعة، احذفها أو انقلها أولاً','error'); return; }
-  if(!confirm('حذف العميل «'+c.name+'»؟\n\nتُفكّ المراكز المرتبطة به دون أن تُحذف.')) return;
+  const who = state.cx.cMode==='supplier' ? 'المورد' : 'العميل';
+  if(!confirm('حذف ' + who + ' «'+c.name+'»؟\n\n' + (state.cx.cMode==='supplier' ? 'تبقى طلباته السابقة كما هي، ويُفكّ ربطها به.' : 'تُفكّ المراكز المرتبطة به دون أن تُحذف.'))) return;
   const r = await db.from('clients').delete().eq('id', id);
-  if(!(await dbCheck(r,'حذف العميل'))) return;
-  showToast('تم حذف العميل','success'); await cxLoadClients();
+  if(!(await dbCheck(r,'حذف ' + who))) return;
+  showToast('تم حذف ' + who,'success'); await cxLoadClients();
 }
 function cxClientFormHtml(){
   const d = state.cx.cDraft; if(!d) return '';
-  const parents = (state.cx.clients||[]).filter(c=>c.id!==d.id);
+  const sup = state.cx.cMode==='supplier';
+  const parents = (state.cx.clients||[]).filter(c=>c.id!==d.id && (c.party||'client')!=='supplier');
   const opt = (arr, sel) => arr.map(x=>`<option value="${x[0]}" ${x[0]===sel?'selected':''}>${x[1]}</option>`).join('');
   const inp = (id, label, val, extra, cls) => `<div class="${cls||''}"><label for="${id}">${label}</label><input id="${id}" type="text" value="${escH(val||'')}" ${extra||''}></div>`;
   const phones = d.phones||[], contacts = d.contacts||[];
   const del = (fn, i) => `<button class="btn btn-reject btn-xs" data-on-click="${fn}" data-on-click-args="${qa([i])}" title="حذف">حذف</button>`;
   return `<div class="card cx-panel cx-cform">
-    <div class="cx-panel-h"><h2>${d.id ? 'تعديل عميل' : 'عميل جديد'}</h2><button class="btn btn-ghost btn-sm" data-on-click="cxCancelClient">إغلاق</button></div>
+    <div class="cx-panel-h"><h2>${sup ? (d.id ? 'تعديل مورد' : 'مورد جديد') : (d.id ? 'تعديل عميل' : 'عميل جديد')}</h2><button class="btn btn-ghost btn-sm" data-on-click="cxCancelClient">إغلاق</button></div>
     <div class="uf-grid uf-2b">
-      ${inp('cxc_name','الاسم *',d.name,'placeholder="مثال: جمعية إحياء التراث الإسلامي"')}
+      ${inp('cxc_name','الاسم *',d.name, sup ? 'placeholder="مثال: مطبعة الخليج"' : 'placeholder="مثال: جمعية إحياء التراث الإسلامي"')}
       ${inp('cxc_name_en','الاسم بالإنجليزية',d.name_en,'dir="ltr"')}
     </div>
     <div class="uf-grid uf-2b">
-      <div class="cx-pair2"><div><label for="cxc_kind">النوع</label><select id="cxc_kind">${opt(CX_CLIENT_KIND, d.kind)}</select></div>
+      <div class="cx-pair2"><div><label for="cxc_kind">النوع</label><select id="cxc_kind">${opt(sup ? SUP_KIND : CX_CLIENT_KIND, d.kind)}</select></div>
       <div><label for="cxc_status">الحالة</label><select id="cxc_status"><option value="active" ${d.status==='active'?'selected':''}>نشط</option><option value="inactive" ${d.status==='inactive'?'selected':''}>موقوف</option></select></div></div>
-      <div><label for="cxc_parent">يتبع</label><select id="cxc_parent"><option value="">— عميل رئيسي —</option>${parents.map(c=>`<option value="${c.id}" ${c.id===d.parent_id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
+      ${sup ? `<div class="cx-pair2"><div><label for="cxc_activity">النشاط</label><input id="cxc_activity" type="text" list="supActList" value="${escH(d.activity||'')}" placeholder="طباعة، تجهيزات، نقل…"><datalist id="supActList">${[...new Set((state.cx.clients||[]).map(c=>c.activity).filter(Boolean))].map(a=>`<option value="${escH(a)}">`).join('')}</datalist></div>
+        <div><label for="cxc_party">التصنيف</label><select id="cxc_party" ${cxIsFin() ? '' : 'disabled title="تحويله لعميل ومورد للمالية"'}>${opt([['supplier','مورد'],['both','عميل ومورد']], d.party)}</select></div></div>`
+      : `<div class="cx-pair2"><div><label for="cxc_parent">يتبع</label><select id="cxc_parent"><option value="">— عميل رئيسي —</option>${parents.map(c=>`<option value="${c.id}" ${c.id===d.parent_id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
+        <div><label for="cxc_party">التصنيف</label><select id="cxc_party" data-on-change="cxPartyChange">${opt([['client','عميل'],['both','عميل ومورد']], d.party)}</select></div></div>`}
     </div>
+    ${sup || d.party==='both' ? supBankFormHtml(d) : ''}
 
     <h3 class="uf-h">التواصل والعنوان</h3>
     <div class="uf-grid uf-2b">
@@ -16976,7 +17023,7 @@ function cxClientFormHtml(){
       </section>
       <section class="cx-rep">
         <div class="cx-rep-h"><h3>ملاحظات</h3></div>
-        <textarea id="cxc_notes" rows="4" placeholder="أي معلومة تخص العميل">${escH(d.notes||'')}</textarea>
+        <textarea id="cxc_notes" rows="4" placeholder="أي معلومة تخص ${sup ? 'المورد' : 'العميل'}">${escH(d.notes||'')}</textarea>
       </section>
     </div>
 
@@ -16998,13 +17045,14 @@ function cxClientFormHtml(){
 }
 function renderClients(app){
   if(!canSeeClients()){ state.view='dashboard'; render(); return; }
-  const tree = cxClientTree(), cs = state.centers||[];
+  state.cx.cMode = 'client';
+  const tree = cxClientTree().filter(({c})=>(c.party||'client')!=='supplier'), cs = state.centers||[];
   const rows = tree.map(({c,depth})=>{
     const kn = (CX_CLIENT_KIND.find(k=>k[0]===c.kind)||[0,c.kind])[1];
     const ph = (c.phones||[]).filter(p=>p.number).map(p=>`<div class="cx-ln"><bdi dir="ltr">${escH(p.number)}</bdi> <small>${escH((CX_PHONE_TYPE.find(t=>t[0]===p.type)||[0,''])[1])}</small></div>`).join('') || '—';
     const ct = (c.contacts||[]).filter(x=>x.name).map(x=>`<div class="cx-ln"><b>${escH(x.name)}</b>${x.title?` <small>${escH(x.title)}</small>`:''}</div>`).join('') || '—';
     const nCent = cs.filter(x=>x.clientId===c.id && x.companyId===cxCid()).length;
-    return `<tr><td data-label="" class="cx-cname" style="padding-inline-start:${10+depth*22}px;">${depth ? '<span class="cx-meta" style="display:inline">↳ </span>' : ''}<b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="cx-badge cx-st-closed">موقوف</span>' : ''}${c.name_en?`<div class="cx-meta" dir="ltr" style="text-align:right">${escH(c.name_en)}</div>`:''}</td>
+    return `<tr><td data-label="" class="cx-cname" style="padding-inline-start:${10+depth*22}px;">${depth ? '<span class="cx-meta" style="display:inline">↳ </span>' : ''}<b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="cx-badge cx-st-closed">موقوف</span>' : ''}${c.party==='both' ? ' <span class="cx-badge">مورد أيضاً</span>' : ''}${c.name_en?`<div class="cx-meta" dir="ltr" style="text-align:right">${escH(c.name_en)}</div>`:''}</td>
       <td data-label="النوع" class="cx-nowrap">${escH(kn)}</td><td data-label="الهاتف" class="cx-cphone">${ph}</td><td data-label="جهات الاتصال" class="cx-cct">${ct}</td><td data-label="المراكز" class="num">${nCent || '—'}</td><td data-label="العقود" class="num">${canSeeCatalog() ? `<button class="btn btn-ghost btn-xs" data-on-click="openContracts" data-on-click-args="${qa([c.id])}" title="عقود هذا العميل">${(state.prj.contracts||[]).filter(k=>k.client_id===c.id && !k.parent_id).length || '+'} عقد</button>` : '—'}</td>
       <td class="cx-act"><div>
         <button class="btn btn-ghost btn-xs" data-on-click="cxNewClient" data-on-click-args="${qa([c.id])}">+ فرع</button>
@@ -17018,6 +17066,115 @@ function renderClients(app){
     ${state.cx.cEditId ? cxClientFormHtml() : ''}
     <div class="card cx-panel"><div class="cx-panel-h"><div><h2>العملاء</h2><div class="file-hint">${tree.length} عميل</div></div>${state.cx.cEditId ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ عميل جديد</button>`}</div>
     <table class="exec-table cx-tbl" data-qyl="clients" data-qyl-title="العملاء"><thead><tr><th>الاسم</th><th>النوع</th><th>الهاتف</th><th>جهات الاتصال</th><th class="num">المراكز</th><th class="num">العقود</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// ===================== الموردون =====================
+// صفوف في جدول العملاء نفسه (party = supplier أو both)، مع البنك والآيبان والرخصة ومرفقاتها، وسجل ما صُرف لهم
+const SUP_KIND = [['company','شركة'],['shop','محل أو مؤسسة'],['individual','فرد'],['gov','جهة حكومية'],['other','أخرى']];
+const SUP_FILE_KIND = {iban:'شهادة الآيبان', license:'الرخصة التجارية', other:'مرفق'};
+function openSuppliers(){ state.view='suppliers'; state.cx.cMode='supplier'; state.cx.cEditId=null; state.cx.cDraft=null; state.cx.supHist=null; render(); window.scrollTo(0,0); cxLoadClients(); }
+function cxPartyChange(){ cxCSync(); render(); }
+function supBankFormHtml(d){
+  const inp = (id, label, val, extra) => `<div><label for="${id}">${label}</label><input id="${id}" type="text" value="${escH(val||'')}" ${extra||''}></div>`;
+  const files = d.files||[];
+  const fileRow = (kind, id) => { const f = files.filter(x=>x.kind===kind);
+    return `<div class="sup-file"><label for="${id}">${SUP_FILE_KIND[kind]}</label><div class="sup-file-r">${f.map(x=>prjFileBtn(x.path, x.name, kind==='other' ? (x.name||'مرفق') : 'عرض')).join('')}<input id="${id}" type="file" accept="image/*,application/pdf"></div></div>`; };
+  return `<h3 class="uf-h">البنك والرخصة</h3>
+    <div class="uf-grid uf-2b">
+      ${inp('cxc_iban','الآيبان',d.iban,'dir="ltr" placeholder="KW00 XXXX…"')}
+      ${inp('cxc_account_name','اسم صاحب الحساب',d.account_name,'placeholder="كما في شهادة الآيبان"')}
+      ${inp('cxc_bank_name','البنك',d.bank_name,'list="supBankList" placeholder="مثال: بنك الكويت الوطني"')}
+      ${inp('cxc_license_no','رقم الرخصة التجارية',d.license_no,'dir="ltr"')}
+    </div>
+    <datalist id="supBankList">${['بنك الكويت الوطني','بيت التمويل الكويتي','بنك بوبيان','بنك الخليج','البنك التجاري الكويتي','بنك برقان','البنك الأهلي الكويتي','بنك الكويت الدولي','بنك وربة'].map(b=>`<option value="${b}">`).join('')}</datalist>
+    <div class="uf-grid uf-2b sup-files">${fileRow('iban','cxc_f_iban')}${fileRow('license','cxc_f_license')}${fileRow('other','cxc_f_other')}</div>`;
+}
+// مدفوعات المورد: من الطلبات المرتبطة به (غير الملغاة)
+function supPayments(id){
+  const out = [];
+  (state.requests||[]).forEach(r=>{ if(r.isCancelled || r.companyId!==cxCid()) return; (r.beneficiaries||[]).forEach(b=>{ if(b.supplierId===id) out.push({r, b, net:cxR3(Number(b.amount||0) - Number(b.deduction||0) + Number(b.extra||0))}); }); });
+  return out.sort((x,y)=>String(y.r.createdAt||y.r.dateGreg||'').localeCompare(String(x.r.createdAt||x.r.dateGreg||'')));
+}
+function supHistToggle(id){ state.cx.supHist = state.cx.supHist===id ? null : id; render(); if(state.cx.supHist) setTimeout(()=>{ const el = document.getElementById('supHist'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 30); }
+function supHistHtml(){
+  const c = (state.cx.clients||[]).find(x=>x.id===state.cx.supHist); if(!c) return '';
+  const pays = supPayments(c.id), done = pays.filter(p=>p.r.status==='completed');
+  const tot = cxR3(done.reduce((s,p)=>s+p.net,0)), pend = cxR3(pays.filter(p=>p.r.status!=='completed' && p.r.status!=='rejected').reduce((s,p)=>s+p.net,0));
+  return `<div class="card cx-panel" id="supHist"><div class="cx-panel-h"><div><h2>مدفوعات «${escH(c.name)}»</h2><div class="file-hint">مصروف: <b>${fmtKWDHtml(tot)}</b> د.ك في ${done.length} طلب${pend ? ' · قيد الاعتماد: ' + fmtKWDHtml(pend) + ' د.ك' : ''}</div></div><button class="btn btn-ghost btn-sm" data-on-click="supHistToggle" data-on-click-args="${qa([c.id])}">إغلاق</button></div>
+    ${pays.length ? `<table class="exec-table cx-tbl"><thead><tr><th>الطلب</th><th>التاريخ</th><th>البيان</th><th class="num">المبلغ</th><th>الحالة</th></tr></thead><tbody>${pays.map(p=>`<tr class="cx-click" data-on-click="openSearchResult" data-on-click-args="${qa([p.r.id])}">
+      <td data-label="الطلب"><b>${escH(p.r.number||'—')}</b><div class="cx-meta">${escH(p.r.reason||'')}</div></td><td data-label="التاريخ" class="cx-nowrap">${cxDate(String(p.r.createdAt||'').slice(0,10))}</td>
+      <td data-label="البيان">${escH(p.b.statement||'')}</td><td data-label="المبلغ" class="num">${fmtKWDHtml(p.net)}</td><td data-label="الحالة">${statusBadge(p.r.status, p.r.isCancelled)}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="ct-empty">لا طلبات مرتبطة بهذا المورد بعد. عند إنشاء طلب عادي اختره من «🏪 + اختيار من الموردين» فيُربط به.</div>'}</div>`;
+}
+function renderSuppliers(app){
+  if(!canSeeSuppliers()){ state.view='dashboard'; render(); return; }
+  state.cx.cMode = 'supplier';
+  const lvl = pageLevel('suppliers'), canW = cxIsFin() || lvl==='edit' || lvl==='full', canDel = cxIsFin() || lvl==='full';
+  const list = (state.cx.clients||[]).filter(c=>c.company_id===cxCid() && (c.party==='supplier' || c.party==='both')).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const q = (state.cx.supQ||'').trim(), shown = q ? list.filter(c=>[c.name,c.name_en,c.activity,c.iban].some(v=>String(v||'').toLowerCase().includes(q.toLowerCase()))) : list;
+  const rows = shown.map(c=>{
+    const kn = (SUP_KIND.concat(CX_CLIENT_KIND).find(k=>k[0]===c.kind)||[0,c.kind||''])[1];
+    const ph = (c.phones||[]).filter(p=>p.number).slice(0,2).map(p=>`<div class="cx-ln"><bdi dir="ltr">${escH(p.number)}</bdi></div>`).join('') || '—';
+    const done = supPayments(c.id).filter(p=>p.r.status==='completed'), tot = cxR3(done.reduce((s,p)=>s+p.net,0));
+    const ib = c.iban ? `<bdi dir="ltr" title="${escH(c.iban)}">…${escH(String(c.iban).slice(-4))}</bdi>${c.bank_name ? `<div class="cx-meta">${escH(c.bank_name)}</div>` : ''}` : '<span class="bbh-warn">بلا آيبان</span>';
+    return `<tr><td data-label="" class="cx-cname"><b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="cx-badge cx-st-closed">موقوف</span>' : ''}${c.party==='both' ? ' <span class="cx-badge">عميل أيضاً</span>' : ''}${c.name_en?`<div class="cx-meta" dir="ltr" style="text-align:right">${escH(c.name_en)}</div>`:''}</td>
+      <td data-label="النشاط">${escH(c.activity||'—')}<div class="cx-meta">${escH(kn)}</div></td><td data-label="الآيبان" class="cx-nowrap">${ib}</td><td data-label="الهاتف" class="cx-cphone">${ph}</td>
+      <td data-label="المصروف" class="num"><button class="btn btn-ghost btn-xs" data-on-click="supHistToggle" data-on-click-args="${qa([c.id])}" title="سجل المدفوعات">${done.length ? fmtKWDHtml(tot) + ' <small>(' + done.length + ')</small>' : 'السجل'}</button></td>
+      <td class="cx-act"><div>${canW && (c.party==='supplier' || cxIsFin()) ? `<button class="btn btn-ghost btn-xs" data-on-click="cxEditClient" data-on-click-args="${qa([c.id])}">${qi('pen')}تعديل</button>` : ''}${canDel && (c.party==='supplier' || cxIsFin()) ? `<button class="btn btn-reject btn-xs" data-on-click="cxDeleteClient" data-on-click-args="${qa([c.id])}">${qi('trash')}حذف</button>` : ''}</div></td></tr>`;
+  }).join('') || `<tr class="cx-empty"><td colspan="6">${q ? 'لا نتائج للبحث.' : 'لا يوجد موردون بعد.'}</td></tr>`;
+  const noIban = list.filter(c=>!c.iban && c.status!=='inactive').length;
+  app.innerHTML = `
+    <h1>الموردون</h1>
+    <p class="sub">الشركات والجهات التي تشتري منها الشركة. يُختار المورد في «طلب صرف جديد ← طلب عادي» فيُملأ اسمه وآيبانه، وتظهر مدفوعاته هنا.</p>
+    ${state.cx.cEditId ? cxClientFormHtml() : ''}
+    ${state.cx.supHist ? supHistHtml() : ''}
+    <div class="card cx-panel"><div class="cx-panel-h"><div><h2>الموردون</h2><div class="file-hint">${list.length} مورد${noIban ? ' · <b style="color:#8a5a00">' + noIban + ' بلا آيبان</b>' : ''}</div></div>
+      <div class="sup-tools"><input type="text" placeholder="بحث بالاسم أو النشاط أو الآيبان" value="${escH(state.cx.supQ||'')}" data-on-input="supSearch" data-on-input-args="${qa([QA.v])}">${state.cx.cEditId || !canW ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ مورد جديد</button>`}</div></div>
+    <table class="exec-table cx-tbl" data-qyl="suppliers" data-qyl-title="الموردون"><thead><tr><th>الاسم</th><th>النشاط</th><th>الآيبان</th><th>الهاتف</th><th class="num">المصروف</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+let _supQT = null;
+function supSearch(v){ state.cx.supQ = v; clearTimeout(_supQT); _supQT = setTimeout(()=>{ const el = document.activeElement, pos = el && el.selectionStart; render(); const n = document.querySelector('.sup-tools input'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(e){} } }, 250); }
+
+// ---------- اختيار مورد في الطلب العادي ----------
+async function nrSupLoad(){
+  const cid = state.currentCompanyId; if(!cid || state._nrSupBusy) return;
+  if(state.nrSup && state.nrSup.cid===cid && Date.now() - state.nrSup.at < 60000) return;
+  state._nrSupBusy = true;
+  try{ const r = await db.rpc('qy_supplier_pick', {p_company: cid}); if(!r.error) state.nrSup = {cid, at:Date.now(), list:r.data||[]}; }catch(e){}
+  state._nrSupBusy = false;
+  if(state.view==='newRequest' && state.nrSupOpen) render();
+}
+function nrSupList(){ return state.nrSup && state.nrSup.cid===state.currentCompanyId ? state.nrSup.list : []; }
+function nrSupToggle(){ syncDraftFromDOM(); state.nrSupOpen = !state.nrSupOpen; state.nrSupQ = ''; if(state.nrSupOpen) nrSupLoad(); render(); if(state.nrSupOpen) setTimeout(()=>{ const el = document.getElementById('nrSupQ'); if(el) el.focus(); }, 30); }
+function nrSupFilter(v){ state.nrSupQ = v; const box = document.getElementById('nrSupL'); if(box) box.innerHTML = nrSupItemsHtml(state.draft); }
+function nrSupItemsHtml(d){
+  const used = new Set(d.beneficiaries.map(b=>b.supplierId).filter(Boolean));
+  const q = (state.nrSupQ||'').trim().toLowerCase();
+  const L = nrSupList().filter(c=>!q || [c.name,c.name_en,c.activity].some(v=>String(v||'').toLowerCase().includes(q)));
+  if(!state.nrSup) return '<div class="ct-empty">جارٍ التحميل…</div>';
+  if(!L.length) return `<div class="ct-empty">${q ? 'لا مورد بهذا الاسم.' : 'لا موردين مسجّلين بعد.'}${canSeeSuppliers() ? ' أضفه من «العملاء والموردون ← الموردون».' : ' اطلب من المالية تسجيله.'}</div>`;
+  return L.map(c=>`<button type="button" class="sup-pick-i${used.has(c.id) ? ' pj-have' : ''}" data-on-click="nrSupApply" data-on-click-args="${qa([c.id])}" ${used.has(c.id) ? 'disabled' : ''}><b>${escH(c.name)}</b>${c.activity ? `<small class="pj-muted"> · ${escH(c.activity)}</small>` : ''}<span class="sup-pick-ib">${c.iban ? '<bdi dir="ltr">…' + escH(String(c.iban).slice(-4)) + '</bdi>' : '<span class="bbh-warn">بلا آيبان</span>'}</span></button>`).join('');
+}
+function nrSupPickHtml(d){
+  if(!state.nrSupOpen) return `<span class="add-beneficiary nr-wide nr-pick-btn" data-on-click="nrSupToggle">🏪 + اختيار من الموردين${nrSupList().length ? ' (' + nrSupList().length + ')' : ''}</span>`;
+  return `<div class="nr-wide nr-pick">
+    <div class="nr-pick-h"><b>الموردون</b><span class="file-hint">اضغط المورد فيُضاف مستفيداً باسمه وآيبانه.</span></div>
+    <input id="nrSupQ" type="text" placeholder="بحث بالاسم أو النشاط" value="${escH(state.nrSupQ||'')}" data-on-input="nrSupFilter" data-on-input-args="${qa([QA.v])}">
+    <div class="nr-pick-l sup-pick-l" id="nrSupL">${nrSupItemsHtml(d)}</div>
+    <div class="cx-actions"><button class="btn btn-ghost btn-sm" data-on-click="nrSupToggle">إغلاق</button></div>
+  </div>`;
+}
+function nrSupApply(id){
+  const c = nrSupList().find(x=>x.id===id); if(!c) return;
+  syncDraftFromDOM();
+  const d = state.draft;
+  const row = {name:c.name, nameEn:c.name_en||'', iban:c.iban||'', civilId:'', statement:'', notes:'', amount:'', deduction:'', deductionNote:'', extra:'', extraNote:'', idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', isNew:true, supplierId:c.id};
+  const empty = d.beneficiaries.findIndex(b=>!(b.name||'').trim() && !(String(b.amount||'').trim()));
+  if(empty>=0) d.beneficiaries[empty] = row; else d.beneficiaries.push(row);
+  state.nrSupOpen = false; render(); saveDraftToStorage();
+  if(!c.iban) showToast('أُضيف «' + c.name + '» — ليس له آيبان مسجّل، اكتبه في الطلب','info');
+  else showToast('أُضيف «' + c.name + '» — اكتب المبلغ والبيان','success');
+  setTimeout(()=>{ const blocks = document.querySelectorAll('#beneficiaryList .beneficiary-block'), i = d.beneficiaries.indexOf(row), el = blocks[i] && blocks[i].querySelector('.b-amount'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus({preventScroll:true}); } }, 60);
 }
 
 // ===================== دفاتر المراكز =====================
