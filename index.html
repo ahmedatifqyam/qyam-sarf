@@ -3116,6 +3116,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app > .adm-nav2, #app > .adm-subs-solo{margin-bottom:10px;}
   @media (max-width:699px){ #app > .adm-nav2, #app > .adm-subs-solo{margin-bottom:6px !important;} }
   @media (max-width:699px){ #app > .adm-nav2 + h1.m-dup-title + .card, #app > .adm-subs-solo + .card, #app > .adm-subs-solo + h1.m-dup-title + .card{padding-top:4px !important;} }
+  /* (1.23.4) بيانات صفحة المشروع: عنوان الحقل فوق بيانه بنفس الحجم وبخط عريض، في خلايا منتظمة مثل صف الأرقام */
+  #app .pj-kvs, #app .pj-kvs.pj-kvs-2{display:grid !important;grid-template-columns:repeat(auto-fill,minmax(210px,1fr)) !important;gap:0 !important;border-top:1px solid var(--line);margin:0 0 12px;}
+  #app .pj-kvs > .pj-kv2, #app:has(> .pj-top) .pj-kvs > .pj-kv2{display:flex !important;flex-direction:column;gap:4px;padding:10px 12px !important;border-bottom:1px solid var(--line) !important;border-inline-start:1px solid var(--line);min-width:0;line-height:1.45;}
+  #app .pj-kv2 > span{font-size:var(--fs-body,15px) !important;font-weight:700 !important;color:var(--muted) !important;}
+  #app .pj-kv2 > b{font-size:var(--fs-body,15px) !important;font-weight:700 !important;color:var(--text);overflow-wrap:anywhere;}
+  @media (max-width:699px){ #app .pj-kvs, #app .pj-kvs.pj-kvs-2{grid-template-columns:repeat(2,minmax(0,1fr)) !important;} #app .pj-kvs > .pj-kv2, #app:has(> .pj-top) .pj-kvs > .pj-kv2{padding:8px 10px !important;} }
 </style>
 </head>
 <body>
@@ -3136,6 +3142,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=225197a3c4"></script>
+<script src="app.js?v=c0d29cbaf9"></script>
 </body>
 </html>
