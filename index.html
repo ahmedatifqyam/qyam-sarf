@@ -1691,7 +1691,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .tip-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;margin:0 6px;padding:0;border:0;border-radius:50%;
     background:var(--blue-bg);color:var(--blue);font-size:var(--fs-body);line-height:1;cursor:pointer;vertical-align:middle;font-family:inherit;flex:0 0 22px;}
   .tip-btn.on{background:var(--blue);color:#fff;}
-  .tip-body{background:var(--blue-bg);border-radius:8px;padding:8px 12px !important;margin:6px 0 10px !important;font-size:var(--fs-hint);line-height:1.7;color:var(--text) !important;}
+  .tip-body{position:absolute !important;z-index:40;box-sizing:border-box;box-shadow:0 8px 22px rgba(0,0,0,.16);border:1px solid var(--info-line);background:var(--blue-bg);border-radius:8px;padding:8px 12px !important;margin:0 !important;font-size:var(--fs-hint);line-height:1.7;color:var(--text) !important;}
   /* مؤشر التمرير الجانبي: طرف باهت وسهم ‹ حين يبقى محتوى جهة اليسار */
   .xs{position:relative;}
   .adm-tabs2.xs.xs-more{-webkit-mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px);mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px);}
@@ -2155,7 +2155,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .co-f{min-width:0;} #app .co-g .sel-add,#app .co-g .field-with-btn{width:100% !important;max-width:none !important;} .co-f .file-hint{margin-top:4px;} .co-full{grid-column:1/-1;}
   .co-two{display:flex;gap:8px;align-items:center;} .co-two > *{flex:1 1 0;min-width:0;} .co-sub{margin-top:8px;}
   #app .co-brand input[type=color]{flex:0 0 56px;width:56px;height:40px;padding:2px;} .co-brand .file-pick{flex:1 1 auto;} #app .co-brand .file-pick > label.file-btn{width:100%;}
-  @media (max-width:699px){ .co-g{grid-template-columns:minmax(0,1fr);} }
+  .co-g4{grid-template-columns:repeat(4,minmax(0,1fr));} .co-s2{grid-column:span 2;} .co-s3{grid-column:span 3;}
+  #app .co-g .co-chk{display:flex;align-items:center;gap:8px;height:40px;width:100%;box-sizing:border-box;margin:0;}
+  #app .co-g .file-pick{display:flex;width:100%;} #app .co-g .file-pick > label.file-btn{width:150px;}
+  #app .uf-flex label.btn{display:inline-flex;align-items:center;justify-content:center;margin:0;}
+  @media (max-width:999px) and (min-width:700px){ .co-g4{grid-template-columns:repeat(2,minmax(0,1fr));} .co-g4 .co-s3{grid-column:span 2;} }
+  @media (max-width:699px){ .co-g,.co-g4{grid-template-columns:minmax(0,1fr);} .co-s2,.co-s3{grid-column:auto;} }
   .uf-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px 18px;margin-top:12px;align-items:end;}
   .uf-2{grid-template-columns:minmax(0,1fr) auto;} .uf-2b{grid-template-columns:repeat(2,minmax(0,1fr));}
   .uf-3{grid-template-columns:repeat(3,minmax(0,1fr));}
@@ -2918,6 +2923,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=abb075124a"></script>
+<script src="app.js?v=f5c468a54b"></script>
 </body>
 </html>

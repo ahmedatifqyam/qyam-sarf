@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.18.1', APP_VERSION_DATE = '2026-11-16';
+const APP_VERSION = '1.18.2', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:355, base:350, extra:5.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:350, base:350, extra:0.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7528,10 +7528,25 @@ function infoTips(){
     b.title = 'شرح'; b.setAttribute('aria-label','شرح');
     b.addEventListener('click', ev=>{ ev.preventDefault(); ev.stopPropagation();
       el.hidden = !el.hidden; if(el.hidden) _tipOpen.delete(key); else _tipOpen.add(key); b.classList.toggle('on', !el.hidden);
+      if(!el.hidden) tipPlace(el, b);
       if(!el.hidden) qyAutoBox(el, b, ()=>{ el.hidden = true; _tipOpen.delete(key); b.classList.remove('on'); }); });
     b.classList.toggle('on', !el.hidden);
     a.appendChild(b);
+    if(!el.hidden) requestAnimationFrame(()=>tipPlace(el, b));
   });
+}
+// الشرح عائم تحت زر ⓘ: لا يدفع الحقول ولا يغيّر ترتيب الصفحة
+function tipPlace(el, b){
+  const host = el.parentElement; if(!host) return;
+  if(getComputedStyle(host).position==='static') host.style.position = 'relative';
+  const hr = host.getBoundingClientRect(), br = b.getBoundingClientRect();
+  const w = Math.min(440, Math.max(320, hr.width), innerWidth - 24);
+  el.style.width = w + 'px';
+  el.style.top = (br.bottom - hr.top + 6) + 'px';
+  // الصفحة من اليمين: يبدأ الشرح من حافة الزر اليمنى، ولا يخرج عن الشاشة يساراً
+  let vRight = Math.min(br.right + 8, innerWidth - 12);          // الحافة اليمنى على الشاشة
+  if(vRight - w < 12) vRight = Math.min(innerWidth - 12, 12 + w); // لا يخرج يساراً
+  el.style.left = (vRight - w - hr.left) + 'px'; el.style.right = 'auto';
 }
 // الهاتف: اسم الحقل بخط عريض على اليمين والحقل على يساره في سطر واحد
 function pairFields(){
@@ -8210,25 +8225,23 @@ function renderHandovers(app){
     const chk = new Set(f.checked||[]);
     form = `<div class="card flow" style="margin-bottom:14px;">
       <h2 style="margin:0 0 6px;font-size:var(--fs-h3);">إسناد جديد</h2>
-      ${onBehalf ? `<div><label>إسناد نيابةً عن <span style="color:var(--red);">*</span></label><select id="hoFrom" data-on-change="#57">
+      <div class="co-g co-g4">
+      ${onBehalf ? `<div class="co-f"><label for="hoFrom">إسناد نيابةً عن <span style="color:var(--red);">*</span></label><select id="hoFrom" data-on-change="#57">
         <option value="">— اختر الموظف —</option>
         ${hoCompanyUsers([]).map(u=>`<option value="${escH(u.id)}" ${u.id===fromId?'selected':''}>${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('')}</select></div>` : ''}
-      <div class="row">
-        <div><label>المستلِم</label><select id="hoTo"><option value="">— اختر —</option>
+        <div class="co-f"><label for="hoTo">المستلِم</label><select id="hoTo"><option value="">— اختر —</option>
           ${hoCompanyUsers([fromId]).map(u=>`<option value="${escH(u.id)}" ${f.toId===u.id?'selected':''}>${escH(u.name)} — ${escH(findRole(u.role).name)}</option>`).join('')}</select></div>
-        <div><label>السبب</label><select id="hoReason">${Object.keys(HO_REASONS).map(k=>`<option value="${k}" ${f.reason===k?'selected':''}>${HO_REASONS[k]}</option>`).join('')}</select></div>
+        <div class="co-f"><label for="hoReason">السبب</label><select id="hoReason">${Object.keys(HO_REASONS).map(k=>`<option value="${k}" ${f.reason===k?'selected':''}>${HO_REASONS[k]}</option>`).join('')}</select></div>
+        <div class="co-f"><label for="hoFromDate">من تاريخ</label><input id="hoFromDate" type="date" value="${f.fromDate||hoToday()}"></div>
+        <div class="co-f"><label for="hoToDate">إلى تاريخ (فارغ = مفتوح)</label><input id="hoToDate" type="date" value="${f.toDate||''}"></div>
+        <div class="co-f ${onBehalf ? 'co-s3' : 'co-full'}"><label for="hoNote">ملاحظة (اختياري${isAdmin?'، واكتب السبب إن كان الإسناد طارئاً':''})</label><input id="hoNote" type="text" maxlength="200" value="${escH(f.note||'')}"></div>
       </div>
-      <div class="row">
-        <div><label>من تاريخ</label><input id="hoFromDate" type="date" value="${f.fromDate||hoToday()}"></div>
-        <div><label>إلى تاريخ (اتركه فارغاً للإسناد المفتوح)</label><input id="hoToDate" type="date" value="${f.toDate||''}"></div>
-      </div>
-      <div><label>النطاق</label>
+      <div class="co-sec ho-scope"><h3>النطاق</h3>
         <label style="display:flex;gap:6px;align-items:center;"><input type="radio" name="hoScope" value="all" ${f.scope!=='some'?'checked':''} style="width:auto;" data-on-change="#58"> كل المعاملات المعلّقة والقادمة</label>
         <label style="display:flex;gap:6px;align-items:center;"><input type="radio" name="hoScope" value="some" ${f.scope==='some'?'checked':''} style="width:auto;" data-on-change="#59"> طلبات محددة فقط</label>
         ${f.scope==='some' ? (!fromId ? '<p class="file-hint">اختر الموظف أولاً لتظهر الطلبات التي تنتظر قراره.</p>' : myReqs.length ? myReqs.map(r=>`<label style="display:flex;gap:6px;align-items:center;margin-right:20px;"><input type="checkbox" class="hoReqChk" value="${escH(r.id)}" style="width:auto;" ${chk.has(r.id)?'checked':''}> ${escH(r.number||'قيد المراجعة')} — ${escH(r.reason)} — ${fmtKWDPlain(r.totalAmount)}</label>`).join('') : `<p class="file-hint">لا توجد طلبات تنتظر قرار ${escH(fromName)} الآن. الإسناد يخص الطلبات التي يعتمدها الشخص؛ ومن لا يعتمد طلبات (كالموظف) لا تظهر له طلبات هنا.</p>`) : ''}
+        <label style="display:flex;gap:6px;align-items:center;margin-top:8px;"><input id="hoNeedsApproval" type="checkbox" ${f.needsApproval===false?'':'checked'} style="width:auto;"> يتطلب موافقة المستلِم (إن أُلغي الخيار يسري الإسناد فوراً)</label>
       </div>
-      <label style="display:flex;gap:6px;align-items:center;margin-top:8px;"><input id="hoNeedsApproval" type="checkbox" ${f.needsApproval===false?'':'checked'} style="width:auto;"> يتطلب موافقة المستلِم (إن أُلغي الخيار يسري الإسناد فوراً)</label>
-      <div><label>ملاحظة (اختياري${isAdmin?'، واكتب السبب إن كان الإسناد طارئاً':''})</label><input id="hoNote" type="text" maxlength="200" value="${escH(f.note||'')}"></div>
       <div class="actions-row"><button class="btn btn-primary btn-md" data-on-click="hoCreate">إرسال الإسناد</button><button class="btn btn-ghost btn-md" data-on-click="#60">إلغاء</button></div>
     </div>`;
   }
@@ -18028,6 +18041,15 @@ state.prj = {docs:[], projects:[], invoices:[], collections:[], contracts:[], pr
   cf:{q:'', client:''}, contractId:null, cForm:null, pickOpen:false, pickSel:{}};
 const PRJ_DOC_TYPES = [['quote','عرض سعر'],['service_form','نموذج خدمة'],['proposal','مقترح خدمة']];
 const PRJ_DOC_ST = {sent:'بانتظار رد العميل', approved:'اعتمده العميل', rejected:'رفضه العميل', cancelled:'ملغاة'};
+// شرح شروط العقد (يظهر بزر ⓘ بجانب اسم الحقل). القيم للتوثيق فقط الآن، ولا يحسب بها النظام شيئاً بعد
+const PRJ_TERM_TIPS = {
+  renew_notice_months: 'كم شهراً قبل نهاية العقد يجب أن يبلّغ أحد الطرفين الآخر إن لم يرد التجديد.',
+  free_revisions: 'عدد مرات التعديل التي يطلبها العميل على العمل دون أي مقابل إضافي.',
+  revision_pct: 'نسبة تُضاف على سعر العمل عن كل تعديل بعد المجانية. مثال: عمل بـ100 مع 10% يصير 110.',
+  late_pct_day: 'نسبة تُخصم من مبلغ العمل عن كل يوم يتأخر فيه التسليم عن موعده المتفق عليه.',
+  late_pct_max: 'أعلى نسبة تصل إليها غرامة التأخير مهما طالت المدة. مثال: 2% يومياً بحد 20% تتوقف بعد 10 أيام.',
+  billing: 'طريقة إصدار الفواتير للعميل: فاتورة شهرية تجمع أعمال الشهر، أو فاتورة لكل مشروع على حدة، أو غير ذلك.'
+};
 const PRJ_BILLING = [['monthly','فاتورة شهرية'],['per_project','فاتورة لكل مشروع'],['other','أخرى']];
 function prjDocTypeName(t){ return (PRJ_DOC_TYPES.find(x=>x[0]===t)||[0,t])[1]; }
 function canEditPrj(){ return !!state.user && PAGE_LEVEL_RANK[pageLevel('projects')] >= 2; }
@@ -18044,7 +18066,7 @@ async function prjLoad(){
   const cid = state.currentCompanyId; if(!cid || !state.user || state.prj._loading) return;
   state.prj._loading = true;
   try{
-    const [d, p, i, c, k] = await Promise.all([
+    const [d, p, i, k, c] = await Promise.all([
       db.from('prj_documents').select('*').eq('company_id', cid).order('created_at', {ascending:false}),
       db.from('projects').select('*').eq('company_id', cid).order('created_at', {ascending:false}),
       db.from('prj_invoices').select('*').eq('company_id', cid).order('inv_date'),
@@ -18281,25 +18303,19 @@ function prjDocFormHtml(){
   return `<div class="card cx-panel pj-form" id="pjDocForm">
     <div class="cx-panel-h"><h2>${d.id ? 'تعديل الوثيقة ' + escH(d.doc_no||'') : 'وثيقة جديدة'}</h2></div>
     <p class="file-hint">ارفع الوثيقة جاهزة (PDF أو صورة) واكتب بياناتها. الرقم يُعطى تلقائياً: رمز الشركة-الرقم/السنة.</p>
-    <div class="uf-flex">
-      <div class="f-md"><label for="pjd_doc_type">نوع الوثيقة</label><select id="pjd_doc_type">${PRJ_DOC_TYPES.map(([k,l])=>`<option value="${k}" ${d.doc_type===k?'selected':''}>${l}</option>`).join('')}</select></div>
-      <div class="f-lg"><label for="pjd_client_id">العميل</label><select id="pjd_client_id" data-on-change="prjClientPick" data-on-change-args="${qa(['doc', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${d.client_id===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select></div>
-      <div class="f-lg"><label for="pjd_contract_id">المرجع (العقد أو الملحق)</label><select id="pjd_contract_id">${prjContractOpts(d.client_id, d.contract_id)}</select></div>
-    </div>
-    <div class="uf-flex">
-      <div class="f-xl"><label for="pjd_title">العنوان</label><input id="pjd_title" type="text" value="${escH(d.title||'')}" placeholder="مثال: إدارة حسابات التواصل — الوقف الكبير"></div>
-      <div class="f-md"><label for="pjd_doc_date">تاريخ الوثيقة</label><input id="pjd_doc_date" type="date" value="${escH(d.doc_date||'')}"></div>
-    </div>
-    <div class="uf-flex">
-      <div class="f-md"><label for="pjd_amount">القيمة (د.ك)</label><input id="pjd_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String(d.amount??''))}" placeholder="0.000"></div>
-      <div class="f-md"><label for="pjd_amount_kind">القيمة</label><select id="pjd_amount_kind"><option value="total" ${d.amount_kind==='total'?'selected':''}>إجمالي</option><option value="monthly" ${d.amount_kind==='monthly'?'selected':''}>شهرياً</option></select></div>
-      <div class="f-sm"><label for="pjd_months">المدة (أشهر)</label><input id="pjd_months" type="number" min="1" inputmode="numeric" value="${escH(String(d.months||''))}" placeholder="—" ${d.open_ended?'disabled':''}></div>
-      <div class="f-md"><label>&nbsp;</label><label class="chk-card pj-chk"><input id="pjd_open_ended" type="checkbox" ${d.open_ended?'checked':''} data-on-change="prjDocRefresh"><span>مفتوح بلا نهاية</span></label></div>
-      <div class="f-md"><label for="pjd_start_date">بداية التنفيذ</label><input id="pjd_start_date" type="date" value="${escH(d.start_date||'')}"></div>
-    </div>
-    <div class="uf-flex">
-      <div class="f-lg"><label for="pjd_file">ملف الوثيقة ${d.file_path ? '(اتركه فارغاً للإبقاء على الحالي)' : ''}</label><input id="pjd_file" type="file" accept="application/pdf,image/*"></div>
-      <div class="f-xl"><label for="pjd_notes">ملاحظات</label><input id="pjd_notes" type="text" value="${escH(d.notes||'')}" placeholder="اختياري"></div>
+    <div class="co-g co-g4">
+      <div class="co-f"><label for="pjd_doc_type">نوع الوثيقة</label><select id="pjd_doc_type">${PRJ_DOC_TYPES.map(([k,l])=>`<option value="${k}" ${d.doc_type===k?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="co-f"><label for="pjd_client_id">العميل</label><select id="pjd_client_id" data-on-change="prjClientPick" data-on-change-args="${qa(['doc', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${d.client_id===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select></div>
+      <div class="co-f co-s2"><label for="pjd_contract_id">المرجع (العقد أو الملحق)</label><select id="pjd_contract_id">${prjContractOpts(d.client_id, d.contract_id)}</select></div>
+      <div class="co-f co-s3"><label for="pjd_title">العنوان</label><input id="pjd_title" type="text" value="${escH(d.title||'')}" placeholder="مثال: إدارة حسابات التواصل — الوقف الكبير"></div>
+      <div class="co-f"><label for="pjd_doc_date">تاريخ الوثيقة</label><input id="pjd_doc_date" type="date" value="${escH(d.doc_date||'')}"></div>
+      <div class="co-f"><label for="pjd_amount">القيمة (د.ك)</label><input id="pjd_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String(d.amount??''))}" placeholder="0.000"></div>
+      <div class="co-f"><label for="pjd_amount_kind">نوع القيمة</label><select id="pjd_amount_kind"><option value="total" ${d.amount_kind==='total'?'selected':''}>إجمالي</option><option value="monthly" ${d.amount_kind==='monthly'?'selected':''}>شهرياً</option></select></div>
+      <div class="co-f"><label for="pjd_months">المدة (أشهر)</label><input id="pjd_months" type="number" min="1" inputmode="numeric" value="${escH(String(d.months||''))}" placeholder="—" ${d.open_ended?'disabled':''}></div>
+      <div class="co-f"><label>المدة المفتوحة</label><label class="chk-card pj-chk co-chk"><input id="pjd_open_ended" type="checkbox" ${d.open_ended?'checked':''} data-on-change="prjDocRefresh"><span>مفتوح بلا نهاية</span></label></div>
+      <div class="co-f"><label for="pjd_start_date">بداية التنفيذ</label><input id="pjd_start_date" type="date" value="${escH(d.start_date||'')}"></div>
+      <div class="co-f"><label for="pjd_file">ملف الوثيقة</label><input id="pjd_file" type="file" accept="application/pdf,image/*">${d.file_path ? '<div class="file-hint">اتركه دون اختيار للإبقاء على الملف الحالي.</div>' : ''}</div>
+      <div class="co-f co-s2"><label for="pjd_notes">ملاحظات</label><input id="pjd_notes" type="text" value="${escH(d.notes||'')}" placeholder="اختياري"></div>
     </div>
     <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjDocSave" data-on-click="prjDocSave">${d.id ? 'حفظ التعديل' : 'حفظ الوثيقة'}</button><button class="btn btn-ghost btn-sm" data-on-click="prjDocCancel">إلغاء</button>${d.file_path ? prjFileBtn(d.file_path, d.file_name, 'الملف الحالي') : ''}</div>
   </div>`;
@@ -18857,28 +18873,22 @@ function prjClientBack(newId){
 function prjContractCancel(){ state.prj.cForm = null; render(); }
 function prjContractFormHtml(){
   const c = state.prj.cForm, ad = !!c.parent_id, clients = cxClientTree();
-  const num = (k, l, v, cls) => `<div class="${cls||'f-sm'}"><label for="pjk_${k}">${l}</label><input id="pjk_${k}" type="number" min="0" step="any" value="${escH(String(v??''))}"></div>`;
+  const num = (k, l, v) => `<div class="co-f"><label for="pjk_${k}">${l}</label>${PRJ_TERM_TIPS[k] ? `<div class="file-hint">${PRJ_TERM_TIPS[k]}</div>` : ''}<input id="pjk_${k}" type="number" min="0" step="any" value="${escH(String(v??''))}"></div>`;
   return `<div class="card cx-panel pj-form" id="pjcForm">
     <div class="cx-panel-h"><h2>${c.id ? 'تعديل ' : ''}${ad ? 'ملحق' : 'عقد'}${c.id ? '' : ' جديد'}</h2></div>
-    <div class="uf-flex">
-      ${ad ? '' : `<div class="f-lg"><label for="pjk_client_id">العميل</label><select id="pjk_client_id" data-on-change="prjClientPick" data-on-change-args="${qa(['contract', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c:cl,depth})=>`<option value="${escH(cl.id)}" ${c.client_id===cl.id?'selected':''}>${depth?'— ':''}${escH(cl.name)}</option>`).join('')}</select></div>`}
-      <div class="f-xl"><label for="pjk_title">العنوان</label><input id="pjk_title" type="text" value="${escH(c.title||'')}" placeholder="${ad ? 'مثال: ملحق خدمات التسويق' : 'مثال: عقد الخدمات الإعلامية'}"></div>
-      <div class="f-md"><label for="pjk_contract_date">تاريخ ${ad ? 'الملحق' : 'العقد'}</label><input id="pjk_contract_date" type="date" value="${escH(c.contract_date||'')}"></div>
-    </div>
-    ${ad ? '' : `<div class="uf-flex">
-      <div class="f-md"><label for="pjk_start_date">يبدأ</label><input id="pjk_start_date" type="date" value="${escH(c.start_date||'')}"></div>
-      <div class="f-md"><label for="pjk_end_date">ينتهي</label><input id="pjk_end_date" type="date" value="${escH(c.end_date||'')}"></div>
-      <div class="f-md"><label>&nbsp;</label><label class="chk-card pj-chk"><input id="pjk_auto_renew" type="checkbox" ${c.auto_renew?'checked':''}><span>يتجدد تلقائياً</span></label></div>
-      ${num('renew_notice_months','إشعار عدم التجديد (أشهر)', c.renew_notice_months, 'f-md')}
-    </div>
-    <div class="uf-flex">
-      ${num('free_revisions','تعديلات مجانية', c.free_revisions)}${num('revision_pct','زيادة بعدها %', c.revision_pct)}${num('late_pct_day','غرامة تأخير % يومياً', c.late_pct_day, 'f-md')}${num('late_pct_max','حد الغرامة %', c.late_pct_max)}
-      <div class="f-md"><label for="pjk_billing">الفوترة</label><select id="pjk_billing">${PRJ_BILLING.map(([k,l])=>`<option value="${k}" ${c.billing===k?'selected':''}>${l}</option>`).join('')}</select></div>
-    </div>`}
-    <div class="uf-flex">
-      <div class="f-lg"><label for="pjk_file">ملف ${ad ? 'الملحق' : 'العقد'} ${c.file_path ? '(اتركه فارغاً للإبقاء على الحالي)' : ''}</label><input id="pjk_file" type="file" accept="application/pdf,image/*"></div>
-      <div class="f-xl"><label for="pjk_notes">ملاحظات</label><input id="pjk_notes" type="text" value="${escH(c.notes||'')}"></div>
-      ${c.id && !ad ? `<div class="f-md"><label>&nbsp;</label><label class="chk-card pj-chk"><input id="pjk_active" type="checkbox" ${c.active?'checked':''}><span>ساري</span></label></div>` : ''}
+    <div class="co-g co-g4">
+      ${ad ? '' : `<div class="co-f"><label for="pjk_client_id">العميل</label><select id="pjk_client_id" data-on-change="prjClientPick" data-on-change-args="${qa(['contract', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c:cl,depth})=>`<option value="${escH(cl.id)}" ${c.client_id===cl.id?'selected':''}>${depth?'— ':''}${escH(cl.name)}</option>`).join('')}</select></div>`}
+      <div class="co-f co-s2"><label for="pjk_title">العنوان</label><input id="pjk_title" type="text" value="${escH(c.title||'')}" placeholder="${ad ? 'مثال: ملحق خدمات التسويق' : 'مثال: عقد الخدمات الإعلامية'}"></div>
+      <div class="co-f"><label for="pjk_contract_date">تاريخ ${ad ? 'الملحق' : 'العقد'}</label><input id="pjk_contract_date" type="date" value="${escH(c.contract_date||'')}"></div>
+      ${ad ? '' : `<div class="co-f"><label for="pjk_start_date">يبدأ</label><input id="pjk_start_date" type="date" value="${escH(c.start_date||'')}"></div>
+      <div class="co-f"><label for="pjk_end_date">ينتهي</label><input id="pjk_end_date" type="date" value="${escH(c.end_date||'')}"></div>
+      ${num('renew_notice_months','إشعار عدم التجديد (أشهر)', c.renew_notice_months)}
+      <div class="co-f"><label>التجديد</label><label class="chk-card pj-chk co-chk"><input id="pjk_auto_renew" type="checkbox" ${c.auto_renew?'checked':''}><span>يتجدد تلقائياً</span></label></div>
+      ${num('free_revisions','تعديلات مجانية', c.free_revisions)}${num('revision_pct','زيادة بعدها %', c.revision_pct)}${num('late_pct_day','غرامة تأخير % يومياً', c.late_pct_day)}${num('late_pct_max','حد الغرامة %', c.late_pct_max)}
+      <div class="co-f"><label for="pjk_billing">الفوترة</label><div class="file-hint">${PRJ_TERM_TIPS.billing}</div><select id="pjk_billing">${PRJ_BILLING.map(([k,l])=>`<option value="${k}" ${c.billing===k?'selected':''}>${l}</option>`).join('')}</select></div>`}
+      <div class="co-f"><label for="pjk_file">ملف ${ad ? 'الملحق' : 'العقد'}</label><input id="pjk_file" type="file" accept="application/pdf,image/*">${c.file_path ? '<div class="file-hint">اتركه دون اختيار للإبقاء على الملف الحالي.</div>' : ''}</div>
+      <div class="co-f ${c.id && !ad ? '' : (ad ? 'co-s3' : 'co-s2')}"><label for="pjk_notes">ملاحظات</label><input id="pjk_notes" type="text" value="${escH(c.notes||'')}"></div>
+      ${c.id && !ad ? `<div class="co-f"><label>الحالة</label><label class="chk-card pj-chk co-chk"><input id="pjk_active" type="checkbox" ${c.active?'checked':''}><span>ساري</span></label></div>` : ''}
     </div>
     <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjcSave" data-on-click="prjContractSave">حفظ</button><button class="btn btn-ghost btn-sm" data-on-click="prjContractCancel">إلغاء</button>${c.file_path ? prjFileBtn(c.file_path, c.file_name, 'الملف الحالي') : ''}</div>
   </div>`;
@@ -19109,30 +19119,27 @@ function wcFormHtml(){
   const sel = (id, obj, v) => `<select id="wcf_${id}">${Object.entries(obj).map(([k,l])=>`<option value="${k}" ${v===k?'selected':''}>${l}</option>`).join('')}</select>`;
   return `<div class="card cx-panel pj-form" id="wcForm">
     <div class="cx-panel-h"><h2>${c.id ? 'تعديل عقد ' + escH(wcName(c)) : 'عقد عامل جديد'}</h2></div>
-    <div class="uf-flex">
-      <div class="f-md"><label for="wcf_who">العامل</label><select id="wcf_who" data-on-change="wcRefresh"><option value="user" ${c.who==='user'?'selected':''}>من مستخدمي النظام</option><option value="person" ${c.who==='person'?'selected':''}>من خارج النظام</option></select></div>
-      ${c.who==='user' ? `<div class="f-lg"><label for="wcf_user_id">المستخدم</label><select id="wcf_user_id" data-on-change="wcRefresh"><option value="">— اختر —</option>${users.map(u=>`<option value="${escH(u.id)}" ${c.user_id===u.id?'selected':''}>${escH(u.name)}${u.jobTitle ? ' — ' + escH(u.jobTitle) : ''}</option>`).join('')}</select></div>`
-        : `<div class="f-lg"><label for="wcf_person_name">الاسم</label><input id="wcf_person_name" type="text" value="${escH(c.person_name||'')}"></div>`}
-      <div class="f-lg"><label for="wcf_unit_id">جهة العقد</label><select id="wcf_unit_id"><option value="">${escH(prjCo().nameAr || 'الشركة')}</option>${units.map(u=>`<option value="${escH(u.id)}" ${c.unit_id===u.id?'selected':''}>${escH(u.name)}</option>`).join('')}</select></div>
+    <div class="co-g co-g4">
+      <div class="co-f"><label for="wcf_who">العامل</label><select id="wcf_who" data-on-change="wcRefresh"><option value="user" ${c.who==='user'?'selected':''}>من مستخدمي النظام</option><option value="person" ${c.who==='person'?'selected':''}>من خارج النظام</option></select></div>
+      ${c.who==='user' ? `<div class="co-f"><label for="wcf_user_id">المستخدم</label><select id="wcf_user_id" data-on-change="wcRefresh"><option value="">— اختر —</option>${users.map(u=>`<option value="${escH(u.id)}" ${c.user_id===u.id?'selected':''}>${escH(u.name)}${u.jobTitle ? ' — ' + escH(u.jobTitle) : ''}</option>`).join('')}</select></div>`
+        : `<div class="co-f"><label for="wcf_person_name">الاسم</label><input id="wcf_person_name" type="text" value="${escH(c.person_name||'')}"></div>`}
+      <div class="co-f co-s2"><label for="wcf_unit_id">جهة العقد</label><select id="wcf_unit_id"><option value="">${escH(prjCo().nameAr || 'الشركة')}</option>${units.map(u=>`<option value="${escH(u.id)}" ${c.unit_id===u.id?'selected':''}>${escH(u.name)}</option>`).join('')}</select></div>
+    ${c.who==='person' ? `
+      <div class="co-f"><label for="wcf_civil_id">الرقم المدني</label><input id="wcf_civil_id" type="text" inputmode="numeric" dir="ltr" value="${escH(c.civil_id||'')}"></div>
+      <div class="co-f"><label for="wcf_phone">الهاتف</label><input id="wcf_phone" type="tel" dir="ltr" value="${escH(c.phone||'')}"></div>
+      <div class="co-f co-s2"><label for="wcf_iban">الآيبان</label><input id="wcf_iban" type="text" dir="ltr" value="${escH(c.iban||'')}" placeholder="KW00 XXXX…"></div>
+    ` : ''}
+      <div class="co-f"><label for="wcf_contract_type">نوع العقد</label>${sel('contract_type', WC_TYPES, c.contract_type)}</div>
+      <div class="co-f"><label for="wcf_job_title">المسمى الوظيفي</label><input id="wcf_job_title" type="text" value="${escH(c.job_title||'')}"></div>
+      <div class="co-f"><label for="wcf_start_date">يبدأ</label><input id="wcf_start_date" type="date" value="${escH(c.start_date||'')}"></div>
+      <div class="co-f"><label for="wcf_end_date">ينتهي (فارغ = مفتوح)</label><input id="wcf_end_date" type="date" value="${escH(c.end_date||'')}"></div>
+
+      <div class="co-f"><label for="wcf_amount">المبلغ (د.ك)</label><input id="wcf_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String(c.amount??''))}" placeholder="0.000"></div>
+      <div class="co-f"><label for="wcf_pay_cycle">الدورية</label>${sel('pay_cycle', WC_CYCLES, c.pay_cycle)}</div>
+      <div class="co-f"><label for="wcf_status">الحالة</label>${sel('status', {active:'ساري', ended:'منتهٍ'}, c.status)}</div>
+      <div class="co-f"><label for="wcf_file">ملف العقد</label><input id="wcf_file" type="file" accept="application/pdf,image/*">${c.file_path ? '<div class="file-hint">اتركه دون اختيار للإبقاء على الملف الحالي.</div>' : ''}</div>
+      <div class="co-f co-full"><label for="wcf_notes">ملاحظات</label><input id="wcf_notes" type="text" value="${escH(c.notes||'')}"></div>
     </div>
-    ${c.who==='person' ? `<div class="uf-flex">
-      <div class="f-md"><label for="wcf_civil_id">الرقم المدني</label><input id="wcf_civil_id" type="text" inputmode="numeric" dir="ltr" value="${escH(c.civil_id||'')}"></div>
-      <div class="f-md"><label for="wcf_phone">الهاتف</label><input id="wcf_phone" type="tel" dir="ltr" value="${escH(c.phone||'')}"></div>
-      <div class="f-xl"><label for="wcf_iban">الآيبان</label><input id="wcf_iban" type="text" dir="ltr" value="${escH(c.iban||'')}" placeholder="KW00 XXXX…"></div>
-    </div>` : ''}
-    <div class="uf-flex">
-      <div class="f-md"><label for="wcf_contract_type">نوع العقد</label>${sel('contract_type', WC_TYPES, c.contract_type)}</div>
-      <div class="f-lg"><label for="wcf_job_title">المسمى الوظيفي</label><input id="wcf_job_title" type="text" value="${escH(c.job_title||'')}"></div>
-      <div class="f-md"><label for="wcf_start_date">يبدأ</label><input id="wcf_start_date" type="date" value="${escH(c.start_date||'')}"></div>
-      <div class="f-md"><label for="wcf_end_date">ينتهي (فارغ = مفتوح)</label><input id="wcf_end_date" type="date" value="${escH(c.end_date||'')}"></div>
-    </div>
-    <div class="uf-flex">
-      <div class="f-md"><label for="wcf_amount">المبلغ (د.ك)</label><input id="wcf_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String(c.amount??''))}" placeholder="0.000"></div>
-      <div class="f-md"><label for="wcf_pay_cycle">الدورية</label>${sel('pay_cycle', WC_CYCLES, c.pay_cycle)}</div>
-      <div class="f-md"><label for="wcf_status">الحالة</label>${sel('status', {active:'ساري', ended:'منتهٍ'}, c.status)}</div>
-      <div class="f-lg"><label for="wcf_file">ملف العقد ${c.file_path ? '(فارغ = إبقاء الحالي)' : ''}</label><input id="wcf_file" type="file" accept="application/pdf,image/*"></div>
-    </div>
-    <div class="uf-flex"><div class="f-xl"><label for="wcf_notes">ملاحظات</label><input id="wcf_notes" type="text" value="${escH(c.notes||'')}"></div></div>
     <div class="cx-actions"><button class="btn btn-primary btn-md" id="wcSaveBtn" data-on-click="wcSave">حفظ</button><button class="btn btn-ghost btn-sm" data-on-click="wcCancel">إلغاء</button>${c.file_path ? prjFileBtn(c.file_path, c.file_name, 'الملف الحالي') : ''}${c.id && isFinanceUser() ? `<button class="btn btn-reject btn-sm" data-on-click="wcDelete" data-on-click-args="${qa([c.id])}">حذف</button>` : ''}</div>
   </div>`;
 }
