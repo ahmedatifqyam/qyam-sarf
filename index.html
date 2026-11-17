@@ -1859,6 +1859,10 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-m{display:flex;flex-direction:column;gap:1px;min-width:0;} .pj-m small{font-size:var(--fs-xs);color:var(--muted);} .pj-m b{font-weight:800;white-space:nowrap;}
   .pj-in b, .pj-kv.pj-in b{color:var(--green);} .pj-out b, .pj-kv.pj-out b{color:var(--red);}
   .pj-kv b{font-weight:800;}
+  .pj-bar{display:grid;grid-template-columns:48px minmax(0,1fr) 38px;align-items:center;gap:6px;width:100%;font-size:var(--fs-xs);}
+  .pj-bar-l{color:var(--muted);} .pj-bar b{font-weight:800;text-align:end;}
+  .pj-bar-t{display:block;height:6px;border-radius:3px;background:var(--line);overflow:hidden;} .pj-bar-f{display:block;height:100%;border-radius:3px;}
+  .pj-bar-f.in{background:var(--green);} .pj-bar-f.out{background:var(--red);}
   .pj-row-s{display:flex;align-items:center;justify-content:flex-end;gap:8px;} .pj-caret{color:var(--muted);font-size:12px;}
   .pj-prow .pj-flow{padding:0 14px 10px;cursor:pointer;} .pj-row-go{display:flex;justify-content:flex-start;padding:0 14px 12px;}
   /* صفحة المشروع: «كل المشاريع» ← الخطوة التالية بارتفاع الزر ← زرها، ومسافات أقل بين البطاقات */
@@ -2971,6 +2975,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=07c542c20d"></script>
+<script src="app.js?v=4bcbafdc42"></script>
 </body>
 </html>
