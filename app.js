@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.20.0', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.20.1', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:3.5, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:3.6, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18684,6 +18684,8 @@ async function prjApproveSave(){
   }catch(e){ if(e.message!=='-') showToast('تعذّر: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'اعتماد وفتح المشروع'; } }
 }
 // ---------- المبالغ والصرف قبل الدفع والمدة ----------
+// أرقام المشروع: صف واحد على خلفية القسم نفسه (بلا صناديق بيضاء)، والعنوان بنفس حجم الرقم تقريباً
+function prjFig(l, v, cls, sub){ return `<div class="pj-fig ${cls||''}"><span>${l}</span><b>${v===null ? '—' : fmtKWDHtml(v)}</b>${sub ? `<small>${sub}</small>` : ''}</div>`; }
 function prjMoneyPanelHtml(p){
   const val = prjValue(p), inv = prjInvoiced(p), col = prjCollected(p), sp = prjSpent(p);
   const f = p.budget_item_id ? computeBudgetItemFigures(p.budget_item_id) : null, item = (state.budgetItems||[]).find(b=>b.id===p.budget_item_id);
@@ -18692,7 +18694,7 @@ function prjMoneyPanelHtml(p){
   const dur = p.open_ended ? 'مفتوح بلا نهاية' : (p.months ? p.months + ' شهر' : '—');
   return `<div class="card cx-panel">
     <div class="cx-panel-h"><h2>2 · المبالغ والصرف</h2>${canSet && !es ? `<button class="btn btn-ghost btn-sm" data-on-click="prjSetEdit" title="الاسم والمدة والصرف قبل الدفع">تعديل</button>` : ''}</div>
-    <div class="cx-stats pj-stats">${cxStat('قيمة المشروع', fmtKWDHtml(val), '', Number(p.monthly_amount)>0 ? fmtKWD(p.monthly_amount,{noUnit:true})+' شهرياً' : '')}${cxStat('مفوتر', fmtKWDHtml(inv))}${cxStat('محصّل', fmtKWDHtml(col), col>=val && val>0 ? 'var(--green,#16794a)' : '')}${cxStat('مصروف ومحجوز', fmtKWDHtml(sp))}${cxStat('المتاح للصرف', f ? fmtKWDHtml(f.available) : '—', f && f.available<0 ? 'var(--red)' : '')}</div>
+    <div class="pj-figs">${prjFig('قيمة المشروع', val, '', Number(p.monthly_amount)>0 ? fmtKWD(p.monthly_amount,{noUnit:true})+' شهرياً' : '')}${prjFig('مفوتر', inv)}${prjFig('محصّل', col, 'pj-in')}${prjFig('مصروف ومحجوز', sp, 'pj-out')}${f ? prjFig('المتاح للصرف', f.available, f.available<0 ? 'pj-out' : 'pj-in') : prjFig('المتاح للصرف', null)}</div>
     <div class="pj-kvs pj-kvs-2">
       <div class="pj-kv2"><span>بند الميزانية</span><b>${escH(item ? item.name : '—')}</b></div>
       <div class="pj-kv2"><span>الفاتورة</span><b>${p.invoice_mode==='monthly' ? 'كل شهر' : 'واحدة بالإجمالي'}</b></div>

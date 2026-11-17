@@ -2345,7 +2345,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app table.tcards thead,#app table.tcards tfoot,#app table.tcards colgroup{display:none;}
     #app table.tcards tr{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:0 0 8px;background:var(--card);}
     #app table.tcards td{border:0 !important;padding:2px 0 !important;text-align:right !important;display:flex;justify-content:space-between;align-items:baseline;gap:12px;white-space:normal !important;}
-    #app table.tcards td[data-l]::before{content:attr(data-l);color:var(--muted);font-size:var(--fs-hint);font-weight:600;flex:0 0 auto;}
+    #app table.tcards td[data-l]::before{content:attr(data-l);color:var(--muted);font-size:inherit;font-weight:600;flex:0 0 auto;}
     #app table.tcards td:first-child{font-weight:700;font-size:var(--fs-body);}
     #app table.tcards td:first-child::before{content:none !important;}
     #app table.tcards td:empty{display:none;}
@@ -2981,6 +2981,20 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app:has(> .pj-top) > .card{margin:0 0 4px !important;padding-top:10px !important;padding-bottom:10px !important;border-bottom:1px solid var(--line) !important;}
     #app:has(> .pj-top) .cx-panel-h{margin-bottom:8px;}
   }
+  /* صفحة المشروع: عنوان الحقل بنفس حجم قيمته (رمادي عادي، والقيمة عريضة)، وأرقام المبالغ ملوّنة بلا صناديق */
+  .pj-kv2 span, .pj-kv2 b{font-size:var(--fs-body,15px) !important;} .pj-kv2 span{font-weight:600;color:var(--muted);} .pj-kv2 b{font-weight:800;}
+  .pj-figs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin:0 0 12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .pj-fig{display:flex;flex-direction:column;gap:4px;padding:10px 12px;min-width:0;border-inline-start:1px solid var(--line);}
+  .pj-fig:first-child{border-inline-start:0;padding-inline-start:0;}
+  .pj-fig span{font-size:var(--fs-body,15px);font-weight:600;color:var(--muted);} .pj-fig b{font-size:var(--fs-h3,18px);font-weight:800;white-space:nowrap;} .pj-fig small{font-size:var(--fs-xs);color:var(--muted);}
+  .pj-fig.pj-in b{color:var(--green);} .pj-fig.pj-out b{color:var(--red);}
+  @media (max-width:899px){ .pj-figs{grid-template-columns:repeat(2,minmax(0,1fr));} .pj-fig{border-inline-start:0;border-bottom:1px solid var(--line);padding-inline:0;} .pj-fig:nth-child(even){padding-inline-start:12px;border-inline-start:1px solid var(--line);} .pj-fig:last-child{border-bottom:0;} }
+  /* الهاتف: كل الأقسام بنفس الخلفية (لا صناديق داخلها)، وجداولها بطاقات بخلفية فاتحة موحّدة */
+  @media (max-width:699px){
+    #app:has(> .pj-top) .pj-kv2{grid-template-columns:120px minmax(0,1fr);}
+    #app:has(> .pj-top) table.tcards tbody tr{background:transparent !important;border:0 !important;border-bottom:1px solid var(--line) !important;border-radius:0 !important;box-shadow:none !important;padding-inline:0 !important;}
+    .pj-fig:last-child:nth-child(odd){grid-column:1 / -1;}
+  }
 </style>
 </head>
 <body>
@@ -3001,6 +3015,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=39ac61636d"></script>
+<script src="app.js?v=ba90c1bfed"></script>
 </body>
 </html>
