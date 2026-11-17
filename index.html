@@ -3005,6 +3005,21 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-flash{animation:pjflash 1.3s ease;} @keyframes pjflash{0%,60%{box-shadow:0 0 0 3px var(--amber);}100%{box-shadow:none;}}
   .pj-step-go:not(:last-child) .pj-step::after{display:block;} @media (max-width:1000px){ .pj-step-go .pj-step::after{display:none !important;} }
   @media (max-width:699px){ .pj-hide-m{display:none;} }
+  /* صفحة المشروع: أزرار القسم بجانب عنوانه، وأزرار بوزن واحد (ارتفاع 40 وخط عريض)، وسطور أقرب */
+  #app:has(> .pj-top) .btn{font-weight:700 !important;height:40px;}
+  #app:has(> .pj-top) .cx-panel-h{flex-wrap:nowrap;align-items:center;}
+  #app:has(> .pj-top) .cx-panel-h > h2{flex:0 0 auto;white-space:nowrap;margin:0;}
+  #app:has(> .pj-top) .cx-ph-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-inline-start:auto;}
+  .pj-rep-l label{display:block;margin:0 0 6px;font-weight:700;}
+  .pj-rep-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;} .pj-rep-row > .btn, .pj-rep-row > .file-pick > label.btn{width:150px;flex:0 0 150px;}
+  .pj-rep-row > .file-pick{display:flex;align-items:center;gap:8px;} .pj-rep-hint:empty{display:none;} .pj-rep-hint{margin-top:6px;}
+  @media (max-width:699px){
+    #app:has(> .pj-top) .cx-panel-h > h2{font-size:var(--fs-h3,18px);}
+    #app:has(> .pj-top) .cx-panel-h .btn{width:105px !important;min-width:0 !important;padding:0 6px !important;flex:0 0 auto;}
+    #app:has(> .pj-top) .pj-kv2{padding:5px 0 !important;line-height:1.4;}
+    .pj-rep-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));} .pj-rep-row > .btn, .pj-rep-row > .file-pick, .pj-rep-row > .file-pick > label.btn{width:100% !important;flex:auto;min-width:0;padding:0 6px !important;}
+    .pj-rep-row > .file-pick .file-pick-name{display:none;}
+  }
 </style>
 </head>
 <body>
@@ -3025,6 +3040,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=30a57beb02"></script>
+<script src="app.js?v=4c3a411dff"></script>
 </body>
 </html>

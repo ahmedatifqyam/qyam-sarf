@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.20.3', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.20.4', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:3.8, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:4.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18944,11 +18944,9 @@ function prjClosePanelHtml(p){
   const ed = canEditPrj(), fin = isFinanceUser();
   return `<div class="card cx-panel">
     <div class="cx-panel-h"><h2>5 · التقرير والإغلاق</h2>${prjFileBtn(p.report_path, p.report_name, 'عرض التقرير')}</div>
-    ${p.status==='active' ? (ed ? `<div class="uf-flex">
-        <div class="f-lg"><label for="pjrep_file">${p.report_path ? 'استبدال التقرير الختامي' : 'التقرير الختامي'}</label><input id="pjrep_file" type="file" accept="application/pdf,image/*"></div>
-        <div class="f-md"><label>&nbsp;</label><div class="cx-actions pj-inline"><button class="btn btn-ghost btn-md" data-on-click="prjReportSave" data-on-click-args="${qa([p.id])}">رفع التقرير</button></div></div>
-      </div>
-      <div class="cx-actions"><button class="btn btn-primary btn-md" ${p.report_path?'':'disabled title="ارفع التقرير أولاً"'} data-on-click="prjClose" data-on-click-args="${qa([p.id])}">إغلاق المشروع</button>${p.report_path ? '' : '<span class="file-hint">يُغلق المشروع بعد رفع تقريره الختامي.</span>'}</div>` : '<div class="ct-empty">المشروع نشط.</div>')
+    ${p.status==='active' ? (ed ? `<div class="pj-rep-l"><label for="pjrep_file">${p.report_path ? 'استبدال التقرير الختامي' : 'التقرير الختامي'}</label></div>
+      <div class="pj-rep-row"><input id="pjrep_file" type="file" accept="application/pdf,image/*"><button class="btn btn-ghost btn-md" data-on-click="prjReportSave" data-on-click-args="${qa([p.id])}">رفع التقرير</button><button class="btn btn-primary btn-md" ${p.report_path?'':'disabled title="ارفع التقرير أولاً"'} data-on-click="prjClose" data-on-click-args="${qa([p.id])}">إغلاق المشروع</button></div>
+      <div class="pj-rep-hint">${p.report_path ? '' : '<span class="file-hint">يُغلق المشروع بعد رفع تقريره الختامي.</span>'}</div>` : '<div class="ct-empty">المشروع نشط.</div>')
     : `<div class="pj-kvs"><div class="pj-kv2"><span>أُغلق</span><b>${p.closed_at ? cxDate(String(p.closed_at).slice(0,10)) : '—'} ${p.closed_by ? '· ' + escH(prjUserName(p.closed_by)) : ''}</b></div></div>
       ${fin ? `<div class="cx-actions"><button class="btn btn-ghost btn-sm" data-on-click="prjReopen" data-on-click-args="${qa([p.id])}">إعادة فتح المشروع</button></div>` : ''}`}
   </div>`;
