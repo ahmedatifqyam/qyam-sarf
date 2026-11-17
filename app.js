@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.21.1', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.22.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:4.2, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:4.3, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7829,7 +7829,31 @@ function toTabsRow(){
   document.querySelectorAll('.adm-tabs2 > [data-to-tabs]').forEach(x=>{ if(x!==el) x.remove(); });
   if(el && row) row.appendChild(el);
 }
-function pageTidy(){ try{ requestAnimationFrame(impAboveBar); setTimeout(impAboveBar, 300); requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); toTabsRow(); infoTips(); fileButtons(); pwEyes(); pairFields(); growInputs(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
+// ── الحركة في الاستخدام: عند دخول صفحة جديدة فقط (لا مع كل تحديث) ──
+//  • محتوى الصفحة يظهر صاعداً بالتتابع  • الأشرطة تمتلئ من الصفر  • الأرقام الكبيرة تعدّ حتى قيمتها
+//  ومن فعّل «تقليل الحركة» في جهازه لا يرى شيئاً من ذلك
+function qyMotionOff(){ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return true; } }
+function qyMotion(){
+  const app = document.getElementById('app'); if(!app || !app.animate || qyMotionOff()) return;
+  const key = [state.view, state.adminSubTab, state.activeReqId, state.activeCustodyId, state.prj && state.prj.openId].join('|');
+  if(state._motionKey === key) return; state._motionKey = key;
+  [...app.children].filter(e=>e.offsetParent).slice(0, 8).forEach((e,i)=>e.animate([{opacity:0, transform:'translateY(10px)'},{opacity:1, transform:'none'}], {duration:280, delay:i*45, easing:'cubic-bezier(.2,.8,.2,1)', fill:'backwards'}));
+  // الأشرطة: أي عنصر عرضه نسبة مئوية داخل شريط
+  app.querySelectorAll('.cx-bar-f, .ut-fill, .pj-bar-f, [class*="bar"] > [style*="width:"], [class*="track"] > [style*="width:"]').forEach(b=>{
+    if(!b.offsetParent) return; b.style.transformOrigin = 'right center';
+    b.animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}], {duration:700, delay:150, easing:'cubic-bezier(.2,.8,.2,1)', fill:'backwards'});
+  });
+  // الأرقام الكبيرة: الجزء الصحيح يعدّ من الصفر (الفلس يبقى كما هو)
+  app.querySelectorAll('.cx-stat-v, .pj-fig b, .pj-m b').forEach(el=>{
+    const tn = [...el.childNodes].find(n=>n.nodeType===3 && /^\s*-?[\d,]+\s*$/.test(n.nodeValue)); if(!tn) return;
+    const target = Number(tn.nodeValue.replace(/[^\d-]/g,'')); if(!isFinite(target) || Math.abs(target) < 2) return;
+    const t0 = performance.now(), dur = 650, orig = tn.nodeValue;
+    const step = t=>{ const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      tn.nodeValue = k >= 1 ? orig : Math.round(target * e).toLocaleString('en'); if(k < 1 && tn.isConnected) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+}
+function pageTidy(){ try{ requestAnimationFrame(impAboveBar); setTimeout(impAboveBar, 300); requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); toTabsRow(); infoTips(); fileButtons(); pwEyes(); qyMotion(); pairFields(); growInputs(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
   const a = document.querySelector('#app .adm-t2.active');

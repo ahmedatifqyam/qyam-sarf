@@ -3023,7 +3023,9 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-row-s{justify-content:space-between !important;} .pj-row-s > .btn{margin-inline-start:auto;} .pj-trail{justify-content:center;}
   .pj-row-n .pj-name{overflow-wrap:anywhere;}
   /* البطاقة المفتوحة: المسار يختفي من الصف العلوي (انتقل إلى رؤوس المراحل)، والحالة في مكان ثابت بجانب زر الفتح */
-  #app .pj-prow.open .pj-trail{visibility:hidden;}
+  /* البطاقة المفتوحة: المسار انتقل إلى رؤوس المراحل، فيأخذ الاسم مكانه */
+  #app .pj-prow.open .pj-trail{display:none;}
+  #app .pj-prow.open .pj-row-h{grid-template-areas:'n n m s';}
   .pj-row-s{display:grid !important;grid-template-columns:minmax(0,1fr) 105px;align-items:center;gap:8px;} .pj-row-st{justify-self:end;} .pj-row-s > .btn{margin:0 !important;grid-column:2;}
   .pj-m{align-items:center;text-align:center;padding-inline-start:10px;} .pj-m small{font-size:var(--fs-label) !important;font-weight:700;color:var(--muted);}
   /* بطاقات المراحل: اسم المرحلة أكبر وعريض بجانب دائرتها، والبيان بوزن عادي */
@@ -3041,6 +3043,25 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   @container pjlist (max-width: 420px){
     .pj-row-s{grid-template-columns:auto 70px !important;} .pj-dot{width:30px !important;height:30px !important;} .pj-ln{width:5px !important;}
   }
+  /* ═══ (1.22.0) حركة الاستخدام ═══ */
+  @media (prefers-reduced-motion: no-preference){
+    .btn{transition:transform .12s ease, box-shadow .15s ease, background-color .15s ease;}
+    .btn:active:not(:disabled){transform:scale(.96);}
+    .req-card, .cx-card, .cx-stat, .pj-prow, .cx-icard, .nr-choice .nr-type{transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;}
+    .req-card:hover, .cx-card:hover, .pj-prow:hover, .cx-icard:hover, .nr-choice .nr-type:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(20,20,20,.10);}
+    .modal-overlay{animation:qyFade .18s ease-out;} .modal-box{animation:qyPop .22s cubic-bezier(.2,.8,.2,1);}
+    .toast{animation:qyToast .32s cubic-bezier(.2,.8,.2,1) !important;}
+    .toast.success::before{content:"✓";display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.25);font-weight:900;animation:qyPop .35s .1s cubic-bezier(.2,.8,.2,1) backwards;}
+    .adm-tabs2 > *{transition:background-color .15s ease, color .15s ease;}
+    .bell-badge.on{animation:qyPulse 1.6s ease-in-out 2;}
+    .pj-dot{transition:transform .15s ease;} .pj-prow:hover .pj-dot{transform:scale(1.06);}
+  }
+  @keyframes qyFade{from{opacity:0;}to{opacity:1;}}
+  @keyframes qyPop{from{opacity:0;transform:scale(.94);}to{opacity:1;transform:none;}}
+  @keyframes qyToast{from{opacity:0;transform:translateY(-14px) scale(.97);}to{opacity:1;transform:none;}}
+  @keyframes qyPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
+  @container pjlist (max-width: 900px){ #app .pj-prow.open .pj-row-h{grid-template-areas:'n s' 'm m' !important;} }
+  @media (max-width:699px){ #app .pj-prow.open .pj-row-h{grid-template-areas:'n s' 'm m' !important;} }
 </style>
 </head>
 <body>
@@ -3061,6 +3082,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=7cccf0924c"></script>
+<script src="app.js?v=1735289630"></script>
 </body>
 </html>
