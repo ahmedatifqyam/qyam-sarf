@@ -3111,6 +3111,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   @media (max-width:699px){ #app .pj-trail{padding-inline:14px;} }
   #app .pj-r1{column-gap:10px;grid-template-columns:minmax(0,max-content) auto minmax(8px,1fr) auto 108px;}
   @media (max-width:699px){ #app .pj-r1{grid-template-columns:minmax(0,1fr) minmax(108px,auto);} }
+  /* (1.23.3) مسافات أقل: بين الشريط الجانبي والمحتوى على الكمبيوتر، وتحت صف التبويبات في كل الصفحات */
+  @media screen and (min-width:700px){ #app.container{padding-right:6px;} }
+  #app > .adm-nav2, #app > .adm-subs-solo{margin-bottom:10px;}
+  @media (max-width:699px){ #app > .adm-nav2, #app > .adm-subs-solo{margin-bottom:6px !important;} }
+  @media (max-width:699px){ #app > .adm-nav2 + h1.m-dup-title + .card, #app > .adm-subs-solo + .card, #app > .adm-subs-solo + h1.m-dup-title + .card{padding-top:4px !important;} }
 </style>
 </head>
 <body>
@@ -3131,6 +3136,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=ef6aa12c0e"></script>
+<script src="app.js?v=225197a3c4"></script>
 </body>
 </html>
