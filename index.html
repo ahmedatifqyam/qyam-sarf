@@ -1846,7 +1846,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pj-prow.pj-st-waiting{border-inline-start-color:var(--amber);} #app .pj-prow.pj-st-active{border-inline-start-color:var(--green);}
   #app .pj-prow.pj-st-closed{border-inline-start-color:var(--muted);} #app .pj-prow.pj-st-rejected{border-inline-start-color:var(--red);}
   #app .pj-prow:hover,#app .pj-prow.open{border-top-color:var(--ink);border-bottom-color:var(--ink);border-inline-end-color:var(--ink);box-shadow:0 4px 14px rgba(20,20,20,.07);}
-  .pj-row-h{display:grid;grid-template-columns:minmax(0,1fr) 274px 130px 112px;grid-template-areas:'n t m s';align-items:center;gap:14px;min-height:58px;padding:6px 14px;cursor:pointer;box-sizing:border-box;}
+  .pj-row-h{display:grid;grid-template-columns:minmax(0,1fr) auto 120px 190px;grid-template-areas:'n t m s';align-items:center;gap:14px;min-height:58px;padding:6px 14px;cursor:pointer;box-sizing:border-box;}
   .pj-row-n{grid-area:n;} .pj-trail{grid-area:t;} .pj-money{grid-area:m;} .pj-row-s{grid-area:s;}
   .pj-row-n{display:flex;flex-direction:column;gap:2px;min-width:0;} .pj-row-n .pj-name{white-space:normal;line-height:1.35;}
   .pj-row-n .pj-client{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1864,7 +1864,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-bar-l{color:var(--muted);} .pj-bar b{font-weight:800;text-align:end;}
   .pj-bar-t{display:block;height:6px;border-radius:3px;background:var(--line);overflow:hidden;} .pj-bar-f{display:block;height:100%;border-radius:3px;}
   .pj-bar-f.in{background:var(--green);} .pj-bar-f.out{background:var(--red);}
-  .pj-row-s{display:flex;align-items:center;justify-content:flex-end;gap:8px;} .pj-caret{color:var(--muted);font-size:12px;}
+  .pj-row-s{display:flex;align-items:center;justify-content:flex-start;gap:10px;} .pj-caret{color:var(--muted);font-size:12px;}
   .pj-prow .pj-flow{padding:0 14px 10px;cursor:pointer;} .pj-row-go{display:flex;justify-content:flex-start;padding:0 14px 12px;}
   /* صفحة المشروع: «كل المشاريع» ← الخطوة التالية بارتفاع الزر ← زرها، ومسافات أقل بين البطاقات */
   .pj-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
@@ -1872,11 +1872,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-top .pj-next-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
   #app:has(> .pj-top) > .card{margin-top:0;margin-bottom:10px;}
   /* أرقام المشاريع في صف التبويبات (داكن في الوضعين) */
-  .adm-tabs2 > .pj-kpis{display:flex;align-items:center;gap:26px;margin-inline-start:28px;padding:0 12px;white-space:nowrap;font-size:13px;color:#cfd8e3;}
+  .adm-tabs2 > .pj-kpis{display:flex;align-items:center;gap:6px;margin-inline-start:auto;padding:0 12px;white-space:nowrap;font-size:13px;color:#cfd8e3;}
+  body:has(.test-badge) .adm-tabs2 > .pj-kpis{padding-inline-end:110px;}   /* شريط «نسخة تجريبية» في الزاوية لا يغطيها */
   #app > .pj-kpis{display:none;}
-  .pj-kpi{display:inline-flex;align-items:center;gap:7px;} .pj-kpi b{font-weight:800;color:#fff;font-size:15px;} .pj-kpi > i{width:9px;height:9px;border-radius:50%;background:#9aa6b2;display:inline-block;}
+  .pj-kpi{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;} .pj-kpi:hover{background:rgba(255,255,255,.08);} .pj-kpi.on{background:rgba(255,255,255,.14);box-shadow:inset 0 -2px 0 #fff;} .pj-kpi b{font-weight:800;color:#fff;font-size:15px;} .pj-kpi > i{width:9px;height:9px;border-radius:50%;background:#9aa6b2;display:inline-block;}
   .pj-kpi.k-ok > i{background:#2fae64;} .pj-kpi.k-wait > i{background:#e0a53a;} .pj-kpi.k-off > i{background:#9aa6b2;} .pj-kpi.k-bad > i{background:#e5574b;}
-  @media (max-width:960px){ .pj-row-h{grid-template-columns:minmax(0,1fr) 112px;grid-template-areas:'n s' 't m';row-gap:6px;} .pj-money{justify-content:flex-end;} }
+  @media (max-width:960px){ .pj-row-h{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'n s' 't m';row-gap:6px;} .pj-money{justify-content:flex-end;} }
   @media (max-width:699px){
     .pj-row-h{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'n s' 't m';gap:6px 8px;padding:8px 10px;} .pj-money{justify-content:flex-end;} .pj-tools{flex-wrap:wrap;} #app .pj-tools .pj-search{max-width:none;}
     .pj-dot{width:28px;height:28px;font-size:13px;} .pj-ln{width:8px;}
@@ -2976,6 +2977,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=0fa12a9244"></script>
+<script src="app.js?v=7b08fb5602"></script>
 </body>
 </html>

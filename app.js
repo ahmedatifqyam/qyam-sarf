@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.19.3', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.19.4', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:3.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:353, base:350, extra:3.3, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18348,6 +18348,8 @@ function prjRows(){
     if(f.st==='active' && s!=='active') return false;
     if(f.st==='closed' && s!=='closed') return false;
     if(f.st==='rejected' && !['rejected','cancelled'].includes(s)) return false;
+    if(f.st==='due' && !(r.p && r.p.status==='active' && prjDuePeriods(r.p).length)) return false;
+    if(f.st==='uncol' && !(r.p && r.p.status==='active' && prjInvoiced(r.p) - prjCollected(r.p) > 0)) return false;
     if(f.st==='all' && ['rejected','cancelled'].includes(s)) return false;
     const cl = r.p ? r.p.client_id : r.d.client_id;
     if(f.client && cl!==f.client) return false;
@@ -18371,7 +18373,7 @@ function prjStepsOf(r){
     s2c = due.length || rc.length ? 'warn' : (inv.length ? 'done' : '');
     const val = prjValue(p), col = prjCollected(p), sp = prjSpent(p);
     const spv = p.amount_route==='center' ? prjTransferred(p) : sp, rest = cxR3(col - spv);
-    step3 = `<div class="pj-kv"><span>القيمة</span><b>${fmtKWDHtml(val)}</b></div><div class="pj-kv pj-in"><span>محصّل</span><b>${fmtKWDHtml(col)}</b></div><div class="pj-kv pj-out"><span>${p.amount_route==='center' ? 'للمركز' : 'مصروف'}</span><b>${fmtKWDHtml(spv)}</b></div><div class="pj-kv ${rest<0?'pj-out':'pj-in'}"><span>الباقي</span><b>${fmtKWDHtml(rest)}</b></div>` + (prjToTransfer(p) > 0 ? prjBadge('بانتظار التحويل للمركز','due') : '');
+    step3 = `<div class="pj-kv pj-in"><span>محصّل</span><b>${fmtKWDHtml(col)}</b></div><div class="pj-kv pj-out"><span>${p.amount_route==='center' ? 'للمركز' : 'مصروف'}</span><b>${fmtKWDHtml(spv)}</b></div><div class="pj-kv ${rest<0?'pj-out':'pj-in'}"><span>الباقي</span><b>${fmtKWDHtml(rest)}</b></div>` + (prjToTransfer(p) > 0 ? prjBadge('بانتظار التحويل للمركز','due') : '');
     s3c = prjToTransfer(p) > 0 ? 'warn' : (col >= val && val > 0 ? 'done' : (col > 0 ? 'warn' : ''));
     step4 = p.report_path ? `<b>مرفوع</b>${prjBadge('✓','ok')}` : '<span class="pj-muted">لم يُرفع</span>'; s4c = p.report_path ? 'done' : '';
   } else if(d){
@@ -18409,10 +18411,9 @@ function prjCardHtml(r){
       <div class="pj-row-n"><b class="pj-name">${escH(p ? p.name : d.title)}</b><span class="pj-client">${escH(prjClientName(cl)||'—')}</span></div>
       <div class="pj-trail">${trail}</div>
       ${prjRowMoney(r)}
-      <div class="pj-row-s">${steps[5].b}<span class="pj-caret">${open ? '▴' : '▾'}</span></div>
+      <div class="pj-row-s">${steps[5].b}${open ? `<button class="btn btn-primary btn-sm" data-on-click="openProject" data-on-click-args="${qa([r.key])}">فتح المشروع</button>` : ''}</div>
     </div>
-    ${open ? `<div class="pj-flow" data-on-click="openProject" data-on-click-args="${qa([r.key])}" role="button" tabindex="0" title="فتح المشروع">${steps.map((s,i)=>prjStep(i+1, s.t, s.b, s.c)).join('')}</div>
-      <div class="pj-row-go"><button class="btn btn-primary btn-md" data-on-click="openProject" data-on-click-args="${qa([r.key])}">فتح المشروع ←</button></div>` : ''}
+    ${open ? `<div class="pj-flow" data-on-click="openProject" data-on-click-args="${qa([r.key])}" role="button" tabindex="0" title="فتح المشروع">${steps.map((s,i)=>prjStep(i+1, s.t, s.b, s.c)).join('')}</div>` : ''}
   </div>`;
 }
 function renderProjects(app){
@@ -18424,16 +18425,16 @@ function renderProjects(app){
   const uncol = act.reduce((s,p)=>s+Math.max(0, prjInvoiced(p)-prjCollected(p)),0);
   const clients = cxClientTree();
   const stOpt = (k,l,dot) => `<option value="${k}" ${f.st===k?'selected':''}>${dot ? dot+' ' : ''}${l}</option>`;
-  const kpi = (l, v, cls) => `<span class="pj-kpi ${cls||''}"><i></i><span>${l}</span><b>${v}</b></span>`;
+  const kpi = (l, v, cls, st) => `<button type="button" class="pj-kpi ${cls||''}${f.st===st?' on':''}" data-on-click="prjFilter" data-on-click-args="${qa(['st', f.st===st ? 'all' : st])}" title="${f.st===st ? 'إلغاء الفلتر' : 'عرض ' + l + ' فقط'}"><i></i><span>${l}</span><b>${v}</b></button>`;
   app.innerHTML = `
     <h1>المشاريع</h1>
     <p class="sub">كل مشروع من وثيقته (عرض سعر، نموذج خدمة، مقترح خدمة) حتى إغلاقه: الوثيقة ← الفاتورة ← المبالغ ← التنفيذ ← التقرير ← الحالة. اضغط المشروع لترى مراحله، ثم «فتح المشروع».</p>
-    <div class="pj-kpis" data-to-tabs>${kpi('نشطة', act.length, 'k-ok')}${kpi('بانتظار العميل', P.docs.filter(d=>d.status==='sent').length, 'k-wait')}${kpi('مغلقة', P.projects.filter(p=>p.status==='closed').length, 'k-off')}${kpi('فواتير مستحقة', dueN, 'k-bad')}${kpi('غير محصّل', fmtKWDHtml(uncol), 'k-bad')}</div>
+    <div class="pj-kpis" data-to-tabs>${kpi('نشطة', act.length, 'k-ok', 'active')}${kpi('بانتظار العميل', P.docs.filter(d=>d.status==='sent').length, 'k-wait', 'waiting')}${kpi('مغلقة', P.projects.filter(p=>p.status==='closed').length, 'k-off', 'closed')}${kpi('فواتير مستحقة', dueN, 'k-bad', 'due')}${kpi('غير محصّل', fmtKWDHtml(uncol), 'k-bad', 'uncol')}</div>
     ${P.docForm ? prjDocFormHtml() : ''}
     <div class="card cx-panel">
       <div class="pj-tools">
         <select class="pj-csel" data-on-change="prjFilter" data-on-change-args="${qa(['client', QA.v])}"><option value="">كل العملاء</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${f.client===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select>
-        <select class="pj-ssel" data-on-change="prjFilter" data-on-change-args="${qa(['st', QA.v])}">${stOpt('all','كل الحالات')}${stOpt('waiting','بانتظار العميل','🟠')}${stOpt('active','نشطة','🟢')}${stOpt('closed','مغلقة','⚪')}${stOpt('rejected','مرفوضة وملغاة','🔴')}</select>
+        <select class="pj-ssel" data-on-change="prjFilter" data-on-change-args="${qa(['st', QA.v])}">${stOpt('all','كل الحالات')}${stOpt('waiting','بانتظار العميل','🟠')}${stOpt('active','نشطة','🟢')}${stOpt('closed','مغلقة','⚪')}${stOpt('rejected','مرفوضة وملغاة','🔴')}${stOpt('due','فواتير مستحقة','🔴')}${stOpt('uncol','غير محصّل','🔴')}</select>
         <input type="search" class="qy-search pj-search" placeholder="بحث بالاسم أو الرقم أو العميل" value="${escH(f.q||'')}" data-on-input="prjFilter" data-on-input-args="${qa(['q', QA.v])}">
         ${canEditPrj() && !P.docForm ? `<button class="btn btn-primary btn-md" data-on-click="prjNewDoc">+ مشروع جديد</button>` : ''}
       </div>
