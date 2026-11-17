@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.19.2', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.19.3', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:2.8, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:353, base:350, extra:3.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18370,9 +18370,8 @@ function prjStepsOf(r){
     step2 = `<b>${inv.length} فاتورة</b><span>${p.invoice_mode==='monthly' ? 'شهرية' : 'واحدة'}</span>` + (due.length ? prjBadge(due.length===1 && !due[0] ? 'مستحقة' : due.length + ' مستحقة', 'due') : (inv.length ? prjBadge('محدّثة','ok') : '')) + (rc.length ? prjBadge('ينقص علم الوصول','due') : '');
     s2c = due.length || rc.length ? 'warn' : (inv.length ? 'done' : '');
     const val = prjValue(p), col = prjCollected(p), sp = prjSpent(p);
-    // الأرقام نفسها ظاهرة في رأس البطاقة؛ هنا نسبة التحصيل والصرف فقط بلا تكرار
-    const pc = x => val > 0 ? Math.min(100, Math.round(x / val * 100)) : 0, spv = p.amount_route==='center' ? prjTransferred(p) : sp;
-    step3 = `<div class="pj-bar" title="المحصّل من القيمة"><span class="pj-bar-l">التحصيل</span><i class="pj-bar-t"><i class="pj-bar-f in" style="width:${pc(col)}%"></i></i><b>${pc(col)}%</b></div><div class="pj-bar" title="${p.amount_route==='center' ? 'المحوَّل للمركز' : 'المصروف'} من القيمة"><span class="pj-bar-l">${p.amount_route==='center' ? 'للمركز' : 'الصرف'}</span><i class="pj-bar-t"><i class="pj-bar-f out" style="width:${pc(spv)}%"></i></i><b>${pc(spv)}%</b></div>` + (prjToTransfer(p) > 0 ? prjBadge('بانتظار التحويل للمركز','due') : '');
+    const spv = p.amount_route==='center' ? prjTransferred(p) : sp, rest = cxR3(col - spv);
+    step3 = `<div class="pj-kv"><span>القيمة</span><b>${fmtKWDHtml(val)}</b></div><div class="pj-kv pj-in"><span>محصّل</span><b>${fmtKWDHtml(col)}</b></div><div class="pj-kv pj-out"><span>${p.amount_route==='center' ? 'للمركز' : 'مصروف'}</span><b>${fmtKWDHtml(spv)}</b></div><div class="pj-kv ${rest<0?'pj-out':'pj-in'}"><span>الباقي</span><b>${fmtKWDHtml(rest)}</b></div>` + (prjToTransfer(p) > 0 ? prjBadge('بانتظار التحويل للمركز','due') : '');
     s3c = prjToTransfer(p) > 0 ? 'warn' : (col >= val && val > 0 ? 'done' : (col > 0 ? 'warn' : ''));
     step4 = p.report_path ? `<b>مرفوع</b>${prjBadge('✓','ok')}` : '<span class="pj-muted">لم يُرفع</span>'; s4c = p.report_path ? 'done' : '';
   } else if(d){
@@ -18394,11 +18393,10 @@ function prjStepsOf(r){
 const PRJ_ST_COLORS = {waiting:['بانتظار العميل','var(--amber)'], active:['نشطة','var(--green)'], closed:['مغلقة','var(--muted)'], rejected:['مرفوضة وملغاة','var(--red)']};
 function prjRowSt(r){ const s = r.p ? r.p.status : r.d.status; return s==='sent' ? 'waiting' : s==='active' ? 'active' : s==='closed' ? 'closed' : ['rejected','cancelled'].includes(s) ? 'rejected' : 'waiting'; }
 // أرقام البطاقة المختصرة: القيمة، المحصّل (أخضر)، المصروف (أحمر)، الباقي = المحصّل − المصروف
+// البطاقة قبل الفتح: قيمة المشروع فقط (المحصّل والمصروف والباقي في بطاقة «المبالغ» عند الفتح)
 function prjRowMoney(r){
-  const p = r.p, m = (l, v, cls) => `<span class="pj-m ${cls||''}"><small>${l}</small><b>${fmtKWDHtml(v)}</b></span>`;
-  if(!p) return `<div class="pj-money">${m('القيمة', Number((r.d||{}).amount||0))}</div>`;
-  const val = prjValue(p), col = prjCollected(p), sp = p.amount_route==='center' ? prjTransferred(p) : prjSpent(p), rest = cxR3(col - sp);
-  return `<div class="pj-money">${m('القيمة', val)}${m('محصّل', col, 'pj-in')}${m(p.amount_route==='center' ? 'للمركز' : 'مصروف', sp, 'pj-out')}${m('الباقي', rest, rest < 0 ? 'pj-out' : 'pj-in')}</div>`;
+  const v = r.p ? prjValue(r.p) : Number((r.d||{}).amount||0);
+  return `<div class="pj-money"><span class="pj-m"><small>القيمة</small><b>${fmtKWDHtml(v)}</b></span></div>`;
 }
 function prjToggle(key){ state.prj.openRow = state.prj.openRow===key ? null : key; render(); }
 function prjCardHtml(r){
@@ -18426,11 +18424,11 @@ function renderProjects(app){
   const uncol = act.reduce((s,p)=>s+Math.max(0, prjInvoiced(p)-prjCollected(p)),0);
   const clients = cxClientTree();
   const stOpt = (k,l,dot) => `<option value="${k}" ${f.st===k?'selected':''}>${dot ? dot+' ' : ''}${l}</option>`;
-  const kpi = (l, v, cls) => `<span class="pj-kpi ${cls||''}"><span>${l}</span><b>${v}</b></span>`;
+  const kpi = (l, v, cls) => `<span class="pj-kpi ${cls||''}"><i></i><span>${l}</span><b>${v}</b></span>`;
   app.innerHTML = `
     <h1>المشاريع</h1>
     <p class="sub">كل مشروع من وثيقته (عرض سعر، نموذج خدمة، مقترح خدمة) حتى إغلاقه: الوثيقة ← الفاتورة ← المبالغ ← التنفيذ ← التقرير ← الحالة. اضغط المشروع لترى مراحله، ثم «فتح المشروع».</p>
-    <div class="pj-kpis" data-to-tabs>${kpi('نشطة', act.length, 'k-ok')}${kpi('بانتظار العميل', P.docs.filter(d=>d.status==='sent').length, 'k-wait')}${kpi('فواتير مستحقة', dueN, dueN ? 'k-bad' : '')}${kpi('غير محصّل', fmtKWDHtml(uncol), uncol > 0 ? 'k-bad' : '')}</div>
+    <div class="pj-kpis" data-to-tabs>${kpi('نشطة', act.length, 'k-ok')}${kpi('بانتظار العميل', P.docs.filter(d=>d.status==='sent').length, 'k-wait')}${kpi('مغلقة', P.projects.filter(p=>p.status==='closed').length, 'k-off')}${kpi('فواتير مستحقة', dueN, 'k-bad')}${kpi('غير محصّل', fmtKWDHtml(uncol), 'k-bad')}</div>
     ${P.docForm ? prjDocFormHtml() : ''}
     <div class="card cx-panel">
       <div class="pj-tools">
@@ -18439,7 +18437,6 @@ function renderProjects(app){
         <input type="search" class="qy-search pj-search" placeholder="بحث بالاسم أو الرقم أو العميل" value="${escH(f.q||'')}" data-on-input="prjFilter" data-on-input-args="${qa(['q', QA.v])}">
         ${canEditPrj() && !P.docForm ? `<button class="btn btn-primary btn-md" data-on-click="prjNewDoc">+ مشروع جديد</button>` : ''}
       </div>
-      <div class="pj-legend">${Object.values(PRJ_ST_COLORS).map(([l,c])=>`<span><i style="background:${c}"></i>${l}</span>`).join('')}</div>
       ${!P.loaded ? '<div class="ct-empty">جارٍ التحميل…</div>' : rows.length ? `<div class="pj-list">${rows.map(prjCardHtml).join('')}</div>` : `<div class="ct-empty">${P.docs.length || P.projects.length ? 'لا نتائج بهذا الفلتر.' : 'لا مشاريع بعد. ابدأ بـ«+ مشروع جديد» وارفع عرض السعر أو نموذج الخدمة أو مقترح الخدمة.'}</div>`}
     </div>
     ${prjSettingsHtml()}`;

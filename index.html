@@ -1837,8 +1837,8 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-csel{width:180px !important;min-width:0;}
   .pj-list{display:flex;flex-direction:column;gap:8px;}
   /* صف الأدوات: العملاء ← الحالة ← البحث ← + مشروع جديد (أول عنصر يمين الصفحة) */
-  .pj-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
-  #app .pj-tools select{width:180px !important;height:40px;} #app .pj-tools .pj-search{width:auto !important;flex:1 1 160px;max-width:280px;min-width:0;height:40px;}
+  .pj-tools{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;max-width:820px;margin-bottom:10px;} .pj-tools > .btn{flex:0 0 150px;}
+  #app .pj-tools select{width:170px !important;flex:0 0 170px;height:40px;} #app .pj-tools .pj-search{width:auto !important;flex:1 1 160px;max-width:280px;min-width:0;height:40px;}
   .pj-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--muted);margin:2px 0 10px;}
   .pj-legend span{display:inline-flex;align-items:center;gap:5px;} .pj-legend i{width:10px;height:10px;border-radius:50%;display:inline-block;}
   /* البطاقة المختصرة ~65: الاسم والعميل ← مسار الدوائر ← الأرقام ← الحالة، وشريط لون الحالة على اليمين */
@@ -1846,17 +1846,17 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pj-prow.pj-st-waiting{border-inline-start-color:var(--amber);} #app .pj-prow.pj-st-active{border-inline-start-color:var(--green);}
   #app .pj-prow.pj-st-closed{border-inline-start-color:var(--muted);} #app .pj-prow.pj-st-rejected{border-inline-start-color:var(--red);}
   #app .pj-prow:hover,#app .pj-prow.open{border-top-color:var(--ink);border-bottom-color:var(--ink);border-inline-end-color:var(--ink);box-shadow:0 4px 14px rgba(20,20,20,.07);}
-  .pj-row-h{display:grid;grid-template-columns:minmax(140px,1fr) 236px 310px 118px;grid-template-areas:'n t m s';align-items:center;gap:14px;min-height:65px;padding:8px 14px;cursor:pointer;box-sizing:border-box;}
+  .pj-row-h{display:grid;grid-template-columns:minmax(0,1fr) 274px 130px 112px;grid-template-areas:'n t m s';align-items:center;gap:14px;min-height:58px;padding:6px 14px;cursor:pointer;box-sizing:border-box;}
   .pj-row-n{grid-area:n;} .pj-trail{grid-area:t;} .pj-money{grid-area:m;} .pj-row-s{grid-area:s;}
-  .pj-row-n{display:flex;flex-direction:column;gap:2px;min-width:0;} .pj-row-n .pj-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pj-row-n{display:flex;flex-direction:column;gap:2px;min-width:0;} .pj-row-n .pj-name{white-space:normal;line-height:1.35;}
   .pj-row-n .pj-client{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .pj-trail{display:flex;align-items:center;}
-  .pj-dot{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:14px;border:2px solid var(--line-2);background:var(--paper-2);filter:grayscale(1);opacity:.75;flex:0 0 auto;}
+  .pj-dot{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:17px;border:2px solid var(--line-2);background:var(--paper-2);filter:grayscale(1);opacity:.75;flex:0 0 auto;}
   .pj-dot.done{border-color:var(--green);background:var(--green-bg);filter:none;opacity:1;}
   .pj-dot.warn{border-color:var(--amber);background:var(--amber-bg);filter:none;opacity:1;}
   .pj-dot.bad{border-color:var(--red);background:var(--red-bg);filter:none;opacity:1;}
-  .pj-ln{display:inline-block;width:13px;height:3px;border-radius:2px;background:var(--line-2);flex:0 0 auto;} .pj-ln.done{background:var(--green);}
-  .pj-money{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;min-width:0;}
+  .pj-ln{display:inline-block;width:14px;height:3px;border-radius:2px;background:var(--line-2);flex:0 0 auto;} .pj-ln.done{background:var(--green);}
+  .pj-money{display:flex;min-width:0;}
   .pj-m{display:flex;flex-direction:column;gap:1px;min-width:0;} .pj-m small{font-size:var(--fs-xs);color:var(--muted);} .pj-m b{font-weight:800;white-space:nowrap;}
   .pj-in b, .pj-kv.pj-in b{color:var(--green);} .pj-out b, .pj-kv.pj-out b{color:var(--red);}
   .pj-kv b{font-weight:800;}
@@ -1872,14 +1872,14 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-top .pj-next-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
   #app:has(> .pj-top) > .card{margin-top:0;margin-bottom:10px;}
   /* أرقام المشاريع في صف التبويبات (داكن في الوضعين) */
-  .adm-tabs2 > .pj-kpis{display:flex;align-items:center;gap:16px;margin-inline-start:auto;padding:0 12px;white-space:nowrap;font-size:13px;color:#cfd8e3;}
+  .adm-tabs2 > .pj-kpis{display:flex;align-items:center;gap:26px;margin-inline-start:28px;padding:0 12px;white-space:nowrap;font-size:13px;color:#cfd8e3;}
   #app > .pj-kpis{display:none;}
-  .pj-kpi{display:inline-flex;align-items:baseline;gap:6px;} .pj-kpi b{font-weight:800;color:#fff;font-size:15px;}
-  .pj-kpi.k-ok b{color:#7ddba3;} .pj-kpi.k-wait b{color:#f5c56b;} .pj-kpi.k-bad b{color:#ff9a8f;}
-  @media (max-width:1250px){ .pj-row-h{grid-template-columns:minmax(0,1fr) 236px 118px;grid-template-areas:'n t s' 'm m m';row-gap:6px;} }
+  .pj-kpi{display:inline-flex;align-items:center;gap:7px;} .pj-kpi b{font-weight:800;color:#fff;font-size:15px;} .pj-kpi > i{width:9px;height:9px;border-radius:50%;background:#9aa6b2;display:inline-block;}
+  .pj-kpi.k-ok > i{background:#2fae64;} .pj-kpi.k-wait > i{background:#e0a53a;} .pj-kpi.k-off > i{background:#9aa6b2;} .pj-kpi.k-bad > i{background:#e5574b;}
+  @media (max-width:960px){ .pj-row-h{grid-template-columns:minmax(0,1fr) 112px;grid-template-areas:'n s' 't m';row-gap:6px;} .pj-money{justify-content:flex-end;} }
   @media (max-width:699px){
-    .pj-row-h{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'n s' 't t' 'm m';gap:8px;padding:8px 10px;}
-    .pj-dot{width:26px;height:26px;font-size:12px;} .pj-ln{width:10px;} .pj-money{grid-template-columns:repeat(4,minmax(0,1fr)) !important;gap:6px;}
+    .pj-row-h{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'n s' 't m';gap:6px 8px;padding:8px 10px;} .pj-money{justify-content:flex-end;} .pj-tools{flex-wrap:wrap;} #app .pj-tools .pj-search{max-width:none;}
+    .pj-dot{width:28px;height:28px;font-size:13px;} .pj-ln{width:8px;}
     #app .pj-tools select{width:auto !important;flex:1 1 calc(50% - 4px);min-width:0;} #app .pj-tools .pj-search{width:100% !important;} .pj-tools > .pj-search, .pj-tools > .btn{flex:1 1 100%;}
     .pj-top .pj-next{flex-basis:100%;}
   }
@@ -1899,7 +1899,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-step-b{display:flex;flex-direction:column;gap:4px;align-items:flex-start;font-size:var(--fs-label);min-width:0;}
   .pj-mono{font-family:ui-monospace,Menlo,monospace;direction:ltr;font-size:var(--fs-xs);color:var(--muted);}
   .pj-muted{color:var(--muted);}
-  .pj-kv{display:flex;justify-content:space-between;gap:6px;width:100%;} .pj-kv span{color:var(--muted);font-size:var(--fs-xs);}
+  .pj-kv{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;column-gap:6px;width:100%;min-width:0;} .pj-kv b{white-space:nowrap;} .pj-kv span{color:var(--muted);font-size:var(--fs-xs);}
   /* شارة الحالة: نقطة ملوّنة ثم نص عريض بنفس اللون (بلا كبسولة) */
   .pj-badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0;background:none;border-radius:0;font-size:var(--fs-xs);font-weight:800;white-space:nowrap;color:var(--text);}
   .pj-badge::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:0 0 auto;}
@@ -2976,6 +2976,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=ba50c8d69e"></script>
+<script src="app.js?v=0fa12a9244"></script>
 </body>
 </html>
