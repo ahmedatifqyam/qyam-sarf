@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.19.5', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.20.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:3.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:3.5, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7623,7 +7623,8 @@ function adaptTables(){
     const hr = t.tHead && t.tHead.rows[0]; if(!hr) return;
     const heads = [...hr.cells].map(c=>(c.textContent||'').replace(/[▲▼↑↓]/g,'').replace(/\s+/g,' ').trim());
     if(heads.length < 3) return;
-    if(cards){
+    // جداول المشاريع (الفواتير، أجزاء التنفيذ، الملاحق…) بطاقات في الهاتف للجميع، ومنهم مدير النظام
+    if(cards || (isPhone() && t.classList.contains('pj-tbl'))){
       t.classList.add('tcards');
       [...t.tBodies].forEach(tb=>[...tb.rows].forEach(r=>{ let i=0; [...r.cells].forEach(c=>{ if(!c.dataset.l && heads[i]) c.dataset.l = heads[i]; i += c.colSpan||1; }); }));
     }

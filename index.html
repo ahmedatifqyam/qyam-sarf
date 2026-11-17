@@ -2957,6 +2957,30 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* كل الشارات بإطار 1 بكسل بلونها (كشارة «معتمد ورقياً») */
   .badge{border:1.5px solid color-mix(in srgb, currentColor 55%, transparent);}
   .note-box.paper-docs{background:var(--info-bg) !important;border-color:var(--info) !important;color:var(--info) !important;}
+
+  /* ═══ (1.20.0) لا كبسولات: الشارات والحالات نقطة ملوّنة ثم نص عريض بنفس اللون — عدا حالات طلبات الصرف (.badge العادية) ═══ */
+  #app .cx-badge, #app .cx-tag, #app .cx-chip, .admin-co-badge, #app .unit-chip, .limit-tag, .custody-tag, .paper-pill,
+  .badge.cus-badge, .badge.handed-badge, .badge.paper-badge, .req-card .badge.handed-badge{
+    display:inline-flex !important;align-items:center;gap:6px;width:auto !important;max-width:100%;
+    background:none !important;border:0 !important;border-radius:0 !important;box-shadow:none !important;
+    padding:0 !important;font-weight:800 !important;text-align:start !important;line-height:1.35;}
+  #app .cx-badge::before, #app .cx-tag::before, #app .cx-chip::before, .admin-co-badge::before, #app .unit-chip::before, .limit-tag::before, .custody-tag::before, .paper-pill::before,
+  .badge.cus-badge::before, .badge.handed-badge::before, .badge.paper-badge::before{
+    content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:0 0 auto;}
+  #app .cx-chip{color:var(--text);} #app .cx-chip::before{background:var(--muted);} #app .cx-chip-red{color:var(--red);} #app .cx-chip-red::before{background:var(--red);}
+  #app .cx-tag{color:var(--muted);} #app .cx-tag-amber{color:var(--amber);} #app .cx-tag-neg, #app .cx-tag-red{color:var(--red);}
+  #app .unit-chip{color:var(--muted);margin-inline-start:6px;} #app .unit-chip.on{color:var(--blue);}
+  #app .cx-mini-md > .cx-badge{height:40px;}
+  /* أزرار التبديل (شجرة/قائمة…): أزرار مستطيلة عادية بارتفاع 40، والمختار ممتلئ */
+  .pj-chip{height:40px !important;border-radius:6px !important;padding:0 16px !important;min-width:105px;}
+  /* صفحة المشروع في الهاتف: «كل المشاريع» وزر الخطوة متجاوران والشريط تحتهما، ومسافات أقل بين الأقسام */
+  @media (max-width:699px){
+    .pj-top{gap:8px;} .pj-top > .btn{flex:1 1 0;min-width:0;}
+    .pj-top .pj-next{order:3;flex:1 1 100% !important;height:auto;min-height:40px;padding:8px 12px;}
+    .pj-top .pj-next-t{white-space:normal;}
+    #app:has(> .pj-top) > .card{margin:0 0 4px !important;padding-top:10px !important;padding-bottom:10px !important;border-bottom:1px solid var(--line) !important;}
+    #app:has(> .pj-top) .cx-panel-h{margin-bottom:8px;}
+  }
 </style>
 </head>
 <body>
@@ -2977,6 +3001,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=c61c2febdf"></script>
+<script src="app.js?v=39ac61636d"></script>
 </body>
 </html>
