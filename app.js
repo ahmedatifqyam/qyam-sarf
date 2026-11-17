@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.18.2', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.18.3', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:0.6, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -5330,8 +5330,7 @@ async function paperRecordSave(){
   const date = (document.getElementById('paperDate')||{}).value || '';
   const note = ((document.getElementById('paperNote')||{}).value || '').trim();
   if(!f){ showToast('أرفق صورة الورقة الموقعة','error'); return; }
-  if(!/^image\//.test(f.type) && f.type!=='application/pdf'){ showToast('الملف يجب أن يكون صورة أو PDF','error'); return; }
-  if(f.size > 15*1024*1024){ showToast('الملف أكبر من 15 ميجابايت','error'); return; }
+  { const msg = storeFileProblem(f); if(msg){ showToast(msg,'error'); return; } }
   if(!date){ showToast('اكتب تاريخ التوقيع','error'); return; }
   const t = new Date(), today = t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
   if(date > today){ showToast('تاريخ التوقيع لا يكون في المستقبل','error'); return; }
@@ -6158,12 +6157,18 @@ async function confirmManualSign(){
   await finalizeApprove(req, dataUrl);
 }
 
-// حدّ المرفقات: صور وPDF فقط وبحجم لا يزيد عن 4 ميغابايت (يمنع تضخيم الجداول ورفع ملفات غريبة)
-const UPLOAD_MAX_BYTES = 4*1024*1024;
+// حدّ المرفقات: صور وPDF فقط. الصورة حتى 4 ميغابايت، وPDF حتى 10 ميغابايت (حد مجلد المرفقات في الخادم)
+const UPLOAD_MAX_BYTES = 4*1024*1024, UPLOAD_PDF_MAX_BYTES = 10*1024*1024;
+// ما يُحفظ داخل جداول البيانات نفسها (شعار، ترويسة، توقيع، ملفات الهوية والبنك) يبقى حتى 4 ميغابايت
+const DATAURL_MAX_BYTES = 4*1024*1024;
 function uploadProblem(file){
   if(!file) return '';
   if(!/^(image\/(png|jpe?g|webp|gif|svg\+xml)|application\/pdf)$/.test(file.type||'')) return 'نوع الملف غير مسموح — المسموح صور (PNG/JPG/WEBP/GIF) أو PDF';
-  if(file.size > UPLOAD_MAX_BYTES) return 'حجم الملف أكبر من 4 ميغابايت — صغّر الصورة ثم أعد المحاولة';
+  if(file.type==='application/pdf'){
+    if(file.size > UPLOAD_PDF_MAX_BYTES) return 'ملف PDF أكبر من 10 ميغابايت — اضغط الملف (قلّل جودة الصور فيه) ثم أعد المحاولة';
+    return '';
+  }
+  if(file.size > UPLOAD_MAX_BYTES) return 'الصورة أكبر من 4 ميغابايت — صغّر الصورة ثم أعد المحاولة';
   return '';
 }
 document.addEventListener('change', e=>{
@@ -6175,8 +6180,15 @@ document.addEventListener('change', e=>{
     if(msg){ t.value=''; e.stopImmediatePropagation(); showToast(msg,'error'); return; }
   }
 }, true);
+// ما يُرفع إلى مجلد المرفقات في الخادم: نفس أنواعه وحدّه (PNG/JPG/WEBP أو PDF، حتى 10 ميغابايت)
+function storeFileProblem(file){
+  if(!file) return '';
+  if(!/^(image\/(png|jpe?g|webp)|application\/pdf)$/.test(file.type||'')) return 'نوع الملف غير مسموح هنا — المسموح صورة (PNG/JPG/WEBP) أو PDF';
+  if(file.size > UPLOAD_PDF_MAX_BYTES) return 'الملف أكبر من 10 ميغابايت — اضغط الملف أو صغّر الصورة ثم أعد المحاولة';
+  return '';
+}
 function readFileAsDataURL(file){
-  { const msg=uploadProblem(file); if(msg){ showToast(msg,'error'); return Promise.reject(new Error(msg)); } }
+  { const msg=uploadProblem(file) || (file && file.size > DATAURL_MAX_BYTES ? 'هذا المرفق حدّه 4 ميغابايت — صغّر الملف ثم أعد المحاولة' : ''); if(msg){ showToast(msg,'error'); return Promise.reject(new Error(msg)); } }
   return new Promise((resolve, reject)=>{
     const r = new FileReader();
     r.onload = e=>resolve(e.target.result);
@@ -18090,8 +18102,7 @@ function prjEnsure(){
 // ---------- ملفات المشاريع: تُرفع إلى مجلد الشركة في التخزين ----------
 async function prjUpload(file, kind){
   if(!file) return null;
-  if(!/^image\//.test(file.type) && file.type!=='application/pdf') throw new Error('الملف يجب أن يكون PDF أو صورة');
-  if(file.size > 20*1024*1024) throw new Error('الملف أكبر من 20 ميجابايت');
+  { const msg = storeFileProblem(file); if(msg) throw new Error(msg); }
   const ext = file.type==='application/pdf' ? 'pdf' : ((file.type.split('/')[1]||'jpg').replace('jpeg','jpg'));
   const path = state.currentCompanyId + '/prj/' + kind + '/' + (crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random().toString(36).slice(2)) + '.' + ext;
   const up = await db.storage.from('attachments').upload(path, file, {contentType:file.type, upsert:false});
