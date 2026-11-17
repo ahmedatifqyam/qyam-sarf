@@ -3122,6 +3122,19 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pj-kv2 > span{font-size:var(--fs-body,15px) !important;font-weight:700 !important;color:var(--muted) !important;}
   #app .pj-kv2 > b{font-size:var(--fs-body,15px) !important;font-weight:700 !important;color:var(--text);overflow-wrap:anywhere;}
   @media (max-width:699px){ #app .pj-kvs, #app .pj-kvs.pj-kvs-2{grid-template-columns:repeat(2,minmax(0,1fr)) !important;} #app .pj-kvs > .pj-kv2, #app:has(> .pj-top) .pj-kvs > .pj-kv2{padding:8px 10px !important;} }
+  /* (1.23.5) بيانات صفحة المشروع بلا خطوط جدول، وعنوان الحقل داكن عريض والبيان تحته بوزن عادي */
+  #app .pj-kvs, #app .pj-kvs.pj-kvs-2{border-top:0 !important;row-gap:14px !important;column-gap:16px !important;margin:4px 0 12px;}
+  #app .pj-kvs > .pj-kv2, #app:has(> .pj-top) .pj-kvs > .pj-kv2{border:0 !important;padding:0 !important;gap:3px;}
+  #app .pj-kv2 > span{font-size:var(--fs-body,15px) !important;font-weight:800 !important;color:var(--ink) !important;}
+  #app .pj-kv2 > b{font-size:var(--fs-body,15px) !important;font-weight:500 !important;color:var(--text) !important;}
+  #app .pj-kv2 > b *{font-weight:inherit !important;}
+  #app .pj-kv2 > b bdi > span{font-size:.72em !important;}   /* الفلس أصغر من الرقم الصحيح */
+  /* أرقام المبالغ في بطاقات منفصلة، محاذاة للمنتصف، والعنوان بحجم الرقم */
+  #app .pj-figs{border:0 !important;gap:10px !important;margin:4px 0 16px;}
+  #app .pj-fig{border:1px solid var(--line) !important;border-radius:10px;background:var(--paper);padding:12px 10px !important;gap:6px;align-items:center;text-align:center;justify-content:center;}
+  #app .pj-fig > span{font-size:16px !important;font-weight:800 !important;color:var(--ink) !important;}
+  #app .pj-fig > b{font-size:16px !important;font-weight:800 !important;}
+  @media (max-width:899px){ #app .pj-fig, #app .pj-fig:nth-child(even){padding:10px 8px !important;border:1px solid var(--line) !important;} }
 </style>
 </head>
 <body>
@@ -3142,6 +3155,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=c0d29cbaf9"></script>
+<script src="app.js?v=df52ea85b1"></script>
 </body>
 </html>
