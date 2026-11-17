@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.21.0', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.21.1', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:4.1, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:4.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18359,7 +18359,7 @@ function prjRows(){
   }).sort((a,b)=> String((b.p||b.d).created_at).localeCompare(String((a.p||a.d).created_at)));
 }
 function prjFilter(k, v){ state.prj.f[k] = v; render(); if(k==='q'){ const el = document.querySelector('#app .pj-search'); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } } }
-function prjStep(n, title, body, cls, icon){ return `<div class="pj-step ${cls||''}"><div class="pj-step-h">${icon || `<span class="pj-step-n">${n}</span>`}<span class="pj-step-t">${title}</span></div><div class="pj-step-b">${body}</div></div>`; }
+function prjStep(n, title, body, cls, icon){ return `<div class="pj-step ${cls||''}"><div class="pj-step-h"><span class="pj-step-n">${n}</span><span class="pj-step-t">${title}</span>${icon||''}</div><div class="pj-step-b">${body}</div></div>`; }
 function prjBadge(txt, cls){ return `<span class="pj-badge pj-b-${cls}">${escH(txt)}</span>`; }
 // مراحل المشروع الست (تُستخدم في البطاقة المختصرة وفي البطاقات المفصلة)
 // رموز المراحل: خطوط بسيطة بلون حالة المرحلة (الوثيقة، الفاتورة، المبالغ، التنفيذ، التقرير، الحالة)
@@ -18422,12 +18422,12 @@ function prjOpenAt(key, n){
 function prjToggle(key){
   const closing = state.prj.openRow===key, sel = '.pj-prow[data-key="' + CSS.escape(key) + '"]';
   const row = document.querySelector(sel);
-  const from = row ? [...row.querySelectorAll(closing ? '.pj-step-h .pj-dot' : '.pj-trail .pj-dot')].map(e=>e.getBoundingClientRect()) : [];
+  const from = row ? [...row.querySelectorAll(closing ? '.pj-step-h .pj-step-ic' : '.pj-trail .pj-dot')].map(e=>e.getBoundingClientRect()) : [];
   state.prj.openRow = closing ? null : key; render();
   const row2 = document.querySelector(sel);
   if(!row2 || !from.length || !row2.animate) return;
   try{ if(matchMedia('(prefers-reduced-motion: reduce)').matches) return; }catch(e){}
-  [...row2.querySelectorAll(closing ? '.pj-trail .pj-dot' : '.pj-step-h .pj-dot')].forEach((el,i)=>{
+  [...row2.querySelectorAll(closing ? '.pj-trail .pj-dot' : '.pj-step-h .pj-step-ic')].forEach((el,i)=>{
     const a = from[i]; if(!a || !a.width) return; const b = el.getBoundingClientRect(); if(!b.width) return;
     el.animate([{transform:`translate(${a.left-b.left}px,${a.top-b.top}px) scale(${a.width/b.width})`},{transform:'none'}], {duration:450, easing:'cubic-bezier(.2,.8,.2,1)'});
   });
@@ -18446,7 +18446,7 @@ function prjCardHtml(r){
       ${prjRowMoney(r)}
       <div class="pj-row-s"><span class="pj-row-st">${steps[5].b}</span>${open ? `<button class="btn btn-primary btn-sm" data-on-click="openProject" data-on-click-args="${qa([r.key])}" title="فتح المشروع">فتح<span class="pj-hide-m">&nbsp;المشروع</span></button>` : ''}</div>
     </div>
-    ${open ? `<div class="pj-flow">${steps.map((s,i)=>`<div class="pj-step-go" data-on-click="prjOpenAt" data-on-click-args="${qa([r.key, i+1])}" role="button" tabindex="0" title="فتح «${escH(s.t)}» في صفحة المشروع">${prjStep(i+1, s.t, s.b, s.c, `<span class="pj-dot ${s.c}">${prjStepIcon(i)}</span>`)}</div>`).join('')}</div>` : ''}
+    ${open ? `<div class="pj-flow">${steps.map((s,i)=>`<div class="pj-step-go" data-on-click="prjOpenAt" data-on-click-args="${qa([r.key, i+1])}" role="button" tabindex="0" title="فتح «${escH(s.t)}» في صفحة المشروع">${prjStep(i+1, s.t, s.b, s.c, `<span class="pj-step-ic ${s.c}">${prjStepIcon(i)}</span>`)}</div>`).join('')}</div>` : ''}
   </div>`;
 }
 function renderProjects(app){

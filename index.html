@@ -3028,9 +3028,19 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-m{align-items:center;text-align:center;padding-inline-start:10px;} .pj-m small{font-size:var(--fs-label) !important;font-weight:700;color:var(--muted);}
   /* بطاقات المراحل: اسم المرحلة أكبر وعريض بجانب دائرتها، والبيان بوزن عادي */
   .pj-step-h{font-size:var(--fs-body,15px) !important;font-weight:800 !important;color:var(--ink) !important;gap:8px !important;margin-bottom:8px !important;}
-  .pj-step-h .pj-dot{width:30px !important;height:30px !important;} .pj-step-h .pj-dot svg{width:15px;height:15px;}
+  .pj-step-ic{display:inline-flex;align-items:center;color:var(--muted);margin-inline-start:2px;} .pj-step-ic svg{width:18px;height:18px;}
+  .pj-step-ic.done{color:var(--green);} .pj-step-ic.warn{color:var(--amber);} .pj-step-ic.bad{color:var(--red);}
   .pj-step-b{font-weight:500;} .pj-step-b b{font-weight:700;}
   @media (max-width:699px){ .pj-row-s{grid-template-columns:auto 70px;} .pj-step-h{flex:0 0 118px !important;} }
+  /* تخطيط البطاقة حسب عرض القائمة نفسها (لا عرض الشاشة): يصح مع الشريط الجانبي وتكبير المتصفح */
+  .pj-list{container-type:inline-size;container-name:pjlist;}
+  @container pjlist (max-width: 900px){
+    .pj-row-h{grid-template-columns:minmax(0,1fr) auto !important;grid-template-areas:'n s' 't m' !important;row-gap:8px !important;}
+    .pj-money{justify-content:flex-end;} .pj-m{align-items:flex-end;text-align:end;} .pj-trail{justify-content:flex-start !important;}
+  }
+  @container pjlist (max-width: 420px){
+    .pj-row-s{grid-template-columns:auto 70px !important;} .pj-dot{width:30px !important;height:30px !important;} .pj-ln{width:5px !important;}
+  }
 </style>
 </head>
 <body>
@@ -3051,6 +3061,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=4d427cbbee"></script>
+<script src="app.js?v=7cccf0924c"></script>
 </body>
 </html>
