@@ -3062,6 +3062,26 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   @keyframes qyPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
   @container pjlist (max-width: 900px){ #app .pj-prow.open .pj-row-h{grid-template-areas:'n s' 'm m' !important;} }
   @media (max-width:699px){ #app .pj-prow.open .pj-row-h{grid-template-areas:'n s' 'm m' !important;} }
+  /* ═══ (1.22.1) الحالة أقصى اليسار ثابتة وزر الفتح على يمينها، والقيمة بجانب الدوائر على اليمين ═══ */
+  .pj-tm{display:contents;}
+  #app .pj-row-s{display:grid !important;grid-template-columns:auto minmax(0,1fr) !important;align-items:center;gap:8px;justify-content:stretch !important;}
+  #app .pj-row-s > .pj-row-st{grid-column:2;grid-row:1;justify-self:end;}
+  #app .pj-row-s > .btn{grid-column:1;grid-row:1;margin:0 !important;width:105px;}
+  #app .pj-m{align-items:center;text-align:center;}
+  @container pjlist (max-width: 900px){
+    #app .pj-row-h{grid-template-columns:minmax(0,1fr) auto !important;grid-template-areas:'n s' 'f f' !important;}
+    #app .pj-prow.open .pj-row-h{grid-template-areas:'n s' 'f f' !important;}
+    #app .pj-tm{display:flex;grid-area:f;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:6px 16px;min-width:0;}
+    #app .pj-tm .pj-trail{justify-content:flex-start !important;} #app .pj-tm .pj-money{justify-content:flex-start !important;}
+    #app .pj-tm .pj-m{align-items:center;text-align:center;padding-inline-start:0;}
+  }
+  @media (max-width:960px){
+    #app .pj-row-h{grid-template-columns:minmax(0,1fr) auto !important;grid-template-areas:'n s' 'f f' !important;}
+    #app .pj-prow.open .pj-row-h{grid-template-areas:'n s' 'f f' !important;}
+    #app .pj-tm{display:flex;grid-area:f;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:6px 16px;min-width:0;}
+    #app .pj-tm .pj-trail{justify-content:flex-start !important;} #app .pj-tm .pj-money{justify-content:flex-start !important;}
+    #app .pj-tm .pj-m{align-items:center;text-align:center;padding-inline-start:0;}
+  }
 </style>
 </head>
 <body>
@@ -3082,6 +3102,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=1735289630"></script>
+<script src="app.js?v=0a3f72dd61"></script>
 </body>
 </html>
