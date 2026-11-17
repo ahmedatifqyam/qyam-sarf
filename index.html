@@ -2995,6 +2995,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app:has(> .pj-top) table.tcards tbody tr{background:transparent !important;border:0 !important;border-bottom:1px solid var(--line) !important;border-radius:0 !important;box-shadow:none !important;padding-inline:0 !important;}
     .pj-fig:last-child:nth-child(odd){grid-column:1 / -1;}
   }
+  /* أزرار سطر الفاتورة في الهاتف: زرّان في كل سطر بعرض متساوٍ وارتفاع 40 */
+  @media (max-width:699px){
+    #app .pj-acts-w{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%;min-width:0;}
+    #app .pj-acts-w > .btn{width:100% !important;min-width:0 !important;height:40px !important;margin:0 !important;padding:0 8px !important;white-space:nowrap;}
+    #app table.tcards td.pj-acts{display:block !important;width:100%;}
+  }
 </style>
 </head>
 <body>
@@ -3015,6 +3021,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=ba90c1bfed"></script>
+<script src="app.js?v=46f5f8b43c"></script>
 </body>
 </html>
