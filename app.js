@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.22.1', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.23.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.1, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:1.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18461,15 +18461,20 @@ function prjToggle(key){
 function prjCardHtml(r){
   const p = r.p, d = r.d, cl = p ? p.client_id : d.client_id, steps = prjStepsOf(r), open = state.prj.openRow===r.key;
   const tip = h => { const x = document.createElement('div'); x.innerHTML = h; return x.textContent.replace(/\s+/g,' ').trim(); };
-  const trail = steps.map((s,i)=>`${i ? `<i class="pj-ln ${steps[i-1].c==='done'?'done':''}"></i>` : ''}<span class="pj-dot ${s.c}" title="${escH(s.t + ': ' + tip(s.b))}">${prjStepIcon(i)}</span>`).join('');
-  const st = prjRowSt(r);
+  // الخط بين كل دائرتين نصفان: كل نصف بلون الدائرة التي يتصل بها
+  const trail = steps.map((s,i)=>`${i ? `<i class="pj-ln"><b class="${steps[i-1].c||''}"></b><b class="${s.c||''}"></b></i>` : ''}<span class="pj-dot ${s.c}" title="${escH(s.t + ': ' + tip(s.b))}">${prjStepIcon(i)}</span>`).join('');
+  const st = prjRowSt(r), v = p ? prjValue(p) : Number((d||{}).amount||0);
   return `<div class="pj-prow pj-st-${st}${open?' open':''}" data-key="${escH(r.key)}">
     <div class="pj-row-h" data-on-click="prjToggle" data-on-click-args="${qa([r.key])}" role="button" tabindex="0" aria-expanded="${open}">
-      <div class="pj-row-n"><b class="pj-name">${escH(p ? p.name : d.title)}</b><span class="pj-client">${escH(prjClientName(cl)||'—')}</span></div>
-      <div class="pj-tm"><div class="pj-trail">${trail}</div>${prjRowMoney(r)}</div>
-      <div class="pj-row-s">${open ? `<button class="btn btn-primary btn-sm" data-on-click="openProject" data-on-click-args="${qa([r.key])}" title="فتح المشروع">فتح<span class="pj-hide-m">&nbsp;المشروع</span></button>` : ''}<span class="pj-row-st">${steps[5].b}</span></div>
+      <div class="pj-r1">
+        <b class="pj-name">${escH(p ? p.name : d.title)}</b>
+        <span class="pj-client">${escH(prjClientName(cl)||'—')}</span>
+        <span class="pj-val"><small>القيمة</small><b>${fmtKWDHtml(v)}</b></span>
+        <span class="pj-row-st">${steps[5].b}</span>
+      </div>
+      ${open ? '' : `<div class="pj-trail">${trail}</div>`}
     </div>
-    ${open ? `<div class="pj-flow">${steps.map((s,i)=>`<div class="pj-step-go" data-on-click="prjOpenAt" data-on-click-args="${qa([r.key, i+1])}" role="button" tabindex="0" title="فتح «${escH(s.t)}» في صفحة المشروع">${prjStep(i+1, s.t, s.b, s.c, `<span class="pj-step-ic ${s.c}">${prjStepIcon(i)}</span>`)}</div>`).join('')}</div>` : ''}
+    ${open ? `<div class="pj-open"><div class="pj-hint">لفتح المشروع اختر إحدى مراحله</div><div class="pj-flow">${steps.map((s,i)=>`<div class="pj-step-go" data-on-click="prjOpenAt" data-on-click-args="${qa([r.key, i+1])}" role="button" tabindex="0" title="فتح «${escH(s.t)}» في صفحة المشروع">${prjStep(i+1, s.t, s.b, s.c, `<span class="pj-step-ic ${s.c}">${prjStepIcon(i)}</span>`)}</div>`).join('')}</div></div>` : ''}
   </div>`;
 }
 function renderProjects(app){

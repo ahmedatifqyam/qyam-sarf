@@ -3082,6 +3082,26 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .pj-tm .pj-trail{justify-content:flex-start !important;} #app .pj-tm .pj-money{justify-content:flex-start !important;}
     #app .pj-tm .pj-m{align-items:center;text-align:center;padding-inline-start:0;}
   }
+  /* ═══ (1.23.0) بطاقة المشروع: سطر للبيانات، وتحته الدوائر بعرض البطاقة؛ عند الفتح تأخذ المراحل مكان الدوائر ═══ */
+  #app .pj-row-h{display:flex !important;flex-direction:column;align-items:stretch;gap:10px;padding:10px 16px 12px !important;min-height:0;}
+  #app .pj-r1{display:grid;grid-template-columns:minmax(0,max-content) auto minmax(12px,1fr) auto auto;grid-template-areas:'n c . m s';align-items:baseline;column-gap:14px;}
+  #app .pj-r1 .pj-name{grid-area:n;font-size:17px;font-weight:800;line-height:1.4;white-space:normal;overflow-wrap:anywhere;min-width:0;}
+  #app .pj-r1 .pj-client{grid-area:c;font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;}
+  #app .pj-val{grid-area:m;display:inline-flex;align-items:baseline;gap:8px;white-space:nowrap;}
+  #app .pj-val small{font-size:var(--fs-label);font-weight:700;color:var(--muted);} #app .pj-val b{font-weight:800;font-size:16px;}
+  #app .pj-r1 .pj-row-st{grid-area:s;justify-self:end;white-space:nowrap;}
+  #app .pj-trail{display:flex !important;align-items:center;width:100%;min-width:0;}
+  #app .pj-trail .pj-ln{display:flex;flex:1 1 0;width:auto !important;min-width:8px;height:3px;background:none;}
+  #app .pj-trail .pj-ln > b{flex:1 1 0;height:100%;background:var(--line-2);}
+  #app .pj-trail .pj-ln > b.done{background:var(--green);} #app .pj-trail .pj-ln > b.warn{background:var(--amber);} #app .pj-trail .pj-ln > b.bad{background:var(--red);}
+  #app .pj-open{padding:0 16px 14px;} #app .pj-hint{font-size:var(--fs-xs);font-weight:700;color:var(--muted);margin:0 0 8px;}
+  #app .pj-open .pj-flow{padding:0;}
+  @media (max-width:699px){
+    #app .pj-row-h{padding:10px 12px 12px !important;gap:8px;}
+    #app .pj-r1{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'n s' 'c m';row-gap:4px;}
+    #app .pj-r1 .pj-name{font-size:16px;} #app .pj-r1 .pj-client{max-width:none;}
+    #app .pj-val{justify-self:end;} #app .pj-open{padding:0 12px 12px;}
+  }
 </style>
 </head>
 <body>
@@ -3102,6 +3122,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=0a3f72dd61"></script>
+<script src="app.js?v=ceefda392b"></script>
 </body>
 </html>
