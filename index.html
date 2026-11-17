@@ -1835,7 +1835,49 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-chip{height:34px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:var(--card);font:inherit;font-size:var(--fs-label);font-weight:700;color:var(--muted);cursor:pointer;}
   .pj-chip.on{background:var(--ink);border-color:var(--ink);color:#fff;}
   .pj-csel{width:180px !important;min-width:0;}
-  .pj-list{display:flex;flex-direction:column;gap:12px;}
+  .pj-list{display:flex;flex-direction:column;gap:8px;}
+  /* صف الأدوات: العملاء ← الحالة ← البحث ← + مشروع جديد (أول عنصر يمين الصفحة) */
+  .pj-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+  #app .pj-tools select{width:200px !important;height:40px;} #app .pj-tools .pj-search{width:280px !important;height:40px;}
+  .pj-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--muted);margin:2px 0 10px;}
+  .pj-legend span{display:inline-flex;align-items:center;gap:5px;} .pj-legend i{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  /* البطاقة المختصرة ~65: الاسم والعميل ← مسار الدوائر ← الأرقام ← الحالة، وشريط لون الحالة على اليمين */
+  #app .pj-prow{padding:0;margin:0;border:1px solid var(--line);border-inline-start:5px solid var(--muted);border-radius:10px;overflow:hidden;background:var(--card);}
+  #app .pj-prow.pj-st-waiting{border-inline-start-color:var(--amber);} #app .pj-prow.pj-st-active{border-inline-start-color:var(--green);}
+  #app .pj-prow.pj-st-closed{border-inline-start-color:var(--muted);} #app .pj-prow.pj-st-rejected{border-inline-start-color:var(--red);}
+  #app .pj-prow:hover,#app .pj-prow.open{border-top-color:var(--ink);border-bottom-color:var(--ink);border-inline-end-color:var(--ink);box-shadow:0 4px 14px rgba(20,20,20,.07);}
+  .pj-row-h{display:grid;grid-template-columns:minmax(140px,1fr) 236px 310px 118px;align-items:center;gap:14px;min-height:65px;padding:8px 14px;cursor:pointer;box-sizing:border-box;}
+  .pj-row-n{display:flex;flex-direction:column;gap:2px;min-width:0;} .pj-row-n .pj-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pj-row-n .pj-client{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pj-trail{display:flex;align-items:center;}
+  .pj-dot{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:14px;border:2px solid var(--line-2);background:var(--paper-2);filter:grayscale(1);opacity:.75;flex:0 0 auto;}
+  .pj-dot.done{border-color:var(--green);background:var(--green-bg);filter:none;opacity:1;}
+  .pj-dot.warn{border-color:var(--amber);background:var(--amber-bg);filter:none;opacity:1;}
+  .pj-dot.bad{border-color:var(--red);background:var(--red-bg);filter:none;opacity:1;}
+  .pj-ln{display:inline-block;width:13px;height:3px;border-radius:2px;background:var(--line-2);flex:0 0 auto;} .pj-ln.done{background:var(--green);}
+  .pj-money{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;min-width:0;}
+  .pj-m{display:flex;flex-direction:column;gap:1px;min-width:0;} .pj-m small{font-size:var(--fs-xs);color:var(--muted);} .pj-m b{font-weight:800;white-space:nowrap;}
+  .pj-in b, .pj-kv.pj-in b{color:var(--green);} .pj-out b, .pj-kv.pj-out b{color:var(--red);}
+  .pj-kv b{font-weight:800;}
+  .pj-row-s{display:flex;align-items:center;justify-content:flex-end;gap:8px;} .pj-caret{color:var(--muted);font-size:12px;}
+  .pj-prow .pj-flow{padding:0 14px 10px;cursor:pointer;} .pj-row-go{display:flex;justify-content:flex-start;padding:0 14px 12px;}
+  /* صفحة المشروع: «كل المشاريع» ← الخطوة التالية بارتفاع الزر ← زرها، ومسافات أقل بين البطاقات */
+  .pj-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
+  .pj-top .pj-next{flex:1 1 320px;margin:0;height:40px;padding:0 14px;box-sizing:border-box;min-width:0;flex-wrap:nowrap;}
+  .pj-top .pj-next-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+  #app:has(> .pj-top) > .card{margin-top:0;margin-bottom:10px;}
+  /* أرقام المشاريع في صف التبويبات (داكن في الوضعين) */
+  .adm-tabs2 > .pj-kpis{display:flex;align-items:center;gap:16px;margin-inline-start:auto;padding:0 12px;white-space:nowrap;font-size:13px;color:#cfd8e3;}
+  #app > .pj-kpis{display:none;}
+  .pj-kpi{display:inline-flex;align-items:baseline;gap:6px;} .pj-kpi b{font-weight:800;color:#fff;font-size:15px;}
+  .pj-kpi.k-ok b{color:#7ddba3;} .pj-kpi.k-wait b{color:#f5c56b;} .pj-kpi.k-bad b{color:#ff9a8f;}
+  @media (max-width:1250px){ .pj-row-h{grid-template-columns:minmax(0,1fr) 236px 118px;} .pj-money{grid-column:1 / -1;} }
+  @media (max-width:699px){
+    .pj-row-h{grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:8px 10px;} .pj-trail{grid-column:1 / -1;order:3;} .pj-money{order:4;grid-template-columns:repeat(2,minmax(0,1fr));}
+    .pj-dot{width:26px;height:26px;font-size:12px;} .pj-ln{width:10px;} .pj-money{grid-template-columns:repeat(4,minmax(0,1fr)) !important;gap:6px;}
+    #app .pj-tools select{width:auto !important;flex:1 1 calc(50% - 4px);min-width:0;} #app .pj-tools .pj-search{width:100% !important;} .pj-tools > .pj-search, .pj-tools > .btn{flex:1 1 100%;}
+    .pj-top .pj-next{flex-basis:100%;}
+  }
   .pj-card{padding:14px 16px;cursor:pointer;border:1px solid var(--line);margin:0;transition:box-shadow .12s,border-color .12s;}
   .pj-card:hover{border-color:var(--ink);box-shadow:0 6px 18px rgba(20,20,20,.08);}
   .pj-card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
@@ -1853,9 +1895,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-mono{font-family:ui-monospace,Menlo,monospace;direction:ltr;font-size:var(--fs-xs);color:var(--muted);}
   .pj-muted{color:var(--muted);}
   .pj-kv{display:flex;justify-content:space-between;gap:6px;width:100%;} .pj-kv span{color:var(--muted);font-size:var(--fs-xs);}
-  .pj-badge{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;font-size:var(--fs-xs);font-weight:800;white-space:nowrap;background:var(--line);color:var(--text);}
-  .pj-b-sent{background:var(--amber-bg);color:var(--amber);} .pj-b-approved,.pj-b-ok,.pj-b-active{background:var(--green-bg);color:var(--green);}
-  .pj-b-rejected,.pj-b-cancelled,.pj-b-due{background:var(--red-bg);color:var(--red);} .pj-b-closed,.pj-b-none{background:var(--paper-2);color:var(--text);}
+  /* شارة الحالة: نقطة ملوّنة ثم نص عريض بنفس اللون (بلا كبسولة) */
+  .pj-badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0;background:none;border-radius:0;font-size:var(--fs-xs);font-weight:800;white-space:nowrap;color:var(--text);}
+  .pj-badge::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:0 0 auto;}
+  .pj-b-sent{color:var(--amber);} .pj-b-approved,.pj-b-ok,.pj-b-active{color:var(--green);}
+  .pj-b-rejected,.pj-b-cancelled,.pj-b-due{color:var(--red);} .pj-b-closed,.pj-b-none{color:var(--muted);}
   .pj-next{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:12px 16px;border-radius:10px;border:1.5px solid var(--info);background:var(--info-bg);color:var(--info);font-size:var(--fs-body);}
   .pj-next b{font-weight:800;} .pj-next-done{border-color:var(--green-line);background:var(--green-bg);color:var(--green);} .pj-next-off{border-color:var(--line);background:var(--paper-2);color:var(--muted);}
   .pj-next-info{border-color:var(--amber-line);background:var(--amber-bg);color:var(--amber);}
@@ -1873,7 +1917,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app label.chk-card.pj-chk{min-height:40px;height:40px;}
   @media (max-width:699px){ .pj-form .uf-flex > *,.pj-approve .uf-flex > *{flex:1 1 100%;} #app .pj-form .uf-flex input,#app .pj-form .uf-flex select,#app .pj-approve .uf-flex input,#app .pj-approve .uf-flex select{width:100% !important;} }
   .pj-due{margin:0 0 12px;padding:10px 12px;border-radius:8px;background:var(--red-bg);color:var(--red);font-weight:700;font-size:var(--fs-label);}
-  .pj-acts{white-space:nowrap;} .pj-acts .btn{margin-inline-start:4px;}
+  .pj-acts{white-space:normal;} .pj-acts-w{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-start;min-width:222px;} .pj-acts .btn{margin:0;}
   .pj-inline{margin:0;} .pj-subrow > td{background:var(--paper-2);}
   .pj-row{cursor:pointer;} .pj-row:hover > td{background:var(--paper-2);}
   .pj-stats{margin-bottom:10px;} #app .cx-stats.pj-stats{grid-template-columns:repeat(5,minmax(0,1fr));}
@@ -2155,6 +2199,9 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .co-f{min-width:0;} #app .co-g .sel-add,#app .co-g .field-with-btn{width:100% !important;max-width:none !important;} .co-f .file-hint{margin-top:4px;} .co-full{grid-column:1/-1;}
   .co-two{display:flex;gap:8px;align-items:center;} .co-two > *{flex:1 1 0;min-width:0;} .co-sub{margin-top:8px;}
   #app .co-brand input[type=color]{flex:0 0 56px;width:56px;height:40px;padding:2px;} .co-brand .file-pick{flex:1 1 auto;} #app .co-brand .file-pick > label.file-btn{width:100%;}
+  .pw-wrap{position:relative;} .pw-wrap input{padding-inline-end:44px !important;}
+  .pw-eye{position:absolute;inset-inline-end:4px;top:50%;transform:translateY(-50%);width:36px;height:32px;border:0;background:transparent;cursor:pointer;font-size:16px;line-height:1;border-radius:6px;}
+  .pw-eye:hover{background:var(--paper-2);}
   .co-g4{grid-template-columns:repeat(4,minmax(0,1fr));} .co-s2{grid-column:span 2;} .co-s3{grid-column:span 3;}
   #app .co-g .co-chk{display:flex;align-items:center;gap:8px;height:40px;width:100%;box-sizing:border-box;margin:0;}
   #app .co-g .file-pick{display:flex;width:100%;} #app .co-g .file-pick > label.file-btn{width:150px;}
@@ -2652,6 +2699,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .perm-row .perm-lbl{font-weight:700;font-size:var(--fs-label);}
   .perm-row select{width:100% !important;max-width:100% !important;}
   .perm-row.perm-custom select{border-color:var(--amber) !important;box-shadow:0 0 0 1px var(--amber) inset;}
+  .perm-row.perm-mixed select{border-style:dashed !important;border-color:var(--info) !important;color:var(--info);}
   /* صور الهوية: زرا الاختيار والحذف فوق بعض بجانب الصورة */
   .brand-img-block{flex-wrap:nowrap !important;align-items:center;}
   .brand-btns{display:flex;flex-direction:column;gap:8px;}
@@ -2923,6 +2971,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=c87579f48c"></script>
+<script src="app.js?v=07c542c20d"></script>
 </body>
 </html>

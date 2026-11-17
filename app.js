@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.18.3', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.19.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:351, base:350, extra:0.6, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -646,7 +646,13 @@ async function reloadUsers(){
   state._usersErr = error ? (error.message||'خطأ') : '';
   if(error) console.error('reloadUsers', error);
   if(data){ state.users = data.map(dbUserToState); await mergeUserPrivate(); }
+  try{ const uu = await db.from('user_units').select('*'); if(!uu.error) state.userUnits = uu.data||[]; }catch(e){}
 }
+// ── الوحدات الإضافية: للمستخدم وحدة أساسية (centerId) ووحدات إضافية، ولكل إضافية مديره فيها (اختياري) ──
+function userExtraUnits(u){ return u ? (state.userUnits||[]).filter(x=>x.user_id===u.id) : []; }
+function userUnitIds(u){ if(!u) return []; const out = []; if(u.centerId) out.push(u.centerId); userExtraUnits(u).forEach(x=>{ if(!out.includes(x.center_id)) out.push(x.center_id); }); return out; }
+function myUserRow(){ const me = state.user; return me ? ((state.users||[]).find(x=>x.id===me.id) || me) : null; }
+function myUnitIds(){ return userUnitIds(myUserRow()); }
 // معتمدو طلباتي في شركات لم أعد أراها: أسماؤهم من الخادم (لا تُضاف لقوائم الاختيار)
 async function loadPeopleNames(){
   try{
@@ -713,7 +719,8 @@ async function loadAll(){
     db.from('transactions').select('*').order('tx_date', {ascending:false}),
     db.from('password_reset_requests').select('*').order('requested_at', {ascending:false}),
     db.from('page_permissions').select('*'),
-    db.from('org_departments').select('*').order('sort').order('name')
+    db.from('org_departments').select('*').order('sort').order('name'),
+    db.from('user_units').select('*')
   ];
   const r = await Promise.all(q);
   const d = i => (r[i] && r[i].data) || [];
@@ -722,6 +729,7 @@ async function loadAll(){
   state.centers          = d(1).map(dbCenterToState);
   state.users            = d(2).map(dbUserToState);
   state.orgDepts         = d(18);
+  state.userUnits        = d(19);   // الوحدات الإضافية للمستخدمين (الجدول قد لا يكون منشوراً بعد: تبقى فارغة)
   if(r[2] && r[2].error) console.error('تحميل المستخدمين', r[2].error);
   state.userCompanyLinks = d(3).map(x=>({userId:x.user_id, companyId:x.company_id}));
   state.customRoles      = d(4).map(r0=>({id:r0.id, companyId:r0.company_id, name:r0.name, description:r0.description||'', defaultLevelName:r0.default_level_name||'موظف', generalDefault:!!r0.general_default, canPayroll:!!r0.can_payroll}));
@@ -3624,6 +3632,9 @@ setInterval(()=>{
 
 // يحوّل ما يكتبه المستخدم إلى بريد المصادقة: رقم هاتف ← <الرقم>@qyam.local ، وبريد ← كما هو
 const AUTH_EMAIL_DOMAIN = '@qyam.local';
+// زر 👁: يُظهر كلمة المرور أو يخفيها
+function pwToggle(id){ const el = document.getElementById(id); if(!el) return; const show = el.type==='password'; el.type = show ? 'text' : 'password';
+  const b = el.parentElement && el.parentElement.querySelector('.pw-eye'); if(b){ b.textContent = show ? '🙈' : '👁'; b.title = show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'; b.setAttribute('aria-label', b.title); } el.focus(); }
 function loginIdToEmail(id){
   const v = String(id||'').trim().toLowerCase();
   return v.includes('@') ? v : v + AUTH_EMAIL_DOMAIN;
@@ -3665,7 +3676,7 @@ async function removeLoginAlias(phone){
 async function attemptLogin(){
   const idInput = document.getElementById('loginPhone').value.trim();
   const pass    = document.getElementById('loginPassword').value;
-  if(!idInput || !pass){ showToast('أدخل رقم الهاتف وكلمة المرور','error'); return; }
+  if(!idInput || !pass){ showToast('أدخل رقم الهاتف أو البريد، وكلمة المرور','error'); return; }
 
   const btn = document.querySelector('#loginPassword')?.closest('.card')?.querySelector('.btn-primary');
   if(btn){ btn.disabled = true; btn.textContent = 'جارٍ الدخول…'; }
@@ -3685,7 +3696,7 @@ async function attemptLogin(){
         qyBodyModal(`<div class="modal-box" style="max-width:min(94vw,460px);text-align:center;"><h2 style="margin-top:0;color:var(--red);"><span style="font-size:.7em;">⛔</span> حسابك موقوف <span style="font-size:.7em;">⛔</span></h2><p style="line-height:1.9;"><b style="font-size:var(--fs-h2);">🤍 شكراً لك 🤍</b><br>على ما قدّمته للشركة خلال فترة عملك معنا.<br>سنسعد بعودتك في أي وقت، وللعودة تواصل مع الإدارة لإعادة تفعيل حسابك.</p><div class="actions-row" style="justify-content:center;"><button class="btn btn-primary btn-md" data-on-click="qyBodyModalClose" data-on-click-args="${qa(["banned"])}">حسناً</button></div></div>`, 'banned');
         return;
       }
-      showToast('رقم الهاتف أو كلمة المرور غير صحيحة','error');
+      showToast('بيانات الدخول أو كلمة المرور غير صحيحة','error');
       return;
     }
     // لا بيانات في الذاكرة قبل هذه اللحظة — تُحمَّل الآن بهوية المستخدم
@@ -4599,8 +4610,10 @@ async function submitDraftInner(){
   const detailedReasonInput = (d.detailedReason||'').trim();
   if(!reasonInput){ fieldErr('#reasonInput', 'الرجاء إدخال عنوان الطلب'); return; }
   // «بند غير محدد» يُخزَّن NULL ويمرّ — الصرف هو ما يتوقف لاحقاً لا الإرسال
-  const staffReq = isCenterStaff();
-  if(staffReq && !state.editingReqId && !cxReqUnits().some(x=>x.u.id===d.centerUnitId)){ showToast('لا يمكن إنشاء طلب الآن: مركزك أو بندك غير مفتوح للطلبات','error'); return; }
+  const multiU = !state.editingReqId && nrUnitOptions().length > 0;
+  const staffReq = nrBookMode(d);
+  if(multiU && !nrUnitOptions().some(x=>x.u.id===d.centerUnitId)){ showToast('اختر الوحدة التي يُصرف منها الطلب','error'); return; }
+  if(staffReq && !multiU && !state.editingReqId && !cxReqUnits().some(x=>x.u.id===d.centerUnitId)){ showToast('لا يمكن إنشاء طلب الآن: مركزك أو بندك غير مفتوح للطلبات','error'); return; }
   const rawBudget = staffReq ? UNSPECIFIED_BUDGET : (d.budgetItemId || '');
   if(!rawBudget){ fieldErr('#budgetItemSelect', 'الرجاء اختيار بند الميزانية، أو «بند غير محدد» إن لم يناسبك أيٌّ منها'); return; }
   const budgetItemId = (rawBudget === UNSPECIFIED_BUDGET) ? null : rawBudget;
@@ -4791,7 +4804,7 @@ async function createNewRequest(o){
     createdBy: state.user.name,
     createdById: state.user.id,
     origin: 'center',
-    centerId: (isCenterStaff() && state.draft && state.draft.centerUnitId) ? state.draft.centerUnitId : (creatorUser ? creatorUser.centerId : null),
+    centerId: (state.draft && state.draft.centerUnitId && (nrUnitOptions().length || isCenterStaff())) ? state.draft.centerUnitId : (creatorUser ? creatorUser.centerId : null),
     dateGreg: dates.greg,
     dateHijri: dates.hijri,
     createdAtRaw: new Date().toISOString(),
@@ -7783,7 +7796,7 @@ const _qyMO = new MutationObserver(()=>{ if(window._qyInRender) return; cancelAn
 function tidyLite(){
   const app = document.getElementById('app'); if(!app) return;
   _qyMO.disconnect();
-  try{ infoTips(); fileButtons(); pairFields(); growInputs(); iconActs(); qylEnhance(app); }catch(e){ console.error('tidyLite', e); }
+  try{ infoTips(); fileButtons(); pwEyes(); pairFields(); growInputs(); iconActs(); qylEnhance(app); }catch(e){ console.error('tidyLite', e); }
   _qyMO.takeRecords(); _qyMO.observe(app, {childList:true, subtree:true});
 }
 // شريط «تتصفح الآن كـ» على الهاتف: فوق أعلى شريط سفلي ظاهر، فلا يغطي أزراره
@@ -7797,7 +7810,25 @@ function impAboveBar(){
 window.addEventListener('resize', ()=>requestAnimationFrame(impAboveBar));
 // صفحة الطلب الجديد تختلف بين الهاتف وسطح المكتب: عند عبور الحد يُعاد رسمها بعد حفظ ما كُتب
 window.addEventListener('resize', ()=>{ if(state.view==='newRequest' && state.draft && state._nrDesk!==undefined && state._nrDesk===isPhone()){ try{ syncDraftFromDOM(); }catch(e){} render(); } });
-function pageTidy(){ try{ requestAnimationFrame(impAboveBar); setTimeout(impAboveBar, 300); requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); infoTips(); fileButtons(); pairFields(); growInputs(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
+// كل خانة كلمة مرور في النظام تأخذ زر 👁 (الدخول، حسابي، تأكيد الهوية، إنشاء المستخدمين)
+function pwEyes(root){
+  (root||document).querySelectorAll('input[type=password]:not([data-pw-eye])').forEach(el=>{
+    el.setAttribute('data-pw-eye','1');
+    if(el.parentElement && el.parentElement.classList.contains('pw-wrap')) return;
+    if(!el.id) el.id = 'pw_' + Math.random().toString(36).slice(2,9);
+    const w = document.createElement('div'); w.className = 'pw-wrap'; w.style.width = el.style.width || '';
+    el.parentNode.insertBefore(w, el); w.appendChild(el);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pw-eye'; b.textContent = '👁'; b.title = 'إظهار كلمة المرور'; b.setAttribute('aria-label', b.title);
+    b.addEventListener('click', ()=>pwToggle(el.id)); w.appendChild(b);
+  });
+}
+// عناصر data-to-tabs (مثل أرقام المشاريع) تنتقل إلى صف التبويبات أعلى الصفحة
+function toTabsRow(){
+  const el = document.querySelector('#app [data-to-tabs]'), row = document.querySelector('.adm-tabs2');
+  document.querySelectorAll('.adm-tabs2 > [data-to-tabs]').forEach(x=>{ if(x!==el) x.remove(); });
+  if(el && row) row.appendChild(el);
+}
+function pageTidy(){ try{ requestAnimationFrame(impAboveBar); setTimeout(impAboveBar, 300); requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); toTabsRow(); infoTips(); fileButtons(); pwEyes(); pairFields(); growInputs(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
   const a = document.querySelector('#app .adm-t2.active');
@@ -9706,7 +9737,7 @@ function askModal(opts){
           </div>
         </div>
       </div>`;
-    document.body.appendChild(wrap);
+    document.body.appendChild(wrap); pwEyes(wrap);
     const first = wrap.querySelector('input,textarea,select'); if(first) setTimeout(()=>first.focus(), 30);
   });
 }
@@ -12234,7 +12265,7 @@ function computeStructureIssues(companyId){
     }
   });
   state.centers.filter(c=>c.companyId===companyId && c.scope!=='org').forEach(c=>{
-    const n = users.filter(u=>u.centerId===c.id).length;
+    const n = users.filter(u=>u.centerId===c.id || userExtraUnits(u).some(x=>x.center_id===c.id)).length;
     if(n===0) issues.push({level:'warn', text:'"'+c.name+'" ليس فيه أي موظف مرتبط به'});
   });
   users.filter(u=>u.role==='executive_manager' && !u.managerId).forEach(u=>{
@@ -12547,13 +12578,14 @@ async function renderOrgTree(app){
     const id = 'unit:'+c.id;
     depth = depth||0;
     const staff = state.users.filter(u=>u.centerId===c.id && !u.isGeneral);
+    const extra = state.users.filter(u=>u.centerId!==c.id && (state.userUnits||[]).some(x=>x.user_id===u.id && x.center_id===c.id));
     const kids = depth<30 ? unitChildren(c.id, c.companyId) : [];
     const open = treeOpen(id, false);
     const t = unitType(c.kind);
     return `
       ${treeRow({icon:iconOpen||t.icon, label:`<span class="org-editable" data-kind="center" data-id="${c.id}" data-on-click="#96" style="cursor:pointer;text-decoration:underline dotted;">${escH(c.name)}</span>`,
-                 sub:`(${escH(t.name)} — ${staff.length} موظف${kids.length ? ' — '+kids.length+' وحدة تابعة' : ''})`, toggleId:id, dflt:false, indent, hasChildren:true})}
-      ${open ? ((staff.length ? renderPeople(staff, indent+22, c.companyId, personRow) : (kids.length ? '' : `<div class="sub" style="font-size:var(--fs-hint);padding-right:${indent+22}px;margin-bottom:0;">لا يوجد موظفون بعد</div>`))
+                 sub:`(${escH(t.name)} — ${staff.length + extra.length} موظف${kids.length ? ' — '+kids.length+' وحدة تابعة' : ''})`, toggleId:id, dflt:false, indent, hasChildren:true})}
+      ${open ? ((staff.length ? renderPeople(staff, indent+22, c.companyId, personRow) : '') + extra.map(u=>personRow(u, indent+22, 'وحدة إضافية')).join('') + ((staff.length || extra.length) ? '' : (kids.length ? '' : `<div class="sub" style="font-size:var(--fs-hint);padding-right:${indent+22}px;margin-bottom:0;">لا يوجد موظفون بعد</div>`))
                 + kids.sort(_byUnit).map(k=>unitBlock(k, indent+22, '', depth+1)).join('')) : ''}
     `;
   }
@@ -13350,16 +13382,28 @@ function permSet(role, key, val){
   render();
 }
 function permPickRole(v){ state.permRole = v; render(); }
+// «كل الأدوار»: الاختيار يُطبَّق على كل دور (ومنها الأدوار الوظيفية)، ويُحفظ مع باقي التغييرات بزر الحفظ
+function permSetAll(key, val){
+  if(!val) return;
+  state.permDraft = state.permDraft || {};
+  permAllRoles().forEach(r=>{ state.permDraft[r.id+'|'+key] = val; });
+  render();
+}
 function permReset(){ state.permDraft = {}; render(); }
 function renderPermissionsPanel(){
   const roles = permAllRoles(), co = permCo();
   const coName = (state.companies.find(c=>c.id===co)||{}).nameAr || '';
   const dirty = Object.keys(state.permDraft||{}).length > 0;
   // دور واحد في كل مرة: اختر الدور ثم اضبط صفحاته (بدل جدول عريض لا يتسع للشاشة)
-  const pr = (state.permRole && roles.some(r=>r.id===state.permRole)) ? state.permRole : (roles[0]||{}).id;
+  const pr = state.permRole==='__all' ? '__all' : (state.permRole && roles.some(r=>r.id===state.permRole)) ? state.permRole : (roles[0]||{}).id;
   const nCustom = rid => PAGE_CATALOG.filter(p=>permDraftLevel(rid, p.key)!==pageDefaultLevel(rid, p.key)).length;
-  const roleSel = `<select data-on-change="permPickRole" data-on-change-args="${qa([QA.v])}">${roles.map(r=>{ const n = nCustom(r.id); return `<option value="${escH(r.id)}" ${r.id===pr?'selected':''}>${escH(r.name)}${n ? ' · '+n+' مخصّص' : ''}</option>`; }).join('')}</select>`;
-  const rowsHtml = PAGE_CATALOG.map(p=>{
+  const roleSel = `<select data-on-change="permPickRole" data-on-change-args="${qa([QA.v])}"><option value="__all" ${pr==='__all'?'selected':''}>كل الأدوار (تغيير واحد للجميع)</option>${roles.map(r=>{ const n = nCustom(r.id); return `<option value="${escH(r.id)}" ${r.id===pr?'selected':''}>${escH(r.name)}${n ? ' · '+n+' مخصّص' : ''}</option>`; }).join('')}</select>`;
+  const lvName = v => (PAGE_LEVELS.find(x=>x[0]===v)||[,v])[1];
+  const rowsHtml = pr==='__all' ? PAGE_CATALOG.map(p=>{
+    const lv = roles.map(r=>permDraftLevel(r.id, p.key)), same = lv.every(v=>v===lv[0]);
+    const detail = roles.map((r,i)=>r.name+': '+lvName(lv[i])).join('\n');
+    return `<div class="perm-row${same?'':' perm-mixed'}"><span class="perm-lbl" title="${escH(p.hint)}">${escH(p.label)}</span><select data-on-change="permSetAll" data-on-change-args="${qa([(''+(p.key)), QA.v])}" title="${escH(detail)}">${same ? '' : '<option value="" selected>مختلفة بين الأدوار</option>'}${PAGE_LEVELS.map(([v,l])=>`<option value="${v}" ${same && lv[0]===v?'selected':''}>${l}</option>`).join('')}</select></div>`;
+  }).join('') : PAGE_CATALOG.map(p=>{
     const cur = permDraftLevel(pr, p.key), def = pageDefaultLevel(pr, p.key);
     return `<div class="perm-row${cur!==def?' perm-custom':''}"><span class="perm-lbl" title="${escH(p.hint)}">${escH(p.label)}</span><select data-on-change="permSet" data-on-change-args="${qa([(''+pr), (''+(p.key)), QA.v])}" title="${escH(p.hint)}">${PAGE_LEVELS.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}${v===def?' (افتراضي)':''}</option>`).join('')}</select></div>`;
   }).join('');
@@ -13374,7 +13418,7 @@ function renderPermissionsPanel(){
       <p class="sub">لكل دور في الشركة الحالية: هل يرى الصفحة، وماذا يفعل فيها. الخيار «افتراضي» هو الوضع المعمول به الآن. مدير النظام يرى كل شيء دائماً. لوحة التحكم لا تظهر لغير مدير النظام مهما كانت الصلاحية.</p>
       <p class="sub" style="font-size:var(--fs-hint);">ملاحظة: هذه الصلاحيات تتحكم في ظهور الصفحات والأزرار. أما البيانات المالية نفسها فتحميها قاعدة البيانات للأدوار المالية فقط، فمنح صفحة مالية لدور غير مالي لا يكشف له بيانات لا يملك حق قراءتها.</p>
       <div class="perm-grid">${rowsHtml}</div>
-      <p class="sub" style="font-size:var(--fs-hint);margin:8px 0 0;">الإطار البرتقالي = مختلف عن الافتراضي. تغييراتك على كل الأدوار تُحفظ معاً بزر «حفظ الصلاحيات».</p>
+      <p class="sub" style="font-size:var(--fs-hint);margin:8px 0 0;">${pr==='__all' ? '«مختلفة بين الأدوار» = لكل دور صلاحية مختلفة في هذه الصفحة (قف على الخانة لترى صلاحية كل دور)، واختيارك يوحّدها للجميع. ' : ''}الإطار البرتقالي = مختلف عن الافتراضي. تغييراتك على كل الأدوار تُحفظ معاً بزر «حفظ الصلاحيات».</p>
       <div id="permSaveBar" class="actions-row">
         <button class="btn btn-primary btn-md" data-perm-btn ${dirty?'':'disabled'} data-on-click="savePagePerms" title="يحفظ التغييرات بعد تأكيد كلمة مرورك">حفظ الصلاحيات</button>
         <button class="btn btn-ghost btn-md" data-perm-btn ${dirty?'':'disabled'} data-on-click="permReset" title="يتجاهل التغييرات غير المحفوظة">تراجع</button>
@@ -13546,6 +13590,42 @@ async function maybeMigrateNames(){
 
 
 // فلتر قائمة المدير المباشر: 'company'=الشركة الحالية | 'general'=العامّون+الشركة | 'all'=الكل
+// ── تعديل مستخدم: الوحدات الإضافية (كل سطر: الوحدة + مديره فيها اختيارياً) ──
+function uuCos(u){ const ids = [u.companyId].concat((state.userCompanyLinks||[]).filter(l=>l.userId===u.id).map(l=>l.companyId)); return state.companies.filter(c=>u.isGeneral || ids.includes(c.id)); }
+function uuRowHtml(u, row){
+  const cos = uuCos(u), sel = row ? row.center_id : '', mgr = row ? (row.manager_id||'') : '';
+  const units = cos.map(co=>`<optgroup label="${escH(co.nameAr)}">${unitOptionsHtml(co.id, sel)}</optgroup>`).join('');
+  const people = (state.users||[]).filter(x=>x.id!==u.id && !x.isSuspended && (x.isGeneral || cos.some(c=>c.id===x.companyId))).sort((a,b)=>userRank(a)-userRank(b));
+  return `<div class="uu-row co-g co-g4">
+    <div class="co-f co-s2"><label>الوحدة</label><select class="uu-unit"><option value="">— اختر الوحدة —</option>${units}</select></div>
+    <div class="co-f"><label>مديره فيها (اختياري)</label><select class="uu-mgr"><option value="">مديره المعتاد</option>${people.map(x=>`<option value="${x.id}" ${x.id===mgr?'selected':''}>${escH(x.name)} — ${escH(findRole(x.role).name)}</option>`).join('')}</select></div>
+    <div class="co-f"><label>&nbsp;</label><button type="button" class="btn btn-ghost btn-sm" data-on-click="uuDel" data-on-click-args="${qa([QA.t])}">✕ إزالة</button></div>
+  </div>`;
+}
+function uuCardHtml(u){
+  const rows = userExtraUnits(u);
+  return `<div class="card co-sec" style="background:var(--paper);margin:10px 0 0;"><h3>🗂 وحدات إضافية</h3>
+    <div class="file-hint">لمن يعمل في أكثر من وحدة (ناديين، أو إدارتين). يظهر تحت كل وحدة في الهيكل، ويرى طلباتها، ويختار عند إنشاء الطلب «يُصرف من». «مديره فيها» يعتمد طلباته على تلك الوحدة أولاً؛ وإن تُرك فالمسار من مديره المعتاد.</div>
+    <div id="uuList">${rows.map(r=>uuRowHtml(u, r)).join('')}</div>
+    <div class="cx-actions"><button type="button" class="btn btn-ghost btn-md" data-on-click="uuAdd" data-on-click-args="${qa([u.id])}">+ وحدة إضافية</button></div>
+  </div>`;
+}
+function uuAdd(uid){ const u = (state.users||[]).find(x=>x.id===uid); const box = document.getElementById('uuList'); if(!u || !box) return; box.insertAdjacentHTML('beforeend', uuRowHtml(u, null)); }
+function uuDel(btn){ const r = btn && btn.closest ? btn.closest('.uu-row') : null; if(r) r.remove(); }
+// يحفظ الوحدات الإضافية بعد حفظ المستخدم: يحذف ما أُزيل ويضيف أو يحدّث الباقي
+async function uuSave(u){
+  const box = document.getElementById('uuList'); if(!box) return true;
+  const want = [], seen = new Set();
+  box.querySelectorAll('.uu-row').forEach(r=>{ const c = r.querySelector('.uu-unit').value, m = r.querySelector('.uu-mgr').value;
+    if(c && c!==u.centerId && !seen.has(c)){ seen.add(c); want.push({user_id:u.id, center_id:c, manager_id:m||null}); } });
+  const had = userExtraUnits(u);
+  for(const h of had.filter(h=>!want.some(w=>w.center_id===h.center_id))){
+    const r = await db.from('user_units').delete().eq('user_id', u.id).eq('center_id', h.center_id); if(!(await dbCheck(r,'إزالة وحدة إضافية'))) return false; }
+  const ups = want.filter(w=>{ const h = had.find(x=>x.center_id===w.center_id); return !h || (h.manager_id||null)!==w.manager_id; });
+  if(ups.length){ const r = await db.from('user_units').upsert(ups, {onConflict:'user_id,center_id'}); if(!(await dbCheck(r,'حفظ الوحدات الإضافية'))) return false; }
+  state.userUnits = (state.userUnits||[]).filter(x=>x.user_id!==u.id).concat(want);
+  return true;
+}
 function mgrOptions(currentCompanyId, selectedId, excludeId, filterMode){
   filterMode = filterMode || 'company';
   let pool = state.users.filter(u=>u.role!=='admin' && u.id!==excludeId && !u.isSuspended);
@@ -13701,6 +13781,7 @@ function renderUserEditForm(){
           </div>
         </div>`;
       })()}
+      ${state.user.role==='admin' ? uuCardHtml(u) : ''}
       ${(() => {
         const others = state.companies.filter(c=>c.id!==u.companyId);
         if(!others.length) return '';
@@ -13841,6 +13922,7 @@ async function saveUserEdit(){
   { const od = document.getElementById('editUserOrgDept');
     if(isAdminNow && od){ const v = isGeneral ? (od.value||null) : null;
       if(v !== (u.orgDeptId||null)){ const rr = await db.from('users').update({org_dept_id:v}).eq('id', u.id); if(await dbCheck(rr, 'قسم المستخدم')) u.orgDeptId = v; } } }
+  if(isAdminNow){ u.centerId = centerId || null; await uuSave(u); }
   u.name = name; u.phone = phone; u.role = role; u.centerId = centerId || null; u.managerId = managerId || null; u.companyId = companyId || null;
   u.jobTitle = jobTitle || ''; u.levelId = levelId || null; u.requestApproverId = requestApproverId || null; u.nextApproverId = nextApproverId || null;
   u.isGeneral = isGeneral; u.noRequestApprover = noRequestApprover; u.noNextApprover = noNextApprover; u.directToTransfer = directToTransfer;
@@ -13948,10 +14030,10 @@ function renderLogin(app){
       <div class="login-form">
         <div class="card login-card">
           <h1>تسجيل الدخول</h1>
-          <label>رقم الهاتف</label>
-          <input id="loginPhone" type="text" name="username" autocomplete="username" placeholder="مثال: 1" data-on-keydown="#108">
-          <label>كلمة المرور</label>
-          <input id="loginPassword" type="password" name="password" autocomplete="current-password" placeholder="••••••••" data-on-keydown="#109">
+          <label for="loginPhone">رقم الهاتف أو البريد الإلكتروني</label>
+          <input id="loginPhone" type="text" name="username" autocomplete="username" placeholder="مثال: 99xxxxxx أو name@mail.com" data-on-keydown="#108">
+          <label for="loginPassword">كلمة المرور</label>
+          <div class="pw-wrap"><input id="loginPassword" type="password" name="password" autocomplete="current-password" placeholder="••••••••" data-on-keydown="#109"><button type="button" class="pw-eye" data-on-click="pwToggle" data-on-click-args="${qa(['loginPassword'])}" title="إظهار كلمة المرور" aria-label="إظهار كلمة المرور">👁</button></div>
           <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600;">
             <input id="rememberMeCheck" type="checkbox" style="width:auto;">
             تذكرني على هذا الجهاز
@@ -14648,7 +14730,8 @@ function renderNewRequest(app){
           <label class="btn btn-ghost btn-md" title="رفع ملف Excel للمستفيدين بعد ملئه فيُضافون للطلب">⬆ رفع<input id="nrXlsFile" data-csv type="file" accept=".xlsx,.xls,.csv" hidden data-on-change="nrXlsUpload"></label></div></div></div>
       <div class="nr-bi-row nr-wide">
       <div class="nr-bi-col">
-      ${isCenterStaff() ? nrCenterUnitHtml(d) : `<div class="nr-f"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
+      ${nrUnitOptions().length && !state.editingReqId ? nrUnitPickHtml(d) : ''}
+      ${nrBookMode(d) ? (nrUnitOptions().length && !state.editingReqId ? '' : nrCenterUnitHtml(d)) : `<div class="nr-f"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
       <select id="budgetItemSelect" data-on-change="onBudgetItemSelectChange" style="width:100%;">
         <option value="">اختر البند</option>
         ${(state.budgetItems||[]).filter(b=>b.company_id===state.currentCompanyId && b.is_active!==false).map(b=>
@@ -17244,12 +17327,15 @@ function cxCanSeeUnit(id){
   const acc = (state.cx.myAccess||[]).filter(a=>a.center_id===id);
   if(acc.some(a=>a.mode==='deny')) return false;
   if(acc.some(a=>a.mode==='allow')) return true;
-  const my = cxMyCenterId(); return !!my && (id===my || unitAncestorIds(id).includes(my));
+  const mine = myUnitIds(); if(!mine.length){ const my = cxMyCenterId(); if(my) mine.push(my); }
+  const up = unitAncestorIds(id); return mine.some(my=>id===my || up.includes(my));
 }
 function cxIsBookUnitId(id){ const u = cxUnit(id); return !!u && cxIsBookUnit(u); }
 // وحدة المستخدم من سجله في قائمة المستخدمين (state.user لا يحمل وحدته)، فيعمل أيضاً في «عرض كمستخدم»
 function cxMyCenterId(){ if(!state.user) return null; const me = (state.users||[]).find(x=>x.id===state.user.id); return (me && me.centerId) || state.user.centerId || null; }
-function cxStaffUnitId(){ const u = state.user, cid = cxMyCenterId(); if(!u || !cid || ['admin','accountant','cfo','executive_manager'].includes(u.role)) return null; return cxIsBookUnitId(cid) ? cid : null; }
+function cxStaffUnitId(){ const u = state.user, cid = cxMyCenterId(); if(!u || ['admin','accountant','cfo','executive_manager'].includes(u.role)) return null;
+  if(cid && cxIsBookUnitId(cid)) return cid;
+  return myUnitIds().find(id=>cxIsBookUnitId(id)) || null; }   // وحدته الأساسية، وإلا أول وحدة إضافية في مركز
 function isCenterStaff(){ return !!cxStaffUnitId(); }
 // طلب يُصرف من رصيد مركز (لا من ميزانية الشركة)
 function isCenterReq(req){ return !!req && (req.amountRoute||'normal')==='normal' && !!req.centerId && cxIsBookUnitId(req.centerId) && (isUnspecifiedBudget(req.budgetItemId)); }
@@ -17257,10 +17343,36 @@ function canSeeCenterBook(){ return canSeeCenterBooks() || (isCenterStaff() && c
 function cxUnitOpenForReq(u){ return !!u && !['closed','suspended','potential'].includes(u.stage) && !(u.stage==='open' && !u.prePay) && !cxSuspendedBy(u); }
 // الوحدات التي يطلب عليها موظف المركز: وحدته وما تحتها، المفتوحة للطلب
 function cxReqUnits(){
-  const id = cxStaffUnitId(); if(!id) return [];
-  const out = [{u:cxUnit(id), depth:0}];
-  const visit = (pid, d)=>{ (state.centers||[]).filter(c=>c.parentId===pid).sort(_byUnit).forEach(c=>{ out.push({u:c, depth:d}); visit(c.id, d+1); }); };
-  visit(id, 1); return out.filter(x=>cxUnitOpenForReq(x.u));
+  if(!cxStaffUnitId()) return [];
+  const roots = myUnitIds().filter(id=>cxIsBookUnitId(id)), out = [], seen = new Set();
+  const visit = (c, d)=>{ if(!c || seen.has(c.id)) return; seen.add(c.id); out.push({u:c, depth:d}); (state.centers||[]).filter(x=>x.parentId===c.id).sort(_byUnit).forEach(x=>visit(x, d+1)); };
+  roots.forEach(id=>visit(cxUnit(id), 0));
+  return out.filter(x=>cxUnitOpenForReq(x.u));
+}
+// «يُصرف من» لمن له أكثر من وحدة في الشركة الحالية: كل وحداته، ولوحدات المراكز ما تحتها المفتوح للطلب
+function nrUnitOptions(){
+  const me = state.user; if(!me || ['admin','accountant','cfo','executive_manager'].includes(me.role)) return [];
+  const ids = myUnitIds().filter(id=>{ const c = cxUnit(id); return c && c.companyId===state.currentCompanyId; });
+  if(ids.length < 2) return [];
+  const out = [], seen = new Set();
+  const visit = (c, d)=>{ if(!c || seen.has(c.id)) return; seen.add(c.id); if(cxUnitOpenForReq(c)) out.push({u:c, depth:d, book:true}); (state.centers||[]).filter(x=>x.parentId===c.id).sort(_byUnit).forEach(x=>visit(x, d+1)); };
+  ids.forEach(id=>{ const c = cxUnit(id); if(cxIsBookUnit(c)) visit(c, 0); else if(!seen.has(c.id)){ seen.add(c.id); out.push({u:c, depth:0, book:false}); } });
+  return out;
+}
+function nrChosenUnit(d){ const o = nrUnitOptions(); if(!o.length) return null; const s = o.find(x=>x.u.id===d.centerUnitId) || o[0]; d.centerUnitId = s.u.id; return s; }
+function nrIsBookReq(d){ const s = nrChosenUnit(d); return s ? s.book : isCenterStaff(); }
+// هل الطلب يُصرف من رصيد مركز (لا بند ميزانية)؟ في التعديل: حسب وحدة الطلب المحفوظة
+function nrBookMode(d){
+  if(state.editingReqId){ const rq = (state.requests||[]).find(r=>r.id===state.editingReqId) || {};
+    return myUnitIds().length > 1 ? cxIsBookUnitId(rq.centerId) : isCenterStaff(); }
+  return nrIsBookReq(d);
+}
+function nrUnitPick(v){ syncDraftFromDOM(); if(state.draft){ state.draft.centerUnitId = v; if(nrIsBookReq(state.draft)) state.draft.budgetItemId = ''; } render(); }
+function nrUnitPickHtml(d){
+  const o = nrUnitOptions(), s = nrChosenUnit(d); if(!s) return '';
+  if(s.book && !(state.cx.balances||[]).length && !state.cx._balLoading){ state.cx._balLoading = true; cxLoadBalances().finally(()=>{ state.cx._balLoading = false; }); }
+  return `<div class="nr-f"><label for="nrUnitSel">يُصرف من</label><select id="nrUnitSel" data-on-change="nrUnitPick" data-on-change-args="${qa([QA.v])}">${o.map(x=>`<option value="${x.u.id}" ${x.u.id===s.u.id?'selected':''}>${'— '.repeat(x.depth)}${escH(x.u.name)}</option>`).join('')}</select>
+    ${s.book ? `<div class="nr-cu-bal" id="nrCenterBal">${cxStaffBalLine(s.u.id)}</div>` : ''}</div>`;
 }
 function cxAvailFor(id){ const b = cxB(id), u = cxUnit(id) || {}; const v = Number(b.balance||0) - Number(b.pending_requests||0); return {balance:Number(b.balance||0), pending:Number(b.pending_requests||0), avail:cxR3(v), od:u.balanceControl ? Number(u.overdraftLimit||0) : 0}; }
 function cxStaffBalLine(id){
@@ -17381,19 +17493,28 @@ async function cxSetAccess(userId, mode){
   if(!(await dbCheck(r,'حفظ صلاحية رؤية المركز'))) return;
   await cxLoadAccess(); showToast('تم الحفظ','success');
 }
+// الرؤية الافتراضية لمركز (مثل qy_center_can_see في الخادم): المالية والمدير التنفيذي،
+// ومن يعمل في الوحدة نفسها أو في وحدة فوقها (أساسية أو إضافية)
+function cxAccDefault(u, centerId){
+  if(!u || !centerId) return false;
+  if(['admin','accountant','cfo','executive_manager'].includes(u.role)) return true;
+  const up = []; let c = cxUnit(centerId), guard = 0;
+  while(c && guard++ < 20){ up.push(c.id); c = c.parentId ? cxUnit(c.parentId) : null; }
+  return userUnitIds(u).some(id=>up.includes(id));
+}
 function renderCenterAccessPanel(){
   const cs = (state.centers||[]).filter(c=>c.companyId===cxCid()).sort(_byUnit);
   if(!state.cx.accCenter && cs.length){ state.cx.accCenter = cs[0].id; cxLoadAccess(); }
   const acc = state.cx.accessRows||[], users = cxUsersOfCompany();
   const nAllow = acc.filter(x=>x.mode==='allow').length, nDeny = acc.filter(x=>x.mode==='deny').length;
   return `<div class="card cx-panel">
-    <div class="cx-panel-h"><div><h2>رؤية المراكز</h2><div class="file-hint">الافتراضي: عاملو المركز والمالية والمدير التنفيذي. «يسمح» يضيف مستخدماً، و«يمنع» يحجبه.</div></div>
+    <div class="cx-panel-h"><div><h2>رؤية المراكز</h2><div class="file-hint">«افتراضي» = بلا استثناء: يرى المركز من يعمل فيه أو في وحدة فوقه، والمحاسب والمدير المالي والمدير التنفيذي؛ وبجانب كل مستخدم ما ينطبق عليه. «يسمح» يضيف مستخدماً، و«يمنع» يحجبه.</div></div>
       <label class="cx-mini"><span>المركز</span><select data-on-change="cxAccSelect" data-on-change-args="${qa([QA.v])}">${cs.map(c=>`<option value="${c.id}" ${c.id===state.cx.accCenter?'selected':''}>${escH(c.name)}</option>`).join('')}</select></label></div>
     <div class="cx-chips"><span class="cx-chip">يسمح: <b>${nAllow}</b></span><span class="cx-chip">يمنع: <b>${nDeny}</b></span></div>
     <div class="cx-scroll"><table class="exec-table cx-tbl" data-qyl="cxAccess" data-qyl-title="رؤية المراكز"><thead><tr><th>المستخدم</th><th>الدور</th><th data-noexport>الرؤية</th></tr></thead><tbody>
     ${users.map(u=>{ const a = acc.find(x=>x.user_id===u.id); const m = a ? a.mode : '';
       return `<tr><td><b>${escH(u.name)}</b></td><td>${escH(findRole(u.role) ? findRole(u.role).name : u.role)}</td><td><select class="cx-sel-sm cx-mode-${m||'def'}" data-on-change="cxSetAccess" data-on-change-args="${qa([u.id, QA.v])}">
-        <option value="" ${m===''?'selected':''}>افتراضي</option><option value="allow" ${m==='allow'?'selected':''}>يسمح</option><option value="deny" ${m==='deny'?'selected':''}>يمنع</option></select></td></tr>`; }).join('')}
+        <option value="" ${m===''?'selected':''}>افتراضي (${cxAccDefault(u, state.cx.accCenter) ? 'يرى' : 'لا يرى'})</option><option value="allow" ${m==='allow'?'selected':''}>يسمح</option><option value="deny" ${m==='deny'?'selected':''}>يمنع</option></select></td></tr>`; }).join('')}
     </tbody></table></div></div>`;
 }
 
@@ -17689,7 +17810,7 @@ function cxSettingsFoldHtml(){
   const isRoot = id===cxRootOf(id) && c.kind==='center';
   const money = (k, l, v, ph) => `<div class="f-md"><label>${l}</label><input id="${k}" type="text" inputmode="decimal" dir="ltr" value="${v==null?'':v}" placeholder="${ph||'اختياري'}"></div>`;
   const staffIds = new Set([id, ...unitDescendantIds(id)]);
-  const staff = isRoot ? (state.users||[]).filter(u=>staffIds.has(u.centerId) && !u.isSuspended).sort(_byName) : [];
+  const staff = isRoot ? (state.users||[]).filter(u=>userUnitIds(u).some(id=>staffIds.has(id)) && !u.isSuspended).sort(_byName) : [];
   const tu = new Set(c.transferUserIds||[]);
   return `<details class="card cx-fold"><summary><span>إعدادات «${escH(c.name)}»</span><span class="file-hint">${fin?'الحالة والمدة والميزانية':''}${fin&&adm?' · ':''}${adm?'الحصص وضبط الرصيد':''}</span></summary>
     ${fin ? `<h3 class="uf-h">المدة والميزانية</h3>
@@ -18237,8 +18358,10 @@ function prjRows(){
 function prjFilter(k, v){ state.prj.f[k] = v; render(); if(k==='q'){ const el = document.querySelector('#app .pj-search'); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } } }
 function prjStep(n, title, body, cls){ return `<div class="pj-step ${cls||''}"><div class="pj-step-h"><span class="pj-step-n">${n}</span>${title}</div><div class="pj-step-b">${body}</div></div>`; }
 function prjBadge(txt, cls){ return `<span class="pj-badge pj-b-${cls}">${escH(txt)}</span>`; }
-function prjCardHtml(r){
-  const p = r.p, d = r.d, cl = p ? p.client_id : d.client_id;
+// مراحل المشروع الست (تُستخدم في البطاقة المختصرة وفي البطاقات المفصلة)
+const PRJ_STEP_ICONS = ['📄','🧾','💰','⚙️','📊','🏁'];
+function prjStepsOf(r){
+  const p = r.p, d = r.d;
   const docS = d ? prjBadge(PRJ_DOC_ST[d.status]||d.status, d.status) : prjBadge('بلا وثيقة', 'none');
   const step1 = d ? `<b>${escH(prjDocTypeName(d.doc_type))}</b><span class="pj-mono">${escH(d.doc_no)}</span>${docS}` : `<span class="pj-muted">مشروع قائم</span>`;
   let step2 = '<span class="pj-muted">—</span>', step3 = '<span class="pj-muted">—</span>', step4 = '<span class="pj-muted">—</span>', s2c = 'off', s3c = 'off', s4c = 'off';
@@ -18247,23 +18370,49 @@ function prjCardHtml(r){
     step2 = `<b>${inv.length} فاتورة</b><span>${p.invoice_mode==='monthly' ? 'شهرية' : 'واحدة'}</span>` + (due.length ? prjBadge(due.length===1 && !due[0] ? 'مستحقة' : due.length + ' مستحقة', 'due') : (inv.length ? prjBadge('محدّثة','ok') : '')) + (rc.length ? prjBadge('ينقص علم الوصول','due') : '');
     s2c = due.length || rc.length ? 'warn' : (inv.length ? 'done' : '');
     const val = prjValue(p), col = prjCollected(p), sp = prjSpent(p);
-    step3 = `<div class="pj-kv"><span>القيمة</span><b>${fmtKWDHtml(val)}</b></div><div class="pj-kv"><span>محصّل</span><b>${fmtKWDHtml(col)}</b></div><div class="pj-kv"><span>${p.amount_route==='center' ? 'للمركز' : 'مصروف'}</span><b>${fmtKWDHtml(p.amount_route==='center' ? prjTransferred(p) : sp)}</b></div>` + (prjToTransfer(p) > 0 ? prjBadge('بانتظار التحويل للمركز','due') : '');
-    s3c = prjToTransfer(p) > 0 ? 'warn' : (col >= val && val > 0 ? 'done' : '');
+    step3 = `<div class="pj-kv"><span>القيمة</span><b>${fmtKWDHtml(val)}</b></div><div class="pj-kv pj-in"><span>محصّل</span><b>${fmtKWDHtml(col)}</b></div><div class="pj-kv pj-out"><span>${p.amount_route==='center' ? 'للمركز' : 'مصروف'}</span><b>${fmtKWDHtml(p.amount_route==='center' ? prjTransferred(p) : sp)}</b></div>` + (prjToTransfer(p) > 0 ? prjBadge('بانتظار التحويل للمركز','due') : '');
+    s3c = prjToTransfer(p) > 0 ? 'warn' : (col >= val && val > 0 ? 'done' : (col > 0 ? 'warn' : ''));
     step4 = p.report_path ? `<b>مرفوع</b>${prjBadge('✓','ok')}` : '<span class="pj-muted">لم يُرفع</span>'; s4c = p.report_path ? 'done' : '';
   } else if(d){
     step3 = `<div class="pj-kv"><span>القيمة</span><b>${fmtKWDHtml(d.amount)}</b>${d.amount_kind==='monthly' ? '<small>/شهر</small>' : ''}</div>`;
   }
   const st = p ? (p.status==='active' ? prjBadge('نشط','active') : prjBadge('مغلق','closed')) : docS;
-  return `<div class="card pj-card" data-on-click="openProject" data-on-click-args="${qa([r.key])}" role="button" tabindex="0">
-    <div class="pj-card-h"><div><b class="pj-name">${escH(p ? p.name : d.title)}</b><span class="pj-client">${escH(prjClientName(cl)||'—')}</span></div>${st}</div>
-    <div class="pj-flow">
-      ${prjStep(1, 'الوثيقة', step1, d && d.status==='approved' ? 'done' : (d && d.status==='sent' ? 'warn' : ''))}
-      ${prjStep(2, 'الفاتورة', step2, s2c)}
-      ${prjStep(3, 'المبالغ', step3, s3c)}
-      ${prjStep(4, 'التنفيذ', p ? `<b>${escH(PRJ_EXEC_BY[p.exec_by]||'لم يُحدَّد المنفذ')}</b>${p.exec_party ? `<span>${escH(p.exec_party)}</span>` : ''}${prjBadge(PRJ_EXEC_ST[prjExecSt(p)], prjExecSt(p)==='done' ? 'ok' : prjExecSt(p)==='in_progress' ? 'sent' : 'none')}${prjReqs(p).length ? `<span class="pj-muted">${prjReqs(p).length} طلب صرف</span>` : ''}` : '<span class="pj-muted">—</span>', p ? (prjExecSt(p)==='done' ? 'done' : (!p.exec_by ? 'warn' : '')) : 'off')}
-      ${prjStep(5, 'التقرير', step4, s4c)}
-      ${prjStep(6, 'الحالة', st, p && p.status==='closed' ? 'done' : '')}
+  const ex = p ? prjExecSt(p) : '';
+  return [
+    {t:'الوثيقة', b:step1, c:d && d.status==='approved' ? 'done' : (d && d.status==='sent' ? 'warn' : (d && ['rejected','cancelled'].includes(d.status) ? 'bad' : ''))},
+    {t:'الفاتورة', b:step2, c:s2c},
+    {t:'المبالغ', b:step3, c:s3c},
+    {t:'التنفيذ', b:p ? `<b>${escH(PRJ_EXEC_BY[p.exec_by]||'لم يُحدَّد المنفذ')}</b>${p.exec_party ? `<span>${escH(p.exec_party)}</span>` : ''}${prjBadge(PRJ_EXEC_ST[ex], ex==='done' ? 'ok' : ex==='in_progress' ? 'sent' : 'none')}${prjReqs(p).length ? `<span class="pj-muted">${prjReqs(p).length} طلب صرف</span>` : ''}` : '<span class="pj-muted">—</span>',
+     c:p ? (ex==='done' ? 'done' : (ex==='in_progress' || !p.exec_by ? 'warn' : '')) : 'off'},
+    {t:'التقرير', b:step4, c:s4c},
+    {t:'الحالة', b:st, c:p && p.status==='closed' ? 'done' : ''}
+  ];
+}
+// لون الحالة على يمين البطاقة ونقاطها في الفلتر (مثل طلبات الصرف)
+const PRJ_ST_COLORS = {waiting:['بانتظار العميل','var(--amber)'], active:['نشطة','var(--green)'], closed:['مغلقة','var(--muted)'], rejected:['مرفوضة وملغاة','var(--red)']};
+function prjRowSt(r){ const s = r.p ? r.p.status : r.d.status; return s==='sent' ? 'waiting' : s==='active' ? 'active' : s==='closed' ? 'closed' : ['rejected','cancelled'].includes(s) ? 'rejected' : 'waiting'; }
+// أرقام البطاقة المختصرة: القيمة، المحصّل (أخضر)، المصروف (أحمر)، الباقي = المحصّل − المصروف
+function prjRowMoney(r){
+  const p = r.p, m = (l, v, cls) => `<span class="pj-m ${cls||''}"><small>${l}</small><b>${fmtKWDHtml(v)}</b></span>`;
+  if(!p) return `<div class="pj-money">${m('القيمة', Number((r.d||{}).amount||0))}</div>`;
+  const val = prjValue(p), col = prjCollected(p), sp = p.amount_route==='center' ? prjTransferred(p) : prjSpent(p), rest = cxR3(col - sp);
+  return `<div class="pj-money">${m('القيمة', val)}${m('محصّل', col, 'pj-in')}${m(p.amount_route==='center' ? 'للمركز' : 'مصروف', sp, 'pj-out')}${m('الباقي', rest, rest < 0 ? 'pj-out' : 'pj-in')}</div>`;
+}
+function prjToggle(key){ state.prj.openRow = state.prj.openRow===key ? null : key; render(); }
+function prjCardHtml(r){
+  const p = r.p, d = r.d, cl = p ? p.client_id : d.client_id, steps = prjStepsOf(r), open = state.prj.openRow===r.key;
+  const tip = h => { const x = document.createElement('div'); x.innerHTML = h; return x.textContent.replace(/\s+/g,' ').trim(); };
+  const trail = steps.map((s,i)=>`${i ? `<i class="pj-ln ${steps[i-1].c==='done'?'done':''}"></i>` : ''}<span class="pj-dot ${s.c}" title="${escH(s.t + ': ' + tip(s.b))}">${PRJ_STEP_ICONS[i]}</span>`).join('');
+  const st = prjRowSt(r);
+  return `<div class="pj-prow pj-st-${st}${open?' open':''}">
+    <div class="pj-row-h" data-on-click="prjToggle" data-on-click-args="${qa([r.key])}" role="button" tabindex="0" aria-expanded="${open}">
+      <div class="pj-row-n"><b class="pj-name">${escH(p ? p.name : d.title)}</b><span class="pj-client">${escH(prjClientName(cl)||'—')}</span></div>
+      <div class="pj-trail">${trail}</div>
+      ${prjRowMoney(r)}
+      <div class="pj-row-s">${steps[5].b}<span class="pj-caret">${open ? '▴' : '▾'}</span></div>
     </div>
+    ${open ? `<div class="pj-flow" data-on-click="openProject" data-on-click-args="${qa([r.key])}" role="button" tabindex="0" title="فتح المشروع">${steps.map((s,i)=>prjStep(i+1, s.t, s.b, s.c)).join('')}</div>
+      <div class="pj-row-go"><button class="btn btn-primary btn-md" data-on-click="openProject" data-on-click-args="${qa([r.key])}">فتح المشروع ←</button></div>` : ''}
   </div>`;
 }
 function renderProjects(app){
@@ -18273,21 +18422,23 @@ function renderProjects(app){
   const act = P.projects.filter(p=>p.status==='active');
   const dueN = act.reduce((s,p)=>s+prjDuePeriods(p).length,0);
   const uncol = act.reduce((s,p)=>s+Math.max(0, prjInvoiced(p)-prjCollected(p)),0);
-  const chip = (k,l) => `<button class="pj-chip${f.st===k?' on':''}" data-on-click="prjFilter" data-on-click-args="${qa(['st',k])}">${l}</button>`;
   const clients = cxClientTree();
+  const stOpt = (k,l,dot) => `<option value="${k}" ${f.st===k?'selected':''}>${dot ? dot+' ' : ''}${l}</option>`;
+  const kpi = (l, v, cls) => `<span class="pj-kpi ${cls||''}"><span>${l}</span><b>${v}</b></span>`;
   app.innerHTML = `
     <h1>المشاريع</h1>
-    <p class="sub">كل مشروع من وثيقته (عرض سعر، نموذج خدمة، مقترح خدمة) حتى إغلاقه: الوثيقة ← الفاتورة ← المبالغ ← التنفيذ ← التقرير ← الحالة.</p>
-    <div class="cx-stats">${cxStat('مشاريع نشطة', String(act.length))}${cxStat('بانتظار رد العميل', String(P.docs.filter(d=>d.status==='sent').length))}${cxStat('فواتير مستحقة', String(dueN), dueN ? 'var(--red)' : '')}${cxStat('غير محصّل', fmtKWDHtml(uncol))}</div>
+    <p class="sub">كل مشروع من وثيقته (عرض سعر، نموذج خدمة، مقترح خدمة) حتى إغلاقه: الوثيقة ← الفاتورة ← المبالغ ← التنفيذ ← التقرير ← الحالة. اضغط المشروع لترى مراحله، ثم «فتح المشروع».</p>
+    <div class="pj-kpis" data-to-tabs>${kpi('نشطة', act.length, 'k-ok')}${kpi('بانتظار العميل', P.docs.filter(d=>d.status==='sent').length, 'k-wait')}${kpi('فواتير مستحقة', dueN, dueN ? 'k-bad' : '')}${kpi('غير محصّل', fmtKWDHtml(uncol), uncol > 0 ? 'k-bad' : '')}</div>
     ${P.docForm ? prjDocFormHtml() : ''}
     <div class="card cx-panel">
-      <div class="cx-panel-h"><h2>المشاريع والوثائق</h2><div class="cx-ph-tools">
-        <input type="search" class="qy-search pj-search" placeholder="بحث بالاسم أو الرقم أو العميل" value="${escH(f.q||'')}" data-on-input="prjFilter" data-on-input-args="${qa(['q', QA.v])}">
+      <div class="pj-tools">
         <select class="pj-csel" data-on-change="prjFilter" data-on-change-args="${qa(['client', QA.v])}"><option value="">كل العملاء</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${f.client===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select>
-        ${canEditPrj() && !P.docForm ? `<button class="btn btn-primary btn-md" data-on-click="prjNewDoc">+ وثيقة جديدة</button>` : ''}
-      </div></div>
-      <div class="pj-chips">${chip('all','الكل')}${chip('waiting','بانتظار العميل')}${chip('active','نشطة')}${chip('closed','مغلقة')}${chip('rejected','مرفوضة وملغاة')}</div>
-      ${!P.loaded ? '<div class="ct-empty">جارٍ التحميل…</div>' : rows.length ? `<div class="pj-list">${rows.map(prjCardHtml).join('')}</div>` : `<div class="ct-empty">${P.docs.length || P.projects.length ? 'لا نتائج بهذا الفلتر.' : 'لا مشاريع بعد. ابدأ بـ«+ وثيقة جديدة» وارفع عرض السعر أو نموذج الخدمة أو مقترح الخدمة.'}</div>`}
+        <select class="pj-ssel" data-on-change="prjFilter" data-on-change-args="${qa(['st', QA.v])}">${stOpt('all','كل الحالات')}${stOpt('waiting','بانتظار العميل','🟠')}${stOpt('active','نشطة','🟢')}${stOpt('closed','مغلقة','⚪')}${stOpt('rejected','مرفوضة وملغاة','🔴')}</select>
+        <input type="search" class="qy-search pj-search" placeholder="بحث بالاسم أو الرقم أو العميل" value="${escH(f.q||'')}" data-on-input="prjFilter" data-on-input-args="${qa(['q', QA.v])}">
+        ${canEditPrj() && !P.docForm ? `<button class="btn btn-primary btn-md" data-on-click="prjNewDoc">+ مشروع جديد</button>` : ''}
+      </div>
+      <div class="pj-legend">${Object.values(PRJ_ST_COLORS).map(([l,c])=>`<span><i style="background:${c}"></i>${l}</span>`).join('')}</div>
+      ${!P.loaded ? '<div class="ct-empty">جارٍ التحميل…</div>' : rows.length ? `<div class="pj-list">${rows.map(prjCardHtml).join('')}</div>` : `<div class="ct-empty">${P.docs.length || P.projects.length ? 'لا نتائج بهذا الفلتر.' : 'لا مشاريع بعد. ابدأ بـ«+ مشروع جديد» وارفع عرض السعر أو نموذج الخدمة أو مقترح الخدمة.'}</div>`}
     </div>
     ${prjSettingsHtml()}`;
 }
@@ -18380,10 +18531,9 @@ function renderProject(app){
   const {p, d} = r, cl = p ? p.client_id : d.client_id;
   const st = p ? (p.status==='active' ? prjBadge('نشط','active') : prjBadge('مغلق','closed')) : prjBadge(PRJ_DOC_ST[d.status]||d.status, d.status);
   app.innerHTML = `
-    <div class="pj-top"><button class="btn btn-ghost btn-sm" data-on-click="openProjects">← كل المشاريع</button></div>
+    <div class="pj-top"><button class="btn btn-ghost btn-md" data-on-click="openProjects">← كل المشاريع</button>${prjNextHtml(p, d)}</div>
     <h1 class="pj-h1">${escH(p ? p.name : d.title)} ${st}</h1>
     <p class="sub">${escH(prjClientName(cl)||'')}${d ? ' · ' + escH(prjDocTypeName(d.doc_type)) + ' ' + escH(d.doc_no) : ''}</p>
-    ${prjNextHtml(p, d)}
     ${state.prj.docForm ? prjDocFormHtml() : ''}
     ${d ? prjDocPanelHtml(d, p) : ''}
     ${p ? prjMoneyPanelHtml(p) + prjInvoicesPanelHtml(p) + prjExecPanelHtml(p) + prjClosePanelHtml(p) : ''}`;
@@ -18391,7 +18541,7 @@ function renderProject(app){
 // شريط «الخطوة التالية»: يقود المستخدم في مسار المشروع خطوة خطوة بزر واحد
 function prjNextHtml(p, d){
   const fin = isFinanceUser(), ed = canEditPrj();
-  const bar = (txt, btn, cls) => `<div class="pj-next ${cls||''}"><span><b>الخطوة التالية:</b> ${txt}</span>${btn||''}</div>`;
+  const bar = (txt, btn, cls) => `<div class="pj-next ${cls||''}"><span class="pj-next-t" title="${escH(String(txt).replace(/<[^>]+>/g,''))}"><b>الخطوة التالية:</b> ${txt}</span></div>${btn||''}`;
   const b = (fn, args, l, prim) => `<button class="btn ${prim===false?'btn-ghost':'btn-primary'} btn-md" data-on-click="${fn}" data-on-click-args="${qa(args)}">${l}</button>`;
   if(!p){
     if(!d) return '';
@@ -18591,10 +18741,10 @@ function prjInvoicesPanelHtml(p){
     return `<tr class="${canc?'cat-off':''}"><td data-label="الرقم"><bdi>${escH(i.inv_no||'—')}</bdi></td><td data-label="التاريخ">${cxDate(i.inv_date)}</td><td data-label="الفترة">${i.period ? escH(prjYmName(i.period)) : '—'}</td>
       <td data-label="المبلغ" class="num">${fmtKWDHtml(i.amount)}</td><td data-label="المحصّل" class="num">${fmtKWDHtml(col)}</td>
       <td data-label="الحالة">${canc ? prjBadge('ملغاة','cancelled') : rem<=0 ? prjBadge('محصّلة','ok') : col>0 ? prjBadge('محصّلة جزئياً','due') : prjBadge('غير محصّلة','sent')}${!canc && !i.receipt_path ? prjBadge('ينقص علم الوصول','due') : ''}</td>
-      <td class="pj-acts">${prjFileBtn(i.invoice_path, i.invoice_name, 'الفاتورة')}${prjFileBtn(i.receipt_path, i.receipt_name, 'علم الوصول')}
+      <td class="pj-acts"><div class="pj-acts-w">${prjFileBtn(i.invoice_path, i.invoice_name, 'الفاتورة')}${prjFileBtn(i.receipt_path, i.receipt_name, 'علم الوصول')}
         ${!canc && !i.receipt_path && ed ? `<button class="btn btn-ghost btn-sm" data-on-click="prjRcpOpen" data-on-click-args="${qa([i.id])}">+ علم الوصول</button>` : ''}
         ${!canc && rem>0 && fin ? `<button class="btn btn-primary btn-sm" data-on-click="prjColOpen" data-on-click-args="${qa([i.id])}">تحصيل</button>` : ''}
-        ${!canc && col===0 && fin ? `<button class="btn btn-ghost btn-sm" data-on-click="prjInvCancel" data-on-click-args="${qa([i.id])}">إلغاء</button>` : ''}</td></tr>
+        ${!canc && col===0 && fin ? `<button class="btn btn-ghost btn-sm" data-on-click="prjInvCancel" data-on-click-args="${qa([i.id])}">إلغاء</button>` : ''}</div></td></tr>
       ${state.prj.rcpFor===i.id ? `<tr class="pj-subrow"><td colspan="7"><div class="uf-flex"><div class="f-lg"><label for="pjr_file">صورة علم الوصول</label><input id="pjr_file" type="file" accept="application/pdf,image/*"></div><div class="f-md"><label>&nbsp;</label><div class="cx-actions pj-inline"><button class="btn btn-primary btn-sm" data-on-click="prjRcpSave" data-on-click-args="${qa([i.id])}">رفع</button><button class="btn btn-ghost btn-sm" data-on-click="prjRcpOpen" data-on-click-args="${qa([''])}">إلغاء</button></div></div></div></td></tr>` : ''}
       ${state.prj.colForm && state.prj.colForm.invId===i.id ? `<tr class="pj-subrow"><td colspan="7">${prjColFormHtml(i, rem)}</td></tr>` : ''}`;
   }).join('');
@@ -19867,7 +20017,7 @@ function nrCenterUnitChange(v){ if(state.draft) state.draft.centerUnitId = v; co
 
 // ---------- مسار المبلغ في نموذج الطلب ----------
 function cxRouteFieldHtml(d){
-  if(state.editingReqId || isCenterStaff()) return '';
+  if(state.editingReqId || nrBookMode(d)) return '';
   const route = d.amountRoute || 'normal';
   const cs = (state.centers||[]).filter(c=>c.companyId===state.currentCompanyId && (c.kind||'center')==='center' && c.stage!=='closed').sort(_byUnit);
   if(!cs.length) return '';
