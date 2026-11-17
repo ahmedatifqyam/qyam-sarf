@@ -3022,6 +3022,15 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   }
   .pj-row-s{justify-content:space-between !important;} .pj-row-s > .btn{margin-inline-start:auto;} .pj-trail{justify-content:center;}
   .pj-row-n .pj-name{overflow-wrap:anywhere;}
+  /* البطاقة المفتوحة: المسار يختفي من الصف العلوي (انتقل إلى رؤوس المراحل)، والحالة في مكان ثابت بجانب زر الفتح */
+  #app .pj-prow.open .pj-trail{visibility:hidden;}
+  .pj-row-s{display:grid !important;grid-template-columns:minmax(0,1fr) 105px;align-items:center;gap:8px;} .pj-row-st{justify-self:end;} .pj-row-s > .btn{margin:0 !important;grid-column:2;}
+  .pj-m{align-items:center;text-align:center;padding-inline-start:10px;} .pj-m small{font-size:var(--fs-label) !important;font-weight:700;color:var(--muted);}
+  /* بطاقات المراحل: اسم المرحلة أكبر وعريض بجانب دائرتها، والبيان بوزن عادي */
+  .pj-step-h{font-size:var(--fs-body,15px) !important;font-weight:800 !important;color:var(--ink) !important;gap:8px !important;margin-bottom:8px !important;}
+  .pj-step-h .pj-dot{width:30px !important;height:30px !important;} .pj-step-h .pj-dot svg{width:15px;height:15px;}
+  .pj-step-b{font-weight:500;} .pj-step-b b{font-weight:700;}
+  @media (max-width:699px){ .pj-row-s{grid-template-columns:auto 70px;} .pj-step-h{flex:0 0 118px !important;} }
 </style>
 </head>
 <body>
@@ -3042,6 +3051,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=fcc994ef06"></script>
+<script src="app.js?v=4d427cbbee"></script>
 </body>
 </html>

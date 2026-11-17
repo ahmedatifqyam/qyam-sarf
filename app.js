@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.20.5', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.21.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:4.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:4.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18359,7 +18359,7 @@ function prjRows(){
   }).sort((a,b)=> String((b.p||b.d).created_at).localeCompare(String((a.p||a.d).created_at)));
 }
 function prjFilter(k, v){ state.prj.f[k] = v; render(); if(k==='q'){ const el = document.querySelector('#app .pj-search'); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } } }
-function prjStep(n, title, body, cls){ return `<div class="pj-step ${cls||''}"><div class="pj-step-h"><span class="pj-step-n">${n}</span>${title}</div><div class="pj-step-b">${body}</div></div>`; }
+function prjStep(n, title, body, cls, icon){ return `<div class="pj-step ${cls||''}"><div class="pj-step-h">${icon || `<span class="pj-step-n">${n}</span>`}<span class="pj-step-t">${title}</span></div><div class="pj-step-b">${body}</div></div>`; }
 function prjBadge(txt, cls){ return `<span class="pj-badge pj-b-${cls}">${escH(txt)}</span>`; }
 // مراحل المشروع الست (تُستخدم في البطاقة المختصرة وفي البطاقات المفصلة)
 // رموز المراحل: خطوط بسيطة بلون حالة المرحلة (الوثيقة، الفاتورة، المبالغ، التنفيذ، التقرير، الحالة)
@@ -18418,20 +18418,35 @@ function prjOpenAt(key, n){
     const top = el.getBoundingClientRect().top + window.scrollY - ((document.querySelector('.topbar')||{}).offsetHeight||64) - 60;
     window.scrollTo({top:Math.max(0, top), behavior:'smooth'}); el.classList.add('pj-flash'); setTimeout(()=>el.classList.remove('pj-flash'), 1400); }, 80);
 }
-function prjToggle(key){ state.prj.openRow = state.prj.openRow===key ? null : key; render(); }
+// فتح البطاقة وغلقها بحركة: الدوائر تنتقل من صف المسار إلى رؤوس بطاقات المراحل، وتعود عند الغلق
+function prjToggle(key){
+  const closing = state.prj.openRow===key, sel = '.pj-prow[data-key="' + CSS.escape(key) + '"]';
+  const row = document.querySelector(sel);
+  const from = row ? [...row.querySelectorAll(closing ? '.pj-step-h .pj-dot' : '.pj-trail .pj-dot')].map(e=>e.getBoundingClientRect()) : [];
+  state.prj.openRow = closing ? null : key; render();
+  const row2 = document.querySelector(sel);
+  if(!row2 || !from.length || !row2.animate) return;
+  try{ if(matchMedia('(prefers-reduced-motion: reduce)').matches) return; }catch(e){}
+  [...row2.querySelectorAll(closing ? '.pj-trail .pj-dot' : '.pj-step-h .pj-dot')].forEach((el,i)=>{
+    const a = from[i]; if(!a || !a.width) return; const b = el.getBoundingClientRect(); if(!b.width) return;
+    el.animate([{transform:`translate(${a.left-b.left}px,${a.top-b.top}px) scale(${a.width/b.width})`},{transform:'none'}], {duration:450, easing:'cubic-bezier(.2,.8,.2,1)'});
+  });
+  // الدوائر تبقى ظاهرة وهي تتحرك؛ الذي يظهر تدريجياً هو اسم المرحلة وبيانها
+  if(!closing) row2.querySelectorAll('.pj-step-t, .pj-step-b').forEach((c,i)=>c.animate([{opacity:0, transform:'translateY(-6px)'},{opacity:1, transform:'none'}], {duration:300, delay:220 + Math.floor(i/2)*35, fill:'backwards'}));
+}
 function prjCardHtml(r){
   const p = r.p, d = r.d, cl = p ? p.client_id : d.client_id, steps = prjStepsOf(r), open = state.prj.openRow===r.key;
   const tip = h => { const x = document.createElement('div'); x.innerHTML = h; return x.textContent.replace(/\s+/g,' ').trim(); };
   const trail = steps.map((s,i)=>`${i ? `<i class="pj-ln ${steps[i-1].c==='done'?'done':''}"></i>` : ''}<span class="pj-dot ${s.c}" title="${escH(s.t + ': ' + tip(s.b))}">${prjStepIcon(i)}</span>`).join('');
   const st = prjRowSt(r);
-  return `<div class="pj-prow pj-st-${st}${open?' open':''}">
+  return `<div class="pj-prow pj-st-${st}${open?' open':''}" data-key="${escH(r.key)}">
     <div class="pj-row-h" data-on-click="prjToggle" data-on-click-args="${qa([r.key])}" role="button" tabindex="0" aria-expanded="${open}">
       <div class="pj-row-n"><b class="pj-name">${escH(p ? p.name : d.title)}</b><span class="pj-client">${escH(prjClientName(cl)||'—')}</span></div>
       <div class="pj-trail">${trail}</div>
       ${prjRowMoney(r)}
-      <div class="pj-row-s">${steps[5].b}${open ? `<button class="btn btn-primary btn-sm" data-on-click="openProject" data-on-click-args="${qa([r.key])}" title="فتح المشروع">فتح<span class="pj-hide-m">&nbsp;المشروع</span></button>` : ''}</div>
+      <div class="pj-row-s"><span class="pj-row-st">${steps[5].b}</span>${open ? `<button class="btn btn-primary btn-sm" data-on-click="openProject" data-on-click-args="${qa([r.key])}" title="فتح المشروع">فتح<span class="pj-hide-m">&nbsp;المشروع</span></button>` : ''}</div>
     </div>
-    ${open ? `<div class="pj-flow">${steps.map((s,i)=>`<div class="pj-step-go" data-on-click="prjOpenAt" data-on-click-args="${qa([r.key, i+1])}" role="button" tabindex="0" title="فتح «${escH(s.t)}» في صفحة المشروع">${prjStep(i+1, s.t, s.b, s.c)}</div>`).join('')}</div>` : ''}
+    ${open ? `<div class="pj-flow">${steps.map((s,i)=>`<div class="pj-step-go" data-on-click="prjOpenAt" data-on-click-args="${qa([r.key, i+1])}" role="button" tabindex="0" title="فتح «${escH(s.t)}» في صفحة المشروع">${prjStep(i+1, s.t, s.b, s.c, `<span class="pj-dot ${s.c}">${prjStepIcon(i)}</span>`)}</div>`).join('')}</div>` : ''}
   </div>`;
 }
 function renderProjects(app){
