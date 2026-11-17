@@ -1846,7 +1846,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pj-prow.pj-st-waiting{border-inline-start-color:var(--amber);} #app .pj-prow.pj-st-active{border-inline-start-color:var(--green);}
   #app .pj-prow.pj-st-closed{border-inline-start-color:var(--muted);} #app .pj-prow.pj-st-rejected{border-inline-start-color:var(--red);}
   #app .pj-prow:hover,#app .pj-prow.open{border-top-color:var(--ink);border-bottom-color:var(--ink);border-inline-end-color:var(--ink);box-shadow:0 4px 14px rgba(20,20,20,.07);}
-  .pj-row-h{display:grid;grid-template-columns:minmax(0,1fr) auto 120px 190px;grid-template-areas:'n t m s';align-items:center;gap:14px;min-height:58px;padding:6px 14px;cursor:pointer;box-sizing:border-box;}
+  .pj-row-h{display:grid;grid-template-columns:minmax(0,1fr) 250px 115px 210px;grid-template-areas:'n t m s';align-items:center;gap:14px;min-height:58px;padding:6px 14px;cursor:pointer;box-sizing:border-box;}
   .pj-row-n{grid-area:n;} .pj-trail{grid-area:t;} .pj-money{grid-area:m;} .pj-row-s{grid-area:s;}
   .pj-row-n{display:flex;flex-direction:column;gap:2px;min-width:0;} .pj-row-n .pj-name{white-space:normal;line-height:1.35;}
   .pj-row-n .pj-client{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1880,7 +1880,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   @media (max-width:960px){ .pj-row-h{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'n s' 't m';row-gap:6px;} .pj-money{justify-content:flex-end;} }
   @media (max-width:699px){
     .pj-row-h{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'n s' 't m';gap:6px 8px;padding:8px 10px;} .pj-money{justify-content:flex-end;} .pj-tools{flex-wrap:wrap;} #app .pj-tools .pj-search{max-width:none;}
-    .pj-dot{width:34px;height:34px;} .pj-ln{width:7px;} .pj-row-s .btn{width:70px !important;min-width:0 !important;padding:0 6px !important;}
+    .pj-dot{width:32px;height:32px;} .pj-ln{width:5px;} .pj-trail{justify-content:flex-start !important;min-width:0;} .pj-row-s .btn{width:70px !important;min-width:0 !important;padding:0 6px !important;}
     #app .pj-tools select{width:auto !important;flex:1 1 calc(50% - 4px);min-width:0;} #app .pj-tools .pj-search{width:100% !important;} .pj-tools > .pj-search, .pj-tools > .btn{flex:1 1 100%;}
     .pj-top .pj-next{flex-basis:100%;}
   }
@@ -3020,6 +3020,8 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     .pj-rep-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));} .pj-rep-row > .btn, .pj-rep-row > .file-pick, .pj-rep-row > .file-pick > label.btn{width:100% !important;flex:auto;min-width:0;padding:0 6px !important;}
     .pj-rep-row > .file-pick .file-pick-name{display:none;}
   }
+  .pj-row-s{justify-content:space-between !important;} .pj-row-s > .btn{margin-inline-start:auto;} .pj-trail{justify-content:center;}
+  .pj-row-n .pj-name{overflow-wrap:anywhere;}
 </style>
 </head>
 <body>
@@ -3040,6 +3042,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=4c3a411dff"></script>
+<script src="app.js?v=fcc994ef06"></script>
 </body>
 </html>
