@@ -3102,6 +3102,10 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .pj-r1 .pj-name{font-size:16px;} #app .pj-r1 .pj-client{max-width:none;}
     #app .pj-val{justify-self:end;} #app .pj-open{padding:0 12px 12px;}
   }
+  /* (1.23.1) عمود الحالة بعرض ثابت يتسع لأطول حالة («بانتظار رد العميل»)، فلا يتحرك الرقم إذا تغيّرت الحالة */
+  #app .pj-r1{grid-template-columns:minmax(0,max-content) auto minmax(12px,1fr) auto 125px;}
+  #app .pj-r1 .pj-row-st{justify-self:end;}
+  @media (max-width:699px){ #app .pj-r1{grid-template-columns:minmax(0,1fr) minmax(125px,auto);} }
 </style>
 </head>
 <body>
@@ -3122,6 +3126,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=ceefda392b"></script>
+<script src="app.js?v=1f6649be63"></script>
 </body>
 </html>
