@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.19.4', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.19.5', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:3.3, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:353, base:350, extra:3.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18843,7 +18843,7 @@ async function prjColSave(invId){
   const amount = cxR3(cxN((document.getElementById('pjc_amount')||{}).value)), date = (document.getElementById('pjc_date')||{}).value || cxToday(), method = (document.getElementById('pjc_method')||{}).value || null;
   const rem = cxR3(Number(i.amount) - prjInvCollected(i));
   if(!(amount>0)){ fieldErr('#pjc_amount','اكتب المبلغ'); return; }
-  if(amount > rem + 0.0005 && !confirm('المبلغ أكبر من المتبقي على الفاتورة (' + fmtKWD(rem) + '). متابعة؟')) return;
+  if(amount > rem + 0.0005 && !confirm('المبلغ أكبر من المتبقي على الفاتورة (' + fmtKWDPlain(rem) + '). متابعة؟')) return;
   const btn = document.getElementById('pjColBtn'); if(btn){ btn.disabled = true; btn.textContent = '…'; }
   const c = await db.from('prj_collections').insert({company_id:state.currentCompanyId, invoice_id:invId, amount, paid_on:date, method, created_by:state.user.id}).select().single();
   if(!(await dbCheck(c,'تسجيل التحصيل'))){ if(btn){ btn.disabled = false; btn.textContent = 'تسجيل'; } return; }
@@ -18943,7 +18943,7 @@ async function prjReportSave(id){
 async function prjClose(id){
   const p = state.prj.projects.find(x=>x.id===id); if(!p) return;
   const open = cxR3(prjInvoiced(p) - prjCollected(p));
-  if(!confirm('إغلاق المشروع «' + p.name + '»؟' + (open>0 ? '\n\nتنبيه: فواتير غير محصّلة بمبلغ ' + fmtKWD(open) + '.' : '') + '\nتتوقف تنبيهات الفواتير بعد الإغلاق.')) return;
+  if(!confirm('إغلاق المشروع «' + p.name + '»؟' + (open>0 ? '\n\nتنبيه: فواتير غير محصّلة بمبلغ ' + fmtKWDPlain(open) + '.' : '') + '\nتتوقف تنبيهات الفواتير بعد الإغلاق.')) return;
   const r = await db.from('projects').update({status:'closed', closed_at:new Date().toISOString(), closed_by:state.user.id}).eq('id', id);
   if(!(await dbCheck(r,'إغلاق المشروع'))) return;
   showToast('أُغلق المشروع','success'); await prjLoad();
