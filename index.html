@@ -1838,7 +1838,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pj-list{display:flex;flex-direction:column;gap:8px;}
   /* صف الأدوات: العملاء ← الحالة ← البحث ← + مشروع جديد (أول عنصر يمين الصفحة) */
   .pj-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
-  #app .pj-tools select{width:200px !important;height:40px;} #app .pj-tools .pj-search{width:280px !important;height:40px;}
+  #app .pj-tools select{width:180px !important;height:40px;} #app .pj-tools .pj-search{width:auto !important;flex:1 1 160px;max-width:280px;min-width:0;height:40px;}
   .pj-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--muted);margin:2px 0 10px;}
   .pj-legend span{display:inline-flex;align-items:center;gap:5px;} .pj-legend i{width:10px;height:10px;border-radius:50%;display:inline-block;}
   /* البطاقة المختصرة ~65: الاسم والعميل ← مسار الدوائر ← الأرقام ← الحالة، وشريط لون الحالة على اليمين */
@@ -1846,7 +1846,8 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pj-prow.pj-st-waiting{border-inline-start-color:var(--amber);} #app .pj-prow.pj-st-active{border-inline-start-color:var(--green);}
   #app .pj-prow.pj-st-closed{border-inline-start-color:var(--muted);} #app .pj-prow.pj-st-rejected{border-inline-start-color:var(--red);}
   #app .pj-prow:hover,#app .pj-prow.open{border-top-color:var(--ink);border-bottom-color:var(--ink);border-inline-end-color:var(--ink);box-shadow:0 4px 14px rgba(20,20,20,.07);}
-  .pj-row-h{display:grid;grid-template-columns:minmax(140px,1fr) 236px 310px 118px;align-items:center;gap:14px;min-height:65px;padding:8px 14px;cursor:pointer;box-sizing:border-box;}
+  .pj-row-h{display:grid;grid-template-columns:minmax(140px,1fr) 236px 310px 118px;grid-template-areas:'n t m s';align-items:center;gap:14px;min-height:65px;padding:8px 14px;cursor:pointer;box-sizing:border-box;}
+  .pj-row-n{grid-area:n;} .pj-trail{grid-area:t;} .pj-money{grid-area:m;} .pj-row-s{grid-area:s;}
   .pj-row-n{display:flex;flex-direction:column;gap:2px;min-width:0;} .pj-row-n .pj-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .pj-row-n .pj-client{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .pj-trail{display:flex;align-items:center;}
@@ -1875,9 +1876,9 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app > .pj-kpis{display:none;}
   .pj-kpi{display:inline-flex;align-items:baseline;gap:6px;} .pj-kpi b{font-weight:800;color:#fff;font-size:15px;}
   .pj-kpi.k-ok b{color:#7ddba3;} .pj-kpi.k-wait b{color:#f5c56b;} .pj-kpi.k-bad b{color:#ff9a8f;}
-  @media (max-width:1250px){ .pj-row-h{grid-template-columns:minmax(0,1fr) 236px 118px;} .pj-money{grid-column:1 / -1;} }
+  @media (max-width:1250px){ .pj-row-h{grid-template-columns:minmax(0,1fr) 236px 118px;grid-template-areas:'n t s' 'm m m';row-gap:6px;} }
   @media (max-width:699px){
-    .pj-row-h{grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:8px 10px;} .pj-trail{grid-column:1 / -1;order:3;} .pj-money{order:4;grid-template-columns:repeat(2,minmax(0,1fr));}
+    .pj-row-h{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'n s' 't t' 'm m';gap:8px;padding:8px 10px;}
     .pj-dot{width:26px;height:26px;font-size:12px;} .pj-ln{width:10px;} .pj-money{grid-template-columns:repeat(4,minmax(0,1fr)) !important;gap:6px;}
     #app .pj-tools select{width:auto !important;flex:1 1 calc(50% - 4px);min-width:0;} #app .pj-tools .pj-search{width:100% !important;} .pj-tools > .pj-search, .pj-tools > .btn{flex:1 1 100%;}
     .pj-top .pj-next{flex-basis:100%;}
@@ -2975,6 +2976,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=4bcbafdc42"></script>
+<script src="app.js?v=ba50c8d69e"></script>
 </body>
 </html>
