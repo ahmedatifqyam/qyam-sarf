@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.33.0', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.33.1', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:358, base:350, extra:7.5, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -18986,7 +18986,7 @@ function prjDocFormHtml(){
   const d = state.prj.docForm, clients = cxClientTree(), nL = (d.lines||[]).length;
   const pend = prjCreqPending('').concat(d.id && prjCreqOfDoc(d.id) ? [prjCreqOfDoc(d.id)] : []), cq = d.creq_id || '';
   return `<div class="card cx-panel pj-form" id="pjDocForm">
-    <div class="cx-panel-h pj-form-h"><h2>${d.id ? 'تعديل الوثيقة ' + escH(d.doc_no||'') : 'وثيقة جديدة'}</h2>
+    <div class="cx-panel-h pj-form-h"><h2>${d.id ? 'تعديل الوثيقة ' + escH(d.doc_no||'') : 'وثيقة جديدة'}</h2><p class="file-hint">ارفع الوثيقة جاهزة (PDF أو صورة) واكتب بياناتها. الرقم يُعطى تلقائياً: رمز الشركة-الرقم/السنة. ويمكن اختيار بنودها من «خدمات الشركة» في آخر النموذج، واختيار طلب العميل من القائمة أعلى النموذج.</p>
       <div class="cx-ph-tools">
         <select id="pjd_creq_id" class="pj-creq-top" title="طلب العميل (اختياري)" data-on-change="prjDocCreqPick" data-on-change-args="${qa([QA.v])}">
           <option value="">اختر طلب العميل (اختياري)</option>${pend.map(q=>`<option value="${escH(q.id)}" ${cq===q.id?'selected':''}>${escH(prjClientName(q.client_id)||'—')} · ${cxDate(q.req_date)} · ${escH(String(q.description).slice(0,40))}</option>`).join('')}
