@@ -3233,6 +3233,14 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app table.tcards td:not([data-l]):has(> .btn) > .btn:last-child:nth-child(odd), #app table.tcards td:not([data-l]) > div:has(> .btn) > .btn:last-child:nth-child(odd){grid-column:1 / -1;}
     #app table.tcards td:not([data-l]):has(> .btn){padding-top:8px !important;}
   }
+  /* (1.30.2) بطاقات الهاتف: الأزرار زوجان متساويان، و«حذف» رمز سلة صغير في آخر الصف (يسار) */
+  @media (max-width:699px){
+    #app table.tcards td:not([data-l]):has(> .btn), #app table.tcards td:not([data-l]) > div:has(> .btn){display:flex !important;flex-wrap:wrap;gap:8px;}
+    #app table.tcards td:not([data-l]):has(> .btn) > .btn, #app table.tcards td:not([data-l]) > div:has(> .btn) > .btn{flex:1 1 calc(50% - 30px);width:auto !important;}
+    #app table.tcards td .btn.btn-ico-del{flex:0 0 40px !important;width:40px !important;height:40px;padding:0 !important;order:99;display:inline-flex;align-items:center;justify-content:center;color:var(--red);border-color:var(--red);}
+    #app table.tcards td .btn.btn-ico-del svg{width:18px;height:18px;}
+  }
+  @media (max-width:699px){ #app table.tcards td:not([data-l]):has(> .btn), #app table.tcards td:not([data-l]) > div:has(> .btn){align-items:center;} #app table.tcards td:not([data-l]) .btn{height:40px !important;min-height:40px;margin:0 !important;box-sizing:border-box;} }
 </style>
 </head>
 <body>
@@ -3253,6 +3261,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=dd47ec175e"></script>
+<script src="app.js?v=3c3a71c948"></script>
 </body>
 </html>

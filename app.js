@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.30.1', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.30.2', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:355, base:350, extra:5.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:355, base:350, extra:5.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7630,6 +7630,8 @@ function adaptTables(){
     // جداول المشاريع (الفواتير، أجزاء التنفيذ، الملاحق…) بطاقات في الهاتف للجميع، ومنهم مدير النظام
     if(cards || (isPhone() && t.classList.contains('pj-tbl'))){
       t.classList.add('tcards');
+      // زر «حذف» في بطاقات الهاتف رمز صغير فقط (سلة) في آخر الصف
+      t.querySelectorAll('td .btn').forEach(b=>{ if(!b.dataset.icoDel && /^\s*(حذف|×?\s*حذف)\s*$/.test(b.textContent||'')){ b.dataset.icoDel = '1'; b.classList.add('btn-ico-del'); b.title = b.title || 'حذف'; b.setAttribute('aria-label','حذف'); b.innerHTML = qi('trash'); } });
       [...t.tBodies].forEach(tb=>[...tb.rows].forEach(r=>{ let i=0; [...r.cells].forEach(c=>{ if(!c.dataset.l && heads[i] && (c.colSpan||1)===1) c.dataset.l = heads[i]; i += c.colSpan||1; }); }));
     }
   });
