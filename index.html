@@ -3162,6 +3162,27 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .an-scope{display:flex;gap:8px;margin:0 0 10px;} #app .an-scope .btn{width:150px;}
   #app .amount-table tr.an-co td{background:var(--paper);border-top:2px solid var(--line);font-size:15px;}
   #app .amount-table tr.an-zero td{color:var(--muted);}
+  /* (1.25.1) أزرار الفاتورة في سطر رفيع تحت بياناتها، متجاورة في صف واحد، و«إلغاء» في أقصى اليسار */
+  #app .pj-tbl tr.pj-actrow td{padding:0 12px 12px !important;border-top:0 !important;}
+  #app .pj-tbl tr:has(+ tr.pj-actrow) td{border-bottom:0 !important;padding-bottom:6px !important;}
+  #app tr.pj-actrow .pj-acts-w{display:flex !important;flex-wrap:wrap;gap:8px;justify-content:flex-start;align-items:center;}
+  #app tr.pj-actrow .pj-acts-w .btn{width:105px !important;height:40px;margin:0 !important;}
+  #app tr.pj-actrow .pj-act-x{margin-inline-start:auto !important;}
+  @media (max-width:699px){
+    #app tr.pj-actrow .pj-acts-w{display:grid !important;grid-template-columns:1fr 1fr;}
+    #app tr.pj-actrow .pj-acts-w .btn{width:100% !important;}
+    #app tr.pj-actrow .pj-act-x{margin:0 !important;}
+  }
+  #app tr.pj-actrow .pj-acts-w{width:100%;}
+  #app .pj-tbl td[data-label="الحالة"] > * + *{margin-inline-start:12px;}
+  @media (max-width:699px){
+    #app table.tcards tr:has(+ tr.pj-actrow){border-bottom:0 !important;margin-bottom:0 !important;padding-bottom:4px !important;}
+    #app table.tcards tr.pj-actrow{border-top:0 !important;margin-top:0 !important;padding-top:0 !important;}
+    #app table.tcards tr.pj-actrow td{display:block;width:100%;}
+    #app tr.pj-actrow .pj-acts-w .btn:last-child:nth-child(odd){grid-column:1 / -1;}
+  }
+  #app tr.pj-actrow .pj-acts-w .btn.pj-act-x{margin-inline-start:auto !important;}
+  @media (max-width:699px){ #app tr.pj-actrow .pj-acts-w .btn.pj-act-x{margin:0 !important;} }
 </style>
 </head>
 <body>
@@ -3182,6 +3203,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=287c1bef2a"></script>
+<script src="app.js?v=e62c1a13fc"></script>
 </body>
 </html>

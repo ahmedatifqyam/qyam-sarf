@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.25.0', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.25.1', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.1, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7627,7 +7627,7 @@ function adaptTables(){
     // جداول المشاريع (الفواتير، أجزاء التنفيذ، الملاحق…) بطاقات في الهاتف للجميع، ومنهم مدير النظام
     if(cards || (isPhone() && t.classList.contains('pj-tbl'))){
       t.classList.add('tcards');
-      [...t.tBodies].forEach(tb=>[...tb.rows].forEach(r=>{ let i=0; [...r.cells].forEach(c=>{ if(!c.dataset.l && heads[i]) c.dataset.l = heads[i]; i += c.colSpan||1; }); }));
+      [...t.tBodies].forEach(tb=>[...tb.rows].forEach(r=>{ let i=0; [...r.cells].forEach(c=>{ if(!c.dataset.l && heads[i] && (c.colSpan||1)===1) c.dataset.l = heads[i]; i += c.colSpan||1; }); }));
     }
   });
 }
@@ -18871,18 +18871,19 @@ function prjInvoicesPanelHtml(p){
     return `<tr class="${canc?'cat-off':''}"><td data-label="الرقم"><bdi>${escH(i.inv_no||'—')}</bdi></td><td data-label="التاريخ">${cxDate(i.inv_date)}</td><td data-label="الفترة">${i.period ? escH(prjYmName(i.period)) : '—'}</td>
       <td data-label="المبلغ" class="num">${fmtKWDHtml(i.amount)}</td><td data-label="المحصّل" class="num">${fmtKWDHtml(col)}</td>
       <td data-label="الحالة">${canc ? prjBadge('ملغاة','cancelled') : rem<=0 ? prjBadge('محصّلة','ok') : col>0 ? prjBadge('محصّلة جزئياً','due') : prjBadge('غير محصّلة','sent')}${!canc && !i.receipt_path ? prjBadge('ينقص علم الوصول','due') : ''}</td>
-      <td class="pj-acts"><div class="pj-acts-w">${prjFileBtn(i.invoice_path, i.invoice_name, 'الفاتورة')}${prjFileBtn(i.receipt_path, i.receipt_name, 'علم الوصول')}
+      </tr>
+      <tr class="pj-actrow${canc?' cat-off':''}"><td colspan="6"><div class="pj-acts-w">${prjFileBtn(i.invoice_path, i.invoice_name, 'الفاتورة')}${prjFileBtn(i.receipt_path, i.receipt_name, 'علم الوصول')}
         ${!canc && !i.receipt_path && ed ? `<button class="btn btn-ghost btn-sm" data-on-click="prjRcpOpen" data-on-click-args="${qa([i.id])}">+ علم الوصول</button>` : ''}
         ${!canc && rem>0 && fin ? `<button class="btn btn-primary btn-sm" data-on-click="prjColOpen" data-on-click-args="${qa([i.id])}">تحصيل</button>` : ''}
-        ${!canc && col===0 && fin ? `<button class="btn btn-ghost btn-sm" data-on-click="prjInvCancel" data-on-click-args="${qa([i.id])}">إلغاء</button>` : ''}</div></td></tr>
-      ${state.prj.rcpFor===i.id ? `<tr class="pj-subrow"><td colspan="7"><div class="uf-flex"><div class="f-lg"><label for="pjr_file">صورة علم الوصول</label><input id="pjr_file" type="file" accept="application/pdf,image/*"></div><div class="f-md"><label>&nbsp;</label><div class="cx-actions pj-inline"><button class="btn btn-primary btn-sm" data-on-click="prjRcpSave" data-on-click-args="${qa([i.id])}">رفع</button><button class="btn btn-ghost btn-sm" data-on-click="prjRcpOpen" data-on-click-args="${qa([''])}">إلغاء</button></div></div></div></td></tr>` : ''}
-      ${state.prj.colForm && state.prj.colForm.invId===i.id ? `<tr class="pj-subrow"><td colspan="7">${prjColFormHtml(i, rem)}</td></tr>` : ''}`;
+        ${!canc && col===0 && fin ? `<button class="btn btn-ghost btn-sm pj-act-x" data-on-click="prjInvCancel" data-on-click-args="${qa([i.id])}">إلغاء</button>` : ''}</div></td></tr>
+      ${state.prj.rcpFor===i.id ? `<tr class="pj-subrow"><td colspan="6"><div class="uf-flex"><div class="f-lg"><label for="pjr_file">صورة علم الوصول</label><input id="pjr_file" type="file" accept="application/pdf,image/*"></div><div class="f-md"><label>&nbsp;</label><div class="cx-actions pj-inline"><button class="btn btn-primary btn-sm" data-on-click="prjRcpSave" data-on-click-args="${qa([i.id])}">رفع</button><button class="btn btn-ghost btn-sm" data-on-click="prjRcpOpen" data-on-click-args="${qa([''])}">إلغاء</button></div></div></div></td></tr>` : ''}
+      ${state.prj.colForm && state.prj.colForm.invId===i.id ? `<tr class="pj-subrow"><td colspan="6">${prjColFormHtml(i, rem)}</td></tr>` : ''}`;
   }).join('');
   return `<div class="card cx-panel">
     <div class="cx-panel-h"><h2>3 · الفواتير والتحصيل</h2>${ed && p.status==='active' && !state.prj.invForm ? `<button class="btn btn-primary btn-md" data-on-click="prjInvNew" data-on-click-args="${qa([p.id])}">+ فاتورة</button>` : ''}</div>
     ${due.length && p.status==='active' ? `<div class="pj-due">⚠️ ${due.length===1 && !due[0] ? 'فاتورة المشروع مستحقة ولم تُرفع بعد.' : 'فواتير مستحقة لم تُرفع: ' + due.map(prjYmName).join('، ')} — يصل التنبيه للمحاسب ومن اختير في «إعدادات المشاريع» حتى تُرفع.</div>` : ''}
     ${state.prj.invForm ? prjInvFormHtml(p, due) : ''}
-    ${inv.length ? `<table class="exec-table pj-tbl"><thead><tr><th>الرقم</th><th>التاريخ</th><th>الفترة</th><th class="num">المبلغ</th><th class="num">المحصّل</th><th>الحالة</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="ct-empty">لا فواتير بعد.</div>'}
+    ${inv.length ? `<table class="exec-table pj-tbl"><thead><tr><th>الرقم</th><th>التاريخ</th><th>الفترة</th><th class="num">المبلغ</th><th class="num">المحصّل</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="ct-empty">لا فواتير بعد.</div>'}
     <p class="file-hint">الفاتورة تُعمل في البرنامج المحاسبي ثم تُرفع هنا بصورتين: الفاتورة المقدّمة، وعلم الوصول من العميل. الدخل يُسجَّل في بند المشروع عند التحصيل فقط.</p>
   </div>`;
 }
