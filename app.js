@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.27.0', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.28.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:3.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:3.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -16974,7 +16974,15 @@ try{ if('serviceWorker' in navigator && location.protocol==='https:' || location
 const CX_STAGES = [['potential','محتمل'],['open','مفتوح'],['active','شغال'],['suspended','متوقف'],['closed','مغلق']];
 const CX_STAGE_HINT = {potential:'للمالية فقط، ولا تُنشأ له طلبات', open:'معتمد ولم يُدفع بعد', active:'يعمل بعد الدفع', suspended:'إغلاق مؤقت: لا طلبات جديدة والصرف مجمّد، والدخل والترحيل مستمران', closed:'إغلاق تام: لا طلبات ولا دخل، ودفتره للاطلاع'};
 function cxStageNorm(s){ return ({creation:'potential', finance:'active', operation:'active'})[s] || s || 'active'; }
-const CX_LEDGER_KIND = {opening:'رصيد افتتاحي', subscription:'اشتراكات', support:'دعم', manual:'إيراد يدوي', adjust:'تسوية', transfer:'ترحيل'};
+// فئات الحركة للفلتر والتصدير: البوابة، الدعم، الإيرادات، المصروفات، الترحيل
+const CX_CATS = [['gateway','البوابة'],['support','الدعم'],['income','الإيرادات'],['expense','المصروفات'],['transfer','الترحيل']];
+function cxCatOf(x){ if(x._req) return 'expense'; if(x.source==='import') return 'gateway'; if(x.kind==='support') return 'support'; if(x.kind==='transfer') return 'transfer'; return 'income'; }
+// مصروفات الوحدات من الطلبات المكتملة (كما في qy_center_balances) — صفوف للعرض والتصدير فقط
+function cxReqDate(r){ const h = (r.history||[]).filter(x=>x.createdAt); return String((h.length ? h[h.length-1].createdAt : r.createdAtRaw) || '').slice(0,10); }
+function cxExpenseRows(ids){ const set = new Set(ids);
+  return (state.requests||[]).filter(r=>set.has(r.centerId) && r.status==='completed' && !r.isCancelled && (r.amountRoute||'normal')==='normal')
+    .map(r=>({_req:true, id:'r'+r.id, reqId:r.id, center_id:r.centerId, entry_date:cxReqDate(r), kind:'expense', purpose:'طلب ' + (r.number||'') + ' — ' + (r.reason||''), gross:-Number(r.totalAmount||0), gateway_fee:null, company_share:null, net:-Number(r.totalAmount||0), voided:false})); }
+const CX_LEDGER_KIND = {expense:'مصروف (طلب مكتمل)', opening:'رصيد افتتاحي', subscription:'اشتراكات', support:'دعم', manual:'إيراد يدوي', adjust:'تسوية', transfer:'ترحيل'};
 const CX_CLIENT_KIND = [['association','جمعية'],['branch','فرع'],['committee','لجنة'],['company','شركة'],['individual','فرد'],['other','أخرى']];
 const CX_PHONE_TYPE = [['mobile','جوال'],['landline','أرضي'],['whatsapp','واتساب']];
 state.cx = {clients:[], gwAccounts:[], gwAgents:[], imports:[], importers:[], myAccess:[], balances:[], ledger:[], payers:{}, centerId:null,
@@ -17762,7 +17770,8 @@ function cxSearch(v){ state.cx.q = v||''; qylSt('cxLedger').page = 0; const a = 
 
 function cxLedgerFiltered(){
   const q = String(state.cx.q||'').trim().toLowerCase();
-  return (state.cx.ledger||[]).filter(x=>{
+  const all = (state.cx.ledger||[]).concat(state.cx.ledgerLoaded ? cxExpenseRows(cxScopeIds()) : []).sort((a,b)=>String(b.entry_date||'').localeCompare(String(a.entry_date||'')));
+  return all.filter(x=>{
     if(!q) return true;
     const p = state.cx.payers[x.id] || {};
     return [x.purpose, x.note, x.agent, x.method, x.receipt, p.payer_name, p.payer_phone, CX_LEDGER_KIND[x.kind]].some(t=>String(t||'').toLowerCase().includes(q));
@@ -17776,16 +17785,16 @@ function cxLedgerRowsHtml(){
     const p = state.cx.payers[x.id] || {};
     const meta = [CX_LEDGER_KIND[x.kind]||x.kind, x.method, x.period_from ? `${cxDate(x.period_from)} ← ${cxDate(x.period_to)}` : '', x.kind==='transfer' && x.note ? 'السبب: '+x.note : ''].filter(Boolean).join(' · ');
     const tip = [x.agent ? 'المنشئ: '+x.agent : '', x.receipt ? 'الإيصال: '+x.receipt : '', x.note ? 'ملاحظة: '+x.note : ''].filter(Boolean).join('\n');
-    return `<tr class="${x.voided?'cx-void':''}" data-date="${escH(String(x.entry_date||'').slice(0,10))}" ${x.voided?'data-nosum':''} ${tip?`title="${escH(tip)}"`:''}>
+    return `<tr class="${x.voided?'cx-void':''}${x._req?' cx-exp-row':''}" data-kind="${cxCatOf(x)}" data-date="${escH(String(x.entry_date||'').slice(0,10))}" ${x.voided?'data-nosum':''} ${tip?`title="${escH(tip)}"`:''}>
       <td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
       ${ic ? `<td data-label="البند" class="cx-item"><div class="cx-clip">${x.center_id===state.cx.centerId ? 'المركز نفسه' : escH(cxCenterName(x.center_id))}</div></td>` : ''}
       <td data-label="البيان" class="cx-desc"><div class="cx-clip">${escH(x.purpose || CX_LEDGER_KIND[x.kind] || '')}</div><div class="cx-meta">${escH(meta)}${x.voided?' · <span class="cx-tag-red">محذوفة</span>':''}</div></td>
       ${imp ? `<td data-label="الدافع" class="cx-payer"><div class="cx-clip" dir="auto">${escH(p.payer_name||'—')}</div>${p.payer_phone ? `<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>` : ''}</td>` : ''}
       <td data-label="المبلغ" class="num">${fmtKWDHtml(x.gross)}</td>
-      <td data-label="الرسوم" class="num">${fmtKWDHtml(x.gateway_fee)}</td>
+      <td data-label="الرسوم" class="num">${x.gateway_fee==null ? '—' : fmtKWDHtml(x.gateway_fee)}</td>
       <td data-label="حصة الشركة" class="num">${x.company_share==null ? '—' : fmtKWDHtml(x.company_share)}</td>
       <td data-label="الصافي" class="num cx-strong" ${Number(x.net)<0?'style="color:var(--red)"':''}>${x.net==null ? '—' : fmtKWDHtml(x.net)}</td>
-      ${act ? `<td class="cx-act">${!(x.kind==='transfer' ? canTr : fin) ? '' : x.voided
+      ${act ? `<td class="cx-act">${x._req ? `<button class="btn btn-ghost btn-xs" data-on-click="openRequest" data-on-click-args="${qa([x.reqId])}">الطلب</button>` : !(x.kind==='transfer' ? canTr : fin) ? '' : x.voided
         ? `<button class="btn btn-ghost btn-xs" data-on-click="cxVoid" data-on-click-args="${qa([x.id, false])}">استرجاع</button>`
         : `<button class="btn btn-reject btn-xs" data-on-click="cxVoid" data-on-click-args="${qa([x.id, true])}">حذف</button>`}</td>` : ''}</tr>`;
   }).join('');
@@ -17919,7 +17928,7 @@ function cxCenterDetailHtml(){
         <input type="search" class="qy-search" placeholder="بحث: ${imp?'الدافع، الهاتف، ':''}الغرض، الإيصال…" value="${escH(state.cx.q||'')}" data-on-input="cxSearch" data-on-input-args="${qa([QA.v])}">
         ${state.cx.itemId && canTr && has && !state.cx.showTransfer ? `<button class="btn btn-ghost btn-md" data-on-click="cxTransferToggle">ترحيل رصيد</button>` : ''}
         ${fin && !state.cx.showEntry ? `<button class="btn btn-primary btn-md" data-on-click="cxEntryToggle">+ تسجيل حركة</button>` : ''}</div></div>
-      <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" data-qyl-title="دفتر ${escH(c.name)}"><thead><tr><th>التاريخ</th>${ic?'<th>البند</th>':''}<th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin||canTr?'<th></th>':''}</tr></thead>
+      <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" data-qyl-kinds='${escH(JSON.stringify(CX_CATS))}' data-qyl-title="دفتر ${escH(c.name)}"><thead><tr><th>التاريخ</th>${ic?'<th>البند</th>':''}<th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin||canTr?'<th></th>':''}</tr></thead>
       <tbody id="cxLedgerBody">${cxLedgerRowsHtml()}</tbody></table>
     </div>
     ${cxSettingsFoldHtml()}
@@ -17957,6 +17966,7 @@ function renderCenterBooks(app){
       ${cxStat('الدخل الصافي', fmtKWDHtml(tot.i))}${cxStat('المصروف المكتمل', fmtKWDHtml(tot.e))}
       ${cxStat('الرصيد الإجمالي', fmtKWDHtml(tot.n), tot.n<0?'var(--red)':'var(--green,#16794a)', 'طلبات مفتوحة '+fmtKWDHtml(tot.p))}
     </div>
+    ${rows.length ? cxExportAllHtml() : ''}
     ${rows.length ? `<div class="cx-grid2">
       <div class="card cx-panel"><div class="cx-panel-h"><h2>مقارنة الأرصدة</h2></div>
         ${rows.map(({c,b})=>{ const v = Number(b.balance||0); return `<div class="cx-bar"><div class="cx-bar-n">${escH(c.name)}</div><div class="cx-bar-t"><div class="cx-bar-f" style="width:${Math.max(1,Math.round(Math.abs(v)/mx*100))}%;background:${v<0?'var(--red)':'var(--green,#16794a)'};"></div></div><div class="cx-bar-v" ${v<0?'style="color:var(--red)"':''}>${fmtKWDHtml(v)}</div></div>`; }).join('')}
@@ -17968,6 +17978,72 @@ function renderCenterBooks(app){
       </div></div>` : ''}`;
 }
 
+// ---------- تصدير كل المراكز (1.28.0): ملف Excel فيه «الملخص» و«الكل» وورقة لكل مركز ----------
+function cxExportAllHtml(){
+  const e = state.cx.expAll || (state.cx.expAll = {from: cxToday().slice(0,8) + '01', to: cxToday(), kind:'all'});
+  return `<div class="card cx-panel cx-expall no-print"><div class="cx-panel-h"><h2>تصدير كل المراكز</h2><span class="file-hint">ملف Excel: الملخص، والكل، وورقة لكل مركز</span></div>
+    <div class="cx-expall-r">
+      <div class="f-md"><label for="cxea_from">من تاريخ</label><input id="cxea_from" type="date" value="${escH(e.from)}" data-on-change="cxExpAllSet" data-on-change-args="${qa(['from', QA.v])}"></div>
+      <div class="f-md"><label for="cxea_to">إلى تاريخ</label><input id="cxea_to" type="date" value="${escH(e.to)}" data-on-change="cxExpAllSet" data-on-change-args="${qa(['to', QA.v])}"></div>
+      <div class="f-md"><label for="cxea_kind">النوع</label><select id="cxea_kind" data-on-change="cxExpAllSet" data-on-change-args="${qa(['kind', QA.v])}"><option value="all">الكل</option>${CX_CATS.map(([v,l])=>`<option value="${v}" ${e.kind===v?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="f-md"><label>&nbsp;</label><button class="btn btn-primary btn-md" id="cxExpAllBtn" data-on-click="cxExportAll">${qi('download','qi-btn')}تصدير Excel</button></div>
+    </div></div>`;
+}
+function cxExpAllSet(k, v){ const e = state.cx.expAll || (state.cx.expAll = {}); e[k] = v; }
+function cxSheetName(n, used){ let b = String(n||'مركز').replace(/[\\/?*\[\]:]/g,' ').trim().slice(0,28) || 'مركز', x = b, i = 2; while(used.has(x)) x = b.slice(0,25) + ' ' + (i++); used.add(x); return x; }
+async function cxExportAll(){
+  const cxDd = v => { const m = String(v||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? m[3]+'-'+m[2]+'-'+m[1] : ''; };
+  const e = state.cx.expAll || {}, from = e.from || '', to = e.to || '', kind = e.kind || 'all';
+  if(from && to && from > to){ fieldErr('#cxea_to','«إلى» قبل «من»'); return; }
+  const roots = cxVisibleCenters(); if(!roots.length){ showToast('لا توجد مراكز','error'); return; }
+  const groups = roots.map(c=>({c, ids:[c.id, ...cxSubIds(c.id)]})), allIds = groups.flatMap(g=>g.ids);
+  const btn = document.getElementById('cxExpAllBtn'); if(btn){ btn.disabled = true; btn.textContent = 'جارٍ التجهيز…'; }
+  try{
+    let led = [];
+    for(let i = 0; i < allIds.length; i += 100){
+      let q = db.from('center_ledger').select('*').in('center_id', allIds.slice(i,i+100)).eq('voided', false).order('entry_date').limit(20000);
+      if(from) q = q.gte('entry_date', from); if(to) q = q.lte('entry_date', to);
+      const r = await q; if(!(await dbCheck(r,'تحميل حركات المراكز'))) throw new Error('-'); led = led.concat(r.data||[]);
+    }
+    const imp = cxIsImporter(), payers = {};
+    if(imp){ const pids = led.filter(x=>x.source==='import').map(x=>x.id);
+      for(let i = 0; i < pids.length; i += 200){ const r = await db.from('center_ledger_payers').select('*').in('ledger_id', pids.slice(i,i+200)); (r.data||[]).forEach(x=>{ payers[x.ledger_id] = x; }); } }
+    const exp = cxExpenseRows(allIds).filter(x=>(!from || x.entry_date >= from) && (!to || x.entry_date <= to));
+    const rootOf = {}; groups.forEach(g=>g.ids.forEach(id=>{ rootOf[id] = g.c; }));
+    const rowsAll = led.concat(exp).filter(x=>kind==='all' || cxCatOf(x)===kind).sort((a,b)=>String(a.entry_date).localeCompare(String(b.entry_date)));
+    if(!rowsAll.length){ showToast('لا توجد حركات في الفترة المختارة','error'); return; }
+    const catName = Object.fromEntries(CX_CATS);
+    const head = ['التاريخ','المركز','البند','النوع','البيان','طريقة الدفع','الفترة', ...(imp ? ['الدافع','هاتف الدافع'] : []), 'رقم الإيصال','المبلغ','رسوم البوابة','حصة الشركة','الصافي'];
+    const numFrom = head.length - 4;
+    const rowOf = x => { const c = rootOf[x.center_id] || {}, p = payers[x.id] || {};
+      return [x.entry_date ? cxDd(String(x.entry_date).slice(0,10)) : '', c.name || '', x.center_id===c.id ? 'المركز نفسه' : cxCenterName(x.center_id), catName[cxCatOf(x)] + (x._req ? '' : ' · ' + (CX_LEDGER_KIND[x.kind]||x.kind||'')), x.purpose || '', x.method || '',
+        x.period_from ? cxDd(x.period_from) + ' ← ' + cxDd(x.period_to||x.period_from) : '', ...(imp ? [p.payer_name||'', p.payer_phone||''] : []), x.receipt || '',
+        x.gross==null ? '' : Number(x.gross), x.gateway_fee==null ? '' : Number(x.gateway_fee), x.company_share==null ? '' : Number(x.company_share), x.net==null ? '' : Number(x.net)]; };
+    let X; try{ X = await qylLoadXlsx(); }catch(err){ showToast('تعذّر تحميل أداة Excel','error'); return; }
+    const per = (from ? 'من ' + cxDd(from) : 'من البداية') + ' إلى ' + (to ? cxDd(to) : 'اليوم') + (kind!=='all' ? ' · ' + catName[kind] : '');
+    const co = qyCompanyName(), wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
+    const sheet = (title, h, body, nf) => {
+      const tot = h.map((x,j)=> j===0 ? 'المجموع' : (j>=nf ? Math.round(body.reduce((a,r)=>a + (typeof r[j]==='number' ? r[j] : 0), 0)*1000)/1000 : ''));
+      const ws = X.utils.aoa_to_sheet([[title], [co + ' · ' + per], [], h, ...body, tot]);
+      for(let r = 4; r <= 4 + body.length; r++) for(let j = nf; j < h.length; j++){ const c = ws[X.utils.encode_cell({r, c:j})]; if(c && c.t==='n') c.z = '#,##0.000'; }
+      ws['!cols'] = h.map((x,j)=>({wch: Math.min(50, Math.max(String(x).length+2, ...body.slice(0,300).map(r=>String(r[j]==null?'':r[j]).length+2), j>=nf?14:8))}));
+      ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:h.length-1}}, {s:{r:1,c:0}, e:{r:1,c:h.length-1}}];
+      ws['!views'] = [{RTL:true}]; return ws; };
+    // الملخص: سطر لكل مركز
+    const sh = ['المركز','البوابة (صافٍ)','الدعم (صافٍ)','إيرادات أخرى (صافٍ)','رسوم البوابة','حصة الشركة','المصروفات','الترحيل','صافي حركة الفترة','الرصيد الحالي'];
+    const sum = (arr, f) => cxR3(arr.reduce((a,x)=>a + Number(f(x)||0), 0));
+    const sb = groups.map(g=>{ const set = new Set(g.ids), L = rowsAll.filter(x=>set.has(x.center_id)), by = k => L.filter(x=>cxCatOf(x)===k);
+      return [g.c.name, sum(by('gateway'),x=>x.net), sum(by('support'),x=>x.net), sum(by('income'),x=>x.net), sum(L,x=>x.gateway_fee), sum(L,x=>x.company_share), sum(by('expense'),x=>x.net), sum(by('transfer'),x=>x.net), sum(L,x=>x.net), Number(cxAgg(g.ids).balance||0)]; });
+    const used = new Set(['الملخص','الكل']);
+    X.utils.book_append_sheet(wb, sheet('ملخص حركات المراكز', sh, sb, 1), 'الملخص');
+    X.utils.book_append_sheet(wb, sheet('حركات كل المراكز', head, rowsAll.map(rowOf), numFrom), 'الكل');
+    groups.forEach(g=>{ const set = new Set(g.ids), L = rowsAll.filter(x=>set.has(x.center_id)); if(!L.length) return;
+      X.utils.book_append_sheet(wb, sheet('حركات ' + g.c.name, head, L.map(rowOf), numFrom), cxSheetName(g.c.name, used)); });
+    X.writeFile(wb, ('حركات المراكز ' + per + ' - ' + co).replace(/[\\/:*?"<>|]+/g,' ') + '.xlsx');
+    showToast('صُدّر الملف: ' + rowsAll.length + ' حركة','success');
+  }catch(err){ if(err.message!=='-') showToast('تعذّر التصدير: ' + err.message,'error'); }
+  finally{ const b = document.getElementById('cxExpAllBtn'); if(b){ b.disabled = false; b.innerHTML = qi('download','qi-btn') + 'تصدير Excel'; } }
+}
 // ===================== السحب والإفلات لتغيير الترتيب (عام في النظام) =====================
 // العنصر: data-dnd="مفتاح المعالج" data-dnd-id="المعرّف" data-dnd-grp="مجموعة الإخوة" (اختياري)، وفيه مقبض dndGrip().
 // السحب بين الإخوة فقط (نفس الحاوية ونفس المجموعة). عند الإفلات يُستدعى DND_DROP[المفتاح](المعرّف، معرّف-ما-قبله-يُدرج أو null للآخر).
@@ -20183,7 +20259,8 @@ function qylInPeriod(el, items, s){
   const ext = el.getAttribute('data-qyl-ext');
   const hasDate = !!ext || items.some(i=>i.hasAttribute('data-date'));
   const rg = hasDate ? qylRange(s) : {from:'', to:'', label:''};
-  const inP = (hasDate && !ext) ? items.filter(i=>{ const d = String(i.getAttribute('data-date')||''); return (!rg.from || d>=rg.from) && (!rg.to || d<=rg.to); }) : items;
+  let inP = (hasDate && !ext) ? items.filter(i=>{ const d = String(i.getAttribute('data-date')||''); return (!rg.from || d>=rg.from) && (!rg.to || d<=rg.to); }) : items;
+  if(el.hasAttribute('data-qyl-kinds') && s.kind && s.kind!=='all') inP = inP.filter(i=>i.getAttribute('data-kind')===s.kind);   // فلتر «النوع» العام
   return {hasDate, rg, inP};
 }
 function qylEnhance(root){ (root||document).querySelectorAll('[data-qyl]').forEach(el=>{ try{ qylApply(el); }catch(e){ console.error('qyl', e); } }); }
@@ -20201,19 +20278,21 @@ function qylApply(el, force){
   const canExp = isTbl || el.hasAttribute('data-qyl-cols');
   const big = items.length > QYL_SIZES[0];
   const idOf = i => i ? (i._qylId || (i._qylId = (window._qylSeq = (window._qylSeq||0) + 1))) : 0;   // بصمة الصفوف: صفوف جديدة = إعادة بناء المجاميع
-  const sig = [s.per, s.from, s.to, s.size, s.page, items.length, n, hasDate, canExp, big, idOf(items[0]), idOf(items[items.length-1]), idOf(inP[0])].join('|');
+  const sig = [s.per, s.from, s.to, s.size, s.page, s.kind||'', items.length, n, hasDate, canExp, big, idOf(items[0]), idOf(items[items.length-1]), idOf(inP[0])].join('|');
   const oldBar = [...par.children].find(x=>x.getAttribute('data-qyl-bar')===key), oldFoot = [...par.children].find(x=>x.getAttribute('data-qyl-foot')===key);
   if(!force && el._qylSig===sig && (oldBar || !(hasDate||big)) && oldFoot) return;
   el._qylSig = sig;
   if(oldBar) oldBar.remove(); if(oldFoot) oldFoot.remove();
   if(!hasDate && !big && !canExp) return;
-  const hasBar = hasDate || big;   // «تصدير» لا يأخذ سطراً وحده: بلا فترة ولا عدد ينتقل إلى سطر الإجمالي
+  let kinds = []; try{ kinds = JSON.parse(el.getAttribute('data-qyl-kinds')||'[]'); }catch(e){}
+  const hasBar = hasDate || big || kinds.length > 0;   // «تصدير» لا يأخذ سطراً وحده: بلا فترة ولا عدد ينتقل إلى سطر الإجمالي
   // شريط الأدوات: الفترة · العرض · تصدير
   const per = s.per;
   const pick = per==='range' ? `<input type="date" class="qyl-in qyl-date" value="${s.from||''}" title="من تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'from',QA.v])}"><span class="qyl-sep">إلى</span><input type="date" class="qyl-in qyl-date" value="${s.to||''}" title="إلى تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'to',QA.v])}">` : '';
   const bar = document.createElement('div'); bar.className = 'qyl-bar no-print'; bar.setAttribute('data-qyl-bar', key);
   bar.innerHTML = `${hasDate ? `<div class="qyl-g"><span class="qyl-l">الفترة</span><select class="qyl-in qyl-per" data-on-change="qylSet" data-on-change-args="${qa([key,'per',QA.v])}">${QYL_PER.map(p=>`<option value="${p[0]}" ${p[0]===per?'selected':''}>${p[1]}</option>`).join('')}</select>${pick}</div>` : ''}
     ${big ? `<div class="qyl-g"><span class="qyl-l">العرض</span><select class="qyl-in qyl-size" data-on-change="qylSet" data-on-change-args="${qa([key,'size',QA.v])}">${QYL_SIZES.map(z=>`<option value="${z}" ${z===s.size?'selected':''}>${z}</option>`).join('')}</select></div>` : ''}
+    ${kinds.length ? `<div class="qyl-g"><span class="qyl-l">النوع</span><select class="qyl-in qyl-kind" data-on-change="qylSet" data-on-change-args="${qa([key,'kind',QA.v])}"><option value="all">الكل</option>${kinds.map(([v,l])=>`<option value="${escH(v)}" ${s.kind===v?'selected':''}>${escH(l)}</option>`).join('')}</select></div>` : ''}
     ${canExp ? `<div class="qyl-g qyl-exp">${qyExportBtn('qyl:'+key)}</div>` : ''}`;
   if(hasBar) par.insertBefore(bar, anchor);
   // التذييل: التنقل + مجموع المعروض + إجمالي الفترة
@@ -20295,7 +20374,8 @@ function qylData(key){
     body = rows.map(r=>{ let a = []; try{ a = JSON.parse(r.getAttribute('data-qyl-row')||'[]'); }catch(e){} return a.map((v,j)=>numIdx.has(j) ? qylNum(v) : v); });
   }
   const card = el.closest('.card'); const h2 = card && card.querySelector('h2');
-  const title = el.getAttribute('data-qyl-title') || (h2 ? h2.textContent.trim() : '') || document.title;
+  let title = el.getAttribute('data-qyl-title') || (h2 ? h2.textContent.trim() : '') || document.title;
+  if(s.kind && s.kind!=='all'){ try{ const k = JSON.parse(el.getAttribute('data-qyl-kinds')||'[]').find(x=>x[0]===s.kind); if(k) title += ' — ' + k[1]; }catch(e){} }
   return {title, period: hasDate ? rg.label : '', head, body, numIdx, nosum, company: qyCompanyName()};
 }
 function qylFileName(d){ return (d.title + (d.period ? ' - ' + d.period : '')).replace(/[‎‏⁦-⁩؜]/g,'').replace(/[\\/:*?"<>|]+/g,' ').trim() || 'تصدير'; }

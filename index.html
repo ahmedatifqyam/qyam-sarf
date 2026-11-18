@@ -3204,6 +3204,14 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pj-creq .pj-acts-w{display:flex;flex-wrap:wrap;gap:8px;} #app .pj-creq .pj-acts-w .btn{width:105px;height:40px;}
   #app .pj-creq .pj-acts-w .btn.pj-act-x{margin-inline-start:auto;}
   @media (max-width:699px){ #app .pj-creq .pj-acts-w{display:grid;grid-template-columns:1fr 1fr;} #app .pj-creq .pj-acts-w .btn{width:100%;} #app .pj-creq .pj-acts-w .btn.pj-act-x{margin:0;} #app .pj-creq-st{margin-inline-start:0;} }
+  /* (1.28.0) حقل «العرض» أصغر، وفلتر «النوع»، وتصدير كل المراكز */
+  #app .qyl-bar select.qyl-size{width:80px !important;max-width:80px !important;flex:0 0 80px !important;}
+  #app .qyl-bar select.qyl-kind{width:150px !important;max-width:150px !important;flex:0 0 150px !important;}
+  #app .cx-expall-r{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;}
+  #app .cx-expall-r .f-md{width:180px;} #app .cx-expall-r input, #app .cx-expall-r select{width:100%;}
+  #app .cx-expall-r .btn{width:180px;}
+  #app tr.cx-exp-row td{background:color-mix(in srgb, var(--amber) 6%, transparent);}
+  @media (max-width:699px){ #app .cx-expall-r{display:grid;grid-template-columns:1fr 1fr;} #app .cx-expall-r .f-md, #app .cx-expall-r .btn{width:100%;} }
 </style>
 </head>
 <body>
@@ -3224,6 +3232,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=1cbe632996"></script>
+<script src="app.js?v=8324525726"></script>
 </body>
 </html>
