@@ -3467,6 +3467,13 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .gw-stale.gw-stale-c{padding:4px 6px 4px 12px;min-height:0;}
   #app .gw-stale.gw-stale-c > div{line-height:1.5 !important;}
   #app .gw-stale.gw-stale-c .btn{height:30px !important;min-height:30px !important;width:105px;padding:0 6px;}
+
+  /* (1.37.6) عناوين الحقول في كل النظام: عريضة وبلون داكن واضح، ومسافات أقل؛ ونموذج الطلب بلا فراغ زائد */
+  label{color:var(--ink);font-weight:700;margin:8px 0 5px;}
+  #app label:not(.chk-card):not(.btn):not(.file-btn):not(.col-menu-i):not(.check-line):not(.pj-inline-chk){color:var(--ink);font-weight:700;}
+  #app .nr-form .nr-lblrow .nr-lbl-side, #app .nr-form .nr-lblrow .nr-xls-t{margin:0 0 4px !important;font-size:var(--fs-label);font-weight:700;color:var(--ink);}
+  #app .nr-form .nr-lblrow label{margin:0 0 4px !important;}
+  #app .nr-form{padding-top:12px;}
 </style>
 </head>
 <body>
@@ -3487,6 +3494,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=a695c6b578"></script>
+<script src="app.js?v=449205f47e"></script>
 </body>
 </html>
