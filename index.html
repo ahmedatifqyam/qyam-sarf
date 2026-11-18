@@ -3280,6 +3280,33 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pja-bar .f-sm:last-child{flex:0 0 150px;} #app .pja-bar .btn{width:150px;}
   #app .pja-bar select, #app .pja-bar input{width:100%;}
   @media (max-width:699px){ #app .pja-bar{display:grid;grid-template-columns:1fr 1fr;} #app .pja-bar .f-md:first-child{grid-column:1 / -1;} #app .pja-bar .f-sm:last-child, #app .pja-bar .btn{width:100%;} }
+  /* (1.33.0) نموذج الوثيقة: صناديق بعناوين، وأحجام على قدر المحتوى */
+  #app .pj-form-h{align-items:center;}
+  #app .pj-creq-top{width:300px;max-width:100%;}
+  #app .pj-sec{border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:10px 14px 12px;margin:0 0 10px;}
+  #app .pj-sec[hidden]{display:none;}
+  #app .pj-sec-h{font-weight:800;font-size:16px;margin:0 0 8px;color:var(--ink);}
+  #app .pj-row{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;margin-bottom:8px;}
+  #app .pj-row:last-child{margin-bottom:0;}
+  #app .pj-row .pf{margin:0;min-width:0;} #app .pj-row .pf label{display:block;margin-bottom:4px;}
+  #app .pj-row .pf input, #app .pj-row .pf select{width:100%;}
+  #app .pf.w100{flex:0 0 100px;} #app .pf.w130{flex:0 0 130px;} #app .pf.w160{flex:0 0 160px;} #app .pf.w180{flex:0 0 180px;}
+  #app .pf.grow1{flex:1 1 200px;} #app .pf.grow2{flex:1.4 1 220px;}
+  #app .pj-inline-chk{display:inline-flex;align-items:center;gap:6px;height:40px;font-weight:700;cursor:pointer;white-space:nowrap;}
+  #app .pj-inline-chk input{width:auto;margin:0;}
+  #app .pjl-box .pjl-tbl{width:100%;table-layout:fixed;}
+  #app .pjl-box .pjl-tbl input{width:100% !important;min-width:0 !important;}
+  #app .pjl-box .pjl-name{min-width:0 !important;}
+  #app .pjl-addrow td{background:var(--card);padding:8px !important;}
+  #app .pjl-addrow select{width:100%;max-width:520px;border-style:dashed;}
+  @media (max-width:699px){
+    #app .pj-creq-top{width:100%;}
+    #app .pf.w100,#app .pf.w130,#app .pf.w160,#app .pf.w180{flex:1 1 calc(50% - 8px);}
+    #app .pj-sec{padding:8px 10px;}
+    #app .pjl-tbl colgroup{display:none;}
+    #app .pjl-tbl tr.pjl-addrow{display:block !important;} #app .pjl-tbl tr.pjl-addrow td{display:block !important;}
+    #app .pjl-addrow select{max-width:none;}
+  }
 </style>
 </head>
 <body>
@@ -3300,6 +3327,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=a925b1cd0d"></script>
+<script src="app.js?v=719e1afd81"></script>
 </body>
 </html>

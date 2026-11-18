@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.32.1', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.33.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:357, base:350, extra:7.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:358, base:350, extra:7.5, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18855,7 +18855,11 @@ function prjCreqPendingHtml(){
     </div>`).join('')}</div>`;
 }
 // تبديل حقول «تسجيل الطلب هنا» بلا إعادة رسم (حتى لا يضيع ملف الوثيقة المختار)
-function prjDocCreqPick(v){ const d = state.prj.docForm; if(d) d.creq_id = v; const w = document.getElementById('pjdq_wrap'); if(w){ w.hidden = v!=='__new'; if(v==='__new'){ const e = document.getElementById('pjdq_desc'); if(e) e.focus(); } } }
+function prjDocCreqPick(v){ const d = state.prj.docForm; if(d) d.creq_id = v; const w = document.getElementById('pjdq_wrap'); if(w){ w.hidden = v!=='__new'; if(v==='__new'){ const e = document.getElementById('pjdq_desc'); if(e) e.focus(); } }
+  // اختيار طلب قائم يملأ العميل (إن كان فارغاً) ويحدّث قائمة المرجع دون إعادة رسم الصفحة
+  const q = (state.prj.creqs||[]).find(x=>x.id===v), cs = document.getElementById('pjd_client_id');
+  if(q && q.client_id && d && cs && (!cs.value || cs.value==='')){ cs.value = q.client_id; d.client_id = q.client_id; const ct = document.getElementById('pjd_contract_id'); if(ct) ct.innerHTML = prjContractOpts(q.client_id, ''); }
+  prjDraftSave(); }
 // داخل نموذج الوثيقة: اختيار طلب قائم للعميل، أو تسجيله هنا، أو بدون
 function prjDocCreqHtml(d){
   const pend = prjCreqPending(d.client_id).concat(d.id && prjCreqOfDoc(d.id) ? [prjCreqOfDoc(d.id)] : []);
@@ -18931,22 +18935,37 @@ function prjLineEdit(i, k, v){ prjDocSync(); const d = state.prj.docForm; if(!d 
   d.lines[i][k] = (k==='qty' || k==='price') ? (String(v).trim()==='' ? '' : cxN(v)) : String(v);
   if(k==='qty' || k==='price') prjLinesRefresh(); else prjDraftSave(); }
 function prjLineDel(i){ prjDocSync(); const d = state.prj.docForm; if(!d || !d.lines) return; d.lines.splice(i,1); prjLinesRefresh(); }
+function prjCatOptsHtml(){
+  if(!state.cat.loaded || state.cat._cid!==state.currentCompanyId){ if(!state.cat._ld){ state.cat._ld = true; catLoad().finally(()=>{ state.cat._ld = false; }); } return '<option value="" disabled>جارٍ تحميل خدمات الشركة…</option>'; }
+  const act = pid => catKids(pid).filter(x=>x.active), pr = x => x.price!=null ? ' — ' + fmtKWDPlain(x.price) + (x.unit ? ' / ' + escH(x.unit) : '') : '';
+  const solo = [];
+  const groups = act(null).map(m=>{ const subs = act(m.id); if(!subs.length){ solo.push(m); return ''; }
+    return `<optgroup label="${escH(m.name)}">${subs.map(sb=>{ const its = act(sb.id); return its.length ? its.map(it=>`<option value="${escH(it.id)}">${escH(sb.name)} ← ${escH(it.name)}${pr(it)}</option>`).join('') : `<option value="${escH(sb.id)}">${escH(sb.name)}${pr(sb)}</option>`; }).join('')}</optgroup>`; }).join('');
+  return groups + (solo.length ? `<optgroup label="خدمات أخرى">${solo.map(x=>`<option value="${escH(x.id)}">${escH(x.name)}${pr(x)}</option>`).join('')}</optgroup>` : '');
+}
+function prjAddFromSel(v){
+  const d = state.prj.docForm; if(!d || !v) return; prjDocSync(); d.lines = d.lines||[];
+  if(v==='__manual'){ d.lines.push({name:'', qty:1, unit:'', price:''}); prjLinesRefresh(); setTimeout(()=>{ const el = [...document.querySelectorAll('#app .pjl-name')].pop(); if(el) el.focus(); }, 40); return; }
+  const it = state.cat.items.find(x=>x.id===v); if(!it) return;
+  const chain = []; let x = state.cat.items.find(y=>y.id===it.parent_id); while(x){ chain.unshift(x.name); x = state.cat.items.find(y=>y.id===x.parent_id); }
+  d.lines.push({catalog_id:v, section:chain.join(' — '), name:it.name, qty:1, unit:it.unit||'', price:it.price==null ? '' : Number(it.price)});
+  prjLinesRefresh(); setTimeout(()=>{ const el = document.getElementById(it.price==null ? 'pjl_price_' + (d.lines.length-1) : 'pjl_qty_' + (d.lines.length-1)); if(el){ el.focus(); el.select && el.select(); } }, 40);
+}
 function prjLinesFormHtml(d){
-  const L = d.lines||[], P = state.prj;
-  return `<div class="pjl-box" id="pjlBox">
-    <div class="cx-panel-h"><h3>بنود المشروع <span class="file-hint">(اختيارية)</span></h3><div class="cx-ph-tools">
-      <button class="btn btn-ghost btn-md" data-on-click="prjLineAdd">+ سطر يدوي</button></div></div>
-    ${prjAddBarHtml()}
-    ${L.length ? `<div class="pjp-wrap"><table class="exec-table pjp-tbl pjl-tbl"><thead><tr><th>البند</th><th class="num">الكمية</th><th>الوحدة</th><th class="num">سعر الوحدة</th><th class="num">الإجمالي</th><th></th></tr></thead><tbody>
+  const L = d.lines||[];
+  return `<div class="pj-sec pjl-box no-colrs" id="pjlBox"><div class="pj-sec-h">بنود المشروع <span class="file-hint">(اختيارية — القيمة تصير مجموعها)</span></div>
+    <table class="exec-table pjl-tbl"><colgroup><col><col style="width:80px"><col style="width:100px"><col style="width:120px"><col style="width:110px"><col style="width:44px"></colgroup>
+    <thead><tr><th>البند</th><th class="num">الكمية</th><th>الوحدة</th><th class="num">سعر الوحدة</th><th class="num">الإجمالي</th><th></th></tr></thead><tbody>
       ${L.map((l,i)=>`<tr>
         <td data-label="البند"><input class="pjp-in pjl-name" type="text" value="${escH(l.name||'')}" placeholder="اسم البند" ${l.section ? `title="${escH(l.section)}"` : ''} data-on-change="prjLineEdit" data-on-change-args="${qa([i,'name',QA.v])}"></td>
-        <td data-label="الكمية" class="num"><input class="pjp-in pjl-qty" type="text" inputmode="decimal" dir="ltr" value="${escH(String(l.qty??''))}" placeholder="1" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'qty',QA.v])}"></td>
-        <td data-label="الوحدة"><input class="pjp-in pjp-unit" type="text" value="${escH(l.unit||'')}" placeholder="الوحدة" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'unit',QA.v])}"></td>
+        <td data-label="الكمية" class="num"><input class="pjp-in pjl-qty" id="pjl_qty_${i}" type="text" inputmode="decimal" dir="ltr" value="${escH(String(l.qty??''))}" placeholder="1" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'qty',QA.v])}"></td>
+        <td data-label="الوحدة"><input class="pjp-in pjp-unit" type="text" value="${escH(l.unit||'')}" placeholder="—" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'unit',QA.v])}"></td>
         <td data-label="سعر الوحدة" class="num"><input class="pjp-in pjp-price" id="pjl_price_${i}" type="text" inputmode="decimal" dir="ltr" value="${escH(String(l.price??''))}" placeholder="0.000" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'price',QA.v])}"></td>
         <td data-label="الإجمالي" class="num"><b>${fmtKWDHtml(prjLineTotal(l))}</b></td>
         <td class="pj-acts"><button class="ct-ico ct-ico-d" data-on-click="prjLineDel" data-on-click-args="${qa([i])}" title="حذف" aria-label="حذف">${qi('trash')}</button></td></tr>`).join('')}
-      <tr class="pjl-sum"><td colspan="4"><b>المجموع = قيمة المشروع</b></td><td class="num"><b>${fmtKWDHtml(prjLinesSum(L))}</b></td><td></td></tr>
-    </tbody></table></div>` : `<div class="ct-empty">لا بنود. اختيارية: انسخ بنوداً من «خدمات الشركة» أو أضف سطراً، فتُحسب القيمة تلقائياً. وإن تركتها فاكتب القيمة بنفسك.</div>`}
+      <tr class="pjl-addrow"><td colspan="6"><select id="pjl_add" data-on-change="prjAddFromSel" data-on-change-args="${qa([QA.v])}"><option value="">+ اختر بنداً من خدمات الشركة لإضافته…</option><option value="__manual">✎ بند يدوي (غير موجود في الخدمات)</option>${prjCatOptsHtml()}</select></td></tr>
+      ${L.length ? `<tr class="pjl-sum"><td colspan="4"><b>المجموع = قيمة المشروع</b></td><td class="num"><b>${fmtKWDHtml(prjLinesSum(L))}</b></td><td></td></tr>` : ''}
+    </tbody></table>
   </div>`;
 }
 function prjLinesViewHtml(d){
@@ -18964,29 +18983,44 @@ function prjContractOpts(clientId, sel){
   }).join('');
 }
 function prjDocFormHtml(){
-  const d = state.prj.docForm, clients = cxClientTree();
+  const d = state.prj.docForm, clients = cxClientTree(), nL = (d.lines||[]).length;
+  const pend = prjCreqPending('').concat(d.id && prjCreqOfDoc(d.id) ? [prjCreqOfDoc(d.id)] : []), cq = d.creq_id || '';
   return `<div class="card cx-panel pj-form" id="pjDocForm">
-    <div class="cx-panel-h"><h2>${d.id ? 'تعديل الوثيقة ' + escH(d.doc_no||'') : 'وثيقة جديدة'}</h2>${!d.id ? `<div class="cx-ph-tools"><span class="file-hint">${d._restored ? 'مسودة مستعادة — ' : ''}تُحفظ مسودة تلقائياً أثناء الكتابة</span>${d._restored ? `<button class="btn btn-ghost btn-md" data-on-click="prjDraftDiscard">بدء وثيقة فارغة</button>` : ''}</div>` : ''}</div>
-    <p class="file-hint">ارفع الوثيقة جاهزة (PDF أو صورة) واكتب بياناتها. الرقم يُعطى تلقائياً: رمز الشركة-الرقم/السنة. ويمكن اختيار بنودها من «خدمات الشركة» في آخر النموذج.</p>
-    <div class="co-g co-g4">
-      <div class="co-f"><label for="pjd_doc_type">نوع الوثيقة</label><select id="pjd_doc_type">${PRJ_DOC_TYPES.map(([k,l])=>`<option value="${k}" ${d.doc_type===k?'selected':''}>${l}</option>`).join('')}</select></div>
-      <div class="co-f"><label for="pjd_client_id">العميل</label><select id="pjd_client_id" data-on-change="prjClientPick" data-on-change-args="${qa(['doc', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${d.client_id===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select></div>
-      <div class="co-f co-s2"><label for="pjd_contract_id">المرجع (العقد أو الملحق)</label><select id="pjd_contract_id">${prjContractOpts(d.client_id, d.contract_id)}</select></div>
-      <div class="co-f co-s3"><label for="pjd_title">العنوان</label><input id="pjd_title" type="text" value="${escH(d.title||'')}" placeholder="مثال: إدارة حسابات التواصل — الوقف الكبير"></div>
-      <div class="co-f"><label for="pjd_doc_date">تاريخ الوثيقة</label><input id="pjd_doc_date" type="date" value="${escH(d.doc_date||'')}"></div>
-      <div class="co-f"><label for="pjd_amount">${(d.lines||[]).length ? 'القيمة من البنود (د.ك)' : 'القيمة (د.ك)'}</label><input id="pjd_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String((d.lines||[]).length ? prjLinesSum(d.lines).toFixed(3) : (d.amount??'')))}" placeholder="0.000" ${(d.lines||[]).length ? 'readonly title="تُحسب من البنود"' : ''}></div>
-      <div class="co-f"><label for="pjd_amount_kind">نوع القيمة</label><select id="pjd_amount_kind"><option value="total" ${d.amount_kind==='total'?'selected':''}>إجمالي</option><option value="monthly" ${d.amount_kind==='monthly'?'selected':''}>شهرياً</option></select></div>
-      <div class="co-f"><label for="pjd_months">المدة (أشهر)</label><input id="pjd_months" type="number" min="1" inputmode="numeric" value="${escH(String(d.months||''))}" placeholder="—" ${d.open_ended?'disabled':''}></div>
-      <div class="co-f"><label>المدة المفتوحة</label><label class="chk-card pj-chk co-chk"><input id="pjd_open_ended" type="checkbox" ${d.open_ended?'checked':''} data-on-change="prjDocRefresh"><span>مفتوح بلا نهاية</span></label></div>
-      <div class="co-f"><label for="pjd_start_date">بداية التنفيذ</label><input id="pjd_start_date" type="date" value="${escH(d.start_date||'')}"></div>
-      <div class="co-f"><label for="pjd_file">ملف الوثيقة</label><input id="pjd_file" type="file" accept="application/pdf,image/*">${d.file_path ? '<div class="file-hint">اتركه دون اختيار للإبقاء على الملف الحالي.</div>' : ''}</div>
-      <div class="co-f co-s2"><label for="pjd_notes">ملاحظات</label><input id="pjd_notes" type="text" value="${escH(d.notes||'')}" placeholder="اختياري"></div>
+    <div class="cx-panel-h pj-form-h"><h2>${d.id ? 'تعديل الوثيقة ' + escH(d.doc_no||'') : 'وثيقة جديدة'}</h2>
+      <div class="cx-ph-tools">
+        <select id="pjd_creq_id" class="pj-creq-top" title="طلب العميل (اختياري)" data-on-change="prjDocCreqPick" data-on-change-args="${qa([QA.v])}">
+          <option value="">اختر طلب العميل (اختياري)</option>${pend.map(q=>`<option value="${escH(q.id)}" ${cq===q.id?'selected':''}>${escH(prjClientName(q.client_id)||'—')} · ${cxDate(q.req_date)} · ${escH(String(q.description).slice(0,40))}</option>`).join('')}
+          <option value="__new" ${cq==='__new'?'selected':''}>+ طلب عميل جديد</option></select>
+        ${!d.id && d._restored ? `<button class="btn btn-ghost btn-md" data-on-click="prjDraftDiscard" title="مسودة مستعادة — ابدأ من جديد">بدء وثيقة فارغة</button>` : ''}
+      </div></div>
+    <div id="pjdq_wrap" class="pj-sec" ${cq==='__new' ? '' : 'hidden'}><div class="pj-sec-h">طلب العميل الجديد</div>${prjCreqFieldsHtml({req_date:cxToday(), channel:'whatsapp', description:d._cq_desc||'', files:[]}, 'pjdq')}</div>
+    <div class="pj-sec"><div class="pj-sec-h">الوثيقة</div>
+      <div class="pj-row">
+        <div class="pf w160"><label for="pjd_doc_type">نوع الوثيقة</label><select id="pjd_doc_type">${PRJ_DOC_TYPES.map(([k,l])=>`<option value="${k}" ${d.doc_type===k?'selected':''}>${l}</option>`).join('')}</select></div>
+        <div class="pf w160"><label for="pjd_doc_date">تاريخ الوثيقة</label><input id="pjd_doc_date" type="date" value="${escH(d.doc_date||'')}"></div>
+        <div class="pf grow2"><label for="pjd_client_id">العميل</label><select id="pjd_client_id" data-on-change="prjClientPick" data-on-change-args="${qa(['doc', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${d.client_id===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select></div>
+        <div class="pf grow1"><label for="pjd_contract_id">المرجع (العقد أو الملحق)</label><select id="pjd_contract_id">${prjContractOpts(d.client_id, d.contract_id)}</select></div>
+      </div>
+      <div class="pj-row"><div class="pf grow1"><label for="pjd_title">العنوان</label><input id="pjd_title" type="text" value="${escH(d.title||'')}" placeholder="مثال: إدارة حسابات التواصل — الوقف الكبير"></div></div>
+      <div class="pj-row">
+        <div class="pf w180"><label for="pjd_file">ملف الوثيقة${d.file_path ? ' (اتركه للإبقاء على الحالي)' : ''}</label><input id="pjd_file" type="file" accept="application/pdf,image/*"></div>
+        <div class="pf grow1"><label for="pjd_notes">ملاحظات</label><input id="pjd_notes" type="text" value="${escH(d.notes||'')}" placeholder="اختياري"></div>
+      </div>
     </div>
-    ${prjDocCreqHtml(d)}
+    <div class="pj-sec"><div class="pj-sec-h">القيمة والمدة</div>
+      <div class="pj-row">
+        <div class="pf w130"><label for="pjd_amount_kind">نوع القيمة</label><select id="pjd_amount_kind"><option value="total" ${d.amount_kind==='total'?'selected':''}>إجمالي</option><option value="monthly" ${d.amount_kind==='monthly'?'selected':''}>شهرياً</option></select></div>
+        <div class="pf w160"><label for="pjd_amount">${nL ? 'القيمة من البنود (د.ك)' : 'القيمة (د.ك)'}</label><input id="pjd_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String(nL ? prjLinesSum(d.lines).toFixed(3) : (d.amount??'')))}" placeholder="0.000" ${nL ? 'readonly title="تُحسب من البنود"' : ''}></div>
+        <div class="pf w160"><label for="pjd_start_date">بداية التنفيذ</label><input id="pjd_start_date" type="date" value="${escH(d.start_date||'')}"></div>
+        <div class="pf w100"><label for="pjd_months">المدة (أشهر)</label><input id="pjd_months" type="number" min="1" inputmode="numeric" value="${escH(String(d.months||''))}" placeholder="—" ${d.open_ended?'disabled':''}></div>
+        <label class="pj-inline-chk"><input id="pjd_open_ended" type="checkbox" ${d.open_ended?'checked':''} data-on-change="prjOpenEnded" data-on-change-args="${qa([QA.c])}"> مفتوح بلا نهاية</label>
+      </div>
+    </div>
     ${prjLinesFormHtml(d)}
     <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjDocSave" data-on-click="prjDocSave">${d.id ? 'حفظ التعديل' : 'حفظ الوثيقة'}</button><button class="btn btn-ghost btn-sm" data-on-click="prjDocCancel">إلغاء</button>${d.file_path ? prjFileBtn(d.file_path, d.file_name, 'الملف الحالي') : ''}</div>
   </div>`;
 }
+function prjOpenEnded(c){ const d = state.prj.docForm; if(d) d.open_ended = !!c; const m = document.getElementById('pjd_months'); if(m){ m.disabled = !!c; if(c) m.value = ''; } prjDraftSave(); }
 async function prjDocSave(){
   prjDocSync();
   const d = state.prj.docForm; if(!d) return;
