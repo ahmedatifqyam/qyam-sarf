@@ -3,7 +3,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
 const APP_VERSION = '1.37.8', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:2.9, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:353, base:350, extra:3.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7647,6 +7647,11 @@ function scrollHints(){
     if(sc.closest('.doc,.doc-page,.modal-overlay') || sc.querySelector('table.tcards')) return;
     const cs = getComputedStyle(sc);
     if(!/(auto|scroll)/.test(cs.overflowX)) return;
+    // جدول بلا سجلات (سطر «لا يوجد…» فقط): لا شريط تمرير ولا أسهم
+    const tb = sc.querySelector(':scope > table > tbody');
+    if(tb && ![...tb.rows].some(r=>!r.classList.contains('cx-empty') && !r.querySelector('.ct-empty') && !(r.cells.length===1 && (r.cells[0].colSpan||1) > 1))){
+      sc.classList.remove('xs','xs-more','xs-start'); sc.classList.add('xs-none'); while(sc.nextElementSibling && sc.nextElementSibling.classList.contains('xs-shade')) sc.nextElementSibling.remove(); return; }
+    sc.classList.remove('xs-none');
     const upd = ()=>{
       const more = sc.scrollWidth > sc.clientWidth + 2;
       const end = Math.abs(sc.scrollLeft) + sc.clientWidth >= sc.scrollWidth - 2;
@@ -7665,7 +7670,7 @@ function scrollHints(){
         d.title = side==='l' ? 'عرض باقي الأعمدة' : 'الرجوع لأول الأعمدة'; d.setAttribute('aria-label', d.title);
         d.innerHTML = `<span class="xs-arr"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${side==='l' ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg></span>`;
         d.style.top = sc.offsetTop+'px'; d.style.height = sc.clientHeight+'px';
-        if(side==='l') d.style.left = sc.offsetLeft+'px'; else d.style.left = (sc.offsetLeft + sc.clientWidth - 40)+'px';
+        if(side==='l') d.style.left = sc.offsetLeft+'px'; else d.style.left = (sc.offsetLeft + sc.clientWidth - 36)+'px';
         d.addEventListener('click', ev=>{ ev.preventDefault(); ev.stopPropagation(); const step = Math.max(160, Math.round(sc.clientWidth * 0.8)); sc.scrollBy({left: side==='l' ? -step : step, behavior:'smooth'}); });
         sc.after(d); });
     }

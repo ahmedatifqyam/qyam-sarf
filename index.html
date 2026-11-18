@@ -3527,6 +3527,16 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     background:var(--ink);color:#fff;font-size:24px;font-weight:800;line-height:1;direction:ltr;box-shadow:0 2px 8px rgba(0,0,0,.25);}
   #app .xs.xs-more + .xs-shade-r + .xs-shade-l, #app .xs.xs-start + .xs-shade-r{display:flex !important;align-items:center;justify-content:center;}
   @media print{ #app .xs-shade{display:none !important;} }
+
+  /* (1.38.2) شريط التمرير زر حقيقي بطول الجدول: خلفية وإطار كالأزرار، والسهم داخله (بلا تظليل ولا دائرة) */
+  #app .xs-shade-l, #app .xs-shade-r{background:var(--card) !important;border:1px solid var(--line) !important;color:var(--ink);box-shadow:0 0 10px rgba(0,0,0,.10);width:36px !important;}
+  #app .xs-shade-l{border-radius:8px 0 0 8px !important;} #app .xs-shade-r{border-radius:0 8px 8px 0 !important;}
+  #app .xs-shade:hover{background:var(--ink) !important;color:#fff;border-color:var(--ink) !important;}
+  #app .xs-shade .xs-arr{background:none !important;box-shadow:none !important;color:inherit !important;width:24px;height:24px;}
+  #app .xs-shade .xs-arr svg{width:22px;height:22px;}
+  #app .xs-shade .xs-arr{position:static !important;}
+
+  #app .xs-none{overflow-x:hidden !important;} #app .xs-none > table{min-width:0 !important;width:100% !important;}
 </style>
 </head>
 <body>
@@ -3547,6 +3557,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=c6480c8249"></script>
+<script src="app.js?v=37edfb9449"></script>
 </body>
 </html>
