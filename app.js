@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.30.2', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.30.3', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:355, base:350, extra:5.1, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:355, base:350, extra:5.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -14075,7 +14075,7 @@ function renderLogin(app){
           <label for="loginPhone">رقم الهاتف أو البريد الإلكتروني</label>
           <input id="loginPhone" type="text" name="username" autocomplete="username" placeholder="مثال: 99xxxxxx أو name@mail.com" data-on-keydown="#108">
           <label for="loginPassword">كلمة المرور</label>
-          <div class="pw-wrap"><input id="loginPassword" type="password" name="password" autocomplete="current-password" placeholder="••••••••" data-on-keydown="#109"><button type="button" class="pw-eye" data-on-click="pwToggle" data-on-click-args="${qa(['loginPassword'])}" title="إظهار كلمة المرور" aria-label="إظهار كلمة المرور">👁</button></div>
+          <div class="pw-wrap"><input id="loginPassword" type="password" name="password" autocomplete="current-password" placeholder="••••••••" data-on-keydown="#109"><button type="button" class="pw-eye" data-on-click="pwToggle" data-on-click-args="${qa(['loginPassword'])}" title="إظهار كلمة المرور" aria-label="إظهار كلمة المرور">${PW_EYE_SVG}</button></div>
           <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600;">
             <input id="rememberMeCheck" type="checkbox" style="width:auto;">
             تذكرني على هذا الجهاز
