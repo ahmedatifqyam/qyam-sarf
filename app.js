@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.26.0', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.27.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.5, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:353, base:350, extra:3.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18225,7 +18225,7 @@ function cxStop(){ /* يمنع فتح/طي الخدمة عند الضغط على
 // ===================== المشاريع: العقود وملاحقها، الوثائق، المشروع، الفواتير والتحصيل =====================
 // المسار: وثيقة (عرض سعر / نموذج خدمة / مقترح خدمة) تُرفع PDF ← اعتماد العميل يفتح المشروع وبنده ← فواتير بصورتين ← تحصيل يُسجَّل إيراداً على البند ← تقرير ← إغلاق.
 // الوثيقة تُرفع جاهزة الآن؛ وحقلا lines/sections في الجدول محجوزان لبنائها من داخل النظام لاحقاً.
-state.prj = {docs:[], projects:[], invoices:[], collections:[], settlements:[], contracts:[], prices:[], loaded:false, cid:null, _loading:false,
+state.prj = {docs:[], projects:[], invoices:[], collections:[], settlements:[], creqs:[], contracts:[], prices:[], loaded:false, cid:null, _loading:false,
   f:{st:'all', q:'', client:''}, openId:null, docForm:null, approve:null, invForm:null, colForm:null, rcpFor:null, editSet:false,
   cf:{q:'', client:''}, contractId:null, cForm:null, pickOpen:false, pickSel:{}};
 const PRJ_DOC_TYPES = [['quote','عرض سعر'],['service_form','نموذج خدمة'],['proposal','مقترح خدمة']];
@@ -18255,14 +18255,16 @@ async function prjLoad(){
   const cid = state.currentCompanyId; if(!cid || !state.user || state.prj._loading) return;
   state.prj._loading = true;
   try{
-    const [d, p, i, k, c, st] = await Promise.all([
+    const [d, p, i, k, c, st, cq] = await Promise.all([
       db.from('prj_documents').select('*').eq('company_id', cid).order('created_at', {ascending:false}),
       db.from('projects').select('*').eq('company_id', cid).order('created_at', {ascending:false}),
       db.from('prj_invoices').select('*').eq('company_id', cid).order('inv_date'),
       db.from('prj_collections').select('*').eq('company_id', cid).order('paid_on'),
       db.from('client_contracts').select('*').eq('company_id', cid).order('contract_date', {ascending:false}),
-      db.from('prj_settlements').select('*').eq('company_id', cid).order('created_at')
+      db.from('prj_settlements').select('*').eq('company_id', cid).order('created_at'),
+      db.from('prj_client_requests').select('*').eq('company_id', cid).order('req_date', {ascending:false})
     ]);
+    state.prj.creqs = (cq && cq.data) || [];
     state.prj.settlements = (st && st.data) || [];
     state.prj.docs = d.data||[]; state.prj.projects = p.data||[]; state.prj.invoices = i.data||[]; state.prj.collections = k.data||[]; state.prj.contracts = c.data||[];
     const ids = state.prj.contracts.map(x=>x.id);
@@ -18546,21 +18548,103 @@ function renderProjects(app){
         <select class="pj-csel" data-on-change="prjFilter" data-on-change-args="${qa(['client', QA.v])}"><option value="">كل العملاء</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${f.client===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select>
         <select class="pj-ssel" data-on-change="prjFilter" data-on-change-args="${qa(['st', QA.v])}">${stOpt('all','كل الحالات')}${stOpt('waiting','بانتظار العميل','🟠')}${stOpt('active','نشطة','🟢')}${stOpt('closed','مغلقة','⚪')}${stOpt('rejected','مرفوضة وملغاة','🔴')}${stOpt('due','فواتير مستحقة','🔴')}${stOpt('uncol','غير محصّل','🔴')}</select>
         <input type="search" class="qy-search pj-search" placeholder="بحث بالاسم أو الرقم أو العميل" value="${escH(f.q||'')}" data-on-input="prjFilter" data-on-input-args="${qa(['q', QA.v])}">
-        ${canEditPrj() && !P.docForm ? `<button class="btn btn-primary btn-md" data-on-click="prjNewDoc">+ مشروع جديد</button>` : ''}
+        ${canEditPrj() && !P.docForm && !P.creqForm ? `<button class="btn btn-ghost btn-md" data-on-click="prjCreqNew">+ طلب عميل</button><button class="btn btn-primary btn-md" data-on-click="prjNewDoc">+ مشروع جديد</button>` : ''}
       </div>
+      ${P.creqForm ? prjCreqFormHtml() : ''}
+      ${prjCreqPendingHtml()}
       ${!P.loaded ? '<div class="ct-empty">جارٍ التحميل…</div>' : rows.length ? `<div class="pj-list">${rows.map(prjCardHtml).join('')}</div>` : `<div class="ct-empty">${P.docs.length || P.projects.length ? 'لا نتائج بهذا الفلتر.' : 'لا مشاريع بعد. ابدأ بـ«+ مشروع جديد» وارفع عرض السعر أو نموذج الخدمة أو مقترح الخدمة.'}</div>`}
     </div>
     ${prjSettingsHtml()}`;
 }
 
+// ---------- طلب العميل (1.27.0): ما يشرح فيه العميل المطلوب. اختياري، وقد يأتي قبل الوثيقة ----------
+const PRJ_CREQ_CH = {letter:'خطاب', email:'بريد إلكتروني', whatsapp:'واتساب', meeting:'اجتماع', phone:'هاتف', other:'أخرى'};
+function prjCreqOfDoc(docId){ return (state.prj.creqs||[]).find(q=>q.doc_id===docId && q.status==='linked') || null; }
+function prjCreqPending(clientId){ return (state.prj.creqs||[]).filter(q=>q.status==='new' && (!clientId || q.client_id===clientId)); }
+function prjCreqFilesHtml(q){ return (Array.isArray(q.files) ? q.files : []).map((f,i)=>prjFileBtn(f.path, f.name, 'ملف ' + (i+1))).join(''); }
+function prjCreqFieldsHtml(q, pre){
+  const clients = cxClientTree();
+  return `<div class="co-g co-g4">
+    ${pre==='pjq' ? `<div class="co-f co-s2"><label for="pjq_client">العميل</label><select id="pjq_client"><option value="">— اختر العميل —</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${q.client_id===c.id?'selected':''}>${'— '.repeat(depth)}${escH(c.name)}</option>`).join('')}</select></div>` : ''}
+    <div class="co-f"><label for="${pre}_date">تاريخ الطلب</label><input id="${pre}_date" type="date" value="${escH(q.req_date||cxToday())}"></div>
+    <div class="co-f"><label for="${pre}_ch">وصل عن طريق</label><select id="${pre}_ch">${Object.entries(PRJ_CREQ_CH).map(([k,l])=>`<option value="${k}" ${q.channel===k?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="co-f co-s4"><label for="${pre}_desc">ما يطلبه العميل</label><textarea id="${pre}_desc" rows="3" placeholder="وصف مختصر لما يريد العميل عمله في المشروع">${escH(q.description||'')}</textarea></div>
+    <div class="co-f co-s2"><label for="${pre}_files">ملفات الطلب (حتى 3)</label><input id="${pre}_files" type="file" multiple accept="application/pdf,image/*">${(q.files||[]).length ? `<div class="file-hint">الملفات الحالية: ${(q.files||[]).length} — اختيار ملفات جديدة يضيفها (المجموع 3 على الأكثر)</div>` : '<div class="file-hint">اختياري: الخطاب أو صورة الرسالة أو مخطط</div>'}</div>
+  </div>`;
+}
+function prjCreqFormHtml(){
+  const q = state.prj.creqForm;
+  return `<div class="pj-approve" id="pjCreqForm"><h3 class="uf-h">${q.id ? 'تعديل طلب العميل' : 'طلب عميل جديد'}</h3>
+    <p class="file-hint">سجّل الطلب عند وصوله، ثم اضغط «إنشاء الوثيقة» عند الرد عليه.</p>
+    ${prjCreqFieldsHtml(q, 'pjq')}
+    <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjCreqSave" data-on-click="prjCreqSave">حفظ الطلب</button><button class="btn btn-ghost btn-md" data-on-click="prjCreqCancel">إلغاء</button></div></div>`;
+}
+function prjCreqNew(){ state.prj.creqForm = {id:null, client_id:state.prj.f.client||'', req_date:cxToday(), channel:'whatsapp', description:'', files:[]}; render();
+  setTimeout(()=>{ const el = document.getElementById('pjq_client'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus({preventScroll:true}); } }, 60); }
+function prjCreqEdit(id){ const q = (state.prj.creqs||[]).find(x=>x.id===id); if(!q) return; state.prj.creqForm = Object.assign({}, q, {files:(q.files||[]).slice()}); render(); }
+function prjCreqCancel(){ state.prj.creqForm = null; render(); }
+// يقرأ حقول الطلب (بالبادئة) ويرفع الملفات الجديدة؛ يُرجع الصف أو null عند نقص
+async function prjCreqRead(pre, old){
+  const g = k => (document.getElementById(pre + '_' + k)||{}).value || '';
+  const desc = g('desc').trim(); if(!desc){ fieldErr('#' + pre + '_desc', 'اكتب ما يطلبه العميل'); return null; }
+  const inp = document.getElementById(pre + '_files'), add = inp && inp.files ? [...inp.files] : [];
+  const files = (old && Array.isArray(old.files) ? old.files.slice() : []);
+  if(files.length + add.length > 3){ fieldErr('#' + pre + '_files', 'ثلاثة ملفات على الأكثر'); return null; }
+  for(const f of add){ const u = await prjUpload(f, 'requests'); files.push({path:u.path, name:u.name}); }
+  return {req_date:g('date') || cxToday(), channel:g('ch') || 'other', description:desc, files};
+}
+async function prjCreqSave(){
+  const q = state.prj.creqForm; if(!q) return;
+  const cl = (document.getElementById('pjq_client')||{}).value || '';
+  if(!cl){ fieldErr('#pjq_client','اختر العميل'); return; }
+  const btn = document.getElementById('pjCreqSave'); if(btn){ btn.disabled = true; btn.textContent = 'جارٍ الحفظ…'; }
+  try{
+    const row = await prjCreqRead('pjq', q); if(!row){ if(btn){ btn.disabled = false; btn.textContent = 'حفظ الطلب'; } return; }
+    row.client_id = cl;
+    const r = q.id ? await db.from('prj_client_requests').update(row).eq('id', q.id)
+                   : await db.from('prj_client_requests').insert(Object.assign(row, {company_id:state.currentCompanyId, status:'new', created_by:state.user.id}));
+    if(!(await dbCheck(r,'حفظ طلب العميل'))) throw new Error('-');
+    state.prj.creqForm = null; showToast('حُفظ طلب العميل','success'); await prjLoad();
+  }catch(e){ if(e.message!=='-') showToast('تعذّر الحفظ: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'حفظ الطلب'; } }
+}
+async function prjCreqDrop(id){
+  if(!confirm('إلغاء طلب العميل؟ يبقى محفوظاً بحالة «ملغى».')) return;
+  const r = await db.from('prj_client_requests').update({status:'cancelled'}).eq('id', id);
+  if(!(await dbCheck(r,'إلغاء الطلب'))) return; showToast('أُلغي الطلب','success'); await prjLoad();
+}
+function prjCreqToDoc(id){ const q = (state.prj.creqs||[]).find(x=>x.id===id); if(!q) return; prjNewDoc(); const d = state.prj.docForm; d.client_id = q.client_id||''; d.creq_id = q.id; render(); }
+function prjCreqPendingHtml(){
+  const L = prjCreqPending(state.prj.f.client); if(!L.length) return '';
+  const ed = canEditPrj();
+  return `<div class="pj-creqs"><h3>طلبات عملاء بانتظار الوثيقة <span class="file-hint">(${L.length})</span></h3>
+    ${L.map(q=>`<div class="pj-creq">
+      <div class="pj-creq-h"><b>${escH(prjClientName(q.client_id)||'—')}</b><span class="file-hint">${cxDate(q.req_date)} · ${escH(PRJ_CREQ_CH[q.channel]||'')}</span><span class="pj-creq-st"><i class="pj-dot-s"></i>طلب جديد — بانتظار الوثيقة</span></div>
+      <div class="pj-creq-d">${escH(q.description)}</div>
+      <div class="pj-acts-w">${prjCreqFilesHtml(q)}${ed ? `<button class="btn btn-primary btn-sm" data-on-click="prjCreqToDoc" data-on-click-args="${qa([q.id])}">إنشاء الوثيقة</button><button class="btn btn-ghost btn-sm" data-on-click="prjCreqEdit" data-on-click-args="${qa([q.id])}">تعديل</button><button class="btn btn-ghost btn-sm pj-act-x" data-on-click="prjCreqDrop" data-on-click-args="${qa([q.id])}">إلغاء الطلب</button>` : ''}</div>
+    </div>`).join('')}</div>`;
+}
+// تبديل حقول «تسجيل الطلب هنا» بلا إعادة رسم (حتى لا يضيع ملف الوثيقة المختار)
+function prjDocCreqPick(v){ const d = state.prj.docForm; if(d) d.creq_id = v; const w = document.getElementById('pjdq_wrap'); if(w){ w.hidden = v!=='__new'; if(v==='__new'){ const e = document.getElementById('pjdq_desc'); if(e) e.focus(); } } }
+// داخل نموذج الوثيقة: اختيار طلب قائم للعميل، أو تسجيله هنا، أو بدون
+function prjDocCreqHtml(d){
+  const pend = prjCreqPending(d.client_id).concat(d.id && prjCreqOfDoc(d.id) ? [prjCreqOfDoc(d.id)] : []);
+  const v = d.creq_id || '';
+  return `<div class="pjl-box pj-creq-box"><div class="cx-panel-h"><h3>طلب العميل <span class="file-hint">(اختياري)</span></h3></div>
+    <div class="co-g co-g4"><div class="co-f co-s2"><label for="pjd_creq_id">الطلب</label><select id="pjd_creq_id" data-on-change="prjDocCreqPick" data-on-change-args="${qa([QA.v])}">
+      <option value="">— بدون طلب —</option>${pend.map(q=>`<option value="${escH(q.id)}" ${v===q.id?'selected':''}>${cxDate(q.req_date)} · ${escH(PRJ_CREQ_CH[q.channel]||'')} · ${escH(String(q.description).slice(0,50))}</option>`).join('')}
+      <option value="__new" ${v==='__new'?'selected':''}>+ تسجيل الطلب هنا</option></select></div></div>
+    <div id="pjdq_wrap" ${v==='__new' ? '' : 'hidden'}>${prjCreqFieldsHtml({req_date:cxToday(), channel:'whatsapp', description:d._cq_desc||'', files:[]}, 'pjdq')}</div>
+  </div>`;
+}
 // ---------- الوثيقة: رفع PDF جاهز مع بياناتها ----------
 function prjNewDoc(){ state.prj.pickOpen = false; state.prj.docForm = {id:null, lines:[], doc_type:'quote', client_id:state.prj.f.client||'', contract_id:'', title:'', doc_date:cxToday(), amount:'', amount_kind:'total', months:'', open_ended:false, start_date:cxToday(), notes:''}; render(); window.scrollTo(0,0); }
-function prjEditDoc(id){ const d = state.prj.docs.find(x=>x.id===id); if(!d) return; state.prj.pickOpen = false; state.prj.docForm = Object.assign({}, d, {contract_id:d.contract_id||'', months:d.months||'', amount:d.amount, lines:(Array.isArray(d.lines) ? d.lines : []).map(l=>Object.assign({}, l))}); render(); setTimeout(()=>{ const el = document.getElementById('pjDocForm'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 40); }
+function prjEditDoc(id){ const d = state.prj.docs.find(x=>x.id===id); if(!d) return; state.prj.pickOpen = false; state.prj.docForm = Object.assign({}, d, {creq_id:(prjCreqOfDoc(d.id)||{}).id||'', contract_id:d.contract_id||'', months:d.months||'', amount:d.amount, lines:(Array.isArray(d.lines) ? d.lines : []).map(l=>Object.assign({}, l))}); render(); setTimeout(()=>{ const el = document.getElementById('pjDocForm'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 40); }
 function prjDocCancel(){ state.prj.docForm = null; render(); }
 function prjDocSync(){
   const d = state.prj.docForm; if(!d) return;
   const g = k => { const el = document.getElementById('pjd_'+k); return el ? (el.type==='checkbox' ? el.checked : el.value) : undefined; };
-  ['doc_type','client_id','contract_id','title','doc_date','amount','amount_kind','months','start_date','notes','open_ended'].forEach(k=>{ const v = g(k); if(v!==undefined) d[k] = v; });
+  ['doc_type','client_id','contract_id','title','doc_date','amount','amount_kind','months','start_date','notes','open_ended','creq_id'].forEach(k=>{ const v = g(k); if(v!==undefined) d[k] = v; });
+  const qd = document.getElementById('pjdq_desc'); if(qd) d._cq_desc = qd.value;
 }
 function prjDocRefresh(){ prjDocSync(); render(); }
 // بنود المشروع: تُختار من «خدمات الشركة» أو تُكتب، والقيمة مجموعها (الكمية × السعر)
@@ -18624,6 +18708,7 @@ function prjDocFormHtml(){
       <div class="co-f"><label for="pjd_file">ملف الوثيقة</label><input id="pjd_file" type="file" accept="application/pdf,image/*">${d.file_path ? '<div class="file-hint">اتركه دون اختيار للإبقاء على الملف الحالي.</div>' : ''}</div>
       <div class="co-f co-s2"><label for="pjd_notes">ملاحظات</label><input id="pjd_notes" type="text" value="${escH(d.notes||'')}" placeholder="اختياري"></div>
     </div>
+    ${prjDocCreqHtml(d)}
     ${prjLinesFormHtml(d)}
     <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjDocSave" data-on-click="prjDocSave">${d.id ? 'حفظ التعديل' : 'حفظ الوثيقة'}</button><button class="btn btn-ghost btn-sm" data-on-click="prjDocCancel">إلغاء</button>${d.file_path ? prjFileBtn(d.file_path, d.file_name, 'الملف الحالي') : ''}</div>
   </div>`;
@@ -18642,6 +18727,8 @@ async function prjDocSave(){
   if(d.amount_kind==='monthly' && !d.open_ended && !months){ fieldErr('#pjd_months','اكتب عدد الأشهر أو اختر «مفتوح»'); return; }
   const file = prjFileOf('pjd_file');
   if(!d.id && !file){ fieldErr('#pjd_file','أرفق ملف الوثيقة'); return; }
+  if(d.creq_id==='__new'){ if(!String((document.getElementById('pjdq_desc')||{}).value||'').trim()){ fieldErr('#pjdq_desc','اكتب ما يطلبه العميل، أو اختر «بدون طلب»'); return; }
+    const fi = document.getElementById('pjdq_files'); if(fi && fi.files && fi.files.length > 3){ fieldErr('#pjdq_files','ثلاثة ملفات على الأكثر'); return; } }
   const btn = document.getElementById('pjDocSave'); if(btn){ btn.disabled = true; btn.textContent = 'جارٍ الحفظ…'; }
   try{
     const up = file ? await prjUpload(file, 'docs') : null;
@@ -18660,6 +18747,14 @@ async function prjDocSave(){
       }
     }
     if(!(await dbCheck(r, 'حفظ الوثيقة'))){ if(up) db.storage.from('attachments').remove([up.path]).catch(()=>{}); throw new Error('-'); }
+    // ربط طلب العميل: فكّ القديم إن تغيّر، ثم اربط المختار أو سجّل الجديد
+    const docId = d.id || (r.data||{}).id, prev = d.id ? prjCreqOfDoc(d.id) : null, want = d.creq_id || '';
+    if(docId){
+      if(prev && prev.id !== want) await dbCheck(await db.from('prj_client_requests').update({status:'new', doc_id:null}).eq('id', prev.id), 'فك ربط الطلب');
+      if(want==='__new'){ const qr = await prjCreqRead('pjdq', null);
+        if(qr) await dbCheck(await db.from('prj_client_requests').insert(Object.assign(qr, {company_id:state.currentCompanyId, client_id:d.client_id, status:'linked', doc_id:docId, created_by:state.user.id})), 'حفظ طلب العميل'); }
+      else if(want && (!prev || prev.id !== want)) await dbCheck(await db.from('prj_client_requests').update({status:'linked', doc_id:docId}).eq('id', want), 'ربط طلب العميل');
+    }
     showToast(d.id ? 'حُفظ التعديل' : 'حُفظت الوثيقة ' + ((r.data||{}).doc_no||''), 'success');
     state.prj.docForm = null; await prjLoad();
   }catch(e){ if(e.message!=='-') showToast('تعذّر الحفظ: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'حفظ'; } }
@@ -18721,6 +18816,7 @@ function prjDocPanelHtml(d, p){
   const fin = isFinanceUser(), ed = canEditPrj();
   return `<div class="card cx-panel">
     <div class="cx-panel-h"><h2>1 · الوثيقة</h2><div class="cx-ph-tools">${prjFileBtn(d.file_path, d.file_name, 'عرض الوثيقة')}${prjFileBtn(d.signed_path, d.signed_name, 'النسخة الموقّعة')}</div></div>
+    ${(()=>{ const q = prjCreqOfDoc(d.id); return q ? `<div class="pj-creq pj-creq-in"><div class="pj-creq-h"><b>طلب العميل</b><span class="file-hint">${cxDate(q.req_date)} · ${escH(PRJ_CREQ_CH[q.channel]||'')}</span></div><div class="pj-creq-d">${escH(q.description)}</div>${(q.files||[]).length ? `<div class="pj-acts-w">${prjCreqFilesHtml(q)}</div>` : ''}</div>` : ''; })()}
     <div class="pj-kvs">
       ${kv('النوع', escH(prjDocTypeName(d.doc_type)))}${kv('الرقم', `<bdi>${escH(d.doc_no)}</bdi>`)}${kv('التاريخ', cxDate(d.doc_date))}
       ${kv('القيمة', fmtKWDHtml(d.amount) + (d.amount_kind==='monthly' ? ' <small>شهرياً</small>' : ''))}${kv('المدة', dur)}${kv('بداية التنفيذ', cxDate(d.start_date))}
@@ -19079,6 +19175,7 @@ function prjClosePanelHtml(p){
   const ed = canEditPrj(), fin = isFinanceUser();
   return `<div class="card cx-panel">
     <div class="cx-panel-h"><h2>5 · التقرير والإغلاق</h2>${prjFileBtn(p.report_path, p.report_name, 'عرض التقرير')}</div>
+    ${(()=>{ const q = p.document_id ? prjCreqOfDoc(p.document_id) : null; return q && p.status==='active' ? `<div class="pj-creq pj-creq-in"><div class="pj-creq-h"><b>للمقارنة — ما طلبه العميل</b><span class="file-hint">${cxDate(q.req_date)}</span></div><div class="pj-creq-d">${escH(q.description)}</div></div>` : ''; })()}
     ${p.status==='active' ? (ed ? `<div class="pj-rep-l"><label for="pjrep_file">${p.report_path ? 'استبدال التقرير الختامي' : 'التقرير الختامي'}</label></div>
       <div class="pj-rep-row"><input id="pjrep_file" type="file" accept="application/pdf,image/*"><button class="btn btn-ghost btn-md" data-on-click="prjReportSave" data-on-click-args="${qa([p.id])}">رفع التقرير</button><button class="btn btn-primary btn-md" ${p.report_path?'':'disabled title="ارفع التقرير أولاً"'} data-on-click="prjClose" data-on-click-args="${qa([p.id])}">إغلاق المشروع</button></div>
       <div class="pj-rep-hint">${p.report_path ? '' : '<span class="file-hint">يُغلق المشروع بعد رفع تقريره الختامي وتحصيل مبالغه أو معالجتها.</span>'}</div>` : '<div class="ct-empty">المشروع نشط.</div>')
