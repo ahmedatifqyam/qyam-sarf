@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.25.1', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.26.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.2, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.5, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -568,11 +568,11 @@ function dbCenterToState(c){
   };
 }
 function dbBeneficiaryToState(b){
-  return {id:b.id, name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', idFileName:'', idFileData:b.id_file_data||'', bankFileName:'', bankFileData:b.bank_file_data||'', companyId:b.company_id};
+  return {id:b.id, centerId:b.center_id||null, name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', idFileName:'', idFileData:b.id_file_data||'', bankFileName:'', bankFileData:b.bank_file_data||'', companyId:b.company_id};
 }
 function dbCompanyToState(c){
   return {
-    id:c.id, hrApproverId:c.hr_approver_id||null, invoiceAlertUserIds:(Array.isArray(c.invoice_alert_user_ids) ? c.invoice_alert_user_ids : []), prepayDefaultPct:(c.prepay_default_pct==null ? 80 : Number(c.prepay_default_pct)), gatewayCompanyPct:(c.gateway_company_pct==null?5:Number(c.gateway_company_pct)), supportCompanyPct:(c.support_company_pct==null?10:Number(c.support_company_pct)), importStaleDays:(c.import_stale_days==null?7:Number(c.import_stale_days)), nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'', brandLogo:c.brand_logo_data||'',
+    id:c.id, hrApproverId:c.hr_approver_id||null, invoiceAlertUserIds:(Array.isArray(c.invoice_alert_user_ids) ? c.invoice_alert_user_ids : []), settleUserIds:(Array.isArray(c.settle_user_ids) ? c.settle_user_ids : []), prepayDefaultPct:(c.prepay_default_pct==null ? 80 : Number(c.prepay_default_pct)), gatewayCompanyPct:(c.gateway_company_pct==null?5:Number(c.gateway_company_pct)), supportCompanyPct:(c.support_company_pct==null?10:Number(c.support_company_pct)), importStaleDays:(c.import_stale_days==null?7:Number(c.import_stale_days)), nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'', brandLogo:c.brand_logo_data||'',
     footerText:(c.footer_text===undefined ? null : c.footer_text), footerFontMode:c.footer_font_mode||'auto', footerFontSize:(c.footer_font_size!=null ? Number(c.footer_font_size) : 10), footerShowText:c.footer_show_text!==false, footerShowLine:c.footer_show_line!==false,
     footerTextColor:c.footer_text_color||'#111111', footerNumColor:c.footer_num_color||'#111111', footerLineColor:c.footer_line_color||'#888888', pageNumStyle:c.page_num_style||'full', footerOffset:(c.footer_offset_mm!=null ? Number(c.footer_offset_mm) : 4),
     primaryColor:c.primary_color||'#C0392B', verifyPrefix:c.verify_prefix||'', code:c.code, hqCode:c.hq_code||'HQ',
@@ -3633,8 +3633,10 @@ setInterval(()=>{
 // يحوّل ما يكتبه المستخدم إلى بريد المصادقة: رقم هاتف ← <الرقم>@qyam.local ، وبريد ← كما هو
 const AUTH_EMAIL_DOMAIN = '@qyam.local';
 // زر 👁: يُظهر كلمة المرور أو يخفيها
+const PW_EYE_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const PW_EYE_OFF_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-2.9 3.9M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>';
 function pwToggle(id){ const el = document.getElementById(id); if(!el) return; const show = el.type==='password'; el.type = show ? 'text' : 'password';
-  const b = el.parentElement && el.parentElement.querySelector('.pw-eye'); if(b){ b.textContent = show ? '🙈' : '👁'; b.title = show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'; b.setAttribute('aria-label', b.title); } el.focus(); }
+  const b = el.parentElement && el.parentElement.querySelector('.pw-eye'); if(b){ b.innerHTML = show ? PW_EYE_OFF_SVG : PW_EYE_SVG; b.title = show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'; b.setAttribute('aria-label', b.title); } el.focus(); }
 function loginIdToEmail(id){
   const v = String(id||'').trim().toLowerCase();
   return v.includes('@') ? v : v + AUTH_EMAIL_DOMAIN;
@@ -4695,17 +4697,18 @@ async function submitDraftInner(){
       continue;
     }
     if(!master){
-      master = {name:b.name, nameEn:b.nameEn, iban:b.iban, civilId:b.civilId, idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', companyId: state.currentCompanyId};
+      master = {name:b.name, nameEn:b.nameEn, iban:b.iban, civilId:b.civilId, idFileName:'', idFileData:'', bankFileName:'', bankFileData:'', companyId: state.currentCompanyId, centerId: benScope()};
       state.beneficiaries.push(master);
     }
-    const payload = {name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, company_id: state.currentCompanyId};
+    const payload = {name:b.name, name_en:b.nameEn, iban:b.iban, national_id:b.civilId, company_id: state.currentCompanyId, center_id: master.id ? (master.centerId||null) : benScope()};
+    if(!master.id) master.centerId = payload.center_id;
     if(b._idFileData){ master.idFileName = b._idFileName; master.idFileData = b._idFileData; payload.id_file_data = b._idFileData; }
     if(b._bankFileData){ master.bankFileName = b._bankFileName; master.bankFileData = b._bankFileData; payload.bank_file_data = b._bankFileData; }
     if(b.nameEn) master.nameEn = b.nameEn;
     if(b.iban) master.iban = b.iban;
     if(b.civilId) master.civilId = b.civilId;
     delete b._idFileName; delete b._idFileData; delete b._bankFileName; delete b._bankFileData;
-    const upRes = await db.from('beneficiaries_master').upsert(payload, {onConflict:'company_id,name'}).select('id').maybeSingle();
+    const upRes = await db.from('beneficiaries_master').upsert(payload, {onConflict:'company_id,scope_key,name'}).select('id').maybeSingle();
     await dbCheck(upRes, 'حفظ بيانات المستفيد');
     if(upRes && upRes.data && upRes.data.id) master.id = upRes.data.id;
     const draftB = (d.beneficiaries||[]).find(x=>(x.name||'').trim()===b.name);
@@ -6302,8 +6305,8 @@ async function saveAccount(){
   if(_blockMaster) showToast('حُفظت بياناتك. اسمك مسجّل في سجل المستفيدين بآيبان آخر، وتعديله هناك للمالية.','success');
   if(me.nameEn && me.iban && !_blockMaster){
     let master = state.beneficiaries.find(x=>x.name===me.name);
-    const payload = {name: me.name, name_en: me.nameEn, iban: me.iban, national_id: me.civilId||'', company_id: state.currentCompanyId};
-    const mUp = await db.from('beneficiaries_master').upsert(payload, {onConflict:'company_id,name'}).select('id,company_id').maybeSingle();
+    const payload = {name: me.name, name_en: me.nameEn, iban: me.iban, national_id: me.civilId||'', company_id: state.currentCompanyId, center_id: (master && master.id) ? (master.centerId||null) : benScope()};
+    const mUp = await db.from('beneficiaries_master').upsert(payload, {onConflict:'company_id,scope_key,name'}).select('id,company_id').maybeSingle();
     await dbCheck(mUp, 'حفظ بيانات المستفيد');
     const mId = mUp && mUp.data ? mUp.data.id : undefined;
     const mCo = mUp && mUp.data && mUp.data.company_id ? mUp.data.company_id : state.currentCompanyId;
@@ -7820,7 +7823,7 @@ function pwEyes(root){
     if(!el.id) el.id = 'pw_' + Math.random().toString(36).slice(2,9);
     const w = document.createElement('div'); w.className = 'pw-wrap'; w.style.width = el.style.width || '';
     el.parentNode.insertBefore(w, el); w.appendChild(el);
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'pw-eye'; b.textContent = '👁'; b.title = 'إظهار كلمة المرور'; b.setAttribute('aria-label', b.title);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pw-eye'; b.innerHTML = PW_EYE_SVG; b.title = 'إظهار كلمة المرور'; b.setAttribute('aria-label', b.title);
     b.addEventListener('click', ()=>pwToggle(el.id)); w.appendChild(b);
   });
 }
@@ -14804,7 +14807,7 @@ function renderNewRequest(app){
               <div class="nr-f"><label>الاسم</label>
                 <input class="b-name" type="text" data-combo="benList" autocomplete="off" value="${escH(b.name||'')}" placeholder="اسم الشخص أو الجهة" data-on-change="onBeneficiaryNameChange" data-on-change-args="${qa([(i), QA.v])}">
                 <datalist id="benList">
-                  ${state.beneficiaries.filter(x=>x.companyId===state.currentCompanyId).map(x=>`<option value="${escH(x.name)}">`).join('')}
+                  ${state.beneficiaries.filter(x=>x.companyId===state.currentCompanyId && benVisible(x)).map(x=>`<option value="${escH(x.name)}">`).join('')}
                 </datalist></div>
               <div class="nr-dup-h nr-wide" style="display:none;"></div>
               ${folded ? `<div class="nr-known">
@@ -17370,6 +17373,9 @@ function cxCanSeeUnit(id){
 function cxIsBookUnitId(id){ const u = cxUnit(id); return !!u && cxIsBookUnit(u); }
 // وحدة المستخدم من سجله في قائمة المستخدمين (state.user لا يحمل وحدته)، فيعمل أيضاً في «عرض كمستخدم»
 function cxMyCenterId(){ if(!state.user) return null; const me = (state.users||[]).find(x=>x.id===state.user.id); return (me && me.centerId) || state.user.centerId || null; }
+// المستفيدون: موظف المركز يرى مستفيدي مركزه (وما يراه من وحداته) فقط، لا مستفيدي الشركة ولا مراكز أخرى — مطابق لـ qy_bene_can_see
+function benScope(){ return cxStaffUnitId() || null; }
+function benVisible(x){ if(!x) return false; if(!x.centerId) return !isCenterStaff(); return cxSeesAllCenters() || (state.user && state.user.role==='admin') || cxCanSeeUnit(x.centerId); }
 function cxStaffUnitId(){ const u = state.user, cid = cxMyCenterId(); if(!u || ['admin','accountant','cfo','executive_manager'].includes(u.role)) return null;
   if(cid && cxIsBookUnitId(cid)) return cid;
   return myUnitIds().find(id=>cxIsBookUnitId(id)) || null; }   // وحدته الأساسية، وإلا أول وحدة إضافية في مركز
@@ -18219,7 +18225,7 @@ function cxStop(){ /* يمنع فتح/طي الخدمة عند الضغط على
 // ===================== المشاريع: العقود وملاحقها، الوثائق، المشروع، الفواتير والتحصيل =====================
 // المسار: وثيقة (عرض سعر / نموذج خدمة / مقترح خدمة) تُرفع PDF ← اعتماد العميل يفتح المشروع وبنده ← فواتير بصورتين ← تحصيل يُسجَّل إيراداً على البند ← تقرير ← إغلاق.
 // الوثيقة تُرفع جاهزة الآن؛ وحقلا lines/sections في الجدول محجوزان لبنائها من داخل النظام لاحقاً.
-state.prj = {docs:[], projects:[], invoices:[], collections:[], contracts:[], prices:[], loaded:false, cid:null, _loading:false,
+state.prj = {docs:[], projects:[], invoices:[], collections:[], settlements:[], contracts:[], prices:[], loaded:false, cid:null, _loading:false,
   f:{st:'all', q:'', client:''}, openId:null, docForm:null, approve:null, invForm:null, colForm:null, rcpFor:null, editSet:false,
   cf:{q:'', client:''}, contractId:null, cForm:null, pickOpen:false, pickSel:{}};
 const PRJ_DOC_TYPES = [['quote','عرض سعر'],['service_form','نموذج خدمة'],['proposal','مقترح خدمة']];
@@ -18249,13 +18255,15 @@ async function prjLoad(){
   const cid = state.currentCompanyId; if(!cid || !state.user || state.prj._loading) return;
   state.prj._loading = true;
   try{
-    const [d, p, i, k, c] = await Promise.all([
+    const [d, p, i, k, c, st] = await Promise.all([
       db.from('prj_documents').select('*').eq('company_id', cid).order('created_at', {ascending:false}),
       db.from('projects').select('*').eq('company_id', cid).order('created_at', {ascending:false}),
       db.from('prj_invoices').select('*').eq('company_id', cid).order('inv_date'),
       db.from('prj_collections').select('*').eq('company_id', cid).order('paid_on'),
-      db.from('client_contracts').select('*').eq('company_id', cid).order('contract_date', {ascending:false})
+      db.from('client_contracts').select('*').eq('company_id', cid).order('contract_date', {ascending:false}),
+      db.from('prj_settlements').select('*').eq('company_id', cid).order('created_at')
     ]);
+    state.prj.settlements = (st && st.data) || [];
     state.prj.docs = d.data||[]; state.prj.projects = p.data||[]; state.prj.invoices = i.data||[]; state.prj.collections = k.data||[]; state.prj.contracts = c.data||[];
     const ids = state.prj.contracts.map(x=>x.id);
     const pr = ids.length ? await db.from('contract_prices').select('*').in('contract_id', ids).order('sort') : {data:[]};
@@ -18296,8 +18304,18 @@ function prjOfDoc(docId){ return state.prj.projects.find(p=>p.document_id===docI
 function prjDocOf(p){ return p && p.document_id ? state.prj.docs.find(d=>d.id===p.document_id) || null : null; }
 function prjInvs(p){ return state.prj.invoices.filter(i=>i.project_id===p.id && i.status!=='cancelled'); }
 function prjInvCollected(inv){ return cxR3(state.prj.collections.filter(c=>c.invoice_id===inv.id).reduce((s,c)=>s+Number(c.amount||0),0)); }
-function prjInvoiced(p){ return cxR3(prjInvs(p).reduce((s,i)=>s+Number(i.amount||0),0)); }
+// معالجات المبالغ غير المحصّلة (1.26.0): سداد لاحق، دين معدوم، خصم، ترحيل لعميل آخر، مسامحة
+const PRJ_SETTLE_KINDS = {later:'سداد في تاريخ لاحق', bad_debt:'دين معدوم', discount:'خصم للعميل', transfer:'ترحيل لعميل آخر', waive:'مسامحة العميل'};
+function prjSettles(inv){ return (state.prj.settlements||[]).filter(x=>x.invoice_id===inv.id && !x.cancelled_at); }
+function prjInvSettled(inv){ return cxR3(prjSettles(inv).filter(x=>x.kind!=='later').reduce((t,x)=>t+Number(x.amount||0),0)); }
+function prjInvLater(inv){ return prjSettles(inv).filter(x=>x.kind==='later').sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0] || null; }
+function prjInvOpen(inv){ return inv.status==='cancelled' ? 0 : Math.max(0, cxR3(Number(inv.amount) - prjInvCollected(inv) - prjInvSettled(inv))); }
+function prjCanSettle(){ const u = state.user; if(!u) return false; return u.role==='admin' || u.role==='cfo' || (prjCo().settleUserIds||[]).includes(u.id); }
+// المفوتر: الفواتير ناقص ما رُحّل منها لعميل آخر (فالفاتورة المرحّلة لا تُحسب مرتين)
+function prjInvoiced(p){ const inv = prjInvs(p); return cxR3(inv.reduce((s,i)=>s+Number(i.amount||0),0) - inv.reduce((s,i)=>s+prjSettles(i).filter(x=>x.kind==='transfer').reduce((t,x)=>t+Number(x.amount||0),0),0)); }
 function prjCollected(p){ return cxR3(prjInvs(p).reduce((s,i)=>s+prjInvCollected(i),0)); }
+// غير المحصّل الفعلي: بعد التحصيل والمعالجات (دين معدوم، خصم، مسامحة، ترحيل)
+function prjUncollected(p){ return cxR3(prjInvs(p).reduce((s,i)=>s+prjInvOpen(i),0)); }
 // آخر شهر تُستحق فيه فاتورة: المفتوح حتى الشهر الحالي، والمحدد حتى آخر أشهره
 function prjLastYm(p){ const s = prjYm(p.start_date), now = prjYm(); if(p.open_ended || !p.months) return now; const end = prjYmAdd(s, p.months-1); return end < now ? end : now; }
 function prjMonthsSoFar(p){ return Math.max(1, prjYmDiff(prjYm(p.start_date), prjLastYm(p)) + 1); }
@@ -18325,10 +18343,16 @@ function prjAlertMe(){
 }
 // تنبيه «اعمل فاتورة» في الجرس: يتكرر حتى تُرفع الفاتورة وعلم وصولها
 function computeInvoiceDueItems(){
-  if(!prjAlertMe()) return [];
+  const alertMe = prjAlertMe(), settleMe = prjCanSettle();
+  if(!alertMe && !settleMe) return [];
   if(state.prj.cid !== state.currentCompanyId){ if(!state.prj._loading) setTimeout(prjLoad, 0); return []; }
   const out = [], now = Date.now();
+  const today = cxToday();
   state.prj.projects.filter(p=>p.status==='active').forEach(p=>{
+    prjInvs(p).forEach(i=>{ const l = prjInvLater(i); if(l && l.due_date <= today && prjInvOpen(i) > 0)
+      out.push({key:'later:'+l.id, kind:'invoice_due', reqId:p.id, number:'', ts:now, isNew:true, overdue:true,
+        title:'موعد سداد العميل — ' + p.name, sub:'فاتورة ' + (i.inv_no||'') + ' · ' + fmtKWDPlain(prjInvOpen(i)) + ' · الموعد ' + cxDate(l.due_date)}); });
+    if(!alertMe) return;
     prjDuePeriods(p).forEach(ym=>{
       out.push({key:'inv:'+p.id+':'+(ym||'one'), kind:'invoice_due', reqId:p.id, number:'', ts:now, isNew:true, overdue:false,
         title:'اعمل فاتورة — ' + p.name, sub:(ym ? 'فاتورة ' + prjYmName(ym) : 'فاتورة المشروع') + ' · ' + (prjClientName(p.client_id)||'')});
@@ -18399,7 +18423,7 @@ function prjRows(){
     if(f.st==='closed' && s!=='closed') return false;
     if(f.st==='rejected' && !['rejected','cancelled'].includes(s)) return false;
     if(f.st==='due' && !(r.p && r.p.status==='active' && prjDuePeriods(r.p).length)) return false;
-    if(f.st==='uncol' && !(r.p && r.p.status==='active' && prjInvoiced(r.p) - prjCollected(r.p) > 0)) return false;
+    if(f.st==='uncol' && !(r.p && r.p.status==='active' && prjUncollected(r.p) > 0)) return false;
     if(f.st==='all' && ['rejected','cancelled'].includes(s)) return false;
     const cl = r.p ? r.p.client_id : r.d.client_id;
     if(f.client && cl!==f.client) return false;
@@ -18508,7 +18532,7 @@ function renderProjects(app){
   const P = state.prj, f = P.f, rows = prjRows();
   const act = P.projects.filter(p=>p.status==='active');
   const dueN = act.reduce((s,p)=>s+prjDuePeriods(p).length,0);
-  const uncol = act.reduce((s,p)=>s+Math.max(0, prjInvoiced(p)-prjCollected(p)),0);
+  const uncol = act.reduce((s,p)=>s+prjUncollected(p),0);
   const clients = cxClientTree();
   const stOpt = (k,l,dot) => `<option value="${k}" ${f.st===k?'selected':''}>${dot ? dot+' ' : ''}${l}</option>`;
   const kpi = (l, v, cls, st) => `<button type="button" class="pj-kpi ${cls||''}${f.st===st?' on':''}" data-on-click="prjFilter" data-on-click-args="${qa(['st', f.st===st ? 'all' : st])}" title="${f.st===st ? 'إلغاء الفلتر' : 'عرض ' + l + ' فقط'}"><i></i><span>${l}</span><b>${v}</b></button>`;
@@ -18821,7 +18845,7 @@ function prjMoneyPanelHtml(p){
   const dur = p.open_ended ? 'مفتوح بلا نهاية' : (p.months ? p.months + ' شهر' : '—');
   return `<div class="card cx-panel">
     <div class="cx-panel-h"><h2>2 · المبالغ والصرف</h2>${canSet && !es ? `<button class="btn btn-ghost btn-sm" data-on-click="prjSetEdit" title="الاسم والمدة والصرف قبل الدفع">تعديل</button>` : ''}</div>
-    <div class="pj-figs">${prjFig('قيمة المشروع', val, '', Number(p.monthly_amount)>0 ? fmtKWD(p.monthly_amount,{noUnit:true})+' شهرياً' : '')}${prjFig('مفوتر', inv)}${prjFig('محصّل', col, 'pj-in')}${prjFig('مصروف ومحجوز', sp, 'pj-out')}${f ? prjFig('المتاح للصرف', f.available, f.available<0 ? 'pj-out' : 'pj-in') : prjFig('المتاح للصرف', null)}</div>
+    <div class="pj-figs">${prjFig('قيمة المشروع', val, '', Number(p.monthly_amount)>0 ? fmtKWD(p.monthly_amount,{noUnit:true})+' شهرياً' : '')}${prjFig('مفوتر', inv)}${prjFig('محصّل', col, 'pj-in')}${(()=>{ const st = cxR3(prjInvs(p).reduce((t,i)=>t+prjInvSettled(i),0)); return st>0 ? prjFig('مُعالَج (بلا تحصيل)', st, '', 'دين معدوم/خصم/مسامحة/ترحيل') : ''; })()}${prjFig('مصروف ومحجوز', sp, 'pj-out')}${f ? prjFig('المتاح للصرف', f.available, f.available<0 ? 'pj-out' : 'pj-in') : prjFig('المتاح للصرف', null)}</div>
     <div class="pj-kvs pj-kvs-2">
       <div class="pj-kv2"><span>بند الميزانية</span><b>${escH(item ? item.name : '—')}</b></div>
       <div class="pj-kv2"><span>الفاتورة</span><b>${p.invoice_mode==='monthly' ? 'كل شهر' : 'واحدة بالإجمالي'}</b></div>
@@ -18867,10 +18891,12 @@ async function prjSetSave(id){
 function prjInvoicesPanelHtml(p){
   const inv = state.prj.invoices.filter(i=>i.project_id===p.id), due = prjDuePeriods(p), fin = isFinanceUser(), ed = canEditPrj();
   const rows = inv.map(i=>{
-    const col = prjInvCollected(i), rem = cxR3(Number(i.amount) - col), canc = i.status==='cancelled';
+    const col = prjInvCollected(i), rem = prjInvOpen(i), canc = i.status==='cancelled', setl = prjSettles(i), later = prjInvLater(i);
+    const setlTxt = setl.filter(x=>x.kind!=='later').map(x=>PRJ_SETTLE_KINDS[x.kind] + ' ' + fmtKWDPlain(x.amount) + (x.kind==='transfer' && x.transfer_client_id ? ' إلى ' + (prjClientName(x.transfer_client_id)||'') : '')).join(' · ');
     return `<tr class="${canc?'cat-off':''}"><td data-label="الرقم"><bdi>${escH(i.inv_no||'—')}</bdi></td><td data-label="التاريخ">${cxDate(i.inv_date)}</td><td data-label="الفترة">${i.period ? escH(prjYmName(i.period)) : '—'}</td>
       <td data-label="المبلغ" class="num">${fmtKWDHtml(i.amount)}</td><td data-label="المحصّل" class="num">${fmtKWDHtml(col)}</td>
-      <td data-label="الحالة">${canc ? prjBadge('ملغاة','cancelled') : rem<=0 ? prjBadge('محصّلة','ok') : col>0 ? prjBadge('محصّلة جزئياً','due') : prjBadge('غير محصّلة','sent')}${!canc && !i.receipt_path ? prjBadge('ينقص علم الوصول','due') : ''}</td>
+      <td data-label="الحالة">${canc ? prjBadge('ملغاة','cancelled') : rem<=0 ? prjBadge(prjInvSettled(i)>0 ? 'مُعالَجة' : 'محصّلة','ok') : col>0 ? prjBadge('محصّلة جزئياً','due') : prjBadge('غير محصّلة','sent')}${!canc && !i.receipt_path ? prjBadge('ينقص علم الوصول','due') : ''}${!canc && later && rem>0 ? prjBadge('سداد في ' + cxDate(later.due_date),'due') : ''}
+        ${i.client_id ? `<div class="file-hint">مرحّلة إلى: ${escH(prjClientName(i.client_id)||'')}</div>` : ''}${setlTxt ? `<div class="file-hint">${escH(setlTxt)}</div>` : ''}</td>
       </tr>
       <tr class="pj-actrow${canc?' cat-off':''}"><td colspan="6"><div class="pj-acts-w">${prjFileBtn(i.invoice_path, i.invoice_name, 'الفاتورة')}${prjFileBtn(i.receipt_path, i.receipt_name, 'علم الوصول')}
         ${!canc && !i.receipt_path && ed ? `<button class="btn btn-ghost btn-sm" data-on-click="prjRcpOpen" data-on-click-args="${qa([i.id])}">+ علم الوصول</button>` : ''}
@@ -19055,7 +19081,8 @@ function prjClosePanelHtml(p){
     <div class="cx-panel-h"><h2>5 · التقرير والإغلاق</h2>${prjFileBtn(p.report_path, p.report_name, 'عرض التقرير')}</div>
     ${p.status==='active' ? (ed ? `<div class="pj-rep-l"><label for="pjrep_file">${p.report_path ? 'استبدال التقرير الختامي' : 'التقرير الختامي'}</label></div>
       <div class="pj-rep-row"><input id="pjrep_file" type="file" accept="application/pdf,image/*"><button class="btn btn-ghost btn-md" data-on-click="prjReportSave" data-on-click-args="${qa([p.id])}">رفع التقرير</button><button class="btn btn-primary btn-md" ${p.report_path?'':'disabled title="ارفع التقرير أولاً"'} data-on-click="prjClose" data-on-click-args="${qa([p.id])}">إغلاق المشروع</button></div>
-      <div class="pj-rep-hint">${p.report_path ? '' : '<span class="file-hint">يُغلق المشروع بعد رفع تقريره الختامي.</span>'}</div>` : '<div class="ct-empty">المشروع نشط.</div>')
+      <div class="pj-rep-hint">${p.report_path ? '' : '<span class="file-hint">يُغلق المشروع بعد رفع تقريره الختامي وتحصيل مبالغه أو معالجتها.</span>'}</div>` : '<div class="ct-empty">المشروع نشط.</div>')
+      + (state.prj.closeFor===p.id || prjCloseIssues(p).inv.length ? prjCloseIssuesHtml(p) : '') + prjSettlesListHtml(p)
     : `<div class="pj-kvs"><div class="pj-kv2"><span>أُغلق</span><b>${p.closed_at ? cxDate(String(p.closed_at).slice(0,10)) : '—'} ${p.closed_by ? '· ' + escH(prjUserName(p.closed_by)) : ''}</b></div></div>
       ${fin ? `<div class="cx-actions"><button class="btn btn-ghost btn-sm" data-on-click="prjReopen" data-on-click-args="${qa([p.id])}">إعادة فتح المشروع</button></div>` : ''}`}
   </div>`;
@@ -19069,13 +19096,95 @@ async function prjReportSave(id){
     showToast('رُفع التقرير','success'); await prjLoad();
   }catch(e){ showToast('تعذّر: ' + e.message, 'error'); }
 }
+// الإغلاق (1.26.0): لا يُغلق المشروع وفيه مبلغ غير محصّل لم يُعالَج، أو قيمة لم تُفوتر — يُفرض أيضاً في قاعدة البيانات
+function prjCloseIssues(p){
+  const inv = prjInvs(p).filter(i=>prjInvOpen(i) > 0), unbilled = Math.max(0, cxR3(prjValue(p) - prjInvoiced(p)));
+  return {inv, unbilled, report: !p.report_path, any: inv.length>0 || unbilled>0.0005 || !p.report_path};
+}
 async function prjClose(id){
   const p = state.prj.projects.find(x=>x.id===id); if(!p) return;
-  const open = cxR3(prjInvoiced(p) - prjCollected(p));
-  if(!confirm('إغلاق المشروع «' + p.name + '»؟' + (open>0 ? '\n\nتنبيه: فواتير غير محصّلة بمبلغ ' + fmtKWDPlain(open) + '.' : '') + '\nتتوقف تنبيهات الفواتير بعد الإغلاق.')) return;
+  const is = prjCloseIssues(p);
+  if(is.any){ state.prj.closeFor = id; render(); setTimeout(()=>{ const el = document.getElementById('pjCloseIssues'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 60);
+    showToast('لا يمكن إغلاق المشروع الآن — راجع ما ينقص','error'); return; }
+  if(!confirm('إغلاق المشروع «' + p.name + '»؟\nتتوقف تنبيهات الفواتير بعد الإغلاق.')) return;
   const r = await db.from('projects').update({status:'closed', closed_at:new Date().toISOString(), closed_by:state.user.id}).eq('id', id);
   if(!(await dbCheck(r,'إغلاق المشروع'))) return;
-  showToast('أُغلق المشروع','success'); await prjLoad();
+  state.prj.closeFor = null; showToast('أُغلق المشروع','success'); await prjLoad();
+}
+function prjCloseIssuesHtml(p){
+  const is = prjCloseIssues(p), can = prjCanSettle(), f = state.prj.settleForm || {};
+  if(!is.any){ return `<div class="pj-close-ok" id="pjCloseIssues">✓ اكتملت الخطوات — يمكن إغلاق المشروع.</div>`; }
+  const clients = (state.cx.clients||[]).filter(c=>c.id!==p.client_id).sort(_byName);
+  return `<div class="pj-close-box" id="pjCloseIssues">
+    <h3>لا يمكن إغلاق المشروع الآن</h3>
+    <ul class="pj-close-list">
+      ${is.report ? '<li>التقرير الختامي لم يُرفع.</li>' : ''}
+      ${is.unbilled>0.0005 ? `<li>قيمة لم تُفوتر: <b>${fmtKWDHtml(is.unbilled)}</b> — أصدر فاتورة بها في «الفواتير والتحصيل»، أو عدّل قيمة المشروع إن تغيّرت.</li>` : ''}
+      ${is.inv.map(i=>`<li>فاتورة <bdi>${escH(i.inv_no||'—')}</bdi>: غير محصّل <b>${fmtKWDHtml(prjInvOpen(i))}</b>${prjInvLater(i) ? ' · موعد السداد ' + cxDate(prjInvLater(i).due_date) : ''}</li>`).join('')}
+    </ul>
+    ${is.inv.length ? (can ? `<p class="file-hint">لكل مبلغ غير محصّل اختر إجراءً. «سداد في تاريخ لاحق» يُبقي المشروع مفتوحاً ويصل تنبيه في الموعد؛ والبقية تُغلق المبلغ وتسمح بالإغلاق.</p>
+      ${is.inv.map(i=>{ const o = prjInvOpen(i), mine = f.invId===i.id ? f : {kind:''};
+        return `<div class="pj-settle">
+          <div class="pj-settle-h">فاتورة <bdi>${escH(i.inv_no||'—')}</bdi> · غير محصّل ${fmtKWDHtml(o)}</div>
+          <div class="uf-flex">
+            <div class="f-md"><label for="pjs_kind_${i.id}">الإجراء</label><select id="pjs_kind_${i.id}" data-on-change="prjSettleKind" data-on-change-args="${qa([i.id, QA.v])}">
+              <option value="">— اختر —</option>${Object.entries(PRJ_SETTLE_KINDS).map(([k,l])=>`<option value="${k}" ${mine.kind===k?'selected':''}>${l}</option>`).join('')}</select></div>
+            ${mine.kind ? `<div class="f-sm"><label for="pjs_amt">المبلغ (د.ك)</label><input id="pjs_amt" type="text" inputmode="decimal" dir="ltr" value="${escH(Number(mine.amount ?? o).toFixed(3))}"></div>` : ''}
+            ${mine.kind==='later' ? `<div class="f-md"><label for="pjs_date">تاريخ السداد</label><input id="pjs_date" type="date" min="${cxToday()}" value="${escH(mine.due_date||'')}"></div>` : ''}
+            ${mine.kind==='transfer' ? `<div class="f-md"><label for="pjs_client">العميل الجديد</label><select id="pjs_client"><option value="">— اختر —</option>${clients.map(c=>`<option value="${escH(c.id)}">${escH(c.name)}</option>`).join('')}</select></div>` : ''}
+            ${mine.kind ? `<div class="f-lg"><label for="pjs_reason">${mine.kind==='later' ? 'ملاحظة (اختياري)' : 'السبب'}</label><input id="pjs_reason" type="text" placeholder="${mine.kind==='later' ? 'مثلاً: وعد العميل بالسداد' : 'سبب القرار — يُحفظ مع اسمك'}"></div>` : ''}
+          </div>
+          ${mine.kind ? `<div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="prjSettleSave" data-on-click-args="${qa([i.id])}">حفظ الإجراء</button><button class="btn btn-ghost btn-md" data-on-click="prjSettleKind" data-on-click-args="${qa([i.id, ''])}">إلغاء</button></div>` : ''}
+        </div>`; }).join('')}`
+      : `<p class="file-hint">معالجة المبالغ غير المحصّلة للمدير المالي ومدير النظام ومن يختارهم مدير النظام في «إعدادات المشاريع». أبلغ أحدهم.</p>`) : ''}
+  </div>`;
+}
+function prjSettleKind(invId, kind){ state.prj.settleForm = kind ? {invId, kind} : null; render();
+  setTimeout(()=>{ const el = document.getElementById(kind==='later' ? 'pjs_date' : kind==='transfer' ? 'pjs_client' : 'pjs_reason'); if(el) el.focus(); }, 50); }
+async function prjSettleSave(invId){
+  const f = state.prj.settleForm; const inv = state.prj.invoices.find(x=>x.id===invId); if(!f || f.invId!==invId || !inv) return;
+  const p = state.prj.projects.find(x=>x.id===inv.project_id); const open = prjInvOpen(inv);
+  const amt = cxR3(cxN((document.getElementById('pjs_amt')||{}).value));
+  const reason = String((document.getElementById('pjs_reason')||{}).value||'').trim();
+  const due = (document.getElementById('pjs_date')||{}).value || null;
+  const cl = (document.getElementById('pjs_client')||{}).value || null;
+  if(!(amt > 0)){ fieldErr('#pjs_amt','اكتب المبلغ'); return; }
+  if(amt > open + 0.0005){ fieldErr('#pjs_amt','أكبر من غير المحصّل (' + fmtKWDPlain(open) + ')'); return; }
+  if(f.kind==='later' && !due){ fieldErr('#pjs_date','اختر تاريخ السداد'); return; }
+  if(f.kind==='transfer' && !cl){ fieldErr('#pjs_client','اختر العميل'); return; }
+  if(f.kind!=='later' && !reason){ fieldErr('#pjs_reason','اكتب السبب'); return; }
+  if(f.kind!=='later' && !confirm(PRJ_SETTLE_KINDS[f.kind] + ' بمبلغ ' + fmtKWDPlain(amt) + '؟\nيُغلق هذا المبلغ في الفاتورة ويُسجَّل باسمك.')) return;
+  const row = {company_id:inv.company_id, project_id:inv.project_id, invoice_id:inv.id, kind:f.kind, amount:amt, due_date:f.kind==='later' ? due : null, reason:reason||null, transfer_client_id:f.kind==='transfer' ? cl : null, created_by:state.user.id};
+  if(f.kind==='transfer'){
+    const ni = await db.from('prj_invoices').insert({company_id:inv.company_id, project_id:inv.project_id, inv_no:(inv.inv_no ? inv.inv_no + '/ت' : null), inv_date:cxToday(), amount:amt, status:'issued', client_id:cl, transferred_from:inv.id, notes:'مرحّلة من فاتورة ' + (inv.inv_no||'') + (reason ? ' — ' + reason : ''), created_by:state.user.id}).select('id').maybeSingle();
+    if(!(await dbCheck(ni,'إنشاء الفاتورة المرحّلة'))) return;
+    row.transfer_invoice_id = ni.data && ni.data.id;
+  }
+  const r = await db.from('prj_settlements').insert(row);
+  if(!(await dbCheck(r,'حفظ الإجراء'))) return;
+  state.prj.settleForm = null; showToast('حُفظ الإجراء: ' + PRJ_SETTLE_KINDS[f.kind],'success'); await prjLoad();
+}
+async function prjSettleUndo(sid){
+  const x = (state.prj.settlements||[]).find(y=>y.id===sid); if(!x) return;
+  if(!confirm('التراجع عن «' + PRJ_SETTLE_KINDS[x.kind] + '» بمبلغ ' + fmtKWDPlain(x.amount) + '؟' + (x.kind==='transfer' ? '\nتُلغى الفاتورة المرحّلة أيضاً إن لم يُحصَّل منها شيء.' : ''))) return;
+  if(x.kind==='transfer' && x.transfer_invoice_id){ const ti = state.prj.invoices.find(i=>i.id===x.transfer_invoice_id);
+    if(ti && prjInvCollected(ti) > 0){ showToast('حُصّل من الفاتورة المرحّلة — لا يمكن التراجع','error'); return; }
+    if(ti){ const c = await db.from('prj_invoices').update({status:'cancelled'}).eq('id', ti.id); if(!(await dbCheck(c,'إلغاء الفاتورة المرحّلة'))) return; } }
+  const r = await db.from('prj_settlements').update({cancelled_at:new Date().toISOString(), cancelled_by:state.user.id}).eq('id', sid);
+  if(!(await dbCheck(r,'التراجع'))) return;
+  showToast('تم التراجع','success'); await prjLoad();
+}
+function prjSettlesListHtml(p){
+  const L = (state.prj.settlements||[]).filter(x=>x.project_id===p.id && !x.cancelled_at); if(!L.length) return '';
+  const can = prjCanSettle() && p.status==='active';
+  return `<div class="pj-settle-log"><h3>معالجات المبالغ</h3>
+    <table class="exec-table pj-tbl"><thead><tr><th>الإجراء</th><th class="num">المبلغ</th><th>التفاصيل</th><th>بواسطة</th>${can ? '<th></th>' : ''}</tr></thead><tbody>
+    ${L.map(x=>{ const inv = state.prj.invoices.find(i=>i.id===x.invoice_id)||{};
+      return `<tr><td data-label="الإجراء">${escH(PRJ_SETTLE_KINDS[x.kind])}</td><td data-label="المبلغ" class="num">${fmtKWDHtml(x.amount)}</td>
+      <td data-label="التفاصيل">فاتورة <bdi>${escH(inv.inv_no||'—')}</bdi>${x.due_date ? ' · الموعد ' + cxDate(x.due_date) : ''}${x.transfer_client_id ? ' · إلى ' + escH(prjClientName(x.transfer_client_id)||'') : ''}${x.reason ? ' · ' + escH(x.reason) : ''}</td>
+      <td data-label="بواسطة">${escH(prjUserName(x.created_by)||'')} · ${cxDate(String(x.created_at).slice(0,10))}</td>
+      ${can ? `<td class="pj-acts"><button class="btn btn-ghost btn-sm" data-on-click="prjSettleUndo" data-on-click-args="${qa([x.id])}">تراجع</button></td>` : ''}</tr>`; }).join('')}
+    </tbody></table></div>`;
 }
 async function prjReopen(id){
   if(!confirm('إعادة فتح المشروع؟')) return;
@@ -19086,20 +19195,24 @@ async function prjReopen(id){
 // ---------- إعدادات المشاريع للشركة: من يصله تنبيه الفواتير، والنسبة الافتراضية للصرف قبل الدفع ----------
 function prjSettingsHtml(){
   if(!state.user || !['admin','cfo'].includes(state.user.role)) return '';
-  const co = prjCo(), sel = new Set(co.invoiceAlertUserIds||[]);
+  const co = prjCo(), sel = new Set(co.invoiceAlertUserIds||[]), selS = new Set(co.settleUserIds||[]);
   const users = companyUsers(state.currentCompanyId).filter(u=>!u.isSuspended && u.role!=='accountant').sort(_byName);
-  return `<details class="card cx-fold"><summary><span>إعدادات المشاريع</span><span class="file-hint">تنبيه الفواتير · النسبة الافتراضية للصرف قبل الدفع</span></summary>
+  return `<details class="card cx-fold"><summary><span>إعدادات المشاريع</span><span class="file-hint">تنبيه الفواتير · معالجة المبالغ عند الإغلاق · النسبة الافتراضية للصرف قبل الدفع</span></summary>
     <h3 class="uf-h">من يصله تنبيه «اعمل فاتورة» مع المحاسب</h3>
     ${users.length ? `<div class="chk-grid">${users.map(u=>`<label class="chk-card"><input type="checkbox" data-pj-alert="${escH(u.id)}" ${sel.has(u.id)?'checked':''}><span>${escH(u.name)} <small class="file-hint">· ${escH((u.jobTitle&&u.jobTitle.trim()) || findRole(u.role).name)}</small></span></label>`).join('')}</div>` : '<div class="ct-empty">لا مستخدمين آخرين.</div>'}
+    <h3 class="uf-h">من يعالج المبالغ غير المحصّلة عند إغلاق المشروع (مع المدير المالي ومدير النظام)</h3>
+    <p class="file-hint">سداد لاحق، دين معدوم، خصم، ترحيل لعميل آخر، مسامحة — مثلاً السكرتير التنفيذي.</p>
+    ${users.length ? `<div class="chk-grid">${users.filter(u=>u.role!=='admin' && u.role!=='cfo').map(u=>`<label class="chk-card"><input type="checkbox" data-pj-settle="${escH(u.id)}" ${selS.has(u.id)?'checked':''}><span>${escH(u.name)} <small class="file-hint">· ${escH((u.jobTitle&&u.jobTitle.trim()) || findRole(u.role).name)}</small></span></label>`).join('')}</div>` : ''}
     <div class="uf-flex"><div class="f-sm"><label for="pjset_pct">النسبة الافتراضية للصرف قبل الدفع %</label><input id="pjset_pct" type="number" min="0" max="100" value="${escH(String(co.prepayDefaultPct ?? 80))}"></div><div class="uf-act"><button class="btn btn-primary btn-md" data-on-click="prjSettingsSave">حفظ الإعدادات</button></div></div>
   </details>`;
 }
 async function prjSettingsSave(){
   const ids = [...document.querySelectorAll('[data-pj-alert]')].filter(x=>x.checked).map(x=>x.dataset.pjAlert);
+  const sids = [...document.querySelectorAll('[data-pj-settle]')].filter(x=>x.checked).map(x=>x.dataset.pjSettle);
   const pct = Math.min(100, Math.max(0, Number((document.getElementById('pjset_pct')||{}).value)||0));
-  const r = await db.from('companies').update({invoice_alert_user_ids:ids, prepay_default_pct:pct}).eq('id', state.currentCompanyId);
+  const r = await db.from('companies').update({invoice_alert_user_ids:ids, settle_user_ids:sids, prepay_default_pct:pct}).eq('id', state.currentCompanyId);
   if(!(await dbCheck(r,'حفظ إعدادات المشاريع'))) return;
-  const co = prjCo(); co.invoiceAlertUserIds = ids; co.prepayDefaultPct = pct;
+  const co = prjCo(); co.invoiceAlertUserIds = ids; co.settleUserIds = sids; co.prepayDefaultPct = pct;
   showToast('حُفظت الإعدادات','success'); render(); refreshNotifIndicators();
 }
 

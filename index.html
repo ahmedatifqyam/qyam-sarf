@@ -3183,6 +3183,15 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   }
   #app tr.pj-actrow .pj-acts-w .btn.pj-act-x{margin-inline-start:auto !important;}
   @media (max-width:699px){ #app tr.pj-actrow .pj-acts-w .btn.pj-act-x{margin:0 !important;} }
+  /* (1.26.0) رمز كشف كلمة المرور، ومعالجة المبالغ عند إغلاق المشروع */
+  .pw-eye{display:flex !important;align-items:center;justify-content:center;color:var(--muted);font-size:0 !important;}
+  .pw-eye:hover{color:var(--ink);} .pw-eye svg{display:block;}
+  #app .pj-close-box{margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-inline-start:4px solid var(--red);border-radius:10px;background:var(--paper);}
+  #app .pj-close-box h3{margin:0 0 8px;font-size:17px;color:var(--red);}
+  #app .pj-close-list{margin:0 0 10px;padding-inline-start:20px;line-height:1.9;font-size:15px;}
+  #app .pj-close-ok{margin-top:12px;font-weight:700;color:var(--green);}
+  #app .pj-settle{padding:10px 0;border-top:1px solid var(--line);} #app .pj-settle-h{font-weight:800;margin-bottom:6px;}
+  #app .pj-settle-log{margin-top:16px;} #app .pj-settle-log h3{font-size:16px;margin:0 0 8px;}
 </style>
 </head>
 <body>
@@ -3203,6 +3212,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=e62c1a13fc"></script>
+<script src="app.js?v=03f428fa67"></script>
 </body>
 </html>
