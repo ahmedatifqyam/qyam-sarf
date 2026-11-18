@@ -3220,6 +3220,19 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* (1.29.0) أثر الحذف في دفتر المركز */
   #app .cx-void-note{color:var(--red);} #app .cx-void-chk{flex:0 0 auto;}
   #app .cx-raw-chk{flex:0 0 auto;margin:0;}
+  /* (1.30.1) الهاتف: فقاعة المساعد أصغر وأعلى، ومساحة أسفل الصفحة حتى لا تغطي آخر الأزرار */
+  @media (max-width:700px){
+    #qyamAssistant > *{bottom:96px !important; left:12px !important;}
+    #qyamAssistant{--chat--toggle--size:44px;--chat--toggle--width:44px;--chat--toggle--height:44px;}
+    #app{padding-bottom:150px !important;}
+  }
+  /* (1.30.1) الهاتف: أزرار الجداول التي تصير بطاقات — زرّان متساويان في كل صف، والزر الأخير الفردي بعرض كامل */
+  @media (max-width:699px){
+    #app table.tcards td:not([data-l]):has(> .btn), #app table.tcards td:not([data-l]) > div:has(> .btn){display:grid !important;grid-template-columns:1fr 1fr;gap:8px;width:100%;}
+    #app table.tcards td:not([data-l]):has(> .btn) > .btn, #app table.tcards td:not([data-l]) > div:has(> .btn) > .btn{width:100% !important;min-width:0 !important;margin:0 !important;height:40px;}
+    #app table.tcards td:not([data-l]):has(> .btn) > .btn:last-child:nth-child(odd), #app table.tcards td:not([data-l]) > div:has(> .btn) > .btn:last-child:nth-child(odd){grid-column:1 / -1;}
+    #app table.tcards td:not([data-l]):has(> .btn){padding-top:8px !important;}
+  }
 </style>
 </head>
 <body>
@@ -3240,6 +3253,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=7aca003a8a"></script>
+<script src="app.js?v=dd47ec175e"></script>
 </body>
 </html>
