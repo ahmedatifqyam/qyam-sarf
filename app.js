@@ -3,7 +3,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
 const APP_VERSION = '1.37.8', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:3.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:353, base:350, extra:3.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7684,7 +7684,9 @@ function hideDupH2(){
   const at = t(a.textContent);
   document.querySelectorAll('#app .card h2, #app > h2').forEach(h=>{
     const own = t([...h.childNodes].filter(n=>n.nodeType===3 || (n.nodeType===1 && !n.classList.contains('tip-btn') && !n.classList.contains('sub'))).map(n=>n.textContent).join(''));
-    if(own===at) h.classList.add('dup-h2');
+    if(own===at){ h.classList.add('dup-h2');
+      // (1.38.3) العنوان المكرر يُخفى؛ وسطر العدد الذي تحته (مثل «2 عميل») يصير هو عنوان البطاقة بخط عريض
+      const n = h.nextElementSibling; if(n && n.classList.contains('file-hint') && (n.textContent||'').trim().length <= 60) n.classList.add('cnt-title'); }
   });
 }
 function hideEmptyTopBars(){
