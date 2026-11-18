@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.32.0', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.32.1', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:357, base:350, extra:6.9, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:357, base:350, extra:7.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18895,6 +18895,7 @@ function prjLinesSum(lines){ return cxR3((lines||[]).reduce((t,l)=>t + prjLineTo
 function prjLinesRefresh(){ const d = state.prj.docForm, box = document.getElementById('pjlBox'); if(!d || !box){ render(); return; }
   box.outerHTML = prjLinesFormHtml(d);
   const a = document.getElementById('pjd_amount'); if(a){ const n = (d.lines||[]).length; a.readOnly = n > 0; if(n) a.value = prjLinesSum(d.lines).toFixed(3); }
+  const al = document.querySelector('label[for="pjd_amount"]'); if(al) al.textContent = (d.lines||[]).length ? 'القيمة من البنود (د.ك)' : 'القيمة (د.ك)';
   tidyLite(); prjDraftSave(); }
 // إضافة بند بالاختيار المتتابع: الخدمة الرئيسية ← الفرعية ← البند، ثم الكمية
 function prjAddPick(level, v){ const a = state.prj.addSel = state.prj.addSel || {};
@@ -18938,7 +18939,7 @@ function prjLinesFormHtml(d){
     ${prjAddBarHtml()}
     ${L.length ? `<div class="pjp-wrap"><table class="exec-table pjp-tbl pjl-tbl"><thead><tr><th>البند</th><th class="num">الكمية</th><th>الوحدة</th><th class="num">سعر الوحدة</th><th class="num">الإجمالي</th><th></th></tr></thead><tbody>
       ${L.map((l,i)=>`<tr>
-        <td data-label="البند"><input class="pjp-in pjl-name" type="text" value="${escH(l.name||'')}" placeholder="اسم البند" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'name',QA.v])}">${l.section ? `<div class="file-hint">${escH(l.section)}</div>` : ''}</td>
+        <td data-label="البند"><input class="pjp-in pjl-name" type="text" value="${escH(l.name||'')}" placeholder="اسم البند" ${l.section ? `title="${escH(l.section)}"` : ''} data-on-change="prjLineEdit" data-on-change-args="${qa([i,'name',QA.v])}"></td>
         <td data-label="الكمية" class="num"><input class="pjp-in pjl-qty" type="text" inputmode="decimal" dir="ltr" value="${escH(String(l.qty??''))}" placeholder="1" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'qty',QA.v])}"></td>
         <td data-label="الوحدة"><input class="pjp-in pjp-unit" type="text" value="${escH(l.unit||'')}" placeholder="الوحدة" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'unit',QA.v])}"></td>
         <td data-label="سعر الوحدة" class="num"><input class="pjp-in pjp-price" id="pjl_price_${i}" type="text" inputmode="decimal" dir="ltr" value="${escH(String(l.price??''))}" placeholder="0.000" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'price',QA.v])}"></td>
@@ -18951,7 +18952,7 @@ function prjLinesFormHtml(d){
 function prjLinesViewHtml(d){
   const L = Array.isArray(d.lines) ? d.lines : []; if(!L.length) return '';
   return `<div class="pjp-wrap pjl-view"><table class="exec-table pjp-tbl"><thead><tr><th>البند</th><th class="num">الكمية</th><th>الوحدة</th><th class="num">سعر الوحدة</th><th class="num">الإجمالي</th></tr></thead><tbody>
-    ${L.map(l=>`<tr><td data-label="البند">${escH(l.name||'—')}${l.section ? `<div class="file-hint">${escH(l.section)}</div>` : ''}</td><td data-label="الكمية" class="num">${escH(String(l.qty??''))}</td><td data-label="الوحدة">${escH(l.unit||'—')}</td><td data-label="سعر الوحدة" class="num">${fmtKWDHtml(l.price)}</td><td data-label="الإجمالي" class="num">${fmtKWDHtml(prjLineTotal(l))}</td></tr>`).join('')}
+    ${L.map(l=>`<tr><td data-label="البند" ${l.section ? `title="${escH(l.section)}"` : ''}>${escH(l.name||'—')}</td><td data-label="الكمية" class="num">${escH(String(l.qty??''))}</td><td data-label="الوحدة">${escH(l.unit||'—')}</td><td data-label="سعر الوحدة" class="num">${fmtKWDHtml(l.price)}</td><td data-label="الإجمالي" class="num">${fmtKWDHtml(prjLineTotal(l))}</td></tr>`).join('')}
     <tr class="pjl-sum"><td colspan="4"><b>المجموع</b></td><td class="num"><b>${fmtKWDHtml(prjLinesSum(L))}</b></td></tr>
   </tbody></table></div>`;
 }
@@ -18973,7 +18974,7 @@ function prjDocFormHtml(){
       <div class="co-f co-s2"><label for="pjd_contract_id">المرجع (العقد أو الملحق)</label><select id="pjd_contract_id">${prjContractOpts(d.client_id, d.contract_id)}</select></div>
       <div class="co-f co-s3"><label for="pjd_title">العنوان</label><input id="pjd_title" type="text" value="${escH(d.title||'')}" placeholder="مثال: إدارة حسابات التواصل — الوقف الكبير"></div>
       <div class="co-f"><label for="pjd_doc_date">تاريخ الوثيقة</label><input id="pjd_doc_date" type="date" value="${escH(d.doc_date||'')}"></div>
-      <div class="co-f"><label for="pjd_amount">القيمة (د.ك)</label><input id="pjd_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String((d.lines||[]).length ? prjLinesSum(d.lines).toFixed(3) : (d.amount??'')))}" placeholder="0.000" ${(d.lines||[]).length ? 'readonly title="تُحسب من البنود"' : ''}>${(d.lines||[]).length ? '<div class="file-hint">تُحسب من البنود</div>' : ''}</div>
+      <div class="co-f"><label for="pjd_amount">${(d.lines||[]).length ? 'القيمة من البنود (د.ك)' : 'القيمة (د.ك)'}</label><input id="pjd_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String((d.lines||[]).length ? prjLinesSum(d.lines).toFixed(3) : (d.amount??'')))}" placeholder="0.000" ${(d.lines||[]).length ? 'readonly title="تُحسب من البنود"' : ''}></div>
       <div class="co-f"><label for="pjd_amount_kind">نوع القيمة</label><select id="pjd_amount_kind"><option value="total" ${d.amount_kind==='total'?'selected':''}>إجمالي</option><option value="monthly" ${d.amount_kind==='monthly'?'selected':''}>شهرياً</option></select></div>
       <div class="co-f"><label for="pjd_months">المدة (أشهر)</label><input id="pjd_months" type="number" min="1" inputmode="numeric" value="${escH(String(d.months||''))}" placeholder="—" ${d.open_ended?'disabled':''}></div>
       <div class="co-f"><label>المدة المفتوحة</label><label class="chk-card pj-chk co-chk"><input id="pjd_open_ended" type="checkbox" ${d.open_ended?'checked':''} data-on-change="prjDocRefresh"><span>مفتوح بلا نهاية</span></label></div>
