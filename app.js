@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.37.2', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.37.3', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.1, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -17403,7 +17403,10 @@ function cxClientFormHtml(){
 function renderClients(app){
   if(!canSeeClients()){ state.view='dashboard'; render(); return; }
   state.cx.cMode = 'client';
-  const tree = cxClientTree().filter(({c})=>(c.party||'client')!=='supplier'), cs = state.centers||[];
+  const all = cxClientTree().filter(({c})=>(c.party||'client')!=='supplier'), cs = state.centers||[];
+  const q = String(state.cx.cliQ||'').trim().toLowerCase();
+  const hit = c => !q || [c.name, c.nameEn, ...(c.phones||[]).map(p=>p.number), ...(c.contacts||[]).flatMap(x=>[x.name, x.title])].some(v=>String(v||'').toLowerCase().includes(q));
+  const tree = q ? all.filter(({c})=>hit(c)) : all;
   const rows = tree.map(({c,depth})=>{
     const kn = (CX_CLIENT_KIND.find(k=>k[0]===c.kind)||[0,c.kind])[1];
     const ph = (c.phones||[]).filter(p=>p.number).map(p=>`<div class="cx-ln"><bdi dir="ltr">${escH(p.number)}</bdi> <small>${escH((CX_PHONE_TYPE.find(t=>t[0]===p.type)||[0,''])[1])}</small></div>`).join('') || '—';
@@ -17415,13 +17418,14 @@ function renderClients(app){
         <button class="btn btn-ghost btn-xs" data-on-click="cxNewClient" data-on-click-args="${qa([c.id])}">+ فرع</button>
         <button class="btn btn-ghost btn-xs" data-on-click="cxEditClient" data-on-click-args="${qa([c.id])}">تعديل</button>
         <button class="btn btn-reject btn-xs" data-on-click="cxDeleteClient" data-on-click-args="${qa([c.id])}">حذف</button></div></td></tr>`;
-  }).join('') || '<tr class="cx-empty"><td colspan="7">لا يوجد عملاء بعد.</td></tr>';
+  }).join('') || `<tr class="cx-empty"><td colspan="7">${q ? 'لا نتائج للبحث.' : 'لا يوجد عملاء بعد.'}</td></tr>`;
   app.innerHTML = `
     <h1>العملاء</h1>
     <p class="sub">الجمعيات والجهات التي تتعامل معها الشركة، وفروعها تحتها. يُربط المركز بعميل من «دفتر المركز ← إعدادات المركز».</p>
     ${state.prj.returnTo ? `<div class="pj-next pj-next-info"><span>عميل جديد ${state.prj.returnTo.kind==='doc' ? 'للوثيقة' : 'للعقد'}: بعد «حفظ» ترجع إلى ${state.prj.returnTo.kind==='doc' ? 'الوثيقة' : 'العقد'} والعميل مختار.</span><button class="btn btn-ghost btn-sm" data-on-click="cxCancelClient">رجوع</button></div>` : ''}
     ${state.cx.cEditId ? cxClientFormHtml() : ''}
-    <div class="card cx-panel"><div class="cx-panel-h"><div><h2>العملاء</h2><div class="file-hint">${tree.length} عميل</div></div>${state.cx.cEditId ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ عميل جديد</button>`}</div>
+    <div class="card cx-panel"><div class="cx-panel-h"><div><h2>العملاء</h2><div class="file-hint">${all.length} عميل</div></div>
+      <div class="sup-tools"><input type="search" class="qy-search" placeholder="بحث بالاسم أو الهاتف أو جهة الاتصال" value="${escH(state.cx.cliQ||'')}" data-on-input="cliSearch" data-on-input-args="${qa([QA.v])}">${state.cx.cEditId ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ عميل جديد</button>`}</div></div>
     <table class="exec-table cx-tbl" data-qyl="clients" data-qyl-title="العملاء"><thead><tr><th>الاسم</th><th>النوع</th><th>الهاتف</th><th>جهات الاتصال</th><th class="num">المراكز</th><th class="num">العقود</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -17476,7 +17480,7 @@ function renderSuppliers(app){
     const ib = c.iban ? `<bdi dir="ltr" title="${escH(c.iban)}">…${escH(String(c.iban).slice(-4))}</bdi>${c.bank_name ? `<div class="cx-meta">${escH(c.bank_name)}</div>` : ''}` : '<span class="bbh-warn">بلا آيبان</span>';
     return `<tr><td data-label="" class="cx-cname"><b>${escH(c.name)}</b>${c.status==='inactive' ? ' <span class="cx-badge cx-st-closed">موقوف</span>' : ''}${c.party==='both' ? ' <span class="cx-badge">عميل أيضاً</span>' : ''}${c.name_en?`<div class="cx-meta" dir="ltr" style="text-align:right">${escH(c.name_en)}</div>`:''}</td>
       <td data-label="النشاط">${escH(c.activity||'—')}<div class="cx-meta">${escH(kn)}</div></td><td data-label="الآيبان" class="cx-nowrap">${ib}</td><td data-label="الهاتف" class="cx-cphone">${ph}</td>
-      <td data-label="المصروف" class="num"><button class="btn btn-ghost btn-xs" data-on-click="supHistToggle" data-on-click-args="${qa([c.id])}" title="سجل المدفوعات">${done.length ? fmtKWDHtml(tot) + ' <small>(' + done.length + ')</small>' : 'السجل'}</button></td>
+      <td data-label="المصروف" class="num"><button class="btn btn-ghost btn-xs" data-on-click="supHistToggle" data-on-click-args="${qa([c.id])}" title="سجل المدفوعات">${done.length ? fmtKWDHtml(tot) + ' <small class="sup-cnt">· ' + done.length + (done.length===1 ? ' دفعة' : done.length<=10 ? ' دفعات' : ' دفعة') + '</small>' : 'السجل'}</button></td>
       <td class="cx-act"><div>${canW && (c.party==='supplier' || cxIsFin()) ? `<button class="btn btn-ghost btn-xs" data-on-click="cxEditClient" data-on-click-args="${qa([c.id])}">${qi('pen')}تعديل</button>` : ''}${canDel && (c.party==='supplier' || cxIsFin()) ? `<button class="btn btn-reject btn-xs" data-on-click="cxDeleteClient" data-on-click-args="${qa([c.id])}">${qi('trash')}حذف</button>` : ''}</div></td></tr>`;
   }).join('') || `<tr class="cx-empty"><td colspan="6">${q ? 'لا نتائج للبحث.' : 'لا يوجد موردون بعد.'}</td></tr>`;
   const noIban = list.filter(c=>!c.iban && c.status!=='inactive').length;
@@ -17489,7 +17493,8 @@ function renderSuppliers(app){
       <div class="sup-tools"><input type="search" class="qy-search" placeholder="بحث بالاسم أو النشاط أو الآيبان" value="${escH(state.cx.supQ||'')}" data-on-input="supSearch" data-on-input-args="${qa([QA.v])}">${state.cx.cEditId || !canW ? '' : `<button class="btn btn-primary btn-md" data-on-click="cxNewClient" data-on-click-args="${qa([''])}">+ مورد جديد</button>`}</div></div>
     <table class="exec-table cx-tbl" data-qyl="suppliers" data-qyl-title="الموردون"><thead><tr><th>الاسم</th><th>النشاط</th><th>الآيبان</th><th>الهاتف</th><th class="num">المصروف</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-let _supQT = null;
+let _supQT = null, _cliQT = null;
+function cliSearch(v){ state.cx.cliQ = v; clearTimeout(_cliQT); _cliQT = setTimeout(()=>{ const el = document.activeElement, pos = el && el.selectionStart; render(); const n = document.querySelector('.sup-tools input'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(e){} } }, 250); }
 function supSearch(v){ state.cx.supQ = v; clearTimeout(_supQT); _supQT = setTimeout(()=>{ const el = document.activeElement, pos = el && el.selectionStart; render(); const n = document.querySelector('.sup-tools input'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(e){} } }, 250); }
 
 // ---------- اختيار مورد في الطلب العادي ----------

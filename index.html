@@ -3455,6 +3455,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .pj-tools select{flex:1 1 0 !important;width:auto !important;min-width:0;max-width:none !important;}
     #app .pj-tools > .btn{flex:0 0 180px !important;width:180px !important;}
   }
+
+  /* (1.37.3) أدوات العملاء والموردين: 🔍 والزر في صف واحد متوازن */
+  #app .sup-tools{display:flex;align-items:center;gap:8px;margin:0;}
+  #app .sup-tools > .btn{margin:0 !important;width:180px;flex:0 0 180px;}
+  #app .sup-cnt{color:var(--muted);font-weight:600;margin-inline-start:4px;}
+  @media (max-width:699px){ #app .sup-tools{width:100%;} #app .sup-tools > .btn{flex:1 1 0;width:auto;} }
 </style>
 </head>
 <body>
@@ -3475,6 +3481,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=92e16dc811"></script>
+<script src="app.js?v=2eddcd0e3a"></script>
 </body>
 </html>
