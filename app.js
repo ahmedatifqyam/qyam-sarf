@@ -7660,9 +7660,13 @@ function scrollHints(){
       const par = sc.parentElement;
       if(par && getComputedStyle(par).position==='static') par.style.position = 'relative';
       while(sc.nextElementSibling && sc.nextElementSibling.classList.contains('xs-shade')) sc.nextElementSibling.remove();
-      ['l','r'].forEach(side=>{ const d = document.createElement('div'); d.className = 'xs-shade xs-shade-'+side+' no-print';
+      // (1.38.1) شريطان بطول الجدول قابلان للضغط: كل ضغطة تحرّك الجدول نحو ما بقي فيه، ويظهر الشريط المقابل للرجوع
+      ['l','r'].forEach(side=>{ const d = document.createElement('button'); d.type = 'button'; d.className = 'xs-shade xs-shade-'+side+' no-print';
+        d.title = side==='l' ? 'عرض باقي الأعمدة' : 'الرجوع لأول الأعمدة'; d.setAttribute('aria-label', d.title);
+        d.innerHTML = `<span class="xs-arr"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${side==='l' ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'}"/></svg></span>`;
         d.style.top = sc.offsetTop+'px'; d.style.height = sc.clientHeight+'px';
-        if(side==='l') d.style.left = sc.offsetLeft+'px'; else d.style.left = (sc.offsetLeft + sc.clientWidth - 26)+'px';
+        if(side==='l') d.style.left = sc.offsetLeft+'px'; else d.style.left = (sc.offsetLeft + sc.clientWidth - 40)+'px';
+        d.addEventListener('click', ev=>{ ev.preventDefault(); ev.stopPropagation(); const step = Math.max(160, Math.round(sc.clientWidth * 0.8)); sc.scrollBy({left: side==='l' ? -step : step, behavior:'smooth'}); });
         sc.after(d); });
     }
     upd();

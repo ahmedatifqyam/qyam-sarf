@@ -3515,6 +3515,18 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .stat-card .stat-num[style*="--fs-h3"]{font-size:var(--fs-h2) !important;}
   #app .pj-fig > span{font-size:var(--fs-h3) !important;}
   #app .pj-fig > b{font-size:var(--fs-h2) !important;}
+
+  /* (1.38.1) أسهم تمرير الجداول: شريط بطول الجدول (40) قابل للضغط، وسهم كبير ظاهر */
+  #app .xs-shade{width:40px !important;pointer-events:auto !important;cursor:pointer;border:0;padding:0;margin:0 !important;z-index:4;display:none;}
+  #app .xs.xs-more + .xs-shade-r + .xs-shade-l, #app .xs.xs-start + .xs-shade-r{display:block;}
+  #app .xs-shade-l{background:linear-gradient(to right, rgba(27,39,51,.28), rgba(27,39,51,0)) !important;border-radius:8px 0 0 8px;}
+  #app .xs-shade-r{background:linear-gradient(to left, rgba(27,39,51,.28), rgba(27,39,51,0)) !important;border-radius:0 8px 8px 0;}
+  #app .xs-shade:hover{background-color:rgba(27,39,51,.08);}
+  #app .xs-shade::after{content:none !important;display:none !important;}
+  #app .xs-shade .xs-arr{position:sticky;top:calc(50vh - 17px);bottom:20px;display:flex;align-items:center;justify-content:center;width:34px;height:34px;margin:0 auto;border-radius:50%;
+    background:var(--ink);color:#fff;font-size:24px;font-weight:800;line-height:1;direction:ltr;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+  #app .xs.xs-more + .xs-shade-r + .xs-shade-l, #app .xs.xs-start + .xs-shade-r{display:flex !important;align-items:center;justify-content:center;}
+  @media print{ #app .xs-shade{display:none !important;} }
 </style>
 </head>
 <body>
@@ -3535,6 +3547,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=10b1a3f06c"></script>
+<script src="app.js?v=c6480c8249"></script>
 </body>
 </html>
