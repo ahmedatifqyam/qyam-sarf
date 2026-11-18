@@ -3158,6 +3158,10 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .pjl-tbl td[data-label="البند"]{grid-area:n;} #app .pjl-tbl td[data-label="الكمية"]{grid-area:q;} #app .pjl-tbl td[data-label="الوحدة"]{grid-area:u;}
     #app .pjl-tbl td[data-label="سعر الوحدة"]{grid-area:p;} #app .pjl-tbl td[data-label="الإجمالي"]{grid-area:t;} #app .pjl-tbl td.pj-acts{grid-area:d;align-self:start;margin-top:22px;}
   }
+  /* (1.25.0) التفاصيل المالية: تبويبا الشركة المختارة / كل الشركات */
+  #app .an-scope{display:flex;gap:8px;margin:0 0 10px;} #app .an-scope .btn{width:150px;}
+  #app .amount-table tr.an-co td{background:var(--paper);border-top:2px solid var(--line);font-size:15px;}
+  #app .amount-table tr.an-zero td{color:var(--muted);}
 </style>
 </head>
 <body>
@@ -3178,6 +3182,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=8e522d405d"></script>
+<script src="app.js?v=287c1bef2a"></script>
 </body>
 </html>

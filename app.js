@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.24.0', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.25.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:1.8, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -8061,15 +8061,16 @@ function renderGlobalFloatingBarInner(buttons){
 
 function exportAnalyticsData(){
   const rows = state._analyticsRows || [], meta = state._analyticsMeta || {};
-  return {title:'التقرير المالي حسب الجهة', period:[meta.selMonth && meta.selMonth!=='all' ? 'شهر '+meta.selMonth : '', meta.selYear ? 'سنة '+meta.selYear : ''].filter(Boolean).join(' · '),
-    head:['الجهة','عدد الطلبات المصروفة','إجمالي المصروف (د.ك)'], body: rows.map(r=>[r.name, Number(r.count)||0, Number(r.total)||0]), numIdx:new Set([2])};
+  const nm = r => r.kind==='co' ? '▪ ' + r.name + ' (المجموع)' : ' '.repeat((r.depth||0)*2) + r.name;
+  return {title:'التقرير المالي حسب الجهة' + (meta.scope==='all' ? ' — كل الشركات' : meta.scope==='one' ? ' — ' + companyNameOf(state.currentCompanyId) : ''), period:[meta.selMonth && meta.selMonth!=='all' ? 'شهر '+meta.selMonth : '', meta.selYear ? 'سنة '+meta.selYear : ''].filter(Boolean).join(' · '),
+    head:['الجهة','عدد الطلبات المصروفة','إجمالي المصروف (د.ك)'], body: rows.map(r=>[nm(r), Number(r.count)||0, Number(r.total)||0]), numIdx:new Set([2])};
 }
 function exportAnalyticsCSV(){
   const rows = state._analyticsRows || [];
   const meta = state._analyticsMeta || {};
   let csv = '\uFEFF';
   csv += 'الجهة,عدد الطلبات المصروفة,إجمالي المصروف (د.ك)\n';
-  rows.forEach(r=>{ csv += `${csvCell(r.name)},${r.count},${r.total}\n`; });
+  rows.forEach(r=>{ csv += `${csvCell(r.kind==='co' ? '▪ ' + r.name + ' (المجموع)' : r.name)},${r.count},${r.total}\n`; });
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -8082,6 +8083,7 @@ function exportAnalyticsCSV(){
   showToast('تم تصدير التقرير', 'success');
 }
 
+function anDetScopeSet(v){ state.anDetScope = v==='all' ? 'all' : 'one'; render(); }
 function renderAnalytics(app){
   if(canSeeExec() && (state.analyticsTab||'exec')==='exec'){ renderExecTab(app); return; }
   const role = state.user.role;
@@ -8097,38 +8099,42 @@ function renderAnalytics(app){
   state.requests.forEach(r=>{ if(r.createdAtRaw) years.add(new Date(r.createdAtRaw).getFullYear()); });
   const yearsList = Array.from(years).sort((a,b)=>b-a);
 
-  const buckets = {};
-  if(!scopedToOwnCenter){
-    buckets['company'] = {name:'مصروفات الشركة المباشرة', total:0, count:0};
-  }
-  state.centers.forEach(c=>{
-    if(scopedToOwnCenter && c.id!==myCenterId) return;
-    buckets[c.id] = {name:c.name, total:0, count:0};
-  });
-
+  // (1.25.0) تبويبان: «الشركة المختارة» (افتراضياً) و«كل الشركات»؛ الجهات مرتبة كالهيكل التنظيمي لكل شركة
+  const scope = scopedToOwnCenter ? 'own' : (state.anDetScope==='all' ? 'all' : 'one');
+  const curCo = state.currentCompanyId;
+  const sums = {};   // مفتاح: معرف الوحدة، أو co:معرف الشركة لمصروفاتها المباشرة
   state.requests.forEach(r=>{
-    if(r.status!=='completed') return;
-    if(r.isCancelled) return;
-    if(!r.createdAtRaw) return;
+    if(r.status!=='completed' || r.isCancelled || !r.createdAtRaw) return;
     const d = new Date(r.createdAtRaw);
     if(d.getFullYear()!==Number(selYear)) return;
     if(selMonth!=='all' && (d.getMonth()+1)!==Number(selMonth)) return;
-
-    if(r.origin==='company'){
-      if(scopedToOwnCenter) return;
-      buckets['company'].total += r.totalAmount;
-      buckets['company'].count += 1;
-    } else {
-      if(scopedToOwnCenter && r.centerId!==myCenterId) return;
-      if(!buckets[r.centerId]) return;
-      buckets[r.centerId].total += r.totalAmount;
-      buckets[r.centerId].count += 1;
-    }
+    const k = r.origin==='company' ? 'co:' + (r.companyId||'') : r.centerId;
+    if(!k) return;
+    const x = sums[k] || (sums[k] = {total:0, count:0}); x.total += Number(r.totalAmount)||0; x.count += 1;
   });
-
-  const rows = Object.values(buckets);
-  const grandTotal = rows.reduce((s,b)=>s+b.total,0);
-  const grandCount = rows.reduce((s,b)=>s+b.count,0);
+  const val = k => sums[k] || {total:0, count:0};
+  const rows = [];   // {name, count, total, depth, kind:'co'|'unit'|'direct'}
+  const coBlock = (coId, coName) => {
+    const items = [{name:'مصروفات الشركة المباشرة', depth:0, kind:'direct', ...val('co:'+coId)}];
+    unitsOrdered(coId, true).forEach(({unit, depth})=>items.push({name:unit.name, depth, kind:'unit', ...val(unit.id)}));
+    const tot = items.reduce((t,x)=>t+x.total, 0), cnt = items.reduce((t,x)=>t+x.count, 0);
+    return {coId, coName, items, total:tot, count:cnt};
+  };
+  let blocks = [];
+  if(scope==='own'){
+    const c = state.centers.find(x=>x.id===myCenterId);
+    blocks = [{coId:null, coName:'', items:[{name:c ? c.name : '—', depth:0, kind:'unit', ...val(myCenterId)}]}];
+    blocks[0].total = blocks[0].items[0].total; blocks[0].count = blocks[0].items[0].count;
+  } else if(scope==='one'){
+    blocks = [coBlock(curCo, companyNameOf(curCo))];
+  } else {
+    const cos = (state.companies||[]).map(c=>c.id);
+    state.centers.forEach(c=>{ if(c.companyId && !cos.includes(c.companyId)) cos.push(c.companyId); });
+    blocks = cos.map(id=>coBlock(id, companyNameOf(id)));
+  }
+  blocks.forEach(bk=>{ if(scope==='all') rows.push({name:bk.coName, depth:0, kind:'co', total:bk.total, count:bk.count}); bk.items.forEach(x=>rows.push(x)); });
+  const grandTotal = blocks.reduce((t,b)=>t+b.total, 0);
+  const grandCount = blocks.reduce((t,b)=>t+b.count, 0);
 
   const months = [
     {v:'all', n:'كل الشهور'},{v:1,n:'يناير'},{v:2,n:'فبراير'},{v:3,n:'مارس'},{v:4,n:'أبريل'},
@@ -8138,7 +8144,7 @@ function renderAnalytics(app){
 
   let budgetCardHtml = '';
   if(canSeeBudget()){
-    const budgetCenters = state.centers.filter(c=>(!scopedToOwnCenter || c.id===myCenterId) && (c.monthlyBudget!=null || c.annualBudget!=null));
+    const budgetCenters = state.centers.filter(c=>(!scopedToOwnCenter || c.id===myCenterId) && (scope!=='one' || c.companyId===curCo) && (c.monthlyBudget!=null || c.annualBudget!=null));
     if(budgetCenters.length){
       const yr = Number(selYear);
       const monthName = selMonth==='all' ? '' : (months.find(m=>String(m.v)===String(selMonth))||{}).n;
@@ -8161,7 +8167,10 @@ function renderAnalytics(app){
   app.innerHTML = wrapWithAdminSidebar(`
     <h1>التحليلات المالية</h1>
     ${analyticsTabsHtml('details')}
-    <p class="sub">${scopedToOwnCenter ? 'إجمالي المصروف الفعلي لمركزك' : 'إجمالي المصروف الفعلي لكل المراكز والشركة'} (الطلبات المصروفة فقط)</p>
+    ${scopedToOwnCenter ? '' : `<div class="an-scope no-print" role="tablist">
+      <button class="btn ${scope==='one'?'btn-primary':'btn-ghost'} btn-md" role="tab" aria-selected="${scope==='one'}" data-on-click="anDetScopeSet" data-on-click-args="${qa(['one'])}">الشركة المختارة</button>
+      <button class="btn ${scope==='all'?'btn-primary':'btn-ghost'} btn-md" role="tab" aria-selected="${scope==='all'}" data-on-click="anDetScopeSet" data-on-click-args="${qa(['all'])}">كل الشركات</button></div>`}
+    <p class="sub">${scopedToOwnCenter ? 'إجمالي المصروف الفعلي لمركزك' : scope==='one' ? 'إجمالي المصروف الفعلي لجهات «' + escH(companyNameOf(curCo)) + '»' : 'إجمالي المصروف الفعلي لكل الشركات، كل شركة وجهاتها'} (الطلبات المصروفة فقط)</p>
     <div class="filt-bar filt-narrow no-print">
       <div><label>السنة</label>
         <select id="analyticsYear" data-on-change="#54">
@@ -8182,18 +8191,20 @@ function renderAnalytics(app){
       <table class="amount-table">
         <thead><tr><th>الجهة</th><th>عدد الطلبات المصروفة</th><th>إجمالي المصروف (د.ك)</th></tr></thead>
         <tbody>
-          ${rows.map(b=>`<tr><td>${escH(b.name)}</td><td>${b.count}</td><td class="num">${fmtKWDHtml(b.total)}</td></tr>`).join('')}
+          ${rows.map(b=> b.kind==='co'
+            ? `<tr class="an-co"><td><b>${escH(b.name)}</b></td><td><b>${b.count}</b></td><td class="num"><b>${fmtKWDHtml(b.total)}</b></td></tr>`
+            : `<tr class="${b.total||b.count ? '' : 'an-zero'}"><td style="padding-inline-start:${12 + (b.depth + (scope==='all'?1:0))*18}px">${escH(b.name)}</td><td>${b.count}</td><td class="num">${fmtKWDHtml(b.total)}</td></tr>`).join('')}
         </tbody>
       </table>
       <div class="amount-box" style="margin-top:14px;">
-        <span class="amount-num">الإجمالي الكلي: ${fmtKWDHtml(grandTotal)} د.ك</span>
+        <span class="amount-num">${scope==='all' ? 'الإجمالي الكلي لكل الشركات' : scope==='one' ? 'إجمالي الشركة' : 'الإجمالي'}: ${fmtKWDHtml(grandTotal)} د.ك</span>
         <span class="amount-words">(${grandCount} طلب مصروف)</span>
       </div>
     </div>
     ${budgetCardHtml}
   `);
   state._analyticsRows = rows;
-  state._analyticsMeta = {selYear, selMonth};
+  state._analyticsMeta = {selYear, selMonth, scope};
 }
 
 // ===================== إسناد المعاملات =====================
