@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.37.4', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.37.5', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.2, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.3, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -17243,9 +17243,9 @@ function cxStaleBannerHtml(compact){
     ? `آخر رفع: كشف الحساب حتى <b>${cxDate(d.statement)}</b> · الفواتير حتى <b>${cxDate(d.bills)}</b>${red ? ` — مضى ${age} يوماً، ارفع ملفات أحدث` : ''}`
     : 'لم تُرفع ملفات بوابة الدفع بعد.';
   const gaps = gwGaps();
-  return `<div class="card no-print" style="margin-bottom:12px;border:2px solid ${gaps.length?'var(--red)':col};padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;">
+  return `<div class="card no-print gw-stale${compact?' gw-stale-c':''}" style="border-color:${gaps.length?'var(--red)':col};">
     <div style="font-size:var(--fs-label);line-height:1.7;color:${col};font-weight:700;">${msg}${gaps.length ? `<div style="color:var(--red)">أيام لم يُرفع كشفها: ${gwGapsText(gaps)}</div>` : ''}</div>
-    ${compact ? `<button class="btn btn-ghost btn-sm" data-on-click="openGwImport">رفع الملفات</button>` : ''}
+    ${compact ? `<button class="btn btn-ghost btn-xs" data-on-click="openGwImport">رفع الملفات</button>` : ''}
   </div>`;
 }
 function cxDashBanner(app){
