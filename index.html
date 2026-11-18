@@ -3274,6 +3274,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pj-creq-head h3 label{font:inherit;margin:0;}
   #app .pj-creq-sel{flex:0 1 420px;min-width:220px;} #app .pj-creq-sel select{width:100%;}
   #app .pj-creq-head h3{white-space:nowrap;margin:0;display:flex;align-items:baseline;gap:6px;}
+  /* (1.32.0) إضافة بند بقوائم متتابعة */
+  #app .pja-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:0 0 10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper);}
+  #app .pja-bar .f-md{flex:1 1 170px;min-width:150px;margin:0;} #app .pja-bar .f-sm{flex:0 0 90px;margin:0;}
+  #app .pja-bar .f-sm:last-child{flex:0 0 150px;} #app .pja-bar .btn{width:150px;}
+  #app .pja-bar select, #app .pja-bar input{width:100%;}
+  @media (max-width:699px){ #app .pja-bar{display:grid;grid-template-columns:1fr 1fr;} #app .pja-bar .f-md:first-child{grid-column:1 / -1;} #app .pja-bar .f-sm:last-child, #app .pja-bar .btn{width:100%;} }
 </style>
 </head>
 <body>
@@ -3294,6 +3300,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=ba52068a65"></script>
+<script src="app.js?v=e11faea63e"></script>
 </body>
 </html>

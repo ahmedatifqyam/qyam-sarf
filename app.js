@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.31.2', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.32.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:357, base:350, extra:6.8, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:357, base:350, extra:6.9, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18277,7 +18277,8 @@ async function catLoad(){
   if(!(await dbCheck(r,'تحميل خدمات الشركة'))) return;
   state.cat.items = r.data||[]; state.cat.loaded = true; state.cat._cid = state.currentCompanyId;
   if(state.view==='catalog') render();
-  else if(state.prj && state.prj.pickOpen){ if(state.prj.docForm) prjDocSync(); render(); }   // نافذة «نسخ من خدمات الشركة» كانت تبقى على «جارٍ التحميل»
+  else if(state.prj && state.prj.docForm && document.getElementById('pjlBox')) prjLinesRefresh();
+  else if(state.prj && state.prj.pickOpen) render();   // نافذة «نسخ من خدمات الشركة» كانت تبقى على «جارٍ التحميل»
 }
 function catKids(pid){ return (state.cat.items||[]).filter(x=>(x.parent_id||null)===(pid||null)).sort((a,b)=>(a.sort-b.sort) || String(a.name).localeCompare(String(b.name),'ar')); }
 function catMatch(x){ const q = (state.cat.q||'').trim(); if(!q) return true; const t = [x.name, x.description].join(' '); return t.includes(q) || catKids(x.id).some(catMatch); }
@@ -18875,7 +18876,7 @@ function prjDraftLoad(){ try{ const x = JSON.parse(localStorage.getItem(prjDraft
 function prjDraftDiscard(){ prjDraftClear(); state.prj.docForm = null; prjNewDoc(true); }
 document.addEventListener('input', e=>{ if(e.target && e.target.closest && e.target.closest('#pjDocForm') && state.prj && state.prj.docForm && !state.prj.docForm.id){ clearTimeout(state._pjDraftT); state._pjDraftT = setTimeout(()=>{ prjDocSync(); prjDraftSave(); }, 500); } });
 document.addEventListener('change', e=>{ if(e.target && e.target.closest && e.target.closest('#pjDocForm') && state.prj && state.prj.docForm && !state.prj.docForm.id){ setTimeout(()=>{ prjDocSync(); prjDraftSave(); }, 0); } });
-function prjNewDoc(fresh){ const dr = fresh===true ? null : prjDraftLoad();
+function prjNewDoc(fresh){ state.prj.addSel = {}; const dr = fresh===true ? null : prjDraftLoad();
   if(dr){ state.prj.pickOpen = false; state.prj.docForm = Object.assign(dr, {_restored:true}); render(); window.scrollTo(0,0); showToast('استُعيدت مسودة الوثيقة — أرفق ملف الوثيقة من جديد','success'); return; }
   state.prj.pickOpen = false; state.prj.docForm = {id:null, lines:[], doc_type:'quote', client_id:state.prj.f.client||'', contract_id:'', title:'', doc_date:cxToday(), amount:'', amount_kind:'total', months:'', open_ended:false, start_date:cxToday(), notes:''}; render(); window.scrollTo(0,0); }
 function prjEditDoc(id){ const d = state.prj.docs.find(x=>x.id===id); if(!d) return; state.prj.pickOpen = false; state.prj.docForm = Object.assign({}, d, {creq_id:(prjCreqOfDoc(d.id)||{}).id||'', contract_id:d.contract_id||'', months:d.months||'', amount:d.amount, lines:(Array.isArray(d.lines) ? d.lines : []).map(l=>Object.assign({}, l))}); render(); setTimeout(()=>{ const el = document.getElementById('pjDocForm'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 40); }
@@ -18890,25 +18891,57 @@ function prjDocRefresh(){ prjDocSync(); render(); }
 // بنود المشروع: تُختار من «خدمات الشركة» أو تُكتب، والقيمة مجموعها (الكمية × السعر)
 function prjLineTotal(l){ return cxR3((Number(l.qty)||0) * (Number(l.price)||0)); }
 function prjLinesSum(lines){ return cxR3((lines||[]).reduce((t,l)=>t + prjLineTotal(l), 0)); }
-function prjLineAdd(){ prjDocSync(); const d = state.prj.docForm; if(!d) return; (d.lines = d.lines||[]).push({name:'', qty:1, unit:'', price:''}); render();
+// إعادة رسم صندوق البنود وحده (لا الصفحة) حتى لا يضيع ملف الوثيقة المختار ولا ما كُتب في النموذج
+function prjLinesRefresh(){ const d = state.prj.docForm, box = document.getElementById('pjlBox'); if(!d || !box){ render(); return; }
+  box.outerHTML = prjLinesFormHtml(d);
+  const a = document.getElementById('pjd_amount'); if(a){ const n = (d.lines||[]).length; a.readOnly = n > 0; if(n) a.value = prjLinesSum(d.lines).toFixed(3); }
+  tidyLite(); prjDraftSave(); }
+// إضافة بند بالاختيار المتتابع: الخدمة الرئيسية ← الفرعية ← البند، ثم الكمية
+function prjAddPick(level, v){ const a = state.prj.addSel = state.prj.addSel || {};
+  if(level==='m'){ a.m = v; a.s = ''; a.i = ''; } else if(level==='s'){ a.s = v; a.i = ''; } else a.i = v; prjLinesRefresh(); }
+function prjAddLine(){
+  const a = state.prj.addSel || {}, d = state.prj.docForm; if(!d) return;
+  const id = a.i || (a.s && !catKids(a.s).some(x=>x.active) ? a.s : '') || (a.m && !catKids(a.m).some(x=>x.active) ? a.m : '');
+  if(!id){ fieldErr(a.s ? '#pja_i' : a.m ? '#pja_s' : '#pja_m', a.s ? 'اختر البند' : a.m ? 'اختر الخدمة الفرعية' : 'اختر الخدمة'); return; }
+  const it = state.cat.items.find(x=>x.id===id); if(!it) return;
+  const chain = []; let x = state.cat.items.find(y=>y.id===it.parent_id); while(x){ chain.unshift(x.name); x = state.cat.items.find(y=>y.id===x.parent_id); }
+  const q = cxN((document.getElementById('pja_q')||{}).value) || 1;
+  prjDocSync(); (d.lines = d.lines||[]).push({catalog_id:id, section:chain.join(' — '), name:it.name, qty:q, unit:it.unit||'', price:it.price==null ? '' : Number(it.price)});
+  state.prj.addSel = {}; prjLinesRefresh(); showToast('أُضيف البند' + (it.price==null ? ' — اكتب سعره' : ''),'success');
+  setTimeout(()=>{ const el = document.getElementById(it.price==null ? 'pjl_price_' + (d.lines.length-1) : 'pja_m'); if(el) el.focus(); }, 40);
+}
+function prjAddBarHtml(){
+  if(!state.cat.loaded || state.cat._cid!==state.currentCompanyId){ if(!state.cat._ld){ state.cat._ld = true; catLoad().finally(()=>{ state.cat._ld = false; }); } return '<div class="file-hint">جارٍ تحميل خدمات الشركة…</div>'; }
+  const a = state.prj.addSel || {}, act = pid => catKids(pid).filter(x=>x.active);
+  const mains = act(null); if(!mains.length) return '<div class="file-hint">لا خدمات في «خدمات الشركة» لهذه الشركة بعد — أضف سطراً يدوياً بـ«+ سطر».</div>';
+  const subs = a.m ? act(a.m) : [], items = a.s ? act(a.s) : [];
+  const opt = (x, sel) => `<option value="${escH(x.id)}" ${sel===x.id?'selected':''}>${escH(x.name)}${x.price!=null ? ' — ' + fmtKWDPlain(x.price) + (x.unit ? ' / ' + escH(x.unit) : '') : ''}</option>`;
+  return `<div class="pja-bar">
+    <div class="f-md"><label for="pja_m">الخدمة الرئيسية</label><select id="pja_m" data-on-change="prjAddPick" data-on-change-args="${qa(['m', QA.v])}"><option value="">— اختر —</option>${mains.map(x=>opt(x, a.m)).join('')}</select></div>
+    <div class="f-md"><label for="pja_s">الخدمة الفرعية</label><select id="pja_s" ${!a.m || !subs.length ? 'disabled' : ''} data-on-change="prjAddPick" data-on-change-args="${qa(['s', QA.v])}"><option value="">${a.m && !subs.length ? '— لا فرعيات —' : '— اختر —'}</option>${subs.map(x=>opt(x, a.s)).join('')}</select></div>
+    <div class="f-md"><label for="pja_i">البند</label><select id="pja_i" ${!a.s || !items.length ? 'disabled' : ''} data-on-change="prjAddPick" data-on-change-args="${qa(['i', QA.v])}"><option value="">${a.s && !items.length ? '— الخدمة الفرعية نفسها —' : '— اختر —'}</option>${items.map(x=>opt(x, a.i)).join('')}</select></div>
+    <div class="f-sm"><label for="pja_q">العدد</label><input id="pja_q" type="text" inputmode="decimal" dir="ltr" value="1"></div>
+    <div class="f-sm"><label>&nbsp;</label><button class="btn btn-primary btn-md" data-on-click="prjAddLine">إضافة بند</button></div>
+  </div>`;
+}
+function prjLineAdd(){ prjDocSync(); const d = state.prj.docForm; if(!d) return; (d.lines = d.lines||[]).push({name:'', qty:1, unit:'', price:''}); prjLinesRefresh();
   setTimeout(()=>{ const el = [...document.querySelectorAll('#app .pjl-name')].pop(); if(el) el.focus(); }, 40); }
 function prjLineEdit(i, k, v){ prjDocSync(); const d = state.prj.docForm; if(!d || !d.lines || !d.lines[i]) return;
   d.lines[i][k] = (k==='qty' || k==='price') ? (String(v).trim()==='' ? '' : cxN(v)) : String(v);
-  if(k==='qty' || k==='price') render(); }
-function prjLineDel(i){ prjDocSync(); const d = state.prj.docForm; if(!d || !d.lines) return; d.lines.splice(i,1); render(); }
+  if(k==='qty' || k==='price') prjLinesRefresh(); else prjDraftSave(); }
+function prjLineDel(i){ prjDocSync(); const d = state.prj.docForm; if(!d || !d.lines) return; d.lines.splice(i,1); prjLinesRefresh(); }
 function prjLinesFormHtml(d){
   const L = d.lines||[], P = state.prj;
-  return `<div class="pjl-box">
-    <div class="cx-panel-h"><h3>بنود المشروع</h3><div class="cx-ph-tools">
-      <button class="btn btn-ghost btn-md" data-on-click="prjPickToggle">نسخ من خدمات الشركة</button>
-      <button class="btn btn-primary btn-md" data-on-click="prjLineAdd">+ سطر</button></div></div>
-    ${P.pickOpen ? prjPickHtml(null, 'doc') : ''}
+  return `<div class="pjl-box" id="pjlBox">
+    <div class="cx-panel-h"><h3>بنود المشروع <span class="file-hint">(اختيارية)</span></h3><div class="cx-ph-tools">
+      <button class="btn btn-ghost btn-md" data-on-click="prjLineAdd">+ سطر يدوي</button></div></div>
+    ${prjAddBarHtml()}
     ${L.length ? `<div class="pjp-wrap"><table class="exec-table pjp-tbl pjl-tbl"><thead><tr><th>البند</th><th class="num">الكمية</th><th>الوحدة</th><th class="num">سعر الوحدة</th><th class="num">الإجمالي</th><th></th></tr></thead><tbody>
       ${L.map((l,i)=>`<tr>
         <td data-label="البند"><input class="pjp-in pjl-name" type="text" value="${escH(l.name||'')}" placeholder="اسم البند" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'name',QA.v])}">${l.section ? `<div class="file-hint">${escH(l.section)}</div>` : ''}</td>
         <td data-label="الكمية" class="num"><input class="pjp-in pjl-qty" type="text" inputmode="decimal" dir="ltr" value="${escH(String(l.qty??''))}" placeholder="1" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'qty',QA.v])}"></td>
         <td data-label="الوحدة"><input class="pjp-in pjp-unit" type="text" value="${escH(l.unit||'')}" placeholder="الوحدة" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'unit',QA.v])}"></td>
-        <td data-label="سعر الوحدة" class="num"><input class="pjp-in pjp-price" type="text" inputmode="decimal" dir="ltr" value="${escH(String(l.price??''))}" placeholder="0.000" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'price',QA.v])}"></td>
+        <td data-label="سعر الوحدة" class="num"><input class="pjp-in pjp-price" id="pjl_price_${i}" type="text" inputmode="decimal" dir="ltr" value="${escH(String(l.price??''))}" placeholder="0.000" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'price',QA.v])}"></td>
         <td data-label="الإجمالي" class="num"><b>${fmtKWDHtml(prjLineTotal(l))}</b></td>
         <td class="pj-acts"><button class="ct-ico ct-ico-d" data-on-click="prjLineDel" data-on-click-args="${qa([i])}" title="حذف" aria-label="حذف">${qi('trash')}</button></td></tr>`).join('')}
       <tr class="pjl-sum"><td colspan="4"><b>المجموع = قيمة المشروع</b></td><td class="num"><b>${fmtKWDHtml(prjLinesSum(L))}</b></td><td></td></tr>
