@@ -3269,6 +3269,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .cx-stats, #app .cx-grid, #app .stat-cards{margin-bottom:6px !important;gap:8px !important;}
     #app h2{margin-bottom:6px;}
   }
+  /* (1.31.1) طلب العميل: الاختيار بجانب العنوان */
+  #app .pj-creq-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  #app .pj-creq-head h3 label{font:inherit;margin:0;}
+  #app .pj-creq-sel{flex:0 1 420px;min-width:220px;} #app .pj-creq-sel select{width:100%;}
+  #app .pj-creq-head h3{white-space:nowrap;margin:0;display:flex;align-items:baseline;gap:6px;}
 </style>
 </head>
 <body>
@@ -3289,6 +3294,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=e2efb9a53b"></script>
+<script src="app.js?v=a4354e6624"></script>
 </body>
 </html>

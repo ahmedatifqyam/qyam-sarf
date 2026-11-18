@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.31.0', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.31.1', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:356, base:350, extra:5.6, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:356, base:350, extra:5.8, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18841,7 +18841,7 @@ async function prjCreqDrop(id){
   const r = await db.from('prj_client_requests').update({status:'cancelled'}).eq('id', id);
   if(!(await dbCheck(r,'إلغاء الطلب'))) return; showToast('أُلغي الطلب','success'); await prjLoad();
 }
-function prjCreqToDoc(id){ const q = (state.prj.creqs||[]).find(x=>x.id===id); if(!q) return; prjNewDoc(); const d = state.prj.docForm; d.client_id = q.client_id||''; d.creq_id = q.id; render(); }
+function prjCreqToDoc(id){ const q = (state.prj.creqs||[]).find(x=>x.id===id); if(!q) return; prjNewDoc(true); const d = state.prj.docForm; d.client_id = q.client_id||''; d.creq_id = q.id; render(); }
 function prjCreqPendingHtml(){
   const L = prjCreqPending(state.prj.f.client); if(!L.length) return '';
   const ed = canEditPrj();
@@ -18858,17 +18858,27 @@ function prjDocCreqPick(v){ const d = state.prj.docForm; if(d) d.creq_id = v; co
 function prjDocCreqHtml(d){
   const pend = prjCreqPending(d.client_id).concat(d.id && prjCreqOfDoc(d.id) ? [prjCreqOfDoc(d.id)] : []);
   const v = d.creq_id || '';
-  return `<div class="pjl-box pj-creq-box"><div class="cx-panel-h"><h3>طلب العميل <span class="file-hint">(اختياري)</span></h3></div>
-    <div class="co-g co-g4"><div class="co-f co-s2"><label for="pjd_creq_id">الطلب</label><select id="pjd_creq_id" data-on-change="prjDocCreqPick" data-on-change-args="${qa([QA.v])}">
+  return `<div class="pjl-box pj-creq-box"><div class="cx-panel-h pj-creq-head"><h3><label for="pjd_creq_id">طلب العميل</label> <span class="file-hint">(اختياري)</span></h3>
+    <div class="pj-creq-sel"><select id="pjd_creq_id" data-on-change="prjDocCreqPick" data-on-change-args="${qa([QA.v])}">
       <option value="">— بدون طلب —</option>${pend.map(q=>`<option value="${escH(q.id)}" ${v===q.id?'selected':''}>${cxDate(q.req_date)} · ${escH(PRJ_CREQ_CH[q.channel]||'')} · ${escH(String(q.description).slice(0,50))}</option>`).join('')}
       <option value="__new" ${v==='__new'?'selected':''}>+ تسجيل الطلب هنا</option></select></div></div>
     <div id="pjdq_wrap" ${v==='__new' ? '' : 'hidden'}>${prjCreqFieldsHtml({req_date:cxToday(), channel:'whatsapp', description:d._cq_desc||'', files:[]}, 'pjdq')}</div>
   </div>`;
 }
 // ---------- الوثيقة: رفع PDF جاهز مع بياناتها ----------
-function prjNewDoc(){ state.prj.pickOpen = false; state.prj.docForm = {id:null, lines:[], doc_type:'quote', client_id:state.prj.f.client||'', contract_id:'', title:'', doc_date:cxToday(), amount:'', amount_kind:'total', months:'', open_ended:false, start_date:cxToday(), notes:''}; render(); window.scrollTo(0,0); }
+// مسودة «وثيقة جديدة» (1.31.1): تُحفظ في هذا المتصفح أثناء الكتابة وتعود عند فتح النموذج؛ ملف الوثيقة لا يُحفظ فيُرفق من جديد
+function prjDraftKey(){ return 'qy_prjdoc_draft_' + (state.user ? state.user.id : '') + '_' + (state.currentCompanyId||''); }
+function prjDraftSave(){ const d = state.prj.docForm; if(!d || d.id) return; try{ const x = Object.assign({}, d); delete x._file; localStorage.setItem(prjDraftKey(), JSON.stringify(Object.assign(x, {_savedAt:Date.now()}))); }catch(e){} }
+function prjDraftClear(){ try{ localStorage.removeItem(prjDraftKey()); }catch(e){} }
+function prjDraftLoad(){ try{ const x = JSON.parse(localStorage.getItem(prjDraftKey())||'null'); return x && !x.id ? x : null; }catch(e){ return null; } }
+function prjDraftDiscard(){ prjDraftClear(); state.prj.docForm = null; prjNewDoc(true); }
+document.addEventListener('input', e=>{ if(e.target && e.target.closest && e.target.closest('#pjDocForm') && state.prj && state.prj.docForm && !state.prj.docForm.id){ clearTimeout(state._pjDraftT); state._pjDraftT = setTimeout(()=>{ prjDocSync(); prjDraftSave(); }, 500); } });
+document.addEventListener('change', e=>{ if(e.target && e.target.closest && e.target.closest('#pjDocForm') && state.prj && state.prj.docForm && !state.prj.docForm.id){ setTimeout(()=>{ prjDocSync(); prjDraftSave(); }, 0); } });
+function prjNewDoc(fresh){ const dr = fresh===true ? null : prjDraftLoad();
+  if(dr){ state.prj.pickOpen = false; state.prj.docForm = Object.assign(dr, {_restored:true}); render(); window.scrollTo(0,0); showToast('استُعيدت مسودة الوثيقة — أرفق ملف الوثيقة من جديد','success'); return; }
+  state.prj.pickOpen = false; state.prj.docForm = {id:null, lines:[], doc_type:'quote', client_id:state.prj.f.client||'', contract_id:'', title:'', doc_date:cxToday(), amount:'', amount_kind:'total', months:'', open_ended:false, start_date:cxToday(), notes:''}; render(); window.scrollTo(0,0); }
 function prjEditDoc(id){ const d = state.prj.docs.find(x=>x.id===id); if(!d) return; state.prj.pickOpen = false; state.prj.docForm = Object.assign({}, d, {creq_id:(prjCreqOfDoc(d.id)||{}).id||'', contract_id:d.contract_id||'', months:d.months||'', amount:d.amount, lines:(Array.isArray(d.lines) ? d.lines : []).map(l=>Object.assign({}, l))}); render(); setTimeout(()=>{ const el = document.getElementById('pjDocForm'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 40); }
-function prjDocCancel(){ state.prj.docForm = null; render(); }
+function prjDocCancel(){ if(state.prj.docForm && !state.prj.docForm.id) prjDraftClear(); state.prj.docForm = null; render(); }
 function prjDocSync(){
   const d = state.prj.docForm; if(!d) return;
   const g = k => { const el = document.getElementById('pjd_'+k); return el ? (el.type==='checkbox' ? el.checked : el.value) : undefined; };
@@ -18921,7 +18931,7 @@ function prjContractOpts(clientId, sel){
 function prjDocFormHtml(){
   const d = state.prj.docForm, clients = cxClientTree();
   return `<div class="card cx-panel pj-form" id="pjDocForm">
-    <div class="cx-panel-h"><h2>${d.id ? 'تعديل الوثيقة ' + escH(d.doc_no||'') : 'وثيقة جديدة'}</h2></div>
+    <div class="cx-panel-h"><h2>${d.id ? 'تعديل الوثيقة ' + escH(d.doc_no||'') : 'وثيقة جديدة'}</h2>${!d.id ? `<div class="cx-ph-tools"><span class="file-hint">${d._restored ? 'مسودة مستعادة — ' : ''}تُحفظ مسودة تلقائياً أثناء الكتابة</span>${d._restored ? `<button class="btn btn-ghost btn-md" data-on-click="prjDraftDiscard">بدء وثيقة فارغة</button>` : ''}</div>` : ''}</div>
     <p class="file-hint">ارفع الوثيقة جاهزة (PDF أو صورة) واكتب بياناتها. الرقم يُعطى تلقائياً: رمز الشركة-الرقم/السنة. ويمكن اختيار بنودها من «خدمات الشركة» في آخر النموذج.</p>
     <div class="co-g co-g4">
       <div class="co-f"><label for="pjd_doc_type">نوع الوثيقة</label><select id="pjd_doc_type">${PRJ_DOC_TYPES.map(([k,l])=>`<option value="${k}" ${d.doc_type===k?'selected':''}>${l}</option>`).join('')}</select></div>
@@ -18984,6 +18994,7 @@ async function prjDocSave(){
         if(qr) await dbCheck(await db.from('prj_client_requests').insert(Object.assign(qr, {company_id:state.currentCompanyId, client_id:d.client_id, status:'linked', doc_id:docId, created_by:state.user.id})), 'حفظ طلب العميل'); }
       else if(want && (!prev || prev.id !== want)) await dbCheck(await db.from('prj_client_requests').update({status:'linked', doc_id:docId}).eq('id', want), 'ربط طلب العميل');
     }
+    if(!d.id) prjDraftClear();
     showToast(d.id ? 'حُفظ التعديل' : 'حُفظت الوثيقة ' + ((r.data||{}).doc_no||''), 'success');
     state.prj.docForm = null; await prjLoad();
   }catch(e){ if(e.message!=='-') showToast('تعذّر الحفظ: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'حفظ'; } }
@@ -19737,7 +19748,9 @@ function prjPickToggle(){ if(state.prj.docForm) prjDocSync(); state.prj.pickOpen
 function prjPickHtml(c, mode){
   const mains = catKids(null).filter(x=>x.active);
   if(!state.cat.loaded) return '<div class="ct-empty">جارٍ تحميل خدمات الشركة…</div>';
-  if(!mains.length) return '<div class="ct-empty">لا خدمات في «خدمات الشركة» بعد.</div>';
+  const nItems = mains.reduce((t,m)=>t + catKids(m.id).filter(x=>x.active).reduce((a,sb)=>a + catKids(sb.id).filter(x=>x.active).length, 0), 0);
+  if(!mains.length || !nItems) return `<div class="ct-empty pj-pick-none">${!mains.length ? 'لا خدمات في «خدمات الشركة» لهذه الشركة بعد.' : 'في «خدمات الشركة» خدمات رئيسية وفرعية، لكن لا بنود بأسعار تحتها بعد.'} البنود التي تُنسخ هي آخر مستوى: <b>خدمة رئيسية ← خدمة فرعية ← بند بسعره</b>. أضفها من «المشاريع ← خدمات الشركة»، أو اضغط «+ سطر» واكتب البند وسعره هنا.
+    <div class="cx-actions"><button class="btn btn-ghost btn-md" data-on-click="openCatalog">فتح خدمات الشركة</button><button class="btn btn-ghost btn-md" data-on-click="prjPickToggle">إغلاق</button></div></div>`;
   const have = new Set(mode==='doc' ? ((state.prj.docForm||{}).lines||[]).filter(l=>l.catalog_id).map(l=>l.catalog_id) : state.prj.prices.filter(x=>x.contract_id===c.id && x.catalog_id).map(x=>x.catalog_id));
   return `<div class="pj-pick">
     ${mains.map(m=>{ const subs = catKids(m.id).filter(x=>x.active), items = subs.flatMap(s=>catKids(s.id).filter(x=>x.active));
