@@ -3474,6 +3474,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .nr-form .nr-lblrow .nr-lbl-side, #app .nr-form .nr-lblrow .nr-xls-t{margin:0 0 4px !important;font-size:var(--fs-label);font-weight:700;color:var(--ink);}
   #app .nr-form .nr-lblrow label{margin:0 0 4px !important;}
   #app .nr-form{padding-top:12px;}
+
+  /* (1.37.7) زرّا إضافة مستفيد والاختيار من الموردين/العقود في صف واحد */
+  #app .nr-form .nr-addrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  #app .nr-form .nr-addbtn{width:auto;min-width:220px;flex:0 0 auto;height:40px;font-weight:700;color:var(--info);border-color:var(--info-line);}
+  @media (max-width:699px){ #app .nr-form .nr-addrow{flex-wrap:nowrap;} #app .nr-form .nr-addbtn{flex:1 1 0;min-width:0;padding:0 4px !important;} }
 </style>
 </head>
 <body>
@@ -3494,6 +3499,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=449205f47e"></script>
+<script src="app.js?v=a74cc4e7e5"></script>
 </body>
 </html>

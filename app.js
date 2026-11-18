@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.37.6', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.37.7', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.5, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:353, base:350, extra:2.6, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -14881,7 +14881,7 @@ function nrWcPickToggle(){ syncDraftFromDOM(); state.nrPickOpen = !state.nrPickO
 function nrWcPickHtml(d){
   const used = new Set(d.beneficiaries.map(b=>{ const c = nrWcMatch(b); return c && c.id; }).filter(Boolean));
   const L = nrWcList();
-  if(!state.nrPickOpen) return `<span class="add-beneficiary nr-wide nr-pick-btn" data-on-click="nrWcPickToggle">${d.requestType==='reward' ? '🎁' : '👥'} + اختيار من ${d.requestType==='reward' ? 'عقود المكافآت والعمل الحر' : 'عقود العمل'}${L.length ? ' (' + L.length + ')' : ''}</span>`;
+  if(!state.nrPickOpen) return `<button type="button" class="btn btn-ghost btn-md nr-addbtn nr-pick-btn" data-on-click="nrWcPickToggle">${d.requestType==='reward' ? '🎁' : '👥'} اختيار من ${d.requestType==='reward' ? 'عقود المكافآت' : 'عقود العمل'}${L.length ? ' · ' + L.length : ''}</button>`;
   const wname = c => { const u = c.user_id ? (state.users||[]).find(x=>x.id===c.user_id) : null; return (u && u.name) || c.person_name || '—'; };
   return `<div class="nr-wide nr-pick">
     <div class="nr-pick-h"><b>${d.requestType==='reward' ? 'عقود المكافآت والعمل الحر السارية' : 'عقود العمل السارية'}</b><span class="file-hint">اختر من تريد إضافتهم؛ المضاف من قبل معطّل.</span></div>
@@ -15069,8 +15069,9 @@ function renderNewRequest(app){
           </div>
         `}).join('')}
       </div>
-      ${nrIsWc(d.requestType) ? nrWcPickHtml(d) : nrSupPickHtml(d)}
-      <span class="add-beneficiary nr-wide" data-on-click="addBeneficiaryRow">+ إضافة مستفيد ${nrIsWc(d.requestType) ? 'يدوياً' : 'آخر'}</span>
+      ${(()=>{ // (1.37.7) زرّا «إضافة مستفيد» و«اختيار من …» في صف واحد؛ قائمة الاختيار المفتوحة فوقهما
+        const pk = nrIsWc(d.requestType) ? nrWcPickHtml(d) : nrSupPickHtml(d), open = !/^<button/.test(pk.trim());
+        return `${open ? pk : ''}<div class="nr-wide nr-addrow"><button type="button" class="btn btn-ghost btn-md nr-addbtn" data-on-click="addBeneficiaryRow">+ إضافة مستفيد ${nrIsWc(d.requestType) ? 'يدوياً' : 'آخر'}</button>${open ? '' : pk}</div>`; })()}
 
       <div class="total-box nr-wide" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:nowrap;">
         <div style="flex-shrink:0;">
@@ -17524,7 +17525,7 @@ function nrSupItemsHtml(d){
   return L.map(c=>`<button type="button" class="sup-pick-i${used.has(c.id) ? ' pj-have' : ''}" data-on-click="nrSupApply" data-on-click-args="${qa([c.id])}" ${used.has(c.id) ? 'disabled' : ''}><b>${escH(c.name)}</b>${c.activity ? `<small class="pj-muted"> · ${escH(c.activity)}</small>` : ''}<span class="sup-pick-ib">${c.iban ? '<bdi dir="ltr">…' + escH(String(c.iban).slice(-4)) + '</bdi>' : '<span class="bbh-warn">بلا آيبان</span>'}</span></button>`).join('');
 }
 function nrSupPickHtml(d){
-  if(!state.nrSupOpen) return `<span class="add-beneficiary nr-wide nr-pick-btn" data-on-click="nrSupToggle">🏪 + اختيار من الموردين${nrSupList().length ? ' (' + nrSupList().length + ')' : ''}</span>`;
+  if(!state.nrSupOpen) return `<button type="button" class="btn btn-ghost btn-md nr-addbtn nr-pick-btn" data-on-click="nrSupToggle">🏪 اختيار من الموردين${nrSupList().length ? ' · ' + nrSupList().length : ''}</button>`;
   return `<div class="nr-wide nr-pick">
     <div class="nr-pick-h"><b>الموردون</b><span class="file-hint">اضغط المورد فيُضاف مستفيداً باسمه وآيبانه.</span></div>
     <input id="nrSupQ" type="text" placeholder="بحث بالاسم أو النشاط" value="${escH(state.nrSupQ||'')}" data-on-input="nrSupFilter" data-on-input-args="${qa([QA.v])}">
