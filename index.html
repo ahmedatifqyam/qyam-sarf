@@ -3448,6 +3448,13 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* (1.37.0) الترتيب بالضغط على عنوان العمود */
   #app th.col-sortable{cursor:pointer;user-select:none;} #app th.col-sortable:hover{color:var(--info);}
   #app th.col-sorted{color:var(--info);} #app th .col-sort{font-size:11px;margin-inline-start:5px;color:var(--info);}
+
+  /* (1.37.2) أدوات المشاريع بعرض البطاقة كاملاً: الفلتران يتمددان، و🔍 والزران بحجمهم */
+  @media (min-width:700px){
+    #app .pj-tools{max-width:none !important;width:100%;}
+    #app .pj-tools select{flex:1 1 0 !important;width:auto !important;min-width:0;max-width:none !important;}
+    #app .pj-tools > .btn{flex:0 0 180px !important;width:180px !important;}
+  }
 </style>
 </head>
 <body>
@@ -3468,6 +3475,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=2ebed2ab52"></script>
+<script src="app.js?v=92e16dc811"></script>
 </body>
 </html>
