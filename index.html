@@ -2210,7 +2210,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pw-eye:hover{background:var(--paper-2);}
   .co-g4{grid-template-columns:repeat(4,minmax(0,1fr));} .co-s2{grid-column:span 2;} .co-s3{grid-column:span 3;}
   #app .co-g .co-chk{display:flex;align-items:center;gap:8px;height:40px;width:100%;box-sizing:border-box;margin:0;}
-  #app .co-g .file-pick{display:flex;width:100%;} #app .co-g .file-pick > label.file-btn{width:150px;}
+  #app .co-g .file-pick{display:flex;width:100%;} #app .co-g .file-pick > label.file-btn{width:100%;}
   #app .uf-flex label.btn{display:inline-flex;align-items:center;justify-content:center;margin:0;}
   @media (max-width:999px) and (min-width:700px){ .co-g4{grid-template-columns:repeat(2,minmax(0,1fr));} .co-g4 .co-s3{grid-column:span 2;} }
   @media (max-width:699px){ .co-g,.co-g4{grid-template-columns:minmax(0,1fr);} .co-s2,.co-s3{grid-column:auto;} }
@@ -3011,13 +3011,13 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app:has(> .pj-top) .cx-panel-h > h2{flex:0 0 auto;white-space:nowrap;margin:0;}
   #app:has(> .pj-top) .cx-ph-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-inline-start:auto;}
   .pj-rep-l label{display:block;margin:0 0 6px;font-weight:700;}
-  .pj-rep-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;} .pj-rep-row > .btn, .pj-rep-row > .file-pick > label.btn{width:150px;flex:0 0 150px;}
+  .pj-rep-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;} .pj-rep-row > .btn, .pj-rep-row > .file-pick > label.file-btn{width:150px;flex:0 0 150px;}
   .pj-rep-row > .file-pick{display:flex;align-items:center;gap:8px;} .pj-rep-hint:empty{display:none;} .pj-rep-hint{margin-top:6px;}
   @media (max-width:699px){
     #app:has(> .pj-top) .cx-panel-h > h2{font-size:var(--fs-h3,18px);}
     #app:has(> .pj-top) .cx-panel-h .btn{width:105px !important;min-width:0 !important;padding:0 6px !important;flex:0 0 auto;}
     #app:has(> .pj-top) .pj-kv2{padding:5px 0 !important;line-height:1.4;}
-    .pj-rep-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));} .pj-rep-row > .btn, .pj-rep-row > .file-pick, .pj-rep-row > .file-pick > label.btn{width:100% !important;flex:auto;min-width:0;padding:0 6px !important;}
+    .pj-rep-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));} .pj-rep-row > .btn, .pj-rep-row > .file-pick, .pj-rep-row > .file-pick > label.file-btn{width:100% !important;flex:auto;min-width:0;padding:0 6px !important;}
     .pj-rep-row > .file-pick .file-pick-name{display:none;}
   }
   .pj-row-s{justify-content:space-between !important;} .pj-row-s > .btn{margin-inline-start:auto;} .pj-trail{justify-content:center;}
@@ -3307,6 +3307,53 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .pjl-tbl tr.pjl-addrow{display:block !important;} #app .pjl-tbl tr.pjl-addrow td{display:block !important;}
     #app .pjl-addrow select{max-width:none;}
   }
+
+  /* (1.34.0) نموذج الوثيقة: طلب العميل بعنوانه، حقل ملف موحّد، طريقة الدفع والدفعات، بنود أقصر بترتيب بالسحب */
+  #app .card[hidden]{display:none !important;}
+  #app .pj-row > .pf > input:not([type=checkbox]), #app .pj-row > .pf > select, #app .pj-row > .pf .file-pick{width:100% !important;max-width:none !important;min-width:0 !important;}
+  #app .pj-row .pf label.file-field, #app label.file-field{display:flex !important;margin:0 !important;}
+  #app .pj-creq-tools{gap:8px;flex-wrap:nowrap;}
+  #app .pj-creq-lbl{font-weight:800;color:var(--ink);white-space:nowrap;margin:0;display:inline-flex;align-items:center;gap:4px;}
+  #app .cx-ph-tools select.pj-creq-top{width:360px !important;max-width:360px !important;flex:0 1 360px;min-width:0 !important;}
+  #app .pj-creq-tools .pj-fresh{margin-inline-start:8px;width:150px;flex:0 0 150px;}
+  #app .pj-creq-tools .pj-fresh:disabled{opacity:.45;cursor:default;}
+  #app .pf.w110{flex:0 0 110px;} #app .pf.w150{flex:0 0 150px;} #app .pf.w170{flex:0 0 170px;} #app .pf.w300{flex:0 0 300px;}
+  #app .pj-row .pf .file-pick, #app .co-g .file-pick{display:flex;width:100%;}
+  #app .pj-row .pf .file-pick > label.file-btn, #app .co-g .file-pick > label.file-btn{width:100% !important;}
+  /* حقل الملف الموحّد: بشكل حقل إدخال */
+  #app label.file-field{display:flex;align-items:center;gap:8px;height:40px;min-height:40px;margin:0;padding:0 12px;box-sizing:border-box;width:var(--btn-w,220px);max-width:100%;
+    border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);font-weight:500;cursor:pointer;transition:border-color .12s, background .12s;}
+  #app label.file-field:hover{border-color:var(--info);background:var(--info-bg);}
+  #app label.file-field .file-field-i{flex:0 0 18px;color:var(--info);}
+  #app label.file-field .file-field-t{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:start;}
+  #app .file-pick.has label.file-field{color:var(--ink);font-weight:700;border-color:var(--info-line);background:var(--info-bg);}
+  #app label.file-field .file-pick-x{flex:0 0 auto;font-size:15px;padding:0 2px;}
+  #app .file-pick > label.file-field.btn{padding:0 12px;}
+  @media (min-width:700px){ #app .pj-cqg{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,2fr);} #app .pj-cqg.pj-cqg5{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr);} #app .pj-cqg .co-s4{grid-column:1 / -1;} }
+  /* جداول البنود والدفعات: صفوف أقصر وكل شيء يبدأ من اليمين */
+  #app .pjl-tbl th, #app .pjl-tbl td{padding:4px 6px !important;text-align:start !important;vertical-align:middle;}
+  #app .pjl-tbl th{font-weight:800;}
+  #app .pjl-tbl input, #app .pjl-tbl select{height:34px;min-height:34px;}
+  #app .pjl-tbl td.pjl-grip{padding:0 !important;text-align:center !important;}
+  #app .pjl-tbl td.pjl-grip .dnd-grip{margin:0;height:34px;}
+  #app .pjl-tbl td.pj-acts{text-align:center !important;}
+  #app .pjl-addrow td{padding:6px !important;}
+  #app .pji-tbl{margin-top:8px;width:100%;table-layout:fixed;}
+  #app .pji-tbl input{width:100% !important;min-width:0 !important;}
+  #app .pji-tools{display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
+  #app .pji-tools .btn{width:150px;}
+  #app .pji-diff{color:var(--red);font-weight:700;}
+  @media (max-width:699px){
+    #app .pj-creq-tools{flex-wrap:wrap;} #app .cx-ph-tools select.pj-creq-top{width:100% !important;max-width:none !important;flex:1 1 100%;}
+    #app .pj-creq-tools .pj-fresh{margin:0;width:100%;flex:1 1 100%;}
+    #app .pf.w110,#app .pf.w150,#app .pf.w170,#app .pf.w300{flex:1 1 calc(50% - 8px);}
+    #app .pjl-tbl td.pjl-grip{display:none !important;} #app .pjl-tbl tr.pjl-sum td:first-child:empty{display:none !important;}
+    #app .pji-tbl colgroup{display:none;}
+    #app .pji-tbl tr:not(.pjl-sum){grid-template-columns:1fr 1fr !important;grid-template-areas:none !important;}
+    #app .pji-tbl td.pji-n{grid-column:1 / -1;} #app .pji-tbl tr:not(.pjl-sum){padding:6px 0 !important;}
+    #app .pji-tbl tr:not(.pjl-sum) > td:last-child{display:none !important;}
+    #app .pji-tools{justify-content:flex-start;}
+  }
 </style>
 </head>
 <body>
@@ -3327,6 +3374,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=b9aee38d3c"></script>
+<script src="app.js?v=da81730334"></script>
 </body>
 </html>
