@@ -3135,6 +3135,29 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pj-fig > span{font-size:16px !important;font-weight:800 !important;color:var(--ink) !important;}
   #app .pj-fig > b{font-size:16px !important;font-weight:800 !important;}
   @media (max-width:899px){ #app .pj-fig, #app .pj-fig:nth-child(even){padding:10px 8px !important;border:1px solid var(--line) !important;} }
+  /* (1.24.0) بنود المشروع من «خدمات الشركة»، وصفحتا «وثيقة» و«فاتورة» (قريباً) */
+  #app .pjl-box{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);}
+  #app .pjl-box h3{margin:0;font-size:17px;}
+  #app .pjl-tbl .pjl-name{min-width:220px;} #app .pjl-tbl .pjl-qty{width:80px;}
+  #app .pjl-sum td{background:var(--paper);}
+  #app .pjl-view{margin:4px 0 12px;}
+  #app .pj-soon p{font-size:15px;line-height:1.8;margin:8px 0;}
+  @media (max-width:699px){
+    #app .pjl-box .pjp-wrap{overflow:visible;}
+    #app .pjl-tbl, #app .pjl-tbl tbody{display:block;width:100%;} #app .pjl-tbl thead{display:none;}
+    #app .pjl-tbl tr{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--line);}
+    #app .pjl-tbl td{display:block;padding:0 !important;border:0 !important;text-align:start !important;}
+    #app .pjl-tbl td[data-label]::before{content:attr(data-label);display:block;font-size:var(--fs-label);font-weight:700;color:var(--ink);margin-bottom:3px;}
+    #app .pjl-tbl td[data-label="البند"]{grid-column:1 / -1;}
+    #app .pjl-tbl .pjl-name, #app .pjl-tbl .pjl-qty, #app .pjl-tbl .pjp-in{width:100% !important;min-width:0 !important;}
+    #app .pjl-tbl td.pj-acts{align-self:end;justify-self:end;}
+    #app .pjl-tbl tr.pjl-sum{grid-template-columns:1fr auto;} #app .pjl-tbl tr.pjl-sum td:last-child:empty{display:none;}
+  }
+  @media (max-width:699px){
+    #app .pjl-tbl tr:not(.pjl-sum){grid-template-columns:1fr 1fr 40px;grid-template-areas:'n n d' 'q u u' 'p t t';}
+    #app .pjl-tbl td[data-label="البند"]{grid-area:n;} #app .pjl-tbl td[data-label="الكمية"]{grid-area:q;} #app .pjl-tbl td[data-label="الوحدة"]{grid-area:u;}
+    #app .pjl-tbl td[data-label="سعر الوحدة"]{grid-area:p;} #app .pjl-tbl td[data-label="الإجمالي"]{grid-area:t;} #app .pjl-tbl td.pj-acts{grid-area:d;align-self:start;margin-top:22px;}
+  }
 </style>
 </head>
 <body>
@@ -3155,6 +3178,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=df52ea85b1"></script>
+<script src="app.js?v=8e522d405d"></script>
 </body>
 </html>

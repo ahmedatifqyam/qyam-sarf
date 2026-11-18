@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.23.5', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.24.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:351, base:350, extra:1.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:1.8, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -2800,7 +2800,7 @@ function pageLevel(key){
   return pageDefaultLevel(u.role, key);
 }
 function pageAtLeast(key, need){ return PAGE_LEVEL_RANK[pageLevel(key)] >= PAGE_LEVEL_RANK[need]; }
-const VIEW_PAGE_KEY = {wcontracts:'contracts', catalog:'projects', projects:'projects', project:'projects', contracts:'projects', contract:'projects', clients:'clients', suppliers:'suppliers', centerBooks:'centerBooks', centerBook:'centerBooks', gwImport:'gatewayImport', newCustody:'custody', custodyList:'custody', newRequest:'newreq', newRequestChoice:'newreq', analytics:'analytics', revenues:'revenues', recurring:'recurring', ledger:'ledger', budgetReport:'budgetReport', cancelledArchive:'cancelled'};
+const VIEW_PAGE_KEY = {wcontracts:'contracts', catalog:'projects', prjDocSoon:'projects', prjInvSoon:'projects', projects:'projects', project:'projects', contracts:'projects', contract:'projects', clients:'clients', suppliers:'suppliers', centerBooks:'centerBooks', centerBook:'centerBooks', gwImport:'gatewayImport', newCustody:'custody', custodyList:'custody', newRequest:'newreq', newRequestChoice:'newreq', analytics:'analytics', revenues:'revenues', recurring:'recurring', ledger:'ledger', budgetReport:'budgetReport', cancelledArchive:'cancelled'};
 function viewAllowed(v){
   const u = state.user; if(!u || u.role==='admin') return true;
   if(v==='newRequest' && state.editingReqId) return pageLevel('editreq')!=='none';   // التعديل له صلاحيته الخاصة
@@ -3145,7 +3145,7 @@ function setAccountSec(i){
 // مجموعات الشريط الجانبي القابلة للفتح والإغلاق: المعاملات المالية | لوحة التحكم | المساعدة
 function inFinArea(){
   const v = state.view;
-  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','suppliers','catalog','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(v)) return true;
+  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','suppliers','catalog','prjDocSoon','prjInvSoon','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(v)) return true;
   return !inAdminArea() && ['ledger','analytics'].includes(v);
 }
 function inHelpArea(){ return ['guide','sitemap'].includes(state.view); }
@@ -3233,7 +3233,7 @@ function navSections(){
     if(canSeeGwImport()) pg.push({label:'استيراد البوابة', views:['gwImport'], js:[["openGwImport",[]]]});
     out.push({key:'cbk', ico:'building', label:'المراكز', pages:pg});
   }
-  if(canSeeCatalog()) out.push({key:'prj', ico:'layers', label:'المشاريع', pages:[{label:'المشاريع', views:['projects','project'], js:[["openProjects",[]]]}, {label:'خدمات الشركة', views:['catalog'], js:[["openCatalog",[]]]}]});
+  if(canSeeCatalog()) out.push({key:'prj', ico:'layers', label:'المشاريع', pages:[{label:'المشاريع', views:['projects','project'], js:[["openProjects",[]]]}, {label:'وثيقة (قريباً)', views:['prjDocSoon'], js:[["openPrjSoon",['doc']]]}, {label:'فاتورة (قريباً)', views:['prjInvSoon'], js:[["openPrjSoon",['inv']]]}, {label:'خدمات الشركة', views:['catalog'], js:[["openCatalog",[]]]}]});
   // العقود: عقود العملاء (صلاحية المشاريع) وعقود العاملين (صلاحية العقود)
   { const cp = []; if(canSeeCatalog()) cp.push({label:'عقود العملاء', views:['contracts','contract'], js:[["openContracts",[]]]}); if(canSeeWContracts()) cp.push({label:'عقود العاملين', views:['wcontracts'], js:[["openWContracts",[]]]});
     if(cp.length) out.push({key:'ctr', ico:'contract', label:'العقود', pages:cp}); }
@@ -7174,7 +7174,7 @@ function render(){
   renderDbBadge();
   const app = document.getElementById('app');
   document.body.classList.toggle('on-login', state.view==='login');
-  app.classList.toggle('cxv', ['clients','suppliers','catalog','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(state.view));
+  app.classList.toggle('cxv', ['clients','suppliers','catalog','prjDocSoon','prjInvSoon','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(state.view));
   if(state.view==='login') renderLogin(app);
   else if(state.view==='dashboard') { renderDashboard(app); cxStaffBanner(app); cxDashBanner(app); }
   else if(state.view==='newRequest') renderNewRequest(app);
@@ -7192,6 +7192,7 @@ function render(){
   else if(state.view==='clients') renderClients(app);
   else if(state.view==='suppliers') renderSuppliers(app);
   else if(state.view==='catalog') renderCatalog(app);
+  else if(state.view==='prjDocSoon' || state.view==='prjInvSoon') renderPrjSoon(app);
   else if(state.view==='projects') renderProjects(app);
   else if(state.view==='project') renderProject(app);
   else if(state.view==='contracts') renderContracts(app);
@@ -18011,6 +18012,19 @@ const CAT_UNITS = ['قطعة','تصميم','صفحة','مقطع','دقيقة','�
 const CAT_LEVEL = {1:'خدمة رئيسية', 2:'خدمة فرعية', 3:'بند مسعّر'};
 function canSeeCatalog(){ return !!state.user && pageLevel('projects')!=='none'; }
 function canEditCatalog(){ return !!state.user && PAGE_FINANCE_ROLES.includes(state.user.role) && PAGE_LEVEL_RANK[pageLevel('projects')] >= 2; }   // المالية ومدير النظام (القاعدة تشترط is_finance)
+// صفحتا «وثيقة» و«فاتورة»: محجوزتان لإنشاء الوثائق والفواتير من داخل النظام مستقبلاً
+function openPrjSoon(k){ state.view = k==='inv' ? 'prjInvSoon' : 'prjDocSoon'; render(); window.scrollTo(0,0); }
+function renderPrjSoon(app){
+  if(!canSeeCatalog()){ state.view='dashboard'; render(); return; }
+  const inv = state.view==='prjInvSoon', what = inv ? 'فاتورة' : 'وثيقة (مقترح، عرض سعر، أمر شراء)';
+  app.innerHTML = `<h1>${inv ? 'فاتورة' : 'وثيقة'}</h1>
+    <div class="card cx-panel pj-soon">
+      <h2>قريباً</h2>
+      <p>سيتم إنشاء هذه الصفحة مستقبلاً لإنشاء ${what} من داخل النظام، ببنود من «خدمات الشركة» وأسعارها، ثم طباعتها أو إرسالها للعميل.</p>
+      <p><b>الآن:</b> ${inv ? 'تُعمل الفاتورة في البرنامج المحاسبي، ثم يُرفع ملفها في النظام من صفحة المشروع، قسم «الفواتير والتحصيل» ← «+ فاتورة».' : 'تُجهَّز الوثيقة خارج النظام، ثم يُرفع ملفها في النظام من صفحة «المشاريع» ← «+ مشروع جديد»، ويمكن اختيار بنودها من «خدمات الشركة» لتُحسب القيمة تلقائياً.'}</p>
+      <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="openProjects">الذهاب إلى المشاريع</button></div>
+    </div>`;
+}
 function openCatalog(){ state.view='catalog'; state.cat.edit=null; render(); window.scrollTo(0,0); catLoad(); }
 async function catLoad(){
   const r = await db.from('svc_catalog').select('*').eq('company_id', state.currentCompanyId).order('sort').order('name');
@@ -18505,8 +18519,8 @@ function renderProjects(app){
 }
 
 // ---------- الوثيقة: رفع PDF جاهز مع بياناتها ----------
-function prjNewDoc(){ state.prj.docForm = {id:null, doc_type:'quote', client_id:state.prj.f.client||'', contract_id:'', title:'', doc_date:cxToday(), amount:'', amount_kind:'total', months:'', open_ended:false, start_date:cxToday(), notes:''}; render(); window.scrollTo(0,0); }
-function prjEditDoc(id){ const d = state.prj.docs.find(x=>x.id===id); if(!d) return; state.prj.docForm = Object.assign({}, d, {contract_id:d.contract_id||'', months:d.months||'', amount:d.amount}); render(); setTimeout(()=>{ const el = document.getElementById('pjDocForm'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 40); }
+function prjNewDoc(){ state.prj.pickOpen = false; state.prj.docForm = {id:null, lines:[], doc_type:'quote', client_id:state.prj.f.client||'', contract_id:'', title:'', doc_date:cxToday(), amount:'', amount_kind:'total', months:'', open_ended:false, start_date:cxToday(), notes:''}; render(); window.scrollTo(0,0); }
+function prjEditDoc(id){ const d = state.prj.docs.find(x=>x.id===id); if(!d) return; state.prj.pickOpen = false; state.prj.docForm = Object.assign({}, d, {contract_id:d.contract_id||'', months:d.months||'', amount:d.amount, lines:(Array.isArray(d.lines) ? d.lines : []).map(l=>Object.assign({}, l))}); render(); setTimeout(()=>{ const el = document.getElementById('pjDocForm'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 40); }
 function prjDocCancel(){ state.prj.docForm = null; render(); }
 function prjDocSync(){
   const d = state.prj.docForm; if(!d) return;
@@ -18514,6 +18528,41 @@ function prjDocSync(){
   ['doc_type','client_id','contract_id','title','doc_date','amount','amount_kind','months','start_date','notes','open_ended'].forEach(k=>{ const v = g(k); if(v!==undefined) d[k] = v; });
 }
 function prjDocRefresh(){ prjDocSync(); render(); }
+// بنود المشروع: تُختار من «خدمات الشركة» أو تُكتب، والقيمة مجموعها (الكمية × السعر)
+function prjLineTotal(l){ return cxR3((Number(l.qty)||0) * (Number(l.price)||0)); }
+function prjLinesSum(lines){ return cxR3((lines||[]).reduce((t,l)=>t + prjLineTotal(l), 0)); }
+function prjLineAdd(){ prjDocSync(); const d = state.prj.docForm; if(!d) return; (d.lines = d.lines||[]).push({name:'', qty:1, unit:'', price:''}); render();
+  setTimeout(()=>{ const el = [...document.querySelectorAll('#app .pjl-name')].pop(); if(el) el.focus(); }, 40); }
+function prjLineEdit(i, k, v){ prjDocSync(); const d = state.prj.docForm; if(!d || !d.lines || !d.lines[i]) return;
+  d.lines[i][k] = (k==='qty' || k==='price') ? (String(v).trim()==='' ? '' : cxN(v)) : String(v);
+  if(k==='qty' || k==='price') render(); }
+function prjLineDel(i){ prjDocSync(); const d = state.prj.docForm; if(!d || !d.lines) return; d.lines.splice(i,1); render(); }
+function prjLinesFormHtml(d){
+  const L = d.lines||[], P = state.prj;
+  return `<div class="pjl-box">
+    <div class="cx-panel-h"><h3>بنود المشروع</h3><div class="cx-ph-tools">
+      <button class="btn btn-ghost btn-md" data-on-click="prjPickToggle">نسخ من خدمات الشركة</button>
+      <button class="btn btn-primary btn-md" data-on-click="prjLineAdd">+ سطر</button></div></div>
+    ${P.pickOpen ? prjPickHtml(null, 'doc') : ''}
+    ${L.length ? `<div class="pjp-wrap"><table class="exec-table pjp-tbl pjl-tbl"><thead><tr><th>البند</th><th class="num">الكمية</th><th>الوحدة</th><th class="num">سعر الوحدة</th><th class="num">الإجمالي</th><th></th></tr></thead><tbody>
+      ${L.map((l,i)=>`<tr>
+        <td data-label="البند"><input class="pjp-in pjl-name" type="text" value="${escH(l.name||'')}" placeholder="اسم البند" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'name',QA.v])}">${l.section ? `<div class="file-hint">${escH(l.section)}</div>` : ''}</td>
+        <td data-label="الكمية" class="num"><input class="pjp-in pjl-qty" type="text" inputmode="decimal" dir="ltr" value="${escH(String(l.qty??''))}" placeholder="1" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'qty',QA.v])}"></td>
+        <td data-label="الوحدة"><input class="pjp-in pjp-unit" type="text" value="${escH(l.unit||'')}" placeholder="الوحدة" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'unit',QA.v])}"></td>
+        <td data-label="سعر الوحدة" class="num"><input class="pjp-in pjp-price" type="text" inputmode="decimal" dir="ltr" value="${escH(String(l.price??''))}" placeholder="0.000" data-on-change="prjLineEdit" data-on-change-args="${qa([i,'price',QA.v])}"></td>
+        <td data-label="الإجمالي" class="num"><b>${fmtKWDHtml(prjLineTotal(l))}</b></td>
+        <td class="pj-acts"><button class="ct-ico ct-ico-d" data-on-click="prjLineDel" data-on-click-args="${qa([i])}" title="حذف" aria-label="حذف">${qi('trash')}</button></td></tr>`).join('')}
+      <tr class="pjl-sum"><td colspan="4"><b>المجموع = قيمة المشروع</b></td><td class="num"><b>${fmtKWDHtml(prjLinesSum(L))}</b></td><td></td></tr>
+    </tbody></table></div>` : `<div class="ct-empty">لا بنود. اختيارية: انسخ بنوداً من «خدمات الشركة» أو أضف سطراً، فتُحسب القيمة تلقائياً. وإن تركتها فاكتب القيمة بنفسك.</div>`}
+  </div>`;
+}
+function prjLinesViewHtml(d){
+  const L = Array.isArray(d.lines) ? d.lines : []; if(!L.length) return '';
+  return `<div class="pjp-wrap pjl-view"><table class="exec-table pjp-tbl"><thead><tr><th>البند</th><th class="num">الكمية</th><th>الوحدة</th><th class="num">سعر الوحدة</th><th class="num">الإجمالي</th></tr></thead><tbody>
+    ${L.map(l=>`<tr><td data-label="البند">${escH(l.name||'—')}${l.section ? `<div class="file-hint">${escH(l.section)}</div>` : ''}</td><td data-label="الكمية" class="num">${escH(String(l.qty??''))}</td><td data-label="الوحدة">${escH(l.unit||'—')}</td><td data-label="سعر الوحدة" class="num">${fmtKWDHtml(l.price)}</td><td data-label="الإجمالي" class="num">${fmtKWDHtml(prjLineTotal(l))}</td></tr>`).join('')}
+    <tr class="pjl-sum"><td colspan="4"><b>المجموع</b></td><td class="num"><b>${fmtKWDHtml(prjLinesSum(L))}</b></td></tr>
+  </tbody></table></div>`;
+}
 function prjContractOpts(clientId, sel){
   const cs = state.prj.contracts.filter(c=>!c.parent_id && (!clientId || c.client_id===clientId));
   return `<option value="">— بلا مرجع —</option>` + cs.map(c=>{
@@ -18525,14 +18574,14 @@ function prjDocFormHtml(){
   const d = state.prj.docForm, clients = cxClientTree();
   return `<div class="card cx-panel pj-form" id="pjDocForm">
     <div class="cx-panel-h"><h2>${d.id ? 'تعديل الوثيقة ' + escH(d.doc_no||'') : 'وثيقة جديدة'}</h2></div>
-    <p class="file-hint">ارفع الوثيقة جاهزة (PDF أو صورة) واكتب بياناتها. الرقم يُعطى تلقائياً: رمز الشركة-الرقم/السنة.</p>
+    <p class="file-hint">ارفع الوثيقة جاهزة (PDF أو صورة) واكتب بياناتها. الرقم يُعطى تلقائياً: رمز الشركة-الرقم/السنة. ويمكن اختيار بنودها من «خدمات الشركة» في آخر النموذج.</p>
     <div class="co-g co-g4">
       <div class="co-f"><label for="pjd_doc_type">نوع الوثيقة</label><select id="pjd_doc_type">${PRJ_DOC_TYPES.map(([k,l])=>`<option value="${k}" ${d.doc_type===k?'selected':''}>${l}</option>`).join('')}</select></div>
       <div class="co-f"><label for="pjd_client_id">العميل</label><select id="pjd_client_id" data-on-change="prjClientPick" data-on-change-args="${qa(['doc', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${d.client_id===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select></div>
       <div class="co-f co-s2"><label for="pjd_contract_id">المرجع (العقد أو الملحق)</label><select id="pjd_contract_id">${prjContractOpts(d.client_id, d.contract_id)}</select></div>
       <div class="co-f co-s3"><label for="pjd_title">العنوان</label><input id="pjd_title" type="text" value="${escH(d.title||'')}" placeholder="مثال: إدارة حسابات التواصل — الوقف الكبير"></div>
       <div class="co-f"><label for="pjd_doc_date">تاريخ الوثيقة</label><input id="pjd_doc_date" type="date" value="${escH(d.doc_date||'')}"></div>
-      <div class="co-f"><label for="pjd_amount">القيمة (د.ك)</label><input id="pjd_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String(d.amount??''))}" placeholder="0.000"></div>
+      <div class="co-f"><label for="pjd_amount">القيمة (د.ك)</label><input id="pjd_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String((d.lines||[]).length ? prjLinesSum(d.lines).toFixed(3) : (d.amount??'')))}" placeholder="0.000" ${(d.lines||[]).length ? 'readonly title="تُحسب من البنود"' : ''}>${(d.lines||[]).length ? '<div class="file-hint">تُحسب من البنود</div>' : ''}</div>
       <div class="co-f"><label for="pjd_amount_kind">نوع القيمة</label><select id="pjd_amount_kind"><option value="total" ${d.amount_kind==='total'?'selected':''}>إجمالي</option><option value="monthly" ${d.amount_kind==='monthly'?'selected':''}>شهرياً</option></select></div>
       <div class="co-f"><label for="pjd_months">المدة (أشهر)</label><input id="pjd_months" type="number" min="1" inputmode="numeric" value="${escH(String(d.months||''))}" placeholder="—" ${d.open_ended?'disabled':''}></div>
       <div class="co-f"><label>المدة المفتوحة</label><label class="chk-card pj-chk co-chk"><input id="pjd_open_ended" type="checkbox" ${d.open_ended?'checked':''} data-on-change="prjDocRefresh"><span>مفتوح بلا نهاية</span></label></div>
@@ -18540,6 +18589,7 @@ function prjDocFormHtml(){
       <div class="co-f"><label for="pjd_file">ملف الوثيقة</label><input id="pjd_file" type="file" accept="application/pdf,image/*">${d.file_path ? '<div class="file-hint">اتركه دون اختيار للإبقاء على الملف الحالي.</div>' : ''}</div>
       <div class="co-f co-s2"><label for="pjd_notes">ملاحظات</label><input id="pjd_notes" type="text" value="${escH(d.notes||'')}" placeholder="اختياري"></div>
     </div>
+    ${prjLinesFormHtml(d)}
     <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjDocSave" data-on-click="prjDocSave">${d.id ? 'حفظ التعديل' : 'حفظ الوثيقة'}</button><button class="btn btn-ghost btn-sm" data-on-click="prjDocCancel">إلغاء</button>${d.file_path ? prjFileBtn(d.file_path, d.file_name, 'الملف الحالي') : ''}</div>
   </div>`;
 }
@@ -18548,8 +18598,11 @@ async function prjDocSave(){
   const d = state.prj.docForm; if(!d) return;
   if(!d.client_id){ fieldErr('#pjd_client_id','اختر العميل'); return; }
   if(!String(d.title||'').trim()){ fieldErr('#pjd_title','اكتب العنوان'); return; }
-  const amount = cxR3(cxN(d.amount));
-  if(!(amount > 0)){ fieldErr('#pjd_amount','اكتب القيمة'); return; }
+  const lines = (d.lines||[]).filter(l=>String(l.name||'').trim() || Number(l.price)).map(l=>({catalog_id:l.catalog_id||null, section:l.section||null, name:String(l.name||'').trim(), qty:Number(l.qty)||0, unit:String(l.unit||'').trim()||null, price:cxR3(Number(l.price)||0)}));
+  const badLine = lines.findIndex(l=>!l.name || !(l.qty > 0));
+  if(badLine >= 0){ showToast('البند ' + (badLine+1) + ': اكتب اسمه وكمية أكبر من صفر','error'); return; }
+  const amount = lines.length ? prjLinesSum(lines) : cxR3(cxN(d.amount));
+  if(!(amount > 0)){ fieldErr('#pjd_amount', lines.length ? 'مجموع البنود صفر — اكتب الأسعار' : 'اكتب القيمة'); return; }
   const months = d.open_ended ? null : (parseInt(d.months,10) || null);
   if(d.amount_kind==='monthly' && !d.open_ended && !months){ fieldErr('#pjd_months','اكتب عدد الأشهر أو اختر «مفتوح»'); return; }
   const file = prjFileOf('pjd_file');
@@ -18558,7 +18611,7 @@ async function prjDocSave(){
   try{
     const up = file ? await prjUpload(file, 'docs') : null;
     const row = {doc_type:d.doc_type, client_id:d.client_id, contract_id:d.contract_id||null, title:String(d.title).trim(), doc_date:d.doc_date||null,
-      amount, amount_kind:d.amount_kind, months, open_ended:!!d.open_ended, start_date:d.start_date||null, notes:String(d.notes||'').trim()||null};
+      amount, amount_kind:d.amount_kind, months, open_ended:!!d.open_ended, start_date:d.start_date||null, notes:String(d.notes||'').trim()||null, lines};
     if(up){ row.file_path = up.path; row.file_name = up.name; }
     let r;
     if(d.id) r = await db.from('prj_documents').update(row).eq('id', d.id);
@@ -18639,6 +18692,7 @@ function prjDocPanelHtml(d, p){
       ${kv('المرجع', ref ? (ref.parent_id ? 'ملحق: ' : 'العقد: ') + escH(ref.title) : '—')}${d.decision_note ? kv('ملاحظة القرار', escH(d.decision_note)) : ''}
       ${d.notes ? kv('ملاحظات', escH(d.notes)) : ''}
     </div>
+    ${prjLinesViewHtml(d)}
     ${d.status==='sent' && !state.prj.approve ? `<div class="cx-actions">
       ${fin ? `<button class="btn btn-primary btn-md" data-on-click="prjApproveOpen" data-on-click-args="${qa([d.id])}">اعتمد العميل — فتح المشروع</button>` : ''}
       ${ed ? `<button class="btn btn-ghost btn-sm" data-on-click="prjEditDoc" data-on-click-args="${qa([d.id])}">تعديل</button>
@@ -19228,20 +19282,28 @@ DND_DROP.cprice = async (id, beforeId)=>{
   render(); await dndSaveSorts('contract_prices', 'sort', ch);
 };
 // نسخ من خدمات الشركة: شجرة بنود مسعّرة بمربعات اختيار، تُنسخ بأسعارها الافتراضية ثم تُعدَّل
-function prjPickToggle(){ state.prj.pickOpen = !state.prj.pickOpen; state.prj.pickSel = {}; render(); if(state.prj.pickOpen && (!state.cat.loaded || state.cat._cid!==state.currentCompanyId)) catLoad(); }
-function prjPickHtml(c){
+function prjPickToggle(){ if(state.prj.docForm) prjDocSync(); state.prj.pickOpen = !state.prj.pickOpen; state.prj.pickSel = {}; render(); if(state.prj.pickOpen && (!state.cat.loaded || state.cat._cid!==state.currentCompanyId)) catLoad(); }
+function prjPickHtml(c, mode){
   const mains = catKids(null).filter(x=>x.active);
   if(!state.cat.loaded) return '<div class="ct-empty">جارٍ تحميل خدمات الشركة…</div>';
   if(!mains.length) return '<div class="ct-empty">لا خدمات في «خدمات الشركة» بعد.</div>';
-  const have = new Set(state.prj.prices.filter(x=>x.contract_id===c.id && x.catalog_id).map(x=>x.catalog_id));
+  const have = new Set(mode==='doc' ? ((state.prj.docForm||{}).lines||[]).filter(l=>l.catalog_id).map(l=>l.catalog_id) : state.prj.prices.filter(x=>x.contract_id===c.id && x.catalog_id).map(x=>x.catalog_id));
   return `<div class="pj-pick">
     ${mains.map(m=>{ const subs = catKids(m.id).filter(x=>x.active), items = subs.flatMap(s=>catKids(s.id).filter(x=>x.active));
       if(!items.length) return '';
       return `<details class="pj-pick-m"><summary><b>${escH(m.name)}</b> <small>${items.length} بند</small></summary>
         ${subs.map(s=>{ const its = catKids(s.id).filter(x=>x.active); if(!its.length) return ''; return `<div class="pj-pick-s"><div class="pj-pick-sh">${escH(s.name)}</div>${its.map(it=>`<label class="pj-pick-i${have.has(it.id)?' pj-have':''}"><input type="checkbox" data-pj-pick="${escH(it.id)}" ${have.has(it.id)?'disabled':''}><span>${escH(it.name)}</span><small>${it.price==null ? '—' : fmtKWDHtml(it.price)}${it.unit ? ' / '+escH(it.unit) : ''}</small></label>`).join('')}</div>`; }).join('')}
       </details>`; }).join('')}
-    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="prjPickApply" data-on-click-args="${qa([c.id])}">نسخ المختار</button><button class="btn btn-ghost btn-sm" data-on-click="prjPickToggle">إغلاق</button><span class="file-hint">المنسوخ مسبقاً معطّل.</span></div>
+    <div class="cx-actions">${mode==='doc' ? `<button class="btn btn-primary btn-md" data-on-click="prjPickApplyDoc">نسخ المختار</button>` : `<button class="btn btn-primary btn-md" data-on-click="prjPickApply" data-on-click-args="${qa([c.id])}">نسخ المختار</button>`}<button class="btn btn-ghost btn-sm" data-on-click="prjPickToggle">إغلاق</button><span class="file-hint">المنسوخ مسبقاً معطّل.</span></div>
   </div>`;
+}
+function prjPickApplyDoc(){
+  const ids = [...document.querySelectorAll('[data-pj-pick]')].filter(x=>x.checked).map(x=>x.dataset.pjPick);
+  if(!ids.length){ showToast('اختر بنداً واحداً على الأقل','error'); return; }
+  prjDocSync(); const d = state.prj.docForm; if(!d) return; d.lines = d.lines||[];
+  ids.forEach(id=>{ const it = state.cat.items.find(i=>i.id===id), sub = it && state.cat.items.find(i=>i.id===it.parent_id), main = sub && state.cat.items.find(i=>i.id===sub.parent_id); if(!it) return;
+    d.lines.push({catalog_id:id, section:[main&&main.name, sub&&sub.name].filter(Boolean).join(' — ') || '', name:it.name, qty:1, unit:it.unit||'', price:it.price==null ? '' : Number(it.price)}); });
+  state.prj.pickOpen = false; showToast('أُضيف ' + ids.length + ' بند — عدّل الكمية والسعر','success'); render();
 }
 async function prjPickApply(cid){
   const ids = [...document.querySelectorAll('[data-pj-pick]')].filter(x=>x.checked).map(x=>x.dataset.pjPick);
