@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.31.1', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.31.2', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:356, base:350, extra:5.8, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:357, base:350, extra:6.8, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18277,6 +18277,7 @@ async function catLoad(){
   if(!(await dbCheck(r,'تحميل خدمات الشركة'))) return;
   state.cat.items = r.data||[]; state.cat.loaded = true; state.cat._cid = state.currentCompanyId;
   if(state.view==='catalog') render();
+  else if(state.prj && state.prj.pickOpen){ if(state.prj.docForm) prjDocSync(); render(); }   // نافذة «نسخ من خدمات الشركة» كانت تبقى على «جارٍ التحميل»
 }
 function catKids(pid){ return (state.cat.items||[]).filter(x=>(x.parent_id||null)===(pid||null)).sort((a,b)=>(a.sort-b.sort) || String(a.name).localeCompare(String(b.name),'ar')); }
 function catMatch(x){ const q = (state.cat.q||'').trim(); if(!q) return true; const t = [x.name, x.description].join(' '); return t.includes(q) || catKids(x.id).some(catMatch); }
@@ -19748,15 +19749,16 @@ function prjPickToggle(){ if(state.prj.docForm) prjDocSync(); state.prj.pickOpen
 function prjPickHtml(c, mode){
   const mains = catKids(null).filter(x=>x.active);
   if(!state.cat.loaded) return '<div class="ct-empty">جارٍ تحميل خدمات الشركة…</div>';
-  const nItems = mains.reduce((t,m)=>t + catKids(m.id).filter(x=>x.active).reduce((a,sb)=>a + catKids(sb.id).filter(x=>x.active).length, 0), 0);
-  if(!mains.length || !nItems) return `<div class="ct-empty pj-pick-none">${!mains.length ? 'لا خدمات في «خدمات الشركة» لهذه الشركة بعد.' : 'في «خدمات الشركة» خدمات رئيسية وفرعية، لكن لا بنود بأسعار تحتها بعد.'} البنود التي تُنسخ هي آخر مستوى: <b>خدمة رئيسية ← خدمة فرعية ← بند بسعره</b>. أضفها من «المشاريع ← خدمات الشركة»، أو اضغط «+ سطر» واكتب البند وسعره هنا.
+  if(!mains.length) return `<div class="ct-empty pj-pick-none">${!mains.length ? 'لا خدمات في «خدمات الشركة» لهذه الشركة بعد.' : 'في «خدمات الشركة» خدمات رئيسية وفرعية، لكن لا بنود بأسعار تحتها بعد.'} البنود التي تُنسخ هي آخر مستوى: <b>خدمة رئيسية ← خدمة فرعية ← بند بسعره</b>. أضفها من «المشاريع ← خدمات الشركة»، أو اضغط «+ سطر» واكتب البند وسعره هنا.
     <div class="cx-actions"><button class="btn btn-ghost btn-md" data-on-click="openCatalog">فتح خدمات الشركة</button><button class="btn btn-ghost btn-md" data-on-click="prjPickToggle">إغلاق</button></div></div>`;
   const have = new Set(mode==='doc' ? ((state.prj.docForm||{}).lines||[]).filter(l=>l.catalog_id).map(l=>l.catalog_id) : state.prj.prices.filter(x=>x.contract_id===c.id && x.catalog_id).map(x=>x.catalog_id));
   return `<div class="pj-pick">
-    ${mains.map(m=>{ const subs = catKids(m.id).filter(x=>x.active), items = subs.flatMap(s=>catKids(s.id).filter(x=>x.active));
-      if(!items.length) return '';
+    ${mains.map(m=>{ const subs = catKids(m.id).filter(x=>x.active), items = subs.flatMap(s=>{ const k = catKids(s.id).filter(x=>x.active); return k.length ? k : [s]; });
+      // الخدمة الفرعية بلا بنود تُنسخ هي نفسها بنداً، والرئيسية بلا فرعيات كذلك (يُكتب السعر يدوياً إن لم يكن لها سعر)
+      const pick = it=>`<label class="pj-pick-i${have.has(it.id)?' pj-have':''}"><input type="checkbox" data-pj-pick="${escH(it.id)}" ${have.has(it.id)?'disabled':''}><span>${escH(it.name)}</span><small>${it.price==null ? 'السعر يُكتب' : fmtKWDHtml(it.price)}${it.unit ? ' / '+escH(it.unit) : ''}</small></label>`;
+      if(!subs.length) return `<div class="pj-pick-s pj-pick-solo">${pick(m)}</div>`;
       return `<details class="pj-pick-m"><summary><b>${escH(m.name)}</b> <small>${items.length} بند</small></summary>
-        ${subs.map(s=>{ const its = catKids(s.id).filter(x=>x.active); if(!its.length) return ''; return `<div class="pj-pick-s"><div class="pj-pick-sh">${escH(s.name)}</div>${its.map(it=>`<label class="pj-pick-i${have.has(it.id)?' pj-have':''}"><input type="checkbox" data-pj-pick="${escH(it.id)}" ${have.has(it.id)?'disabled':''}><span>${escH(it.name)}</span><small>${it.price==null ? '—' : fmtKWDHtml(it.price)}${it.unit ? ' / '+escH(it.unit) : ''}</small></label>`).join('')}</div>`; }).join('')}
+        ${subs.map(s=>{ const its = catKids(s.id).filter(x=>x.active); if(!its.length) return `<div class="pj-pick-s">${pick(s)}</div>`; return `<div class="pj-pick-s"><div class="pj-pick-sh">${escH(s.name)}</div>${its.map(it=>`<label class="pj-pick-i${have.has(it.id)?' pj-have':''}"><input type="checkbox" data-pj-pick="${escH(it.id)}" ${have.has(it.id)?'disabled':''}><span>${escH(it.name)}</span><small>${it.price==null ? '—' : fmtKWDHtml(it.price)}${it.unit ? ' / '+escH(it.unit) : ''}</small></label>`).join('')}</div>`; }).join('')}
       </details>`; }).join('')}
     <div class="cx-actions">${mode==='doc' ? `<button class="btn btn-primary btn-md" data-on-click="prjPickApplyDoc">نسخ المختار</button>` : `<button class="btn btn-primary btn-md" data-on-click="prjPickApply" data-on-click-args="${qa([c.id])}">نسخ المختار</button>`}<button class="btn btn-ghost btn-sm" data-on-click="prjPickToggle">إغلاق</button><span class="file-hint">المنسوخ مسبقاً معطّل.</span></div>
   </div>`;
