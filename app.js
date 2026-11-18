@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.29.2', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.30.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:354, base:350, extra:4.5, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -17989,8 +17989,10 @@ function renderCenterBooks(app){
 
 // ---------- تصدير كل المراكز (1.28.0): ملف Excel فيه «الملخص» و«الكل» وورقة لكل مركز ----------
 function cxExportAllHtml(){
-  const e = state.cx.expAll || (state.cx.expAll = {from: cxToday().slice(0,8) + '01', to: cxToday(), kind:'all'});
-  return `<div class="card cx-panel cx-expall no-print"><div class="cx-panel-h"><h2>تصدير كل المراكز</h2><span class="file-hint">ملف Excel: الملخص، والكل، وورقة لكل مركز</span></div>
+  const e = state.cx.expAll || (state.cx.expAll = {from: cxToday().slice(0,8) + '01', to: cxToday(), kind:'all', raw:true});
+  return `<div class="card cx-panel cx-expall no-print"><div class="cx-panel-h"><h2>تصدير كل المراكز</h2>${cxIsImporter()
+      ? `<label class="chk-card cx-raw-chk" title="ورقتا «كشف البوابة» و«فواتير البوابة» من الملفين الأصليين للفترة"><input type="checkbox" ${e.raw!==false?'checked':''} data-on-change="cxExpAllSet" data-on-change-args="${qa(['raw', QA.c])}"><span>مع الملفات الأصلية</span></label>`
+      : `<span class="file-hint">ملف Excel: الملخص، والكل، وورقة لكل مركز</span>`}</div>
     <div class="cx-expall-r">
       <div class="f-md"><label for="cxea_from">من تاريخ</label><input id="cxea_from" type="date" value="${escH(e.from)}" data-on-change="cxExpAllSet" data-on-change-args="${qa(['from', QA.v])}"></div>
       <div class="f-md"><label for="cxea_to">إلى تاريخ</label><input id="cxea_to" type="date" value="${escH(e.to)}" data-on-change="cxExpAllSet" data-on-change-args="${qa(['to', QA.v])}"></div>
@@ -18026,6 +18028,24 @@ async function cxExportAll(){
     const imp = cxIsImporter(), payers = {};
     if(imp){ const pids = led.filter(x=>x.source==='import').map(x=>x.id);
       for(let i = 0; i < pids.length; i += 200){ const r = await db.from('center_ledger_payers').select('*').in('ledger_id', pids.slice(i,i+200)); (r.data||[]).forEach(x=>{ payers[x.ledger_id] = x; }); } }
+    // الملفان الأصليان من البوابة (لمن يستورد فقط): كشف الحساب والفواتير المرفوعة التي تغطي الفترة
+    const wantRaw = imp && e.raw!==false && (kind==='all' || kind==='gateway');
+    let rawSt = [], rawBills = [], billByRef = {};
+    if(imp){
+      let q = db.from('gateway_imports').select('kind,content,uploaded_at,date_from,date_to').eq('company_id', cxCid()).order('uploaded_at');
+      if(to) q = q.lte('date_from', to); if(from) q = q.gte('date_to', from);
+      const gi = await q;
+      if(gi && !gi.error){ const stMap = new Map(), blMap = new Map();
+        (gi.data||[]).forEach(f=>{ const rows = gwParseCsv(f.content||'');
+          if(f.kind==='statement') rows.forEach(r=>stMap.set((r.charge_id||r.receipt||'') + '|' + (r.description||'') + '|' + (r.debit||'') + '|' + (r.credit||''), r));
+          else rows.forEach(r=>blMap.set(r.invoice_id || r.invoice_number, r)); });
+        const inP = d => d && (!from || d >= from) && (!to || d <= to);
+        rawSt = [...stMap.values()].filter(r=>inP(gwDate(r.txndate) || gwDate(r.postdate)));
+        rawBills = [...blMap.values()].filter(r=>String(r.status||'').toUpperCase()==='PAID' && inP(gwDate(r.transaction_date)));
+        [...blMap.values()].forEach(r=>{ const k = String(r.invoice_number||'').replace(/\s/g,''); if(k) billByRef[k] = r; });
+      }
+      if(!state.cx.gwAgents){ const g = await db.from('gateway_agents').select('*').eq('company_id', cxCid()); state.cx.gwAgents = g.data||[]; }
+    }
     const expAll = cxExpenseRows(allIds);
     const exp = expAll.filter(x=>(!from || x.entry_date >= from) && (!to || x.entry_date <= to));
     const rootOf = {}; groups.forEach(g=>g.ids.forEach(id=>{ rootOf[id] = g.c; }));
@@ -18036,14 +18056,16 @@ async function cxExportAll(){
     const rowsAll = led.concat(exp).filter(x=>kind==='all' || cxCatOf(x)===kind).sort((a,b)=>String(a.entry_date).localeCompare(String(b.entry_date)));
     if(!rowsAll.length && !Object.keys(openOf).length){ showToast('لا توجد حركات في الفترة المختارة','error'); return; }
     const catName = Object.fromEntries(CX_CATS);
-    const head = ['التاريخ','المركز','البند','النوع','البيان','طريقة الدفع','الفترة', ...(imp ? ['الدافع','هاتف الدافع'] : []), 'رقم الإيصال','المبلغ','رسوم البوابة','حصة الشركة','الصافي'];
+    const head = ['التاريخ', ...(imp ? ['تاريخ إنشاء الفاتورة'] : []), 'المركز','البند','النوع','البيان','طريقة الدفع','الفترة', ...(imp ? ['الدافع','هاتف الدافع'] : []), 'رقم الإيصال','المبلغ','رسوم البوابة','حصة الشركة','الصافي'];
     const nf = head.length - 4;
     const rowOf = x => { const c = rootOf[x.center_id] || {}, p = payers[x.id] || {};
       const desc = (x.purpose || '') + (x.voided ? ' — محذوفة' + (x.void_reason ? ': ' + x.void_reason : '') : '');
-      return {v:x.voided, cells:[cxDd(x.entry_date), c.name || '', x.center_id===c.id ? 'المركز نفسه' : cxCenterName(x.center_id), catName[cxCatOf(x)] + (x._req ? '' : ' · ' + (CX_LEDGER_KIND[x.kind]||x.kind||'')), desc, x.method || '',
+      const bl = imp && x.order_ref ? billByRef[String(x.order_ref).replace(/\s/g,'')] : null;
+      return {v:x.voided, cells:[cxDd(x.entry_date), ...(imp ? [bl ? cxDd(gwDate(bl.created)) : ''] : []), c.name || '', x.center_id===c.id ? 'المركز نفسه' : cxCenterName(x.center_id), catName[cxCatOf(x)] + (x._req ? '' : ' · ' + (CX_LEDGER_KIND[x.kind]||x.kind||'')), desc, x.method || '',
         x.period_from ? cxDd(x.period_from) + ' ← ' + cxDd(x.period_to||x.period_from) : '', ...(imp ? [p.payer_name||'', p.payer_phone||''] : []), x.receipt || '',
         x.gross==null ? '' : Number(x.gross), x.gateway_fee==null ? '' : Number(x.gateway_fee), x.company_share==null ? '' : Number(x.company_share), x.net==null ? '' : Number(x.net)]}; };
-    const openRow = c => ({open:true, cells: head.map((h,j)=> j===0 ? cxDd(from) : j===1 ? c.name : j===3 ? 'رصيد أول المدة' : j===4 ? 'الرصيد قبل ' + cxDd(from) : j===head.length-1 ? openOf[c.id] : '')});
+    const hc = h => head.indexOf(h);
+    const openRow = c => ({open:true, cells: head.map((h,j)=> j===0 ? cxDd(from) : j===hc('المركز') ? c.name : j===hc('النوع') ? 'رصيد أول المدة' : j===hc('البيان') ? 'الرصيد قبل ' + cxDd(from) : j===head.length-1 ? openOf[c.id] : '')});
     let X; try{ X = await qylLoadXlsxStyled(); }catch(err){ showToast('تعذّر تحميل أداة Excel','error'); return; }
     const per = (from ? 'من ' + cxDd(from) : 'من البداية') + ' إلى ' + (to ? cxDd(to) : 'اليوم') + (kind!=='all' ? ' · ' + catName[kind] : '');
     const co = qyCompanyName(), wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
@@ -18085,6 +18107,26 @@ async function cxExportAll(){
     X.utils.book_append_sheet(wb, sheet('حركات كل المراكز', head, opens.concat(rowsAll.map(rowOf)), nf, opens.length ? 'المجموع (مع رصيد أول المدة)' : 'المجموع'), 'الكل');
     groups.forEach(g=>{ const set = new Set(g.ids), L = rowsAll.filter(x=>set.has(x.center_id)); if(!L.length && !(g.c.id in openOf)) return;
       X.utils.book_append_sheet(wb, sheet('حركات ' + g.c.name, head, (g.c.id in openOf ? [openRow(g.c)] : []).concat(L.map(rowOf)), nf, g.c.id in openOf ? 'المجموع (مع رصيد أول المدة)' : 'المجموع'), cxSheetName(g.c.name, used)); });
+    if(wantRaw && (rawSt.length || rawBills.length)){
+      const byReceipt = {}; led.forEach(x=>{ if(x.receipt) byReceipt[String(x.receipt)] = x; });
+      const byRef = {}; led.forEach(x=>{ if(x.order_ref) byRef[String(x.order_ref).replace(/\s/g,'')] = x; });
+      const cName = id => { const c = rootOf[id]; return c ? c.name : (id ? cxCenterName(id) : ''); };
+      const rawSheet = (title, rows, drop, mapFn, numCols) => {
+        const cols = Object.keys(rows[0]||{}).filter(k=>!drop.includes(k));
+        const h = ['المركز','في النظام', ...cols];
+        const body = rows.map(r=>{ const m = mapFn(r); return {cells:[m.center, m.inSys, ...cols.map(k=>{ const v = r[k]; return numCols.includes(k) && v!=='' && !isNaN(Number(v)) ? Number(v) : v; })]}; });
+        const ws = sheet(title, h, body, h.length);   // بلا مجاميع رقمية افتراضية
+        cols.forEach((k,i)=>{ if(!numCols.includes(k)) return; body.forEach((r,ri)=>{ const c = ws[X.utils.encode_cell({r:4+ri, c:2+i})]; if(c && c.t==='n'){ c.z = '#,##0.000;[Red](#,##0.000)'; if(c.s) c.s.alignment = Object.assign({}, c.s.alignment, {horizontal:'right'}); } }); });
+        return ws; };
+      if(rawSt.length) X.utils.book_append_sheet(wb, rawSheet('كشف حساب البوابة (الملف الأصلي)', rawSt, ['card','refund_id','destination_id'], r=>{
+        const desc = String(r.description||''); if(!/^sale/i.test(desc)) return {center:'', inSys:/^fee/i.test(desc) ? 'لا (رسوم)' : /^transfer/i.test(desc) ? 'لا (تحويل)' : 'لا'};
+        const l = byReceipt[String(r.receipt||r.charge_id||'').trim()]; return {center: l ? (cName(l.center_id) || 'غير مصنّف') : '', inSys: l ? (l.voided ? 'نعم (محذوفة)' : 'نعم') : 'لا'}; },
+        ['debit','credit','balance']), cxSheetName('كشف البوابة', used));
+      if(rawBills.length) X.utils.book_append_sheet(wb, rawSheet('فواتير البوابة المدفوعة في الفترة (الملف الأصلي)', rawBills, ['link','card_number'], r=>{
+        const l = byRef[String(r.invoice_number||'').replace(/\s/g,'')], ag = gwAgentCenter(r.agent);
+        return {center: l ? (cName(l.center_id) || 'غير مصنّف') : ag ? cName(ag) : 'مركز غير معروف', inSys: l ? (l.voided ? 'نعم (محذوفة)' : 'نعم') : 'لا'}; },
+        ['bill_amount','posted_amount','transaction_amount']), cxSheetName('فواتير البوابة', used));
+    }
     X.writeFile(wb, ('حركات المراكز ' + per + ' - ' + co).replace(/[\\/:*?"<>|]+/g,' ') + '.xlsx');
     showToast('صُدّر الملف: ' + rowsAll.length + ' حركة','success');
   }catch(err){ if(err.message!=='-') showToast('تعذّر التصدير: ' + err.message,'error'); }
