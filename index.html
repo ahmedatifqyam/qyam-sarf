@@ -3424,6 +3424,30 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .qyl-tl-n{font-size:var(--fs-label);color:var(--muted);font-weight:700;}
   #app .qyl-tl .tafqeet{display:block;margin-top:3px;font-size:var(--fs-hint);}
   #app .qyl-sum.qyl-sum-expo{display:flex !important;justify-content:flex-end;border:0 !important;background:none !important;padding:0;}
+
+  /* (1.37.0) رمز العين في رأس كل جدول: إظهار / إخفاء الأعمدة وإعادة ضبطها (بدل ↺) */
+  #app th .col-reset{display:none !important;}
+  #app th:has(> .col-eye){position:relative;padding-inline-end:40px !important;}
+  #app th .col-eye{position:absolute;inset-inline-end:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;padding:0;
+    border:1px solid var(--info-line);border-radius:7px;background:var(--info-bg);color:var(--info);cursor:pointer;z-index:2;}
+  #app th .col-eye svg{width:16px;height:16px;}
+  #app th .col-eye:hover{background:var(--info);color:#fff;}
+  #app table.col-has-hidden th .col-eye{background:var(--info);color:#fff;}
+  .col-menu{position:fixed;z-index:1200;width:250px;max-width:calc(100vw - 16px);background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:10px;direction:rtl;}
+  .col-menu-h{font-weight:800;color:var(--ink);margin:0 0 6px;font-size:var(--fs-label);}
+  .col-menu-l{max-height:55vh;overflow:auto;display:flex;flex-direction:column;gap:2px;margin-bottom:8px;}
+  .col-menu-i{display:flex !important;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-weight:700;color:var(--ink);margin:0 !important;min-height:0 !important;}
+  .col-menu-i:hover{background:var(--paper-2);}
+  .col-menu-i input{width:18px;height:18px;margin:0;flex:0 0 18px;}
+  .col-menu-i span{flex:1;}
+  .col-menu-i.fx{color:var(--muted);cursor:default;} .col-menu-i small{color:var(--muted);font-weight:600;}
+  .col-menu-r{width:100%;}
+  @media print{ #app th .col-eye{display:none !important;} #app th:has(> .col-eye){padding-inline-end:10px !important;} }
+  @media (max-width:699px){ #app th .col-eye{display:none !important;} #app th:has(> .col-eye){padding-inline-end:10px !important;} }
+
+  /* (1.37.0) الترتيب بالضغط على عنوان العمود */
+  #app th.col-sortable{cursor:pointer;user-select:none;} #app th.col-sortable:hover{color:var(--info);}
+  #app th.col-sorted{color:var(--info);} #app th .col-sort{font-size:11px;margin-inline-start:5px;color:var(--info);}
 </style>
 </head>
 <body>
@@ -3444,6 +3468,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=0f337e5870"></script>
+<script src="app.js?v=f745bacea6"></script>
 </body>
 </html>

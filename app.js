@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.36.0', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.37.0', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:1.7, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7853,11 +7853,90 @@ function colPrefsSave(){ clearTimeout(state._colT); state._colT = setTimeout(asy
   const r = await db.from('user_ui_prefs').upsert({user_id:state.user.id, col_widths:state.colPrefs||{}, updated_at:new Date().toISOString()}, {onConflict:'user_id'});
   if(r && r.error) console.warn('colPrefsSave', r.error.message); }, 600); }
 function colApply(t, w){ const ths = [...t.tHead.rows[0].cells]; if(!w || w.length !== ths.length) return false;
-  t.style.tableLayout = 'fixed'; ths.forEach((th,i)=>{ th.style.width = w[i] + 'px'; });
-  t.style.width = w.reduce((a,b)=>a+b, 0) + 'px'; t.style.minWidth = '100%'; t.classList.add('col-custom');
+  const hid = colHidden(t);
+  t.style.tableLayout = 'fixed'; ths.forEach((th,i)=>{ th.style.width = (w[i] >= COL_MIN && !hid.has(i)) ? w[i] + 'px' : ''; });
+  t.style.width = w.reduce((a,b,i)=>a + (hid.has(i) ? 0 : Math.max(b, COL_MIN)), 0) + 'px'; t.style.minWidth = '100%'; t.classList.add('col-custom');
   const p = t.parentElement; if(p && !p.classList.contains('col-scroll')) p.classList.add('col-scroll'); return true; }
 function colReset(t){ const ths = [...t.tHead.rows[0].cells]; ths.forEach(th=>{ th.style.width = ''; });
   t.style.tableLayout = ''; t.style.width = ''; t.style.minWidth = ''; t.classList.remove('col-custom'); }
+// (1.37.0) إظهار / إخفاء الأعمدة لكل مستخدم ولكل جدول؛ يُحفظ مع عرض الأعمدة (المفتاح + «#h»). العمود الأول وعمود الأزرار ثابتان
+function colHidden(t){ const k = t.dataset.colKey; return new Set(((state.colPrefs||{})[k + '#h']) || []); }
+// الثابت: عمود الأزرار (بلا عنوان)، وأهم عمود أو عمودين: المعرّف (رقم/تاريخ…) والاسم (العميل/البيان/المستفيد…)؛ وإلا العمود الأول
+const COL_KEY_ID = /^(رقم الطلب|رقم الفاتورة|رقم الحساب|الرقم|رقم)$/, COL_KEY_NAME = /(الاسم|البيان|المستفيد|العميل|المشروع|العقد|الحساب|الموظف|البند|الخدمة|المورد|المركز|صاحب|الغرض|الجهة|الوثيقة|المستخدم|الشركة)/;
+function colFixedSet(t){
+  if(t._qyFix && t._qyFixKey === t.dataset.colKey) return t._qyFix;
+  const L = [...t.tHead.rows[0].cells].map(colLabel), f = new Set();
+  L.forEach((l,i)=>{ if(!l) f.add(i); });
+  const id = L.findIndex(l=>COL_KEY_ID.test(l)), nm = L.findIndex(l=>l && COL_KEY_NAME.test(l));
+  f.add(id >= 0 ? id : L.findIndex(l=>!!l)); if(nm >= 0) f.add(nm);   // عمودان على الأكثر مع عمود الأزرار
+  t._qyFix = f; t._qyFixKey = t.dataset.colKey; return f;
+}
+function colFixed(t, i){ return colFixedSet(t).has(i); }
+function colLabel(th){ const c = th.cloneNode(true); c.querySelectorAll('.col-rs,.col-eye,.col-reset,.tip-btn,button,svg').forEach(x=>x.remove()); return (c.textContent||'').replace(/[▲▼↑↓↺]/g,'').replace(/\s+/g,' ').trim(); }
+function colHideApply(t){
+  const hid = colHidden(t); t.classList.toggle('col-has-hidden', hid.size > 0);
+  [...t.rows].forEach(r=>{ let ci = 0;
+    [...r.cells].forEach(c=>{ const sp = c._qySpan || (c._qySpan = c.colSpan || 1); let h = 0; for(let k = ci; k < ci + sp; k++) if(hid.has(k)) h++;
+      if(sp === 1){ const v = h ? 'none' : ''; if(c.style.display !== v) c.style.display = v; }
+      else { const ns = Math.max(1, sp - h); if(c.colSpan !== ns) c.colSpan = ns; const v = h >= sp ? 'none' : ''; if(c.style.display !== v) c.style.display = v; }
+      ci += sp; }); });
+}
+// (1.37.0) الترتيب بالضغط على عنوان العمود في كل الجداول (أرقام، تواريخ، نصوص)؛ ضغطة ثانية تعكس، وثالثة تعيد الترتيب الأصلي
+function colSortVal(c){
+  const t = (c ? c.textContent : '').replace(/[\u200e\u200f\u2066-\u2069\u061c]/g,'').trim();
+  if(!t || /^[—–-]+$/.test(t)) return {e:1};
+  let m = t.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/); if(m) return {n: Number(m[3] + m[2].padStart(2,'0') + m[1].padStart(2,'0'))};
+  m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return {n: Number(m[1] + m[2] + m[3])};
+  if(/^[\s(),.\d٠-٩٫+\-]+(د\.ك|%)?$/.test(t) && /[\d٠-٩]/.test(t)) return {n: qylNum(t)};
+  return {s: t};
+}
+function colSortable(t){ const hr = t.tHead && t.tHead.rows[0]; return hr && t.tBodies[0] && ![...hr.cells].some(c=>c.hasAttribute('data-on-click') || /[▲▼]/.test(c.textContent)) && !t.closest('.no-sort'); }
+function colSortApply(t){
+  const st = (state.colSort||{})[t.dataset.colKey], tb = t.tBodies[0]; if(!tb) return;
+  // الصف الرئيسي ومعه صفوفه التابعة (صف أزرار أو نموذج تحته) تتحرك معاً
+  const groups = []; [...tb.rows].forEach(r=>{ if(r._qyOrd == null) r._qyOrd = groups.length + (r.rowIndex||0)/1e6;
+    const sub = r.cells.length === 1 && (r.cells[0].colSpan||1) > 1 && groups.length; if(sub) groups[groups.length-1].push(r); else groups.push([r]); });
+  const fixed = groups.filter(g=>g[0].classList.contains('qyl-skip') || g[0].classList.contains('cx-empty') || g[0].classList.contains('pjl-addrow') || g[0].classList.contains('pjl-sum'));
+  const mov = groups.filter(g=>!fixed.includes(g));
+  if(!st) mov.sort((a,b)=>a[0]._qyOrd - b[0]._qyOrd);
+  else mov.sort((a,b)=>{ const x = colSortVal(a[0].cells[st.i]), y = colSortVal(b[0].cells[st.i]);
+    if(x.e || y.e) return (x.e?1:0) - (y.e?1:0);
+    const d = (x.n!=null && y.n!=null) ? x.n - y.n : String(x.s ?? x.n).localeCompare(String(y.s ?? y.n), 'ar', {numeric:true});
+    return st.d === 'desc' ? -d : d; });
+  mov.concat(fixed).forEach(g=>g.forEach(r=>tb.appendChild(r)));
+  [...t.tHead.rows[0].cells].forEach((th,i)=>{ let a = th.querySelector(':scope > .col-sort'); const on = st && st.i === i;
+    if(!on){ if(a) a.remove(); th.classList.remove('col-sorted'); return; }
+    if(!a){ a = document.createElement('span'); a.className = 'col-sort'; const rs = th.querySelector(':scope > .col-rs'); th.insertBefore(a, rs || null); }
+    a.textContent = st.d === 'desc' ? '▼' : '▲'; th.classList.add('col-sorted'); });
+  if(t.hasAttribute('data-qyl')) qylApply(t, true);
+}
+function colSortClick(t, i){
+  state.colSort = state.colSort || {}; const k = t.dataset.colKey, cur = state.colSort[k];
+  state.colSort[k] = !cur || cur.i !== i ? {i, d:'asc'} : cur.d === 'asc' ? {i, d:'desc'} : null;
+  if(!state.colSort[k]) delete state.colSort[k];
+  colSortApply(t);
+}
+function colMenuClose(){ const m = document.getElementById('colMenu'); if(m) m.remove(); document.removeEventListener('pointerdown', colMenuOut, true); window.removeEventListener('scroll', colMenuClose, true); }
+function colMenuOut(e){ const m = document.getElementById('colMenu'); if(m && !m.contains(e.target) && !e.target.closest('.col-eye')) colMenuClose(); }
+function colMenuOpen(t, btn){
+  const was = document.getElementById('colMenu'); colMenuClose(); if(was && was._t === t) return;
+  const ths = [...t.tHead.rows[0].cells], hid = colHidden(t);
+  const m = document.createElement('div'); m.id = 'colMenu'; m.className = 'col-menu'; m._t = t;
+  m.innerHTML = `<div class="col-menu-h">إظهار / إخفاء الأعمدة</div><div class="col-menu-l">${ths.map((th,i)=>{ const l = colLabel(th), fx = colFixed(t, i); if(!l) return '';
+      return `<label class="col-menu-i${fx ? ' fx' : ''}"><input type="checkbox" data-ci="${i}" ${hid.has(i) ? '' : 'checked'} ${fx ? 'disabled' : ''}><span>${escH(l)}</span>${fx ? '<small>ثابت</small>' : ''}</label>`; }).join('')}</div>
+    <button type="button" class="btn btn-ghost btn-sm col-menu-r">↺ إعادة الضبط</button>`;
+  document.body.appendChild(m);
+  const r = btn.getBoundingClientRect(), vw = document.documentElement.clientWidth, W = m.offsetWidth, H = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(r.right - W, vw - W - 8)) + 'px';
+  m.style.top = (r.bottom + 6 + H > innerHeight ? Math.max(8, r.top - H - 6) : r.bottom + 6) + 'px';
+  m.addEventListener('change', e=>{ const cb = e.target.closest('input[data-ci]'); if(!cb) return;
+    const h = colHidden(t), i = Number(cb.dataset.ci); if(cb.checked) h.delete(i); else h.add(i);
+    const k = t.dataset.colKey; state.colPrefs = state.colPrefs || {}; if(h.size) state.colPrefs[k + '#h'] = [...h].sort((a,b)=>a-b); else delete state.colPrefs[k + '#h'];
+    colPrefsSave(); colHideApply(t); if(state.colPrefs[k]) colApply(t, state.colPrefs[k]); });
+  m.querySelector('.col-menu-r').addEventListener('click', ()=>{ const k = t.dataset.colKey; if(state.colPrefs){ delete state.colPrefs[k]; delete state.colPrefs[k + '#h']; colPrefsSave(); }
+    colReset(t); colHideApply(t); m.querySelectorAll('input[data-ci]').forEach(x=>{ x.checked = true; }); showToast('أُعيد ضبط الأعمدة','success'); });
+  setTimeout(()=>{ document.addEventListener('pointerdown', colMenuOut, true); window.addEventListener('scroll', colMenuClose, true); }, 0);
+}
 function colsEnhance(root){
   if(isPhone() || !state.user) return; const app = root || document.getElementById('app'); if(!app) return;
   if(!state.colPrefs){ colPrefsLoad(); }
@@ -7871,10 +7950,14 @@ function colsEnhance(root){
       h.addEventListener('mousedown', ev=>colDragStart(ev, t, i)); h.addEventListener('dblclick', ev=>{ ev.preventDefault(); ev.stopPropagation(); colFit(t, i); });
       h.addEventListener('click', ev=>ev.stopPropagation()); th.appendChild(h); });
     const last = hr.cells[hr.cells.length-1];
-    if(!last.querySelector(':scope > .col-reset')){ const b = document.createElement('button'); b.type = 'button'; b.className = 'col-reset';
-      b.title = 'إرجاع العرض الأصلي للأعمدة'; b.setAttribute('aria-label', b.title);
-      b.addEventListener('click', ev=>{ ev.stopPropagation(); colReset(t); if(state.colPrefs){ delete state.colPrefs[t.dataset.colKey]; colPrefsSave(); } }); last.appendChild(b); }
+    if(!last.querySelector(':scope > .col-eye')){ const b = document.createElement('button'); b.type = 'button'; b.className = 'col-eye no-print';
+      b.title = 'إظهار / إخفاء الأعمدة، وإعادة ضبط عرضها'; b.setAttribute('aria-label', b.title); b.innerHTML = PW_EYE_SVG;
+      b.addEventListener('click', ev=>{ ev.stopPropagation(); ev.preventDefault(); colMenuOpen(t, b); }); last.appendChild(b); }
     if(state.colPrefs && !t.dataset.colApplied){ t.dataset.colApplied = '1'; colApply(t, state.colPrefs[key]); }
+    colHideApply(t);
+    if(colSortable(t)){ [...hr.cells].forEach((th,i)=>{ if(th.dataset.sortOn || !colLabel(th)) return; th.dataset.sortOn = '1'; th.classList.add('col-sortable'); th.title = th.title || 'اضغط للترتيب حسب هذا العمود';
+        th.addEventListener('click', ev=>{ if(ev.target.closest('.col-rs,.col-eye,button,input,select,a')) return; colSortClick(t, i); }); });
+      if((state.colSort||{})[key] && t.dataset.sortedKey !== key){ t.dataset.sortedKey = key; colSortApply(t); } }
   });
 }
 function colWidths(t){ return [...t.tHead.rows[0].cells].map(th=>Math.round(th.getBoundingClientRect().width)); }
@@ -7885,7 +7968,8 @@ function colDragStart(ev, t, i){
   const rtl = getComputedStyle(t).direction === 'rtl', x0 = ev.clientX, w0 = w[i];
   document.body.classList.add('col-dragging');
   // يأخذ العرض من العمود المجاور (أو يعطيه) فيبقى عرض الجدول كما هو ولا يخرج من البطاقة
-  const n = i < w.length-1 ? i+1 : i-1, n0 = w[n];
+  const hid = colHidden(t), vis = w.map((_,j)=>j).filter(j=>!hid.has(j)), vp = vis.indexOf(i);
+  const n = vp < vis.length-1 ? vis[vp+1] : vis[vp-1], n0 = w[n];
   const mv = e=>{ let d = Math.round(rtl ? (x0 - e.clientX) : (e.clientX - x0)); d = Math.max(COL_MIN - w0, Math.min(d, n0 - COL_MIN)); w[i] = w0 + d; w[n] = n0 - d; colApply(t, w); };
   const up = ()=>{ document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); document.body.classList.remove('col-dragging');
     (state.colPrefs = state.colPrefs || {})[t.dataset.colKey] = w.slice(); colPrefsSave(); };
@@ -20710,6 +20794,7 @@ function qylApply(el, force){
       : inTable ? '' : n > shown.length ? sumLine('المعروض', shown.length, sumShown, '') : ''}
     ${!n ? '' : inTable ? (expCell ? `<div class="qyl-sum qyl-sum-expo">${expCell}</div>` : '') : sumLine(hasDate ? 'إجمالي ' + rg.label : 'الإجمالي', n, sumAll, 'qyl-sum-all', expCell)}`;
   if(anchor.nextSibling) par.insertBefore(foot, anchor.nextSibling); else par.appendChild(foot);
+  if(isTbl && el.dataset.colKey) colHideApply(el);   // الأعمدة المخفية تخفي مجاميعها في سطر الإجمالي
 }
 function qylSet(key, field, v){
   const s = qylSt(key);
@@ -20765,7 +20850,7 @@ function qylData(key){
   let head = [], body = [], numIdx = new Set(), nosum = rows.map(r=>r.hasAttribute('data-nosum'));
   if(el.tagName==='TABLE'){
     const hr = el.tHead && el.tHead.rows[0]; const keep = [];
-    [...(hr ? hr.cells : [])].forEach((c,i)=>{ const t = c.textContent.trim(); if(t && !c.hasAttribute('data-noexport')){ keep.push(i); head.push(t); if(c.hasAttribute('data-sum') || c.classList.contains('num')) numIdx.add(head.length-1); } });
+    [...(hr ? hr.cells : [])].forEach((c,i)=>{ const t = c.textContent.trim(); if(t && !c.hasAttribute('data-noexport') && c.style.display!=='none'){ keep.push(i); head.push(t); if(c.hasAttribute('data-sum') || c.classList.contains('num')) numIdx.add(head.length-1); } });
     body = rows.map(r=>keep.map((i,j)=>{ const c = r.cells[i]; if(!c) return ''; const t = qylCellText(c); return numIdx.has(j) ? (t==='—'||t==='' ? '' : qylNum(t)) : t; }));
   } else {
     try{ head = JSON.parse(el.getAttribute('data-qyl-cols')||'[]'); }catch(e){ head = []; }
