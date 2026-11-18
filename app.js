@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.37.3', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.37.4', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:352, base:350, extra:2.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -17212,6 +17212,7 @@ function canSeeGwImport(){ return !!state.user && pageLevel('gatewayImport')!=='
 
 async function loadCxLight(){
   if(!state.user) return;
+  state.cx.importsLoaded = false;   // حتى يكتمل التحميل لا يظهر تنبيه «لم تُرفع» (كان يظهر خطأً قبل وصول البيانات)
   try{
     const [a, b, c] = await Promise.all([
       db.from('center_access').select('*').eq('user_id', state.user.id),
@@ -17221,7 +17222,9 @@ async function loadCxLight(){
     state.cx.myAccess = (a && a.data) || [];
     state.cx.importers = (b && b.data) || [];
     state.cx.imports = (c && c.data) || [];
+    state.cx.importsLoaded = true;
   }catch(e){ console.error('cx light', e); }
+  if(state.view==='dashboard' && isSafeToRerender()) render();
 }
 
 // ---------- تنبيه آخر رفع ----------
@@ -17247,7 +17250,10 @@ function cxStaleBannerHtml(compact){
 }
 function cxDashBanner(app){
   try{
-    if(!canSeeGwImport() || !app) return;
+    if(!canSeeGwImport() || !app || !state.cx.importsLoaded) return;
+    // في لوحة الطلبات يظهر التنبيه فقط إذا مضت المدة المحددة (إعدادات الاستيراد ← تنبيه التأخير) أو كانت هناك أيام ناقصة
+    const lim = Number(cxCo().importStaleDays||7), d = cxLastDates(), age = d.statement ? cxDays(d.statement, cxToday()) : null;
+    if(age!=null && age <= lim && !gwGaps().length) return;
     const html = cxStaleBannerHtml(true); if(html) app.insertAdjacentHTML('afterbegin', html);
   }catch(e){}
 }
