@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.28.1', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.29.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:3.9, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:4.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -17760,17 +17760,25 @@ async function cxSaveOpening(){
   showToast('تم تسجيل الرصيد الافتتاحي','success'); await cxLoadLedger(); cxLoadBalances();
 }
 async function cxVoid(id, v){
-  const tr = ((state.cx.ledger||[]).find(x=>x.id===id)||{}).kind==='transfer';
-  if(!confirm(v ? (tr ? 'حذف هذا الترحيل؟\n\nيُحذف طرفاه معاً (الخروج والدخول)، ويمكن استرجاعه لاحقاً.' : 'حذف هذه الحركة؟\n\nتخرج من رصيد المركز ويمكن استرجاعها لاحقاً.') : (tr ? 'استرجاع هذا الترحيل بطرفيه؟' : 'استرجاع هذه الحركة إلى الرصيد؟'))) return;
-  const r = await db.rpc('qy_ledger_void', {p_id:id, p_void:v});
+  const x = (state.cx.ledger||[]).find(y=>y.id===id) || {}, tr = x.kind==='transfer';
+  let reason = null;
+  if(v){
+    const a = await askModal({title: tr ? 'حذف الترحيل' : 'حذف الحركة', danger:true, confirm:'حذف',
+      text: (tr ? 'يُحذف طرفا الترحيل معاً (الخروج والدخول).' : 'تخرج الحركة من الرصيد والمجاميع.') + ' تبقى في الدفتر مشطوبة مع اسمك والتاريخ والسبب، ويمكن استرجاعها لاحقاً.',
+      fields:[{id:'r', label:'سبب الحذف', type:'textarea', rows:2}], validate:vals=>String(vals.r||'').trim() ? null : 'اكتب سبب الحذف'});
+    if(!a) return; reason = String(a.r).trim();
+  } else if(!confirm('استرجاع الحركة؟ تعود إلى الرصيد والمجاميع، ويُسجَّل اسمك والتاريخ.')) return;
+  const r = await db.rpc('qy_ledger_void', {p_id:id, p_void:v, p_reason:reason});
   if(!(await dbCheck(r,'تعديل حالة الحركة'))) return;
+  showToast(v ? 'حُذفت الحركة' : 'استُرجعت الحركة','success');
   await cxLoadLedger(); cxLoadBalances();
 }
+function cxShowVoidToggle(v){ state.cx.showVoid = !!v; const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); qylEnhance(document.getElementById('app')); } }
 function cxSearch(v){ state.cx.q = v||''; qylSt('cxLedger').page = 0; const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); qylEnhance(document.getElementById('app')); } }
 
 function cxLedgerFiltered(){
   const q = String(state.cx.q||'').trim().toLowerCase();
-  const all = (state.cx.ledger||[]).concat(state.cx.ledgerLoaded ? cxExpenseRows(cxScopeIds()) : []).sort((a,b)=>String(b.entry_date||'').localeCompare(String(a.entry_date||'')));
+  const all = (state.cx.ledger||[]).filter(x=>!x.voided || state.cx.showVoid).concat(state.cx.ledgerLoaded ? cxExpenseRows(cxScopeIds()) : []).sort((a,b)=>String(b.entry_date||'').localeCompare(String(a.entry_date||'')));
   return all.filter(x=>{
     if(!q) return true;
     const p = state.cx.payers[x.id] || {};
@@ -17788,7 +17796,7 @@ function cxLedgerRowsHtml(){
     return `<tr class="${x.voided?'cx-void':''}${x._req?' cx-exp-row':''}" data-kind="${cxCatOf(x)}" data-date="${escH(String(x.entry_date||'').slice(0,10))}" ${x.voided?'data-nosum':''} ${tip?`title="${escH(tip)}"`:''}>
       <td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
       ${ic ? `<td data-label="البند" class="cx-item"><div class="cx-clip">${x.center_id===state.cx.centerId ? 'المركز نفسه' : escH(cxCenterName(x.center_id))}</div></td>` : ''}
-      <td data-label="البيان" class="cx-desc"><div class="cx-clip">${escH(x.purpose || CX_LEDGER_KIND[x.kind] || '')}</div><div class="cx-meta">${escH(meta)}${x.voided?' · <span class="cx-tag-red">محذوفة</span>':''}</div></td>
+      <td data-label="البيان" class="cx-desc"><div class="cx-clip">${escH(x.purpose || CX_LEDGER_KIND[x.kind] || '')}</div><div class="cx-meta">${escH(meta)}${x.voided?' · <span class="cx-tag-red">محذوفة</span>':''}</div>${x.voided ? `<div class="cx-meta cx-void-note">حُذفت${x.voided_by ? ' بواسطة ' + escH(prjUserName(x.voided_by)||'') : ''}${x.voided_at ? ' في ' + cxDate(String(x.voided_at).slice(0,10)) : ''}${x.void_reason ? ' — السبب: ' + escH(x.void_reason) : ''}</div>` : x.restored_at ? `<div class="cx-meta">استُرجعت بواسطة ${escH(prjUserName(x.restored_by)||'')} في ${cxDate(String(x.restored_at).slice(0,10))}${x.void_reason ? ' (كان سبب الحذف: ' + escH(x.void_reason) + ')' : ''}</div>` : ''}</td>
       ${imp ? `<td data-label="الدافع" class="cx-payer"><div class="cx-clip" dir="auto">${escH(p.payer_name||'—')}</div>${p.payer_phone ? `<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>` : ''}</td>` : ''}
       <td data-label="المبلغ" class="num">${fmtKWDHtml(x.gross)}</td>
       <td data-label="الرسوم" class="num">${x.gateway_fee==null ? '—' : fmtKWDHtml(x.gateway_fee)}</td>
@@ -17926,6 +17934,7 @@ function cxCenterDetailHtml(){
     <div class="card cx-panel">
       <div class="cx-panel-h"><h2>الحركات${ic?' <small class="cx-h-sm">— كل البنود</small>':''}</h2><div class="cx-ph-tools">
         <input type="search" class="qy-search" placeholder="بحث: ${imp?'الدافع، الهاتف، ':''}الغرض، الإيصال…" value="${escH(state.cx.q||'')}" data-on-input="cxSearch" data-on-input-args="${qa([QA.v])}">
+        ${(state.cx.ledger||[]).some(x=>x.voided) ? `<label class="chk-card cx-void-chk" title="الحركات المحذوفة تبقى مشطوبة للمراجعة"><input type="checkbox" ${state.cx.showVoid?'checked':''} data-on-change="cxShowVoidToggle" data-on-change-args="${qa([QA.c])}"><span>إظهار المحذوفة</span></label>` : ''}
         ${state.cx.itemId && canTr && has && !state.cx.showTransfer ? `<button class="btn btn-ghost btn-md" data-on-click="cxTransferToggle">ترحيل رصيد</button>` : ''}
         ${fin && !state.cx.showEntry ? `<button class="btn btn-primary btn-md" data-on-click="cxEntryToggle">+ تسجيل حركة</button>` : ''}</div></div>
       <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" data-qyl-kinds='${escH(JSON.stringify(CX_CATS))}' data-qyl-title="دفتر ${escH(c.name)}"><thead><tr><th>التاريخ</th>${ic?'<th>البند</th>':''}<th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin||canTr?'<th></th>':''}</tr></thead>
@@ -17991,6 +18000,12 @@ function cxExportAllHtml(){
 }
 function cxExpAllSet(k, v){ const e = state.cx.expAll || (state.cx.expAll = {}); e[k] = v; }
 function cxSheetName(n, used){ let b = String(n||'مركز').replace(/[\\/?*\[\]:]/g,' ').trim().slice(0,28) || 'مركز', x = b, i = 2; while(used.has(x)) x = b.slice(0,25) + ' ' + (i++); used.add(x); return x; }
+// مكتبة Excel بالتنسيق (خط عريض، خلفيات، شطب)؛ عند تعذّرها تُستعمل العادية بلا تنسيق
+async function qylLoadXlsxStyled(){
+  if(window.__xlsxStyled && window.XLSX) return window.XLSX;
+  try{ await new Promise((ok, ko)=>{ const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+    window.__xlsxStyled = true; return window.XLSX; }catch(e){ return qylLoadXlsx(); }
+}
 async function cxExportAll(){
   const cxDd = v => { const m = String(v||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? m[3]+'-'+m[2]+'-'+m[1] : ''; };
   const e = state.cx.expAll || {}, from = e.from || '', to = e.to || '', kind = e.kind || 'all';
@@ -17999,46 +18014,77 @@ async function cxExportAll(){
   const groups = roots.map(c=>({c, ids:[c.id, ...cxSubIds(c.id)]})), allIds = groups.flatMap(g=>g.ids);
   const btn = document.getElementById('cxExpAllBtn'); if(btn){ btn.disabled = true; btn.textContent = 'جارٍ التجهيز…'; }
   try{
-    let led = [];
+    let led = [], before = [];
     for(let i = 0; i < allIds.length; i += 100){
-      let q = db.from('center_ledger').select('*').in('center_id', allIds.slice(i,i+100)).eq('voided', false).order('entry_date').limit(20000);
+      const ch = allIds.slice(i,i+100);
+      let q = db.from('center_ledger').select('*').in('center_id', ch).order('entry_date').limit(20000);
       if(from) q = q.gte('entry_date', from); if(to) q = q.lte('entry_date', to);
       const r = await q; if(!(await dbCheck(r,'تحميل حركات المراكز'))) throw new Error('-'); led = led.concat(r.data||[]);
+      if(from && kind==='all'){ const rb = await db.from('center_ledger').select('center_id,net').in('center_id', ch).eq('voided', false).lt('entry_date', from).limit(50000);
+        if(!(await dbCheck(rb,'رصيد أول المدة'))) throw new Error('-'); before = before.concat(rb.data||[]); }
     }
     const imp = cxIsImporter(), payers = {};
     if(imp){ const pids = led.filter(x=>x.source==='import').map(x=>x.id);
       for(let i = 0; i < pids.length; i += 200){ const r = await db.from('center_ledger_payers').select('*').in('ledger_id', pids.slice(i,i+200)); (r.data||[]).forEach(x=>{ payers[x.ledger_id] = x; }); } }
-    const exp = cxExpenseRows(allIds).filter(x=>(!from || x.entry_date >= from) && (!to || x.entry_date <= to));
+    const expAll = cxExpenseRows(allIds);
+    const exp = expAll.filter(x=>(!from || x.entry_date >= from) && (!to || x.entry_date <= to));
     const rootOf = {}; groups.forEach(g=>g.ids.forEach(id=>{ rootOf[id] = g.c; }));
+    // رصيد أول المدة لكل مركز: ما قبل «من» (حركات غير محذوفة ناقص الطلبات المكتملة)
+    const openOf = {};
+    if(from && kind==='all') groups.forEach(g=>{ const set = new Set(g.ids);
+      openOf[g.c.id] = cxR3(before.filter(x=>set.has(x.center_id)).reduce((a,x)=>a + Number(x.net||0), 0) + expAll.filter(x=>set.has(x.center_id) && x.entry_date < from).reduce((a,x)=>a + Number(x.net||0), 0)); });
     const rowsAll = led.concat(exp).filter(x=>kind==='all' || cxCatOf(x)===kind).sort((a,b)=>String(a.entry_date).localeCompare(String(b.entry_date)));
-    if(!rowsAll.length){ showToast('لا توجد حركات في الفترة المختارة','error'); return; }
+    if(!rowsAll.length && !Object.keys(openOf).length){ showToast('لا توجد حركات في الفترة المختارة','error'); return; }
     const catName = Object.fromEntries(CX_CATS);
     const head = ['التاريخ','المركز','البند','النوع','البيان','طريقة الدفع','الفترة', ...(imp ? ['الدافع','هاتف الدافع'] : []), 'رقم الإيصال','المبلغ','رسوم البوابة','حصة الشركة','الصافي'];
-    const numFrom = head.length - 4;
+    const nf = head.length - 4;
     const rowOf = x => { const c = rootOf[x.center_id] || {}, p = payers[x.id] || {};
-      return [x.entry_date ? cxDd(String(x.entry_date).slice(0,10)) : '', c.name || '', x.center_id===c.id ? 'المركز نفسه' : cxCenterName(x.center_id), catName[cxCatOf(x)] + (x._req ? '' : ' · ' + (CX_LEDGER_KIND[x.kind]||x.kind||'')), x.purpose || '', x.method || '',
+      const desc = (x.purpose || '') + (x.voided ? ' — محذوفة' + (x.void_reason ? ': ' + x.void_reason : '') : '');
+      return {v:x.voided, cells:[cxDd(x.entry_date), c.name || '', x.center_id===c.id ? 'المركز نفسه' : cxCenterName(x.center_id), catName[cxCatOf(x)] + (x._req ? '' : ' · ' + (CX_LEDGER_KIND[x.kind]||x.kind||'')), desc, x.method || '',
         x.period_from ? cxDd(x.period_from) + ' ← ' + cxDd(x.period_to||x.period_from) : '', ...(imp ? [p.payer_name||'', p.payer_phone||''] : []), x.receipt || '',
-        x.gross==null ? '' : Number(x.gross), x.gateway_fee==null ? '' : Number(x.gateway_fee), x.company_share==null ? '' : Number(x.company_share), x.net==null ? '' : Number(x.net)]; };
-    let X; try{ X = await qylLoadXlsx(); }catch(err){ showToast('تعذّر تحميل أداة Excel','error'); return; }
+        x.gross==null ? '' : Number(x.gross), x.gateway_fee==null ? '' : Number(x.gateway_fee), x.company_share==null ? '' : Number(x.company_share), x.net==null ? '' : Number(x.net)]}; };
+    const openRow = c => ({open:true, cells: head.map((h,j)=> j===0 ? cxDd(from) : j===1 ? c.name : j===3 ? 'رصيد أول المدة' : j===4 ? 'الرصيد قبل ' + cxDd(from) : j===head.length-1 ? openOf[c.id] : '')});
+    let X; try{ X = await qylLoadXlsxStyled(); }catch(err){ showToast('تعذّر تحميل أداة Excel','error'); return; }
     const per = (from ? 'من ' + cxDd(from) : 'من البداية') + ' إلى ' + (to ? cxDd(to) : 'اليوم') + (kind!=='all' ? ' · ' + catName[kind] : '');
     const co = qyCompanyName(), wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
-    const sheet = (title, h, body, nf) => {
-      const tot = h.map((x,j)=> j===0 ? 'المجموع' : (j>=nf ? Math.round(body.reduce((a,r)=>a + (typeof r[j]==='number' ? r[j] : 0), 0)*1000)/1000 : ''));
-      const ws = X.utils.aoa_to_sheet([[title], [co + ' · ' + per], [], h, ...body, tot]);
-      for(let r = 4; r <= 4 + body.length; r++) for(let j = nf; j < h.length; j++){ const c = ws[X.utils.encode_cell({r, c:j})]; if(c && c.t==='n') c.z = '#,##0.000'; }
-      ws['!cols'] = h.map((x,j)=>({wch: Math.min(50, Math.max(String(x).length+2, ...body.slice(0,300).map(r=>String(r[j]==null?'':r[j]).length+2), j>=nf?14:8))}));
+    // التنسيق: عنوان عريض كبير، رأس الجدول بخلفية داكنة، الصفوف بلونين متناوبين، المحذوف مشطوب رمادي، رصيد أول المدة والمجموع بخلفية وخط عريض
+    const B = {top:{style:'thin',color:{rgb:'D6DCE4'}}, bottom:{style:'thin',color:{rgb:'D6DCE4'}}, left:{style:'thin',color:{rgb:'D6DCE4'}}, right:{style:'thin',color:{rgb:'D6DCE4'}}};
+    const ST = {
+      title:{font:{bold:true, sz:14, color:{rgb:'1F3A5F'}}, alignment:{horizontal:'right', readingOrder:2}},
+      sub:{font:{sz:11, color:{rgb:'555555'}}, alignment:{horizontal:'right', readingOrder:2}},
+      head:{font:{bold:true, color:{rgb:'FFFFFF'}}, fill:{patternType:'solid', fgColor:{rgb:'1F3A5F'}}, alignment:{horizontal:'center', vertical:'center', wrapText:true, readingOrder:2}, border:B},
+      a:{fill:{patternType:'solid', fgColor:{rgb:'FFFFFF'}}, alignment:{horizontal:'right', vertical:'center', readingOrder:2}, border:B},
+      b:{fill:{patternType:'solid', fgColor:{rgb:'EEF3F9'}}, alignment:{horizontal:'right', vertical:'center', readingOrder:2}, border:B},
+      open:{font:{bold:true}, fill:{patternType:'solid', fgColor:{rgb:'FFF4D6'}}, alignment:{horizontal:'right', readingOrder:2}, border:B},
+      tot:{font:{bold:true, sz:12}, fill:{patternType:'solid', fgColor:{rgb:'D9E3F0'}}, alignment:{horizontal:'right', readingOrder:2}, border:Object.assign({}, B, {top:{style:'medium',color:{rgb:'1F3A5F'}}})}
+    };
+    const sheet = (title, h, rows, nfrom, totLabel) => {
+      const tot = h.map((x,j)=> j===0 ? (totLabel||'المجموع') : (j>=nfrom ? Math.round(rows.filter(r=>!r.v).reduce((a,r)=>a + (typeof r.cells[j]==='number' ? r.cells[j] : 0), 0)*1000)/1000 : ''));
+      const ws = X.utils.aoa_to_sheet([[title], [co + ' · ' + per], [], h, ...rows.map(r=>r.cells), tot]);
+      const put = (r, c, st) => { const ref = X.utils.encode_cell({r, c}); if(!ws[ref]) ws[ref] = {t:'s', v:''}; ws[ref].s = st; };
+      put(0, 0, ST.title); put(1, 0, ST.sub);
+      h.forEach((x,j)=>put(3, j, ST.head));
+      rows.forEach((r,i)=>{ const base = r.open ? ST.open : (i % 2 ? ST.b : ST.a);
+        h.forEach((x,j)=>{ const st = JSON.parse(JSON.stringify(base)); if(r.v) st.font = Object.assign({}, st.font||{}, {strike:true, color:{rgb:'8A8A8A'}});
+          if(j>=nfrom) st.alignment = Object.assign({}, st.alignment, {horizontal:'left'}); put(4+i, j, st);
+          const c = ws[X.utils.encode_cell({r:4+i, c:j})]; if(j>=nfrom && c && c.t==='n') c.z = '#,##0.000'; }); });
+      h.forEach((x,j)=>{ const st = JSON.parse(JSON.stringify(ST.tot)); if(j>=nfrom) st.alignment = Object.assign({}, st.alignment, {horizontal:'left'}); put(4+rows.length, j, st);
+        const c = ws[X.utils.encode_cell({r:4+rows.length, c:j})]; if(j>=nfrom && c && c.t==='n') c.z = '#,##0.000'; });
+      ws['!cols'] = h.map((x,j)=>({wch: Math.min(50, Math.max(String(x).length+4, ...rows.slice(0,300).map(r=>String(r.cells[j]==null?'':r.cells[j]).length+2), j>=nfrom?15:9))}));
+      ws['!rows'] = [{hpt:24}, {hpt:18}, {hpt:6}, {hpt:30}];
       ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:h.length-1}}, {s:{r:1,c:0}, e:{r:1,c:h.length-1}}];
       ws['!views'] = [{RTL:true}]; return ws; };
-    // الملخص: سطر لكل مركز
-    const sh = ['المركز','البوابة (صافٍ)','الدعم (صافٍ)','إيرادات أخرى (صافٍ)','رسوم البوابة','حصة الشركة','المصروفات','الترحيل','صافي حركة الفترة','الرصيد الحالي'];
+    // الملخص
+    const sh = ['المركز', ...(from && kind==='all' ? ['رصيد أول المدة'] : []), 'البوابة (صافٍ)','الدعم (صافٍ)','إيرادات أخرى (صافٍ)','رسوم البوابة','حصة الشركة','المصروفات','الترحيل','صافي حركة الفترة', ...(from && kind==='all' ? ['رصيد آخر المدة'] : []), 'الرصيد الحالي'];
     const sum = (arr, f) => cxR3(arr.reduce((a,x)=>a + Number(f(x)||0), 0));
-    const sb = groups.map(g=>{ const set = new Set(g.ids), L = rowsAll.filter(x=>set.has(x.center_id)), by = k => L.filter(x=>cxCatOf(x)===k);
-      return [g.c.name, sum(by('gateway'),x=>x.net), sum(by('support'),x=>x.net), sum(by('income'),x=>x.net), sum(L,x=>x.gateway_fee), sum(L,x=>x.company_share), sum(by('expense'),x=>x.net), sum(by('transfer'),x=>x.net), sum(L,x=>x.net), Number(cxAgg(g.ids).balance||0)]; });
+    const sb = groups.map(g=>{ const set = new Set(g.ids), L = rowsAll.filter(x=>set.has(x.center_id) && !x.voided), by = k => L.filter(x=>cxCatOf(x)===k), mv = sum(L,x=>x.net);
+      return {cells:[g.c.name, ...(from && kind==='all' ? [openOf[g.c.id]||0] : []), sum(by('gateway'),x=>x.net), sum(by('support'),x=>x.net), sum(by('income'),x=>x.net), sum(L,x=>x.gateway_fee), sum(L,x=>x.company_share), sum(by('expense'),x=>x.net), sum(by('transfer'),x=>x.net), mv, ...(from && kind==='all' ? [cxR3((openOf[g.c.id]||0) + mv)] : []), Number(cxAgg(g.ids).balance||0)]}; });
     const used = new Set(['الملخص','الكل']);
     X.utils.book_append_sheet(wb, sheet('ملخص حركات المراكز', sh, sb, 1), 'الملخص');
-    X.utils.book_append_sheet(wb, sheet('حركات كل المراكز', head, rowsAll.map(rowOf), numFrom), 'الكل');
-    groups.forEach(g=>{ const set = new Set(g.ids), L = rowsAll.filter(x=>set.has(x.center_id)); if(!L.length) return;
-      X.utils.book_append_sheet(wb, sheet('حركات ' + g.c.name, head, L.map(rowOf), numFrom), cxSheetName(g.c.name, used)); });
+    const opens = from && kind==='all' ? groups.map(g=>openRow(g.c)) : [];
+    X.utils.book_append_sheet(wb, sheet('حركات كل المراكز', head, opens.concat(rowsAll.map(rowOf)), nf, opens.length ? 'المجموع (مع رصيد أول المدة)' : 'المجموع'), 'الكل');
+    groups.forEach(g=>{ const set = new Set(g.ids), L = rowsAll.filter(x=>set.has(x.center_id)); if(!L.length && !(g.c.id in openOf)) return;
+      X.utils.book_append_sheet(wb, sheet('حركات ' + g.c.name, head, (g.c.id in openOf ? [openRow(g.c)] : []).concat(L.map(rowOf)), nf, g.c.id in openOf ? 'المجموع (مع رصيد أول المدة)' : 'المجموع'), cxSheetName(g.c.name, used)); });
     X.writeFile(wb, ('حركات المراكز ' + per + ' - ' + co).replace(/[\\/:*?"<>|]+/g,' ') + '.xlsx');
     showToast('صُدّر الملف: ' + rowsAll.length + ' حركة','success');
   }catch(err){ if(err.message!=='-') showToast('تعذّر التصدير: ' + err.message,'error'); }
