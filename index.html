@@ -3409,6 +3409,21 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
   /* (1.35.1) قاعدة دائمة: كل الأرقام في الجداول محاذاة لليمين (الفلس تحت الفلس) */
   #app table td.num, #app table th.num, #app .app-table td.num, #app .amount-table td.num, #app.cxv table .num{text-align:right !important;font-variant-numeric:tabular-nums;}
+
+  /* (1.36.0) الإجمالي سطر أخير داخل الجدول تحت أعمدته، والسالب بين قوسين بالأحمر */
+  .qy-neg{color:var(--red);}
+  #app table tfoot.qyl-tfoot td{background:var(--info-bg);padding:8px 10px !important;vertical-align:middle;border-bottom:0;}
+  #app table tfoot.qyl-tfoot tr.qyl-trow-all td{border-top:2px solid var(--info);}
+  #app table tfoot.qyl-tfoot tr.qyl-trow-shown td{background:var(--paper);border-top:1px solid var(--line);}
+  #app table tfoot.qyl-tfoot tr.qyl-trow-shown td b{font-weight:700;}
+  #app table tfoot.qyl-tfoot tr.qyl-trow-all td.num b{font-size:var(--fs-h3);font-weight:800;color:var(--ink);}
+  #app table tfoot.qyl-tfoot tr.qyl-trow-all td.num b .qy-neg{color:var(--red);}
+  #app .qyl-tl{text-align:right !important;}
+  #app .qyl-tl-l{font-weight:800;color:var(--ink);margin-inline-end:10px;}
+  #app .qyl-trow-all .qyl-tl-l{color:var(--info);font-size:var(--fs-h3);}
+  #app .qyl-tl-n{font-size:var(--fs-label);color:var(--muted);font-weight:700;}
+  #app .qyl-tl .tafqeet{display:block;margin-top:3px;font-size:var(--fs-hint);}
+  #app .qyl-sum.qyl-sum-expo{display:flex !important;justify-content:flex-end;border:0 !important;background:none !important;padding:0;}
 </style>
 </head>
 <body>
@@ -3429,6 +3444,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=e413feaba9"></script>
+<script src="app.js?v=0f337e5870"></script>
 </body>
 </html>

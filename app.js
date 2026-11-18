@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.35.2', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.36.0', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:1.5, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:1.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -1034,7 +1034,9 @@ function escH(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>({'&':'&amp
 // fmtKWDPlain(v)   → نص خالص: "1,234.567 د.ك"  (للـ alert والـ CSV)
 function fmtKWD(val, opts){
   const n = Number(val||0);
-  const parts = n.toFixed(3).split('.');
+  // (1.36.0) السالب بين قوسين بالأحمر كما في ملفات Excel: (150.000)
+  const neg = n < 0 && Math.abs(n) >= 0.0005;
+  const parts = Math.abs(n).toFixed(3).split('.');
   const whole = Number(parts[0]).toLocaleString('en');
   const frac  = parts[1];
   const unit  = opts&&opts.noUnit ? '' : ' <span style="font-size:0.75em;color:var(--muted);">د.ك</span>';
@@ -1042,7 +1044,7 @@ function fmtKWD(val, opts){
   // تلميح عند الوقوف على المبلغ: قيمته بالحروف
   let tip = '';
   try{ if(isFinite(n) && Math.abs(n) < 1e12){ tip = (n<0 ? 'سالب ' : '') + amountToArabicWords(Math.abs(n)); } }catch(e){}
-  return `<bdi dir="ltr"${tip ? ' title="'+tip+'"' : ''}>${whole}<span style="font-size:0.72em;opacity:.85;">.${frac}</span></bdi>${unit}`;
+  return `<bdi dir="ltr"${neg ? ' class="qy-neg"' : ''}${tip ? ' title="'+tip+'"' : ''}>${neg ? '(' : ''}${whole}<span style="font-size:0.72em;opacity:.85;">.${frac}</span>${neg ? ')' : ''}</bdi>${unit}`;
 }
 function fmtKWDPlain(val){ const n=Number(val||0); const p=n.toFixed(3).split('.');
   // \u2066 … \u2069 يعزلان الرقم فلا تُزاح إشارة السالب في النصّ العربي
@@ -20622,7 +20624,8 @@ function qylItems(el){
   if(el.tagName==='TABLE') return [...el.tBodies].flatMap(b=>[...b.rows]).filter(r=>!r.classList.contains('qyl-skip') && !r.classList.contains('cx-empty'));
   return [...el.children].filter(c=>c.hasAttribute('data-qyl-i'));
 }
-function qylNum(t){ const v = parseFloat(String(t||'').replace(/[٠-٩]/g, d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[^\d.\-]/g,'')); return isFinite(v) ? v : 0; }
+function qylNum(t){ const neg = /\(\s*[\d٠-٩]/.test(String(t||'')); const v0 = qylNum0(t); return neg ? -Math.abs(v0) : v0; }
+function qylNum0(t){ const v = parseFloat(String(t||'').replace(/[٠-٩]/g, d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[^\d.\-]/g,'')); return isFinite(v) ? v : 0; }
 function qylSumCols(el){
   if(el.tagName!=='TABLE') return el.hasAttribute('data-qyl-sum') ? [{i:-1, label:el.getAttribute('data-qyl-sum')||'المبلغ'}] : [];
   const head = el.tHead && el.tHead.rows[0]; if(!head) return [];
@@ -20679,6 +20682,21 @@ function qylApply(el, force){
   // التذييل: التنقل + مجموع المعروض + إجمالي الفترة
   const cols = qylSumCols(el), sumShown = qylSums(el, cols, shown), sumAll = qylSums(el, cols, inP);
   const expCell = (!hasBar && canExp) ? `<div class="qyl-sc qyl-sc-exp">${qyExportBtn('qyl:'+key)}</div>` : '';
+  // (1.36.0) الجدول: الإجمالي سطر أخير داخله، كل مجموع تحت عموده، وتحت التسمية تفقيط المبلغ الرئيسي (الصافي إن وُجد)
+  [...el.querySelectorAll(':scope > tfoot.qyl-tfoot')].forEach(t=>t.remove());
+  const headRow = isTbl && el.tHead && el.tHead.rows[0], firstSum = cols.length ? Math.min(...cols.map(c=>c.i)) : -1;
+  const inTable = isTbl && headRow && cols.length && firstSum > 0 && !isPhone() && n > 0;
+  if(inTable){
+    const ncol = [...headRow.cells].reduce((t,c)=>t + (c.colSpan||1), 0), byI = {};
+    const main = cols.find(c=>/الصافي|الرصيد/.test(c.label)) || cols[cols.length-1];
+    const trow = (lab, cnt, arr, cls, words) => { arr.forEach((x,j)=>{ byI[cols[j].i] = x.v; });
+      let h = `<tr class="qyl-trow ${cls}"><td colspan="${firstSum}" class="qyl-tl"><span class="qyl-tl-l">${escH(lab)}</span><span class="qyl-tl-n">${cnt} ${cnt===1 ? 'سجل' : cnt<=10 ? 'سجلات' : 'سجلاً'}</span>${words ? `<div class="tafqeet">${escH(amountToArabicWords(Math.abs(byI[main.i])) + (byI[main.i]<0 ? ' (بالسالب)' : ''))}</div>` : ''}</td>`;
+      for(let i = firstSum; i < ncol; i++){ const c = cols.find(x=>x.i===i); h += c ? `<td class="num"><b>${fmtKWDHtml(byI[i])}</b></td>` : '<td></td>'; }
+      return h + '</tr>'; };
+    const tf = document.createElement('tfoot'); tf.className = 'qyl-tfoot';
+    tf.innerHTML = (n > shown.length ? trow('المعروض', shown.length, sumShown, 'qyl-trow-shown', false) : '') + trow(hasDate ? 'إجمالي ' + rg.label : 'الإجمالي', n, sumAll, 'qyl-trow-all', Math.abs(sumAll.find((x,j)=>cols[j]===main).v) > 0.0005);
+    el.appendChild(tf);
+  }
   const sumLine = (lab, cnt, arr, cls, exp) => `<div class="qyl-sum ${cls}${arr.length?'':' qyl-sum-q0'}" style="--qn:${arr.length};--qe:${exp?'auto':'0px'}"><div class="qyl-sc qyl-sc-h">${lab}</div><div class="qyl-sc qyl-sc-n"><small>العدد</small><b>${cnt}</b></div>${arr.map(x=>`<div class="qyl-sc"><small>${escH(x.label)}</small><b>${fmtKWDHtml(x.v)}</b></div>`).join('')}${exp||''}</div>`;
   const foot = document.createElement('div'); foot.className = 'qyl-foot no-print'; foot.setAttribute('data-qyl-foot', key);
   const bulkTpl = el.getAttribute('data-qyl-bulk') && document.getElementById(el.getAttribute('data-qyl-bulk'));
@@ -20689,8 +20707,8 @@ function qylApply(el, force){
       <button type="button" class="btn btn-ghost btn-sm qyl-pg" data-no-ico data-on-click="qylPage" data-on-click-args="${qa([key,1])}" ${s.page>=pages-1?'disabled':''}>التالي ←</button></div>` : '';
   foot.innerHTML = `${pager || bulk ? `<div class="qyl-nav${bulk ? ' qyl-nav-bulk' : ''}">${pager}${bulk}</div>` : ''}
     ${!n ? `<div class="qyl-sum qyl-sum-q0 qyl-sum-none" style="--qn:0;--qe:${expCell?'auto':'0px'}"><div class="qyl-sc qyl-sc-h">لا توجد سجلات في ${escH(rg.label||'هذا العرض')}</div>${expCell}</div>`
-      : n > shown.length ? sumLine('المعروض', shown.length, sumShown, '') : ''}
-    ${n ? sumLine(hasDate ? 'إجمالي ' + rg.label : 'الإجمالي', n, sumAll, 'qyl-sum-all', expCell) : ''}`;
+      : inTable ? '' : n > shown.length ? sumLine('المعروض', shown.length, sumShown, '') : ''}
+    ${!n ? '' : inTable ? (expCell ? `<div class="qyl-sum qyl-sum-expo">${expCell}</div>` : '') : sumLine(hasDate ? 'إجمالي ' + rg.label : 'الإجمالي', n, sumAll, 'qyl-sum-all', expCell)}`;
   if(anchor.nextSibling) par.insertBefore(foot, anchor.nextSibling); else par.appendChild(foot);
 }
 function qylSet(key, field, v){
