@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.37.0', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.37.1', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -3149,7 +3149,7 @@ function setAccountSec(i){
 // مجموعات الشريط الجانبي القابلة للفتح والإغلاق: المعاملات المالية | لوحة التحكم | المساعدة
 function inFinArea(){
   const v = state.view;
-  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','suppliers','catalog','prjDocSoon','prjInvSoon','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(v)) return true;
+  if(['dashboard','detail','newRequest','newRequestChoice','duplicateList','printPreview','revenues','recurring','handovers','oldRequests','monitor','budgetReport','cancelledArchive','custodyList','newCustody','custody','clients','suppliers','catalog','prjDocSoon','prjInvSoon','ctrSoon','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(v)) return true;
   return !inAdminArea() && ['ledger','analytics'].includes(v);
 }
 function inHelpArea(){ return ['guide','sitemap'].includes(state.view); }
@@ -3240,7 +3240,7 @@ function navSections(){
   if(canSeeCatalog()) out.push({key:'prj', ico:'layers', label:'المشاريع', pages:[{label:'المشاريع', views:['projects','project'], js:[["openProjects",[]]]}, {label:'وثيقة (قريباً)', views:['prjDocSoon'], js:[["openPrjSoon",['doc']]]}, {label:'فاتورة (قريباً)', views:['prjInvSoon'], js:[["openPrjSoon",['inv']]]}, {label:'خدمات الشركة', views:['catalog'], js:[["openCatalog",[]]]}]});
   // العقود: عقود العملاء (صلاحية المشاريع) وعقود العاملين (صلاحية العقود)
   { const cp = []; if(canSeeCatalog()) cp.push({label:'عقود العملاء', views:['contracts','contract'], js:[["openContracts",[]]]}); if(canSeeWContracts()) cp.push({label:'عقود العاملين', views:['wcontracts'], js:[["openWContracts",[]]]});
-    if(cp.length) out.push({key:'ctr', ico:'contract', label:'العقود', pages:cp}); }
+    if(cp.length){ cp.push({label:'إنشاء عقد (قريباً)', views:['ctrSoon'], js:[["openCtrSoon",[]]]}); out.push({key:'ctr', ico:'contract', label:'العقود', pages:cp}); } }
   { const cl = []; if(canSeeClients()) cl.push({label:'العملاء', views:['clients'], js:[["openClients",[]]]}); if(canSeeSuppliers()) cl.push({label:'الموردون', views:['suppliers'], js:[["openSuppliers",[]]]});
     if(cl.length) out.push({key:'cli', ico:'me', label:cl.length>1 ? 'العملاء والموردون' : cl[0].label, pages:cl}); }
   if(canSeeRecurring()) out.push({key:'rec', ico:'repeat', label:'القيود الدورية', count:recDueCount(), pages:[{label:'القيود الدورية', views:['recurring'], js:[["openRecurring",[0]]]}]});
@@ -7181,7 +7181,7 @@ function render(){
   renderDbBadge();
   const app = document.getElementById('app');
   document.body.classList.toggle('on-login', state.view==='login');
-  app.classList.toggle('cxv', ['clients','suppliers','catalog','prjDocSoon','prjInvSoon','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(state.view));
+  app.classList.toggle('cxv', ['clients','suppliers','catalog','prjDocSoon','prjInvSoon','ctrSoon','projects','project','contracts','contract','wcontracts','centerBooks','centerBook','gwImport'].includes(state.view));
   if(state.view==='login') renderLogin(app);
   else if(state.view==='dashboard') { renderDashboard(app); cxStaffBanner(app); cxDashBanner(app); }
   else if(state.view==='newRequest') renderNewRequest(app);
@@ -7200,6 +7200,7 @@ function render(){
   else if(state.view==='suppliers') renderSuppliers(app);
   else if(state.view==='catalog') renderCatalog(app);
   else if(state.view==='prjDocSoon' || state.view==='prjInvSoon') renderPrjSoon(app);
+  else if(state.view==='ctrSoon') renderCtrSoon(app);
   else if(state.view==='projects') renderProjects(app);
   else if(state.view==='project') renderProject(app);
   else if(state.view==='contracts') renderContracts(app);
@@ -18393,6 +18394,18 @@ function renderPrjSoon(app){
       <p>سيتم إنشاء هذه الصفحة مستقبلاً لإنشاء ${what} من داخل النظام، ببنود من «خدمات الشركة» وأسعارها، ثم طباعتها أو إرسالها للعميل.</p>
       <p><b>الآن:</b> ${inv ? 'تُعمل الفاتورة في البرنامج المحاسبي، ثم يُرفع ملفها في النظام من صفحة المشروع، قسم «الفواتير والتحصيل» ← «+ فاتورة».' : 'تُجهَّز الوثيقة خارج النظام، ثم يُرفع ملفها في النظام من صفحة «المشاريع» ← «+ مشروع جديد»، ويمكن اختيار بنودها من «خدمات الشركة» لتُحسب القيمة تلقائياً.'}</p>
       <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="openProjects">الذهاب إلى المشاريع</button></div>
+    </div>`;
+}
+// إنشاء عقد (قريباً): صفحة تعريفية حتى يُبنى إنشاء العقود من داخل النظام
+function openCtrSoon(){ state.view = 'ctrSoon'; render(); window.scrollTo(0,0); }
+function renderCtrSoon(app){
+  if(!canSeeCatalog() && !canSeeWContracts()){ state.view='dashboard'; render(); return; }
+  app.innerHTML = `<h1>إنشاء عقد</h1>
+    <div class="card cx-panel pj-soon">
+      <h2>قريباً</h2>
+      <p>قريباً إنشاء العقود من داخل النظام: كتابة العقد من نموذج جاهز ببيانات العميل أو العامل، ومدته وأسعاره وبنوده، ثم طباعته أو إرساله للتوقيع.</p>
+      <p><b>الآن:</b> يُجهَّز العقد خارج النظام، ثم يُرفع ملفه في النظام من «عقود العملاء» ← «+ عقد جديد»، أو من «عقود العاملين».</p>
+      <div class="cx-actions">${canSeeCatalog() ? `<button class="btn btn-primary btn-md" data-on-click="openContracts">عقود العملاء</button>` : ''}${canSeeWContracts() ? `<button class="btn btn-ghost btn-md" data-on-click="openWContracts">عقود العاملين</button>` : ''}</div>
     </div>`;
 }
 function openCatalog(){ state.view='catalog'; state.cat.edit=null; render(); window.scrollTo(0,0); catLoad(); }
