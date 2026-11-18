@@ -3241,6 +3241,34 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app table.tcards td .btn.btn-ico-del svg{width:18px;height:18px;}
   }
   @media (max-width:699px){ #app table.tcards td:not([data-l]):has(> .btn), #app table.tcards td:not([data-l]) > div:has(> .btn){align-items:center;} #app table.tcards td:not([data-l]) .btn{height:40px !important;min-height:40px;margin:0 !important;box-sizing:border-box;} }
+  /* (1.31.0) عرض أعمدة الجداول بالسحب */
+  @media (min-width:700px){
+    #app th.col-th{position:relative;}
+    #app th .col-rs{position:absolute;top:0;bottom:0;inset-inline-end:-4px;width:9px;cursor:col-resize;z-index:3;}
+    #app th .col-rs::after{content:'';position:absolute;top:22%;bottom:22%;inset-inline-start:4px;width:1px;background:var(--line-2);opacity:0;transition:opacity .15s;}
+    #app th:hover .col-rs::after, #app th .col-rs:hover::after{opacity:1;}
+    #app th .col-rs:hover::after{background:var(--blue);width:2px;}
+    #app th .col-reset{display:none;position:absolute;inset-inline-end:10px;top:50%;transform:translateY(-50%);width:24px;height:24px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);cursor:pointer;font-size:14px;line-height:1;padding:0;}
+    #app table.col-custom th .col-reset{display:inline-flex;align-items:center;justify-content:center;}
+    #app table.col-custom th, #app table.col-custom td{overflow:hidden;overflow-wrap:anywhere;}
+    #app .col-scroll{overflow-x:auto;}
+    body.col-dragging, body.col-dragging *{cursor:col-resize !important;user-select:none !important;}
+  }
+  #app th .col-reset::before{content:'↺';}
+  @media print{ #app th .col-rs, #app th .col-reset{display:none !important;} }
+  @media (max-width:699px){ #app th .col-rs, #app th .col-reset{display:none !important;} }
+  /* (1.31.0) مسافات أقل بين البطاقات والفقرات في كل الصفحات */
+  #app > .card, #app > details.card, #app .cx-panel{margin-bottom:10px !important;}
+  #app > .card, #app .cx-panel{padding-top:12px !important;padding-bottom:12px !important;}
+  #app .cx-panel-h{margin-bottom:8px !important;}
+  #app > .card > h2:first-child, #app .cx-panel > h2:first-child{margin-top:0 !important;}
+  #app .cx-stats, #app .cx-grid, #app .stat-cards{margin-bottom:10px !important;}
+  @media (max-width:699px){
+    #app > .card, #app > details.card, #app .cx-panel{margin-bottom:6px !important;padding-top:6px !important;padding-bottom:6px !important;}
+    #app .cx-panel-h{margin-bottom:6px !important;}
+    #app .cx-stats, #app .cx-grid, #app .stat-cards{margin-bottom:6px !important;gap:8px !important;}
+    #app h2{margin-bottom:6px;}
+  }
 </style>
 </head>
 <body>
@@ -3261,6 +3289,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=2854664d65"></script>
+<script src="app.js?v=e2efb9a53b"></script>
 </body>
 </html>

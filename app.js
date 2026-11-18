@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.30.3', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.31.0', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:355, base:350, extra:5.2, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:356, base:350, extra:5.6, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7800,10 +7800,73 @@ function alignRows(){
 }
 // أجزاء تُرسم دون إعادة رسم الصفحة كلها (تبويب فرعي، نافذة داخل الصفحة): تأخذ نفس الترتيب تلقائياً
 const _qyMO = new MutationObserver(()=>{ if(window._qyInRender) return; cancelAnimationFrame(window._qyMOt); window._qyMOt = requestAnimationFrame(tidyLite); });
+// ===================== عرض أعمدة الجداول (1.31.0): سحب حافة العنوان لتكبير العمود أو تصغيره، ونقر مزدوج يوسّعه بقدر نصه =====================
+// يشمل كل جداول النظام على الكمبيوتر؛ يُحفظ لكل مستخدم في user_ui_prefs فيجده في أي جهاز. لا يشمل المستندات المطبوعة ولا بطاقات الهاتف.
+const COL_MIN = 50, COL_SKIP = '.doc,.doc-page,.print-only,.note-box,.modal-overlay,.sig-ed,.no-colrs,.qy-doc,.preview-page';
+function colKey(t){ const hr = t.tHead && t.tHead.rows[0]; const h = [...hr.cells].map(c=>(c.textContent||'').replace(/[▲▼↑↓↺]/g,'').replace(/\s+/g,' ').trim()).join('|');
+  let x = 0; for(let i = 0; i < h.length; i++) x = (x*31 + h.charCodeAt(i)) | 0; return (state.view||'') + ':' + (x>>>0).toString(36); }
+async function colPrefsLoad(){
+  if(state._colLoading || state.colPrefs || !state.user) return; state._colLoading = true;
+  try{ const r = await db.from('user_ui_prefs').select('col_widths').eq('user_id', state.user.id).maybeSingle();
+    state.colPrefs = (r && r.data && r.data.col_widths) || {}; }catch(e){ state.colPrefs = {}; }
+  state._colLoading = false; colsEnhance();
+}
+function colPrefsSave(){ clearTimeout(state._colT); state._colT = setTimeout(async ()=>{ if(!state.user) return;
+  const r = await db.from('user_ui_prefs').upsert({user_id:state.user.id, col_widths:state.colPrefs||{}, updated_at:new Date().toISOString()}, {onConflict:'user_id'});
+  if(r && r.error) console.warn('colPrefsSave', r.error.message); }, 600); }
+function colApply(t, w){ const ths = [...t.tHead.rows[0].cells]; if(!w || w.length !== ths.length) return false;
+  t.style.tableLayout = 'fixed'; ths.forEach((th,i)=>{ th.style.width = w[i] + 'px'; });
+  t.style.width = w.reduce((a,b)=>a+b, 0) + 'px'; t.style.minWidth = '100%'; t.classList.add('col-custom');
+  const p = t.parentElement; if(p && !p.classList.contains('col-scroll')) p.classList.add('col-scroll'); return true; }
+function colReset(t){ const ths = [...t.tHead.rows[0].cells]; ths.forEach(th=>{ th.style.width = ''; });
+  t.style.tableLayout = ''; t.style.width = ''; t.style.minWidth = ''; t.classList.remove('col-custom'); }
+function colsEnhance(root){
+  if(isPhone() || !state.user) return; const app = root || document.getElementById('app'); if(!app) return;
+  if(!state.colPrefs){ colPrefsLoad(); }
+  app.querySelectorAll('table').forEach(t=>{
+    if(t.classList.contains('tcards') || t.closest(COL_SKIP)) return;
+    const hr = t.tHead && t.tHead.rows[0]; if(!hr || hr.cells.length < 3) return;
+    const key = colKey(t);
+    if(t.dataset.colKey !== key){ t.dataset.colKey = key; delete t.dataset.colApplied; }
+    [...hr.cells].forEach((th,i)=>{ if(th.querySelector(':scope > .col-rs')) return; th.classList.add('col-th');
+      const h = document.createElement('span'); h.className = 'col-rs'; h.title = 'اسحب لتغيير عرض العمود — نقر مزدوج يوسّعه بقدر نصه';
+      h.addEventListener('mousedown', ev=>colDragStart(ev, t, i)); h.addEventListener('dblclick', ev=>{ ev.preventDefault(); ev.stopPropagation(); colFit(t, i); });
+      h.addEventListener('click', ev=>ev.stopPropagation()); th.appendChild(h); });
+    const last = hr.cells[hr.cells.length-1];
+    if(!last.querySelector(':scope > .col-reset')){ const b = document.createElement('button'); b.type = 'button'; b.className = 'col-reset';
+      b.title = 'إرجاع العرض الأصلي للأعمدة'; b.setAttribute('aria-label', b.title);
+      b.addEventListener('click', ev=>{ ev.stopPropagation(); colReset(t); if(state.colPrefs){ delete state.colPrefs[t.dataset.colKey]; colPrefsSave(); } }); last.appendChild(b); }
+    if(state.colPrefs && !t.dataset.colApplied){ t.dataset.colApplied = '1'; colApply(t, state.colPrefs[key]); }
+  });
+}
+function colWidths(t){ return [...t.tHead.rows[0].cells].map(th=>Math.round(th.getBoundingClientRect().width)); }
+function colStore(t){ const w = colWidths(t); (state.colPrefs = state.colPrefs || {})[t.dataset.colKey] = w; colApply(t, w); colPrefsSave(); }
+function colDragStart(ev, t, i){
+  ev.preventDefault(); ev.stopPropagation();
+  const w = colWidths(t); colApply(t, w);
+  const rtl = getComputedStyle(t).direction === 'rtl', x0 = ev.clientX, w0 = w[i];
+  document.body.classList.add('col-dragging');
+  // يأخذ العرض من العمود المجاور (أو يعطيه) فيبقى عرض الجدول كما هو ولا يخرج من البطاقة
+  const n = i < w.length-1 ? i+1 : i-1, n0 = w[n];
+  const mv = e=>{ let d = Math.round(rtl ? (x0 - e.clientX) : (e.clientX - x0)); d = Math.max(COL_MIN - w0, Math.min(d, n0 - COL_MIN)); w[i] = w0 + d; w[n] = n0 - d; colApply(t, w); };
+  const up = ()=>{ document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); document.body.classList.remove('col-dragging');
+    (state.colPrefs = state.colPrefs || {})[t.dataset.colKey] = w.slice(); colPrefsSave(); };
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+}
+function colFit(t, i){
+  const w = colWidths(t); let need = COL_MIN;
+  [...t.rows].forEach(r=>{ const c = r.cells[i]; if(!c || (c.colSpan||1) > 1) return;
+    const m = document.createElement('div'); m.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font:' + getComputedStyle(c).font; m.innerHTML = c.innerHTML;
+    m.querySelectorAll('.col-rs,.col-reset').forEach(x=>x.remove()); document.body.appendChild(m); need = Math.max(need, m.scrollWidth + 28); m.remove(); });
+  // يوسّع العمود بقدر نصه ويأخذ الفرق من الأعمدة الأخرى بنسبة عرضها (لا تقل عن الحد الأدنى)
+  const tot = w.reduce((a,b)=>a+b,0), want = Math.min(600, need), others = w.map((x,j)=>j===i ? 0 : Math.max(0, x - COL_MIN)), room = others.reduce((a,b)=>a+b,0);
+  const add = Math.max(-(w[i]-COL_MIN), Math.min(want - w[i], room)), f = room ? add/room : 0;
+  w.forEach((x,j)=>{ if(j!==i) w[j] = Math.round(x - others[j]*f); }); w[i] = w[i] + add; const fix = tot - w.reduce((a,b)=>a+b,0); w[i] += fix; colApply(t, w); (state.colPrefs = state.colPrefs || {})[t.dataset.colKey] = w.slice(); colPrefsSave();
+}
 function tidyLite(){
   const app = document.getElementById('app'); if(!app) return;
   _qyMO.disconnect();
-  try{ infoTips(); fileButtons(); pwEyes(); pairFields(); growInputs(); iconActs(); qylEnhance(app); }catch(e){ console.error('tidyLite', e); }
+  try{ infoTips(); fileButtons(); pwEyes(); pairFields(); growInputs(); iconActs(); qylEnhance(app); colsEnhance(app); }catch(e){ console.error('tidyLite', e); }
   _qyMO.takeRecords(); _qyMO.observe(app, {childList:true, subtree:true});
 }
 // شريط «تتصفح الآن كـ» على الهاتف: فوق أعلى شريط سفلي ظاهر، فلا يغطي أزراره
@@ -7859,7 +7922,7 @@ function qyMotion(){
     requestAnimationFrame(step);
   });
 }
-function pageTidy(){ try{ requestAnimationFrame(impAboveBar); setTimeout(impAboveBar, 300); requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); toTabsRow(); infoTips(); fileButtons(); pwEyes(); qyMotion(); pairFields(); growInputs(); adaptTables(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
+function pageTidy(){ try{ requestAnimationFrame(impAboveBar); setTimeout(impAboveBar, 300); requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); toTabsRow(); infoTips(); fileButtons(); pwEyes(); qyMotion(); pairFields(); growInputs(); adaptTables(); colsEnhance(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
   const a = document.querySelector('#app .adm-t2.active');
