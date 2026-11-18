@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.37.7', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.37.8', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:2.6, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:353, base:350, extra:2.9, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -9605,19 +9605,17 @@ function renderMonitor(app){
   if(!canSeeMonitor()){ app.innerHTML = `<div class="card"><h2>لوحة المتابعة</h2><p class="sub">ليست لديك صلاحية هذه الصفحة.</p></div>`; return; }
   if((!m.data || m.company!==state.currentCompanyId || (Date.now()-(m.at||0)) > 60000) && !m.loading) setTimeout(loadMonitor, 0);
   const d = (m.company===state.currentCompanyId && m.data) || null;
-  const head = `<div class="card"><div class="mon-head" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-      <h2 style="margin:0;">لوحة المتابعة</h2><span class="sub">${escH(currentCompanyName())}${m.at ? ' · آخر تحديث ' + escH(monitorAgo(new Date(m.at).toISOString())) : ''}</span>
-      <span style="margin-right:auto;"></span>
-      <label class="sub" style="display:flex;gap:6px;align-items:center;">حركات آخر
-        <select data-on-change="setMonitorDays" data-on-change-args="${qa([QA.v])}" style="width:auto;">${[1,7,30].map(n=>`<option value="${n}" ${Number(m.days||7)===n?'selected':''}>${n===1?'يوم':n+' أيام'}</option>`).join('')}</select></label>
-      <button type="button" class="btn btn-ghost btn-sm" data-on-click="loadMonitor">${m.loading?'<span class="spin"></span>':'↻'} تحديث</button>
+  const head = `<div class="card mon-card"><div class="mon-head">
+      <div class="mon-t"><b>${escH(currentCompanyName())}</b><small>${m.at ? '· آخر تحديث ' + escH(monitorAgo(new Date(m.at).toISOString())) : 'جارٍ التحميل…'}</small></div>
+      <div class="mon-tools"><label for="monDays">حركات آخر</label><select id="monDays" data-on-change="setMonitorDays" data-on-change-args="${qa([QA.v])}">${[1,7,30].map(n=>`<option value="${n}" ${Number(m.days||7)===n?'selected':''}>${n===1?'يوم':n+' أيام'}</option>`).join('')}</select>
+      <button type="button" class="btn btn-ghost btn-md" data-on-click="loadMonitor">${m.loading?'<span class="spin"></span>':'↻'} تحديث</button></div>
     </div>${m.error ? `<p class="sub" style="color:var(--red);margin:8px 0 0;">${escH(m.error)}</p>` : ''}</div>`;
   if(!d){ app.innerHTML = head + `<div class="card"><div class="spinner"></div></div>`; return; }
   const st = d.status || {}, n = k => (st[k]||{}).n||0, sm = k => Number((st[k]||{}).sum||0);
   const finKeys = ['pending_transfer_request','pending_transfer_approval','pending_disbursement'];
-  const tile = (label, num, amount, color, sub) => `<div class="card tile" style="flex:1 1 160px;margin:0;border-top:4px solid ${color};">
-      <div class="sub" style="margin-bottom:4px;">${label}</div><div style="font-size:var(--fs-h1);font-weight:700;">${num}</div>
-      ${amount!=null ? `<div class="sub" dir="rtl">${fmtKWD(amount)}</div>` : ''}${sub ? `<div class="sub" style="font-size:var(--fs-hint);">${sub}</div>` : ''}</div>`;
+  const tile = (label, num, amount, color, sub) => `<div class="card tile${Number(num) ? '' : ' tile-zero'}" style="border-top:4px solid ${color};">
+      <div class="tile-l">${label}</div><div class="tile-v"><b>${num}</b>${amount!=null ? `<span class="tile-amt">${fmtKWD(amount)}</span>` : ''}</div>
+      ${sub ? `<div class="tile-s">${sub}</div>` : ''}</div>`;
   const t = d.today || {};
   const today = `<div class="card"><h3 style="margin-top:0;">اليوم</h3><div class="tile-row" style="display:flex;flex-wrap:wrap;gap:10px;">
       ${tile('طلبات أُنشئت', t.created||0, null, 'var(--blue)')}${tile('اعتمادات', t.approved||0, null, 'var(--green)')}
@@ -9629,11 +9627,10 @@ function renderMonitor(app){
       ${tile('قيد القرار', decN, decS, 'var(--amber)')}${tile('في يد المالية', finN, finS, 'var(--blue)')}
       ${tile('تم الصرف', n('completed'), sm('completed'), 'var(--green)')}${tile('مرفوضة', n('rejected'), sm('rejected'), 'var(--red)')}
       ${tile('ملغاة', d.cancelled||0, null, '#9a9890')}</div></div>`;
-  const sec = d.security ? `<div class="card" style="border-right:4px solid ${(d.security.alerts||d.security.errors)?'var(--red)':'var(--green)'};">
+  const sec = d.security ? `<div class="card mon-card" style="border-right:4px solid ${(d.security.alerts||d.security.errors)?'var(--red)':'var(--green)'};">
       <h3 style="margin-top:0;">الأمان (لمدير النظام)</h3><div class="mon-sec" style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;">
-      <span>تنبيهات لم تُراجع: <b>${d.security.alerts||0}</b></span><span>أخطاء اليوم: <b>${d.security.errors||0}</b></span>
-      <span>دخول فاشل (24 ساعة): <b>${d.security.failed_logins||0}</b></span>
-      <button type="button" class="btn btn-ghost btn-sm" data-on-click="openSecurityLogFromMonitor">فتح سجل الأمان</button></div></div>` : '';
+      ${[['تنبيهات لم تُراجع', d.security.alerts], ['أخطاء اليوم', d.security.errors], ['دخول فاشل (24 ساعة)', d.security.failed_logins]].map(([l,v])=>`<span class="mon-ind">${l}: <b style="color:${Number(v) ? 'var(--red)' : 'var(--green)'}">${Number(v)||0}</b></span>`).join('')}
+      <button type="button" class="btn btn-ghost btn-md" data-on-click="openSecurityLogFromMonitor">فتح سجل الأمان</button></div></div>` : '';
   const late = w => Number(w.limit)>0 && Number(w.days) >= Number(w.limit);
   const waiting = d.waiting || [];
   const lateN = waiting.filter(late).length;
@@ -18039,7 +18036,7 @@ function cxEntryFormHtml(){
   </div>`;
 }
 
-function cxStat(l, v, col, sub){ return `<div class="cx-stat"><div class="cx-stat-l">${l}</div><div class="cx-stat-v" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="cx-stat-s">${sub}</div>`:''}</div>`; }
+function cxStat(l, v, col, sub){ return `<div class="cx-stat" style="--tile-c:${col||'var(--blue)'}"><div class="cx-stat-l">${l}</div><div class="cx-stat-v" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="cx-stat-s">${sub}</div>`:''}</div>`; }
 
 // بطاقات البنود في صفحة المركز (المركز نفسه أولاً ثم بنوده)
 function cxItemsPanelHtml(){
@@ -21251,7 +21248,7 @@ function renderGlMonth(app){
   const s = glSummary(rows), balanced = Math.abs(s.dr - s.cr) < 0.0005;
   const lastExp = (g.exports||[]).find(e=>String(e.month).slice(0,7)===g.month);
   const changed = lastExp && (Number(lastExp.entries)!==s.entries || Math.abs(Number(lastExp.total)-s.dr) > 0.0005);
-  const tile = (label, val, color, sub) => `<div class="card tile" style="flex:1 1 150px;margin:0;border-top:4px solid ${color};"><div class="sub" style="margin-bottom:4px;">${label}</div><div style="font-size:var(--fs-h2);font-weight:800;">${val}</div>${sub ? `<div class="sub" style="font-size:var(--fs-hint);">${sub}</div>` : ''}</div>`;
+  const tile = (label, val, color, sub) => `<div class="card tile" style="border-top:4px solid ${color};"><div class="tile-l">${label}</div><div class="tile-v"><b>${val}</b></div>${sub ? `<div class="sub" style="font-size:var(--fs-hint);">${sub}</div>` : ''}</div>`;
   let shade = false, prev = '';
   const body = rows.map(r=>{ if(r.entry_key!==prev){ shade = !shade; prev = r.entry_key; }
     return `<tr data-date="${escH(r.entry_date)}"${shade ? ' style="background:var(--paper-2);"' : ''}>
@@ -21273,8 +21270,8 @@ function renderGlMonth(app){
     <div class="card cx-panel">
       <div class="cx-panel-h">
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-          <div><label for="glMonthIn">الشهر</label><input id="glMonthIn" type="month" dir="ltr" style="width:180px;" value="${escH(g.month)}" data-on-change="glSetMonth" data-on-change-args="${qa([QA.v])}"></div>
-          <button class="btn btn-ghost btn-sm" data-on-click="glLoadJournal" title="إعادة حساب الكشف من حركات النظام">${g.jLoading ? '<span class="spin"></span>' : '↻'} تحديث</button>
+          <div><label for="glMonthIn">الشهر</label><select id="glMonthIn" class="gl-month" data-on-change="glSetMonth" data-on-change-args="${qa([QA.v])}">${(()=>{ const cur = prjYm(), L = []; for(let k = 0; k < 36; k++) L.push(prjYmAdd(cur, -k)); if(g.month && !L.includes(g.month)) L.unshift(g.month); return L.map(ym=>`<option value="${ym}" ${g.month===ym?'selected':''}>${prjYmName(ym)}</option>`).join(''); })()}</select></div>
+          <button class="btn btn-ghost btn-md gl-refresh" data-on-click="glLoadJournal" title="إعادة حساب الكشف من حركات النظام">${g.jLoading ? '<span class="spin"></span>' : '↻'} تحديث</button>
         </div>
         <div class="actions-row" data-bar-actions><button class="btn btn-primary btn-md" data-on-click="glExportMonth" title="ملف Excel فيه القيود ومجاميع الحسابات، ويُسجَّل أنك صدّرت هذا الشهر" ${rows.length ? '' : 'disabled'}>تصدير الكشف</button></div>
       </div>

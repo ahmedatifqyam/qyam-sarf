@@ -3479,6 +3479,42 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .nr-form .nr-addrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
   #app .nr-form .nr-addbtn{width:auto;min-width:220px;flex:0 0 auto;height:40px;font-weight:700;color:var(--info);border-color:var(--info-line);}
   @media (max-width:699px){ #app .nr-form .nr-addrow{flex-wrap:nowrap;} #app .nr-form .nr-addbtn{flex:1 1 0;min-width:0;padding:0 4px !important;} }
+
+  /* (1.37.8) بطاقات الأرقام موحّدة (لوحة المتابعة، كشف الحركات الشهري…): مضغوطة، عنوانها أكبر، والمبلغ بجانب العدد؛ صفر = باهت */
+  #app .tile-row{display:grid !important;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px !important;align-items:stretch;}
+  #app .tile-row:has(> :nth-child(5)){grid-template-columns:repeat(5,minmax(0,1fr));}
+  #app .tile-row:has(> :nth-child(3)):not(:has(> :nth-child(4))){grid-template-columns:repeat(3,minmax(0,1fr));}
+  #app .card .card.tile{padding:10px 14px !important;margin:0 !important;min-height:0 !important;height:auto !important;flex:none !important;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-top-width:4px;border-radius:8px;box-shadow:none;}
+  #app .card .card.tile > .tile-l, #app .card .card.tile > div:first-child{font-size:var(--fs-h3) !important;font-weight:800 !important;color:var(--ink) !important;margin:0 !important;}
+  #app .card .card.tile .tile-v{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  #app .card .card.tile .tile-v > b{font-size:var(--fs-h2);font-weight:800;line-height:1.25;}
+  #app .card .card.tile .tile-amt{font-size:var(--fs-label);font-weight:700;color:var(--muted);}
+  #app .card .card.tile .tile-s, #app .card .card.tile > .sub{font-size:var(--fs-label);color:var(--muted);margin:0 !important;}
+  #app .card .card.tile.tile-zero{opacity:.55;}
+  @container (max-width:720px){ #app .tile-row{grid-template-columns:repeat(2,minmax(0,1fr)) !important;} #app .tile-row:has(> :nth-child(5)){grid-template-columns:repeat(3,minmax(0,1fr)) !important;} }
+  #app .card:has(> .tile-row){container-type:inline-size;}
+  @media (max-width:699px){ #app .tile-row{grid-template-columns:repeat(2,minmax(0,1fr)) !important;} }
+  /* رأس لوحة المتابعة والأمان: سطر واحد متوازن */
+  #app .card.mon-card{padding:10px 16px !important;}
+  #app .card.mon-card h3{margin:0 0 6px !important;}
+  #app .mon-head{display:flex !important;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  #app .mon-t{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;} #app .mon-t b{font-size:var(--fs-h3);font-weight:800;color:var(--ink);} #app .mon-t small{color:var(--muted);font-weight:600;}
+  #app .mon-tools{display:flex;align-items:center;gap:8px;} #app .mon-tools label{margin:0 !important;white-space:nowrap;}
+  #app .mon-tools select{width:150px !important;height:40px;} #app .mon-tools .btn, #app .mon-sec > .btn{width:150px !important;height:40px;flex:0 0 150px !important;}
+  #app .mon-sec{display:flex !important;align-items:center;gap:24px !important;flex-wrap:wrap;} #app .mon-sec > .btn{margin-inline-start:auto;}
+  #app .mon-ind{font-weight:700;color:var(--ink);}
+  @media (max-width:699px){ #app .mon-tools{width:100%;} #app .mon-tools select{flex:1 1 0;width:auto !important;} #app .mon-sec{display:grid !important;grid-template-columns:1fr 1fr;gap:6px 12px !important;} #app .mon-sec > .btn{grid-column:1 / -1;width:100% !important;margin:0;} }
+  /* كشف الحركات الشهري: الشهر والتحديث بحجم موحّد */
+  #app select.gl-month{width:180px !important;height:40px;} #app .gl-refresh{width:150px;height:40px;}
+
+  /* (1.37.8) توحيد كل بطاقات الأرقام في النظام على شكل واحد: إطار رفيع، شريط لون أعلى، العنوان عريض بحجم العناوين، الرقم أكبر، والارتفاع على قدر المحتوى */
+  #app .cx-stat, #app .stat-card{padding:10px 14px !important;border-radius:8px !important;border:1px solid var(--line) !important;border-top:4px solid var(--tile-c, var(--blue)) !important;box-shadow:none !important;min-height:0 !important;height:auto !important;display:flex;flex-direction:column;gap:2px;justify-content:flex-start;background:var(--card);}
+  #app .cx-stat-l, #app .stat-card .stat-label{order:-1;font-size:var(--fs-h3) !important;font-weight:800 !important;color:var(--ink) !important;margin:0 !important;}
+  #app .cx-stat-v, #app .stat-card .stat-num{font-size:var(--fs-h2) !important;font-weight:800 !important;line-height:1.25;}
+  #app .cx-stat-s{font-size:var(--fs-label) !important;margin:0 !important;}
+  #app .stat-card .stat-num[style*="--fs-h3"]{font-size:var(--fs-h2) !important;}
+  #app .pj-fig > span{font-size:var(--fs-h3) !important;}
+  #app .pj-fig > b{font-size:var(--fs-h2) !important;}
 </style>
 </head>
 <body>
@@ -3499,6 +3535,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=a74cc4e7e5"></script>
+<script src="app.js?v=10b1a3f06c"></script>
 </body>
 </html>
