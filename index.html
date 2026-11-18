@@ -1932,7 +1932,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .pjp-wrap{overflow-x:auto;}
   .pjp-tbl td{vertical-align:middle;} .pjp-g{width:24px;}
   #app .pjp-in{width:100% !important;max-width:none !important;height:36px;min-width:70px;}
-  #app .pjp-in.pjp-name{min-width:180px;} #app .pjp-in.pjp-unit{min-width:80px;} #app .pjp-in.pjp-price{min-width:100px;text-align:left;}
+  #app .pjp-in.pjp-name{min-width:180px;} #app .pjp-in.pjp-unit{min-width:80px;} #app .pjp-in.pjp-price{min-width:100px;text-align:right;}
   .pj-pick{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;background:var(--paper-2);max-height:420px;overflow:auto;}
   .pj-pick-m{border-bottom:1px solid var(--line);padding:6px 0;} .pj-pick-m summary{cursor:pointer;padding:4px 0;}
   .pj-pick-s{padding:4px 18px 6px 0;} .pj-pick-sh{font-weight:700;font-size:var(--fs-label);margin:4px 0;}
@@ -2304,7 +2304,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #qylPrintSheet table{width:100%;border-collapse:collapse;}
     #qylPrintSheet th,#qylPrintSheet td{border:1px solid var(--muted);padding:4px 6px;text-align:right;vertical-align:top;}
     #qylPrintSheet th{background:var(--line);font-size:13px;}
-    #qylPrintSheet .qp-n{white-space:nowrap;text-align:left;}
+    #qylPrintSheet .qp-n{white-space:nowrap;text-align:right;}
     #qylPrintSheet tfoot td{font-weight:700;background:var(--paper-2);}
     #qylPrintSheet thead{display:table-header-group;}
   }
@@ -3363,10 +3363,10 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pj-val-words{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:10px 0 4px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);}
   #app .pj-val-words .tot-l{margin:0;}
   #app .pf.w120{flex:0 0 120px;}
-  #app .cx-srow{margin-bottom:10px;}
+  #app .cx-srow{margin-bottom:10px;} #app .cx-srow .pf.grow1{flex-basis:120px;}
   #app .cx-fold > summary + h3.uf-h{border-top:0;padding-top:0;margin-top:0;}
   #app label.chk-card.cx-chk{min-height:40px;height:auto;padding:6px 12px;}
-  #app .pj-row .pf label.chk-card{display:flex !important;align-items:center;margin:0 !important;min-height:40px;}
+  #app .pj-row .pf label.chk-card.chk-card.chk-card.chk-card{display:flex !important;align-items:center;margin:0 !important;min-height:40px;}
   #app .pj-row .pf label.chk-card input{width:18px !important;height:18px;flex:0 0 18px;margin:0;}
   @media (max-width:699px){ #app .pf.w120{flex:1 1 calc(50% - 8px);} #app .cx-srow .pf.grow1{flex:1 1 100%;} }
 
@@ -3386,6 +3386,29 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .pj-cqg{grid-template-columns:repeat(2,minmax(0,1fr));} #app .pj-cqg > .co-f{grid-column:1 / -1;} #app .pj-cqg > .co-f.cq-half{grid-column:auto;}
     #app .cx-actions > .btn, #app.cxv .cx-actions > .btn, #app.cxv .cx-actions .btn-primary{flex:1 1 calc(50% - 5px) !important;width:auto !important;min-width:0;}
   }
+
+  /* (1.35.1) تصدير كل المراكز: الحقول ومربع «مع الملفات الأصلية» والزر في صف واحد؛ وفي العرض الأضيق صفّان على أعمدة متساوية */
+  #app .cx-expall{container-type:inline-size;}
+  #app .cx-expall-r{display:grid !important;grid-template-columns:repeat(3,160px) 200px 150px;gap:10px 12px;align-items:end;}
+  #app .cx-expall-r > div{width:auto !important;min-width:0;margin:0;}
+  #app .cx-expall-r .btn{width:100% !important;}
+  #app .cx-expall-r > .f-chk{display:flex;flex-direction:column;justify-content:flex-end;align-self:stretch;}
+  #app .cx-expall-r input, #app .cx-expall-r select{width:100% !important;max-width:none !important;min-width:0 !important;flex:none !important;margin:0 !important;}
+  #app .cx-expall-r label{margin-top:0 !important;}
+  #app .cx-expall-r .f-chk label.chk-card.chk-card.chk-card.chk-card{height:40px;min-height:40px;margin:0 !important;padding:0 12px;}
+  @container (max-width:880px){
+    #app .cx-expall-r{grid-template-columns:repeat(3,minmax(0,1fr));}
+    #app .cx-expall-r .f-chk{grid-column:span 2;}
+    #app .cx-expall-r .f-chk > label:first-child, #app .cx-expall-r .f-btn > label:first-child{display:none;}
+  }
+  @container (max-width:520px){
+    #app .cx-expall-r{grid-template-columns:repeat(2,minmax(0,1fr));}
+    #app .cx-expall-r .f-chk{grid-column:auto;}
+    #app .cx-expall-r .f-btn{grid-column:1 / -1;}
+  }
+
+  /* (1.35.1) قاعدة دائمة: كل الأرقام في الجداول محاذاة لليمين (الفلس تحت الفلس) */
+  #app table td.num, #app table th.num, #app .app-table td.num, #app .amount-table td.num, #app.cxv table .num{text-align:right !important;font-variant-numeric:tabular-nums;}
 </style>
 </head>
 <body>
@@ -3406,6 +3429,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=2cf54fe014"></script>
+<script src="app.js?v=8bc1697f9e"></script>
 </body>
 </html>

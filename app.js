@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.35.0', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.35.1', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:351, base:350, extra:1.0, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:1.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -17766,21 +17766,21 @@ function cxAddItemFormHtml(){
   const root = cxUnit(state.cx.centerId) || {};
   return `<div class="card cx-panel" id="cxAiCard">
     <div class="cx-panel-h"><div><h2>إضافة بند تحت «${escH(root.name||'')}»</h2><div class="file-hint">نادٍ أو معرض أو مشروع: له دفتره وميزانيته، ويُرحَّل بينه وبين بنود المركز.</div></div><button class="btn btn-ghost btn-sm" data-on-click="cxAddItemToggle">إغلاق</button></div>
-    <div class="row">
-      <div><label>اسم البند</label><input id="cxa_name" type="text" placeholder="مثال: نادي نفيس"></div>
-      <div class="f-md"><label>النوع</label><select id="cxa_kind">${unitTypeOptionsHtml('section')}</select></div>
-      <div class="f-md"><label>الحالة</label><select id="cxa_stage">${CX_STAGES.filter(s=>s[0]!=='closed').map(s=>`<option value="${s[0]}" ${s[0]==='active'?'selected':''}>${s[1]}</option>`).join('')}</select></div>
+    <div class="pj-row cx-srow">
+      <div class="pf w150"><label for="cxa_kind">النوع</label><select id="cxa_kind">${unitTypeOptionsHtml('section')}</select></div>
+      <div class="pf w150"><label for="cxa_stage">الحالة</label><select id="cxa_stage">${CX_STAGES.filter(s=>s[0]!=='closed').map(s=>`<option value="${s[0]}" ${s[0]==='active'?'selected':''}>${s[1]}</option>`).join('')}</select></div>
+      <div class="pf grow1"><label for="cxa_name">اسم البند</label><input id="cxa_name" type="text" placeholder="مثال: نادي نفيس"></div>
     </div>
-    <div class="row">
-      <div class="f-md"><label>المدة من (اختياري)</label><input id="cxa_from" type="date"></div>
-      <div class="f-md"><label>إلى</label><input id="cxa_to" type="date"></div>
-      <div class="f-md"><label>ميزانية البند (اختياري)</label><input id="cxa_budget" type="text" inputmode="decimal" dir="ltr" placeholder="0.000"></div>
+    <div class="pj-row cx-srow">
+      <div class="pf w150"><label for="cxa_from">المدة من (اختياري)</label><input id="cxa_from" type="date"></div>
+      <div class="pf w150"><label for="cxa_to">إلى</label><input id="cxa_to" type="date"></div>
+      <div class="pf grow1"><label for="cxa_desc">الوصف (اختياري)</label><input id="cxa_desc" type="text" placeholder="مثال: معرض الربيع للأسر المنتجة"></div>
     </div>
-    <div class="chk-grid">
-      <label class="chk-card"><input id="cxa_cont" type="checkbox"><span>مستمر: بند دائم كالنادي، لا يُقترح إغلاقه بانتهاء مدة</span></label>
-      <label class="chk-card"><input id="cxa_prepay" type="checkbox"><span>يُصرف له قبل الدفع (في حالة «مفتوح»)</span></label>
+    <div class="pj-row cx-srow">
+      <div class="pf w150"><label for="cxa_budget">ميزانية البند (اختياري)</label><input id="cxa_budget" type="text" inputmode="decimal" dir="ltr" placeholder="0.000"></div>
+      <div class="pf grow1"><label>&nbsp;</label><label class="chk-card cx-chk"><input id="cxa_cont" type="checkbox"><span>مستمر: بند دائم كالنادي، لا يُقترح إغلاقه بانتهاء مدة</span></label></div>
+      <div class="pf grow1"><label>&nbsp;</label><label class="chk-card cx-chk"><input id="cxa_prepay" type="checkbox"><span>يُصرف له قبل الدفع (في حالة «مفتوح»)</span></label></div>
     </div>
-    <div class="row" style="margin-top:12px;"><div><label>الوصف (اختياري)</label><input id="cxa_desc" type="text" placeholder="مثال: معرض الربيع للأسر المنتجة"></div></div>
     <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="cxSaveAddItem">إضافة البند</button><button class="btn btn-ghost btn-sm" data-on-click="cxAddItemToggle">إلغاء</button></div>
   </div>`;
 }
@@ -17912,28 +17912,28 @@ function cxLedgerRowsHtml(){
 function cxEntryFormHtml(){
   const kind = state.cx.entryKind || 'subscription', mode = state.cx.entryMode || 'gross';
   // كل حقل بحجم ما يُكتب فيه: f-xs نسبة (3 خانات) · f-sm رسوم · f-md مبلغ وتاريخ (150) · f-lg قائمة نصية
-  const f = (id, label, sz, ph, rtl) => `<div class="${sz}"><label>${label}</label><input id="${id}" type="text" inputmode="decimal" ${rtl?'':'dir="ltr"'} placeholder="${ph||'0.000'}" data-on-input="cxEntryPreview"></div>`;
+  const f = (id, label, sz, ph, rtl) => `<div class="pf w150"><label for="${id}">${label}</label><input id="${id}" type="text" inputmode="decimal" ${rtl?'':'dir="ltr"'} placeholder="${ph||'0.000'}" data-on-input="cxEntryPreview"></div>`;
   const uid = state.cx.entryUnit && cxScopeIds().includes(state.cx.entryUnit) ? state.cx.entryUnit : cxTargetId();
   const c = cxUnit(uid) || {};
   const defPct = (kind==='manual'||kind==='adjust') ? 0 : cxPctFor(c, kind==='support');
   return `<div class="card cx-panel" id="cxEntryCard">
     <div class="cx-panel-h"><h2>تسجيل حركة يدوية</h2><button class="btn btn-ghost btn-sm" data-on-click="cxEntryToggle">إغلاق</button></div>
-    <div class="row">
-      ${cxShowItemCol() ? `<div class="f-lg"><label>البند</label><select id="cxe_unit" data-on-change="cxEntryModeChange">${cxUnitOptionsHtml(uid, u=>u.stage!=='closed')}</select></div>` : ''}
-      <div class="f-md"><label>النوع</label><select id="cxe_kind" data-on-change="cxEntryModeChange">${[['subscription','اشتراكات'],['support','دعم'],['manual','إيراد يدوي'],['adjust','تسوية']].map(k=>`<option value="${k[0]}" ${k[0]===kind?'selected':''}>${k[1]}</option>`).join('')}</select></div>
-      <div class="f-lg"><label>طريقة الإدخال</label><select id="cxe_mode" data-on-change="cxEntryModeChange"><option value="gross" ${mode==='gross'?'selected':''}>بالمبلغ الكلي</option><option value="net" ${mode==='net'?'selected':''}>بحصة الشركة والصافي</option></select></div>
-      <div class="f-md"><label>تاريخ الدفع</label><input id="cxe_date" type="date" value="${cxToday()}"></div>
+    <div class="pj-row cx-srow">
+      <div class="pf w150"><label for="cxe_kind">النوع</label><select id="cxe_kind" data-on-change="cxEntryModeChange">${[['subscription','اشتراكات'],['support','دعم'],['manual','إيراد يدوي'],['adjust','تسوية']].map(k=>`<option value="${k[0]}" ${k[0]===kind?'selected':''}>${k[1]}</option>`).join('')}</select></div>
+      <div class="pf w150"><label for="cxe_mode">طريقة الإدخال</label><select id="cxe_mode" data-on-change="cxEntryModeChange"><option value="gross" ${mode==='gross'?'selected':''}>بالمبلغ الكلي</option><option value="net" ${mode==='net'?'selected':''}>بحصة الشركة والصافي</option></select></div>
+      <div class="pf w150"><label for="cxe_date">تاريخ الدفع</label><input id="cxe_date" type="date" value="${cxToday()}"></div>
+      ${cxShowItemCol() ? `<div class="pf grow1"><label for="cxe_unit">البند</label><select id="cxe_unit" data-on-change="cxEntryModeChange">${cxUnitOptionsHtml(uid, u=>u.stage!=='closed')}</select></div>` : ''}
     </div>
-    <div class="row">
-      <div class="f-md"><label>الفترة من</label><input id="cxe_from" type="date"></div>
-      <div class="f-md"><label>إلى</label><input id="cxe_to" type="date"></div>
+    <div class="pj-row cx-srow">
+      <div class="pf w150"><label for="cxe_from">الفترة من</label><input id="cxe_from" type="date"></div>
+      <div class="pf w150"><label for="cxe_to">إلى</label><input id="cxe_to" type="date"></div>
+      <div class="pf grow1"><label for="cxe_purpose">الغرض</label><input id="cxe_purpose" type="text" placeholder="مثال: اشتراكات أكتوبر"></div>
+      <div class="pf grow1"><label for="cxe_note">ملاحظة</label><input id="cxe_note" type="text" placeholder="اختياري"></div>
+    </div>
+    <div class="pj-row cx-srow">
       ${mode==='gross'
-        ? f('cxe_gross','المبلغ الكلي','f-md') + f('cxe_fee','رسوم البوابة','f-sm') + f('cxe_fee_pct','أو نسبتها %','f-xs','0') + f('cxe_pct','حصة الشركة %','f-xs', `⁦${defPct}⁩`)
-        : f('cxe_net','الصافي للمركز','f-md') + f('cxe_share_amt','حصة الشركة','f-sm') + f('cxe_fee','رسوم البوابة','f-sm')}
-    </div>
-    <div class="row">
-      <div><label>الغرض</label><input id="cxe_purpose" type="text" placeholder="مثال: اشتراكات أكتوبر"></div>
-      <div><label>ملاحظة</label><input id="cxe_note" type="text"></div>
+        ? f('cxe_gross','المبلغ الكلي') + f('cxe_fee','رسوم البوابة') + f('cxe_fee_pct','أو نسبة الرسوم %','','0') + f('cxe_pct','حصة الشركة %','', String(defPct))
+        : f('cxe_net','الصافي للمركز') + f('cxe_share_amt','حصة الشركة') + f('cxe_fee','رسوم البوابة')}
     </div>
     <div id="cxe_prev" class="cx-calc"></div>
     <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="cxSaveEntry">تسجيل الحركة</button><button class="btn btn-ghost btn-sm" data-on-click="cxEntryToggle">إلغاء</button></div>
@@ -18094,14 +18094,13 @@ function renderCenterBooks(app){
 // ---------- تصدير كل المراكز (1.28.0): ملف Excel فيه «الملخص» و«الكل» وورقة لكل مركز ----------
 function cxExportAllHtml(){
   const e = state.cx.expAll || (state.cx.expAll = {from: cxToday().slice(0,8) + '01', to: cxToday(), kind:'all', raw:true});
-  return `<div class="card cx-panel cx-expall no-print"><div class="cx-panel-h"><h2>تصدير كل المراكز</h2>${cxIsImporter()
-      ? `<label class="chk-card cx-raw-chk" title="ورقتا «كشف البوابة» و«فواتير البوابة» من الملفين الأصليين للفترة"><input type="checkbox" ${e.raw!==false?'checked':''} data-on-change="cxExpAllSet" data-on-change-args="${qa(['raw', QA.c])}"><span>مع الملفات الأصلية</span></label>`
-      : `<span class="file-hint">ملف Excel: الملخص، والكل، وورقة لكل مركز</span>`}</div>
+  return `<div class="card cx-panel cx-expall no-print"><div class="cx-panel-h"><h2>تصدير كل المراكز</h2>${cxIsImporter() ? '' : `<span class="file-hint">ملف Excel: الملخص، والكل، وورقة لكل مركز</span>`}</div>
     <div class="cx-expall-r">
       <div class="f-md"><label for="cxea_from">من تاريخ</label><input id="cxea_from" type="date" value="${escH(e.from)}" data-on-change="cxExpAllSet" data-on-change-args="${qa(['from', QA.v])}"></div>
       <div class="f-md"><label for="cxea_to">إلى تاريخ</label><input id="cxea_to" type="date" value="${escH(e.to)}" data-on-change="cxExpAllSet" data-on-change-args="${qa(['to', QA.v])}"></div>
       <div class="f-md"><label for="cxea_kind">النوع</label><select id="cxea_kind" data-on-change="cxExpAllSet" data-on-change-args="${qa(['kind', QA.v])}"><option value="all">الكل</option>${CX_CATS.map(([v,l])=>`<option value="${v}" ${e.kind===v?'selected':''}>${l}</option>`).join('')}</select></div>
-      <div class="f-md"><label>&nbsp;</label><button class="btn btn-primary btn-md" id="cxExpAllBtn" data-on-click="cxExportAll">${qi('download','qi-btn')}تصدير Excel</button></div>
+      ${cxIsImporter() ? `<div class="f-chk"><label>&nbsp;</label>${`<label class="chk-card cx-raw-chk" title="ورقتا «كشف البوابة» و«فواتير البوابة» من الملفين الأصليين للفترة"><input type="checkbox" ${e.raw!==false?'checked':''} data-on-change="cxExpAllSet" data-on-change-args="${qa(['raw', QA.c])}"><span>مع الملفات الأصلية</span></label>`}</div>` : ''}
+      <div class="f-md f-btn"><label>&nbsp;</label><button class="btn btn-primary btn-md" id="cxExpAllBtn" data-on-click="cxExportAll">${qi('download','qi-btn')}تصدير Excel</button></div>
     </div></div>`;
 }
 function cxExpAllSet(k, v){ const e = state.cx.expAll || (state.cx.expAll = {}); e[k] = v; }
