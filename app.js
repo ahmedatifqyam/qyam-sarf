@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.34.1', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.35.0', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:351, base:350, extra:0.7, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:1.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -7734,7 +7734,7 @@ window.addEventListener('resize', ()=>{ clearTimeout(window._dzT); window._dzT =
 // حقل نص لا يكفيه سطر: يصير حقلاً يتمدد بأسطر بدل أن يُقصّ الكلام (هاتف وسطح مكتب)
 function growTa(t){ t.style.height = 'auto'; t.style.height = Math.max(40, t.scrollHeight + 2) + 'px'; }
 function growInput(inp, keepFocus){
-  if(!inp || inp.tagName!=='INPUT' || inp.type!=='text' || inp.list || inp.dir==='ltr' || inp.closest('table,.modal-overlay,.tb-tools,.search-float,.filt-bar,.sel-add,.field-with-btn')) return null;
+  if(!inp || inp.tagName!=='INPUT' || inp.type!=='text' || inp.list || inp.dir==='ltr' || inp.closest('table,.modal-overlay,.tb-tools,.search-float,.qs-float,.filt-bar,.sel-add,.field-with-btn')) return null;
   if(inp.scrollWidth <= inp.clientWidth + 2) return null;
   const t = document.createElement('textarea');
   [...inp.attributes].forEach(a=>{ if(!['type','value','autocomplete','inputmode'].includes(a.name)) t.setAttribute(a.name, a.value); });
@@ -7749,6 +7749,39 @@ document.addEventListener('input', e=>{ const t = e.target; if(!t) return; if(t.
 document.addEventListener('keydown', e=>{ if(e.key==='Enter' && e.target && e.target.matches && e.target.matches('textarea.grow-ta')) e.preventDefault(); });
 // زر رفع ملف بشكل أزرار النظام بدل الشكل الافتراضي للمتصفح («Choose File»)
 const FILE_CLIP_SVG = '<svg class="file-field-i" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+// (1.35.0) البحث في كل الصفحات: رمز 🔍 بحجم الأزرار، يفتح حقل بحث عائماً فوق المحتوى.
+// يُغلق بالضغط خارجه إن كان فارغاً، وبـ Esc دائماً؛ وإن بقي فيه نص يظهر الرمز ملوّناً (فلتر بحث فعّال)
+const QS_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>';
+const _qsOpen = new Map();   // المفتاح ← وقت آخر استعمال
+function qsPlace(w){ const fl = w.querySelector('.qs-float'), b = w.querySelector('.qs-btn'); if(!fl || !b) return;
+  const vw = document.documentElement.clientWidth, W = Math.min(320, vw - 24), r = b.getBoundingClientRect(), wr = w.getBoundingClientRect();
+  const left = Math.max(12, Math.min(r.right - W, vw - W - 12));
+  fl.style.width = W + 'px'; fl.style.left = (left - wr.left) + 'px'; fl.style.top = (r.bottom - wr.top + 6) + 'px'; }
+function qsOpen(w, on, focus){ const k = w.dataset.k, inp = w.querySelector('input');
+  w.classList.toggle('open', on);
+  if(on){ _qsOpen.set(k, Date.now()); qsPlace(w); if(focus && inp) setTimeout(()=>{ inp.focus(); try{ inp.setSelectionRange(inp.value.length, inp.value.length); }catch(_){} }, 0); }
+  else _qsOpen.delete(k); }
+function searchIcons(){
+  document.querySelectorAll('#app input.qy-search').forEach(inp=>{
+    if(inp.dataset.qs || inp.id==='searchInput' || inp.closest('.tb-tools,.modal-overlay,.qs-wrap')) return;
+    inp.dataset.qs = '1';
+    const w = document.createElement('span'); w.className = 'qs-wrap'; w.dataset.k = (state.view||'') + '|' + (inp.placeholder||'');
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'qs-btn'; b.title = inp.placeholder || 'بحث'; b.setAttribute('aria-label', 'بحث'); b.innerHTML = QS_SVG;
+    const fl = document.createElement('span'); fl.className = 'qs-float';
+    inp.before(w); w.append(b, fl); fl.appendChild(inp);
+    const mark = ()=>{ w.classList.toggle('has', !!String(inp.value||'').trim()); b.title = inp.value ? 'بحث: ' + inp.value : (inp.placeholder || 'بحث'); };
+    b.addEventListener('click', e=>{ e.preventDefault(); qsOpen(w, !w.classList.contains('open'), true); });
+    inp.addEventListener('input', ()=>{ mark(); if(w.classList.contains('open')) _qsOpen.set(w.dataset.k, Date.now()); }); inp.addEventListener('change', mark);
+    inp.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.preventDefault(); qsOpen(w, false); b.focus(); } });
+    // بعد إعادة رسم الصفحة أثناء الكتابة يبقى مفتوحاً؛ ولا يُعاد فتحه إن كان الرمز مخفياً
+    mark(); const t = _qsOpen.get(w.dataset.k);
+    if(t && (String(inp.value||'').trim() || Date.now() - t < 2500)) { if(b.offsetParent) qsOpen(w, true, false); else _qsOpen.delete(w.dataset.k); }
+  });
+}
+document.addEventListener('pointerdown', e=>{ document.querySelectorAll('#app .qs-wrap.open').forEach(w=>{ if(w.contains(e.target)) return;
+  const i = w.querySelector('input'), act = e.target.closest && e.target.closest('button,a,select,input,textarea,label,[data-on-click]');
+  if(act || (i && !String(i.value||'').trim())) qsOpen(w, false); }); }, true);   // ضغط زر آخر يغلقه ويبقى البحث فعّالاً (الرمز ملوّن)
+window.addEventListener('resize', ()=>document.querySelectorAll('#app .qs-wrap.open').forEach(qsPlace));
 function fileButtons(){
   // (1.34.0) حقل ملف موحّد بشكل حقول النموذج (ارتفاع 40): رمز مشبك + «اختر ملفاً…»؛ بعد الاختيار يظهر اسم الملف داخله مع ✕ لإلغائه
   document.querySelectorAll('#app input[type=file]').forEach(inp=>{
@@ -7869,7 +7902,7 @@ function colFit(t, i){
 function tidyLite(){
   const app = document.getElementById('app'); if(!app) return;
   _qyMO.disconnect();
-  try{ infoTips(); fileButtons(); pwEyes(); pairFields(); growInputs(); iconActs(); qylEnhance(app); colsEnhance(app); }catch(e){ console.error('tidyLite', e); }
+  try{ infoTips(); fileButtons(); searchIcons(); pwEyes(); pairFields(); growInputs(); iconActs(); qylEnhance(app); colsEnhance(app); }catch(e){ console.error('tidyLite', e); }
   _qyMO.takeRecords(); _qyMO.observe(app, {childList:true, subtree:true});
 }
 // شريط «تتصفح الآن كـ» على الهاتف: فوق أعلى شريط سفلي ظاهر، فلا يغطي أزراره
@@ -7925,7 +7958,7 @@ function qyMotion(){
     requestAnimationFrame(step);
   });
 }
-function pageTidy(){ try{ requestAnimationFrame(impAboveBar); setTimeout(impAboveBar, 300); requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); toTabsRow(); infoTips(); fileButtons(); pwEyes(); qyMotion(); pairFields(); growInputs(); adaptTables(); colsEnhance(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
+function pageTidy(){ try{ requestAnimationFrame(impAboveBar); setTimeout(impAboveBar, 300); requestAnimationFrame(barFit); fitDocZoom(); placePathSide(); requestAnimationFrame(placePathSide); requestAnimationFrame(fitDocZoom); setTimeout(fitDocZoom, 250); hideEmptyTopBars(); hideDupH2(); toTabsRow(); infoTips(); fileButtons(); searchIcons(); pwEyes(); qyMotion(); pairFields(); growInputs(); adaptTables(); colsEnhance(); requestAnimationFrame(scrollHints); }catch(e){ console.error('pageTidy', e); } }
 function markDupTitle(){
   const h = document.querySelector('#app h1'); if(!h) return;
   const a = document.querySelector('#app .adm-t2.active');
@@ -18854,8 +18887,8 @@ function prjCreqFieldsHtml(q, pre){
   const filesLbl = nf ? 'ملفات الطلب (الحالية ' + nf + ' — المجموع 3)' : 'ملفات الطلب (اختياري، حتى 3)';
   return `<div class="co-g pj-cqg${pre==='pjq' ? ' pj-cqg5' : ''}">
     ${pre==='pjq' ? `<div class="co-f"><label for="pjq_client">العميل</label><select id="pjq_client"><option value="">— اختر العميل —</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${q.client_id===c.id?'selected':''}>${'— '.repeat(depth)}${escH(c.name)}</option>`).join('')}</select></div>` : ''}
-    <div class="co-f"><label for="${pre}_date">تاريخ الطلب</label><input id="${pre}_date" type="date" value="${escH(q.req_date||cxToday())}"></div>
-    <div class="co-f"><label for="${pre}_ch">وصل عن طريق</label><select id="${pre}_ch">${Object.entries(PRJ_CREQ_CH).map(([k,l])=>`<option value="${k}" ${q.channel===k?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="co-f cq-half"><label for="${pre}_date">تاريخ الطلب</label><input id="${pre}_date" type="date" value="${escH(q.req_date||cxToday())}"></div>
+    <div class="co-f cq-half"><label for="${pre}_ch">وصل عن طريق</label><select id="${pre}_ch">${Object.entries(PRJ_CREQ_CH).map(([k,l])=>`<option value="${k}" ${q.channel===k?'selected':''}>${l}</option>`).join('')}</select></div>
     <div class="co-f"><label for="${pre}_files">${filesLbl}</label><input id="${pre}_files" type="file" multiple accept="application/pdf,image/*"></div>
     <div class="co-f co-s4"><label for="${pre}_desc">ما يطلبه العميل</label><textarea id="${pre}_desc" rows="3" placeholder="وصف مختصر لما يريد العميل عمله في المشروع">${escH(q.description||'')}</textarea></div>
   </div>`;

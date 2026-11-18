@@ -3369,6 +3369,23 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .pj-row .pf label.chk-card{display:flex !important;align-items:center;margin:0 !important;min-height:40px;}
   #app .pj-row .pf label.chk-card input{width:18px !important;height:18px;flex:0 0 18px;margin:0;}
   @media (max-width:699px){ #app .pf.w120{flex:1 1 calc(50% - 8px);} #app .cx-srow .pf.grow1{flex:1 1 100%;} }
+
+  /* (1.35.0) البحث برمز يفتح حقلاً عائماً — موحّد في كل الصفحات */
+  #app .qs-wrap{position:relative;display:inline-flex;flex:0 0 40px;width:40px;height:40px;}
+  #app .qs-btn{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;padding:0;}
+  #app .qs-btn:hover{border-color:var(--info);color:var(--info);}
+  #app .qs-wrap.has .qs-btn, #app .qs-wrap.open .qs-btn{border-color:var(--info);background:var(--info-bg);color:var(--info);}
+  #app .qs-wrap.has:not(.open) .qs-btn::after{content:'';position:absolute;top:5px;inset-inline-end:5px;width:8px;height:8px;border-radius:50%;background:var(--info);}
+  #app .qs-float{display:none;position:absolute;z-index:60;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.14);box-sizing:border-box;}
+  #app .qs-wrap.open .qs-float{display:block;}
+  #app .qs-float input.qy-search{width:100% !important;max-width:none !important;flex:none !important;margin:0 !important;height:40px;}
+  /* أدوات صفحة المشاريع: الفلتران ثم 🔍 ثم الزران في صف واحد */
+  #app .pj-tools .qs-wrap{order:0;}
+  @media (max-width:699px){
+    #app .pj-tools > .btn{flex:1 1 0 !important;min-width:0;width:auto !important;}
+    #app .pj-cqg{grid-template-columns:repeat(2,minmax(0,1fr));} #app .pj-cqg > .co-f{grid-column:1 / -1;} #app .pj-cqg > .co-f.cq-half{grid-column:auto;}
+    #app .cx-actions > .btn, #app.cxv .cx-actions > .btn, #app.cxv .cx-actions .btn-primary{flex:1 1 calc(50% - 5px) !important;width:auto !important;min-width:0;}
+  }
 </style>
 </head>
 <body>
@@ -3389,6 +3406,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=01e5e61a65"></script>
+<script src="app.js?v=2cf54fe014"></script>
 </body>
 </html>
