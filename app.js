@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.29.1', APP_VERSION_DATE = '2026-11-17';
+const APP_VERSION = '1.29.2', APP_VERSION_DATE = '2026-11-17';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:4.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:4.5, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -18067,9 +18067,9 @@ async function cxExportAll(){
       rows.forEach((r,i)=>{ const base = r.open ? ST.open : (i % 2 ? ST.b : ST.a);
         h.forEach((x,j)=>{ const st = JSON.parse(JSON.stringify(base)); if(r.v) st.font = Object.assign({}, st.font||{}, {strike:true, color:{rgb:'8A8A8A'}});
           if(j>=nfrom) st.alignment = Object.assign({}, st.alignment, {horizontal:'right'}); put(4+i, j, st);
-          const c = ws[X.utils.encode_cell({r:4+i, c:j})]; if(j>=nfrom && c && c.t==='n') c.z = '#,##0.000'; }); });
+          const c = ws[X.utils.encode_cell({r:4+i, c:j})]; if(j>=nfrom && c && c.t==='n') c.z = '#,##0.000;[Red](#,##0.000)'; }); });
       h.forEach((x,j)=>{ const st = JSON.parse(JSON.stringify(ST.tot)); if(j>=nfrom) st.alignment = Object.assign({}, st.alignment, {horizontal:'right'}); put(4+rows.length, j, st);
-        const c = ws[X.utils.encode_cell({r:4+rows.length, c:j})]; if(j>=nfrom && c && c.t==='n') c.z = '#,##0.000'; });
+        const c = ws[X.utils.encode_cell({r:4+rows.length, c:j})]; if(j>=nfrom && c && c.t==='n') c.z = '#,##0.000;[Red](#,##0.000)'; });
       ws['!cols'] = h.map((x,j)=>({wch: Math.min(50, Math.max(String(x).length+4, ...rows.slice(0,300).map(r=>String(r.cells[j]==null?'':r.cells[j]).length+2), j>=nfrom?15:9))}));
       ws['!rows'] = [{hpt:24}, {hpt:18}, {hpt:6}, {hpt:30}];
       ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:h.length-1}}, {s:{r:1,c:0}, e:{r:1,c:h.length-1}}];
@@ -20449,7 +20449,7 @@ async function qyExportData(fmt, d){
     const aoa = [[d.title], [company + (d.period ? ' · الفترة: ' + d.period : '')], [], d.head, ...d.body, ...(totRow ? [totRow] : [])];
     const ws = X.utils.aoa_to_sheet(aoa);
     const r0 = 3, nRows = d.body.length + (totRow ? 1 : 0);
-    for(let r=r0+1; r<=r0+nRows; r++) numIdx.forEach(j=>{ const c = ws[X.utils.encode_cell({r, c:j})]; if(c && c.t==='n') c.z = '#,##0.000'; });
+    for(let r=r0+1; r<=r0+nRows; r++) numIdx.forEach(j=>{ const c = ws[X.utils.encode_cell({r, c:j})]; if(c && c.t==='n') c.z = '#,##0.000;[Red](#,##0.000)'; });
     ws['!cols'] = d.head.map((h,j)=>({wch: Math.min(60, Math.max(String(h).length+2, ...d.body.slice(0,200).map(r=>String(r[j]==null?'':r[j]).length+2), numIdx.has(j)?14:8))}));
     ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:Math.max(0,d.head.length-1)}}, {s:{r:1,c:0}, e:{r:1,c:Math.max(0,d.head.length-1)}}];
     const wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
@@ -20840,7 +20840,7 @@ async function glExportMonth(){
   const g = glSt(), rows = g.journal||[]; if(!rows.length){ showToast('لا حركات في هذا الشهر','error'); return; }
   let X; try{ X = await qylLoadXlsx(); }catch(e){ showToast('تعذّر تحميل أداة Excel','error'); return; }
   const s = glSummary(rows), co = currentCompanyName(), ml = glMonthLabel(g.month);
-  const num = (ws, cols, r0, n) => { for(let r=r0; r<r0+n; r++) cols.forEach(c=>{ const cell = ws[X.utils.encode_cell({r, c})]; if(cell && cell.t==='n') cell.z = '#,##0.000'; }); };
+  const num = (ws, cols, r0, n) => { for(let r=r0; r<r0+n; r++) cols.forEach(c=>{ const cell = ws[X.utils.encode_cell({r, c})]; if(cell && cell.t==='n') cell.z = '#,##0.000;[Red](#,##0.000)'; }); };
   const head1 = ['التاريخ','المرجع','المصدر','البيان','رقم الحساب','اسم الحساب','مدين','دائن','ملاحظة'];
   const b1 = rows.map(r=>[dmyStr(r.entry_date).replace(/[⁦-⁩‏]/g,''), r.ref||'', r.source||'', r.description||'', r.account_code||'', r.account_code ? (r.account_name||'') : 'بلا حساب', Number(r.debit)||0, Number(r.credit)||0, r.flag||'']);
   const ws1 = X.utils.aoa_to_sheet([['كشف الحركات الشهري — ' + ml], [co + ' · ' + s.entries + ' قيد'], [], head1, ...b1, ['المجموع','','','','','', s.dr, s.cr, '']]);
