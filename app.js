@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.34.0', APP_VERSION_DATE = '2026-11-18';
+const APP_VERSION = '1.34.1', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.5, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:0.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -2618,6 +2618,8 @@ function numberToArabicWords(n){
   return result.join(' و');
 }
 
+// (1.34.1) كل مبلغ إجمالي: الرقم عريض بحجم أكبر، وبجانبه التفقيط
+function totWordsHtml(n){ return Number(n) > 0 ? `<span class="tafqeet">${escH(amountToArabicWords(n))}</span>` : ''; }
 function amountToArabicWords(amount){
   // التقريب على مستوى الفلس أولاً، فلا يصير 1.9996 «دينار وألف فلس»
   const totalFils = Math.round(Number(amount||0) * 1000);
@@ -17934,33 +17936,36 @@ function cxSettingsFoldHtml(){
   const fin = cxIsFin(), adm = cxIsAdmin(); if(!fin && !adm) return '';
   const id = cxTargetId(), c = cxUnit(id); if(!c) return '';
   const isRoot = id===cxRootOf(id) && c.kind==='center';
-  const money = (k, l, v, ph) => `<div class="f-md"><label>${l}</label><input id="${k}" type="text" inputmode="decimal" dir="ltr" value="${v==null?'':v}" placeholder="${ph||'اختياري'}"></div>`;
+  const money = (k, l, v, ph) => `<div class="pf w170"><label for="${k}">${l}</label><input id="${k}" type="text" inputmode="decimal" dir="ltr" value="${v==null?'':v}" placeholder="${ph||'اختياري'}"></div>`;
+  const pct = () => `<div class="pf w170"><label for="cxs_pct">حصة الاشتراكات %</label><input id="cxs_pct" type="text" inputmode="decimal" dir="ltr" placeholder="${cxCo().gatewayCompanyPct}" value="${c.companySharePct==null?'':c.companySharePct}"></div>
+        <div class="pf w170"><label for="cxs_spct">حصة الدعم %</label><input id="cxs_spct" type="text" inputmode="decimal" dir="ltr" placeholder="${cxCo().supportCompanyPct}" value="${c.supportSharePct==null?'':c.supportSharePct}"></div>`;
+  const od = () => `<div class="pf w170"><label for="cxs_od">حد الصرف بالسالب (د.ك)</label><input id="cxs_od" type="text" inputmode="decimal" dir="ltr" value="${c.overdraftLimit||0}"></div>`;
+  const ctl = () => `<div class="pf grow1"><label>&nbsp;</label><label class="chk-card cx-chk"><input id="cxs_ctl" type="checkbox" ${c.balanceControl?'checked':''}><span>ضبط الرصيد: يُمنع طلب أو ترحيل يتجاوز المتاح مع حد السالب</span></label></div>`;
   const staffIds = new Set([id, ...unitDescendantIds(id)]);
   const staff = isRoot ? (state.users||[]).filter(u=>userUnitIds(u).some(id=>staffIds.has(id)) && !u.isSuspended).sort(_byName) : [];
   const tu = new Set(c.transferUserIds||[]);
   return `<details class="card cx-fold"><summary><span>إعدادات «${escH(c.name)}»</span><span class="file-hint">${fin?'الحالة والمدة والميزانية':''}${fin&&adm?' · ':''}${adm?'الحصص وضبط الرصيد':''}</span></summary>
     ${fin ? `<h3 class="uf-h">المدة والميزانية</h3>
-      <div class="uf-flex">
-        <div class="f-md"><label>المدة من</label><input id="cxs_from" type="date" value="${escH(c.periodFrom||'')}"></div>
-        <div class="f-md"><label>إلى</label><input id="cxs_to" type="date" value="${escH(c.periodTo||'')}"></div>
-        ${money('cxs_budget','ميزانية البند (مرة واحدة)', c.itemBudget)}${money('cxs_mb','الميزانية الشهرية', c.monthlyBudget)}${money('cxs_ab','الميزانية السنوية', c.annualBudget)}
+      <div class="pj-row cx-srow">
+        <div class="pf w170"><label for="cxs_from">المدة من</label><input id="cxs_from" type="date" value="${escH(c.periodFrom||'')}"></div>
+        <div class="pf w170"><label for="cxs_to">إلى</label><input id="cxs_to" type="date" value="${escH(c.periodTo||'')}"></div>
+        <div class="pf grow1"><label>&nbsp;</label><label class="chk-card cx-chk"><input id="cxs_cont" type="checkbox" ${c.continuous?'checked':''}><span>مستمر: لا يُقترح إغلاقه بانتهاء المدة</span></label></div>
       </div>
-      <div class="chk-grid">
-        <label class="chk-card"><input id="cxs_cont" type="checkbox" ${c.continuous?'checked':''}><span>مستمر: لا يُقترح إغلاقه بانتهاء المدة</span></label>
-        <label class="chk-card"><input id="cxs_prepay" type="checkbox" ${c.prePay?'checked':''}><span>يُصرف له قبل الدفع (في حالة «مفتوح»)</span></label>
+      <div class="pj-row cx-srow">
+        ${money('cxs_budget','ميزانية البند (مرة واحدة)', c.itemBudget)}${money('cxs_mb','الميزانية الشهرية', c.monthlyBudget)}${money('cxs_ab','الميزانية السنوية', c.annualBudget)}
+        <div class="pf grow1"><label>&nbsp;</label><label class="chk-card cx-chk"><input id="cxs_prepay" type="checkbox" ${c.prePay?'checked':''}><span>يُصرف له قبل الدفع (في حالة «مفتوح»)</span></label></div>
       </div>` : ''}
     ${adm ? `<h3 class="uf-h">الحصص وضبط الرصيد</h3>
-      ${c.kind==='center' ? `<div class="uf-grid uf-2b"><div><label>الجهة التابع لها</label><select id="cxs_client"><option value="">— غير مرتبط —</option>${cxClientTree().map(({c:cl,depth})=>`<option value="${cl.id}" ${cl.id===c.clientId?'selected':''}>${'— '.repeat(depth)}${escH(cl.name)}</option>`).join('')}</select></div><div></div></div>` : ''}
-      <div class="uf-flex">
-        <div class="f-xs"><label>حصة الاشتراكات %</label><input id="cxs_pct" type="text" inputmode="decimal" placeholder="⁦${cxCo().gatewayCompanyPct}⁩" value="${c.companySharePct==null?'':c.companySharePct}"></div>
-        <div class="f-xs"><label>حصة الدعم %</label><input id="cxs_spct" type="text" inputmode="decimal" placeholder="⁦${cxCo().supportCompanyPct}⁩" value="${c.supportSharePct==null?'':c.supportSharePct}"></div>
-        <div class="f-md"><label>حد الصرف بالسالب (د.ك)</label><input id="cxs_od" type="text" inputmode="decimal" dir="ltr" value="${c.overdraftLimit||0}"></div>
+      <p class="file-hint">النسبة الفارغة = النسبة الافتراضية للشركة. ومن يرى المركز: لوحة التحكم ← المستخدمون والصلاحيات ← رؤية المراكز.</p>
+      ${c.kind==='center' ? `<div class="pj-row cx-srow">
+        ${pct()}
+        <div class="pf grow1"><label for="cxs_client">الجهة التابع لها</label><select id="cxs_client"><option value="">— غير مرتبط —</option>${cxClientTree().map(({c:cl,depth})=>`<option value="${cl.id}" ${cl.id===c.clientId?'selected':''}>${'— '.repeat(depth)}${escH(cl.name)}</option>`).join('')}</select></div>
       </div>
-      <div class="chk-grid"><label class="chk-card chk-wide"><input id="cxs_ctl" type="checkbox" ${c.balanceControl?'checked':''}><span>ضبط الرصيد: يُمنع طلب جديد أو ترحيل يتجاوز الرصيد المتاح مع حد السالب</span></label></div>
+      <div class="pj-row cx-srow">${od()}${ctl()}</div>` : `<div class="pj-row cx-srow">${pct()}${od()}${ctl()}</div>`}
       ${isRoot ? `<h3 class="uf-h">من يرحّل الرصيد بين البنود</h3>
         <p class="file-hint">المالية ومدير النظام يرحّلون دائماً. اختر من موظفي المركز وبنوده (مثل السكرتير أو المدير):</p>
         ${staff.length ? `<div class="chk-grid">${staff.map(u=>`<label class="chk-card"><input type="checkbox" data-cx-tu="${escH(u.id)}" ${tu.has(u.id)?'checked':''}><span>${escH(u.name)} <small class="file-hint">· ${escH((u.jobTitle&&u.jobTitle.trim()) || (findRole(u.role)||{}).name || u.role)} · ${escH(cxCenterName(u.centerId))}</small></span></label>`).join('')}</div>` : '<p class="file-hint">لا يوجد موظفون مرتبطون بهذا المركز أو بنوده.</p>'}` : ''}` : ''}
-    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="cxSaveCenterSettings">حفظ الإعدادات</button>${adm ? '<span class="file-hint">النسبة الفارغة = النسبة الافتراضية للشركة. ومن يرى المركز: لوحة التحكم ← المستخدمون والصلاحيات ← رؤية المراكز.</span>' : ''}</div>
+    <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="cxSaveCenterSettings">حفظ الإعدادات</button></div>
   </details>`;
 }
 
@@ -19018,7 +19023,7 @@ function prjLinesFormHtml(d){
         <td data-label="الإجمالي"><b>${fmtKWDHtml(prjLineTotal(l))}</b></td>
         <td class="pj-acts"><button class="ct-ico ct-ico-d" data-on-click="prjLineDel" data-on-click-args="${qa([i])}" title="حذف" aria-label="حذف">${qi('trash')}</button></td></tr>`).join('')}
       <tr class="pjl-addrow"><td colspan="7"><select id="pjl_add" data-on-change="prjAddFromSel" data-on-change-args="${qa([QA.v])}"><option value="">+ اختر بنداً من خدمات الشركة لإضافته…</option><option value="__manual">✎ بند يدوي (غير موجود في الخدمات)</option>${prjCatOptsHtml()}</select></td></tr>
-      ${L.length ? `<tr class="pjl-sum"><td></td><td colspan="4"><b>الإجمالي</b></td><td><b>${fmtKWDHtml(prjLinesSum(L))}</b></td><td></td></tr>` : ''}
+      ${L.length ? `<tr class="pjl-sum"><td></td><td colspan="4"><span class="tot-l">الإجمالي</span>${totWordsHtml(prjLinesSum(L))}</td><td><b class="tot-big">${fmtKWDHtml(prjLinesSum(L))}</b></td><td></td></tr>` : ''}
     </tbody></table>
   </div>`;
 }
@@ -19030,7 +19035,7 @@ function prjLinesViewHtml(d){
   const L = Array.isArray(d.lines) ? d.lines : []; if(!L.length) return '';
   return `<div class="pjp-wrap pjl-view"><table class="exec-table pjp-tbl"><thead><tr><th>البند</th><th class="num">الكمية</th><th>الوحدة</th><th class="num">سعر الوحدة</th><th class="num">الإجمالي</th></tr></thead><tbody>
     ${L.map(l=>`<tr><td data-label="البند" ${l.section ? `title="${escH(l.section)}"` : ''}>${escH(l.name||'—')}</td><td data-label="الكمية" class="num">${escH(String(l.qty??''))}</td><td data-label="الوحدة">${escH(l.unit||'—')}</td><td data-label="سعر الوحدة" class="num">${fmtKWDHtml(l.price)}</td><td data-label="الإجمالي" class="num">${fmtKWDHtml(prjLineTotal(l))}</td></tr>`).join('')}
-    <tr class="pjl-sum"><td colspan="4"><b>المجموع</b></td><td class="num"><b>${fmtKWDHtml(prjLinesSum(L))}</b></td></tr>
+    <tr class="pjl-sum"><td colspan="4"><span class="tot-l">الإجمالي</span>${totWordsHtml(prjLinesSum(L))}</td><td class="num"><b class="tot-big">${fmtKWDHtml(prjLinesSum(L))}</b></td></tr>
   </tbody></table></div>`;
 }
 function prjContractOpts(clientId, sel){
@@ -19068,7 +19073,7 @@ function prjPayHtml(d){
       ${I.map((x,i)=>`<tr><td class="pji-n"><b>الدفعة ${i+1}</b></td>
         <td data-label="تاريخ الفاتورة"><input class="pjp-in" id="pji_d_${i}" type="date" value="${escH(x.date||'')}" data-on-change="prjInstEdit" data-on-change-args="${qa([i,'date',QA.v])}"></td>
         <td data-label="المبلغ"><input class="pjp-in" id="pji_a_${i}" type="text" inputmode="decimal" dir="ltr" value="${escH(String(x.amount??''))}" data-on-change="prjInstEdit" data-on-change-args="${qa([i,'amount',QA.v])}"></td><td></td></tr>`).join('')}
-      <tr class="pjl-sum"><td><b>الإجمالي</b></td><td></td><td><b>${fmtKWDHtml(isum)}</b></td>
+      <tr class="pjl-sum"><td><span class="tot-l">الإجمالي</span></td><td>${totWordsHtml(isum)}</td><td><b class="tot-big">${fmtKWDHtml(isum)}</b></td>
         <td class="pji-tools">${Math.abs(diff) > 0.0005 ? `<span class="pji-diff">${diff > 0 ? 'ينقص' : 'يزيد'} ${fmtKWDHtml(Math.abs(diff))} عن القيمة</span>` : ''}<button class="btn btn-ghost btn-sm" data-on-click="prjInstEqual">توزيع بالتساوي</button></td></tr>
     </tbody></table>` : ''}
   </div>`;
@@ -19357,6 +19362,7 @@ function prjMoneyPanelHtml(p){
   return `<div class="card cx-panel">
     <div class="cx-panel-h"><h2>2 · المبالغ والصرف</h2>${canSet && !es ? `<button class="btn btn-ghost btn-sm" data-on-click="prjSetEdit" title="الاسم والمدة والصرف قبل الدفع">تعديل</button>` : ''}</div>
     <div class="pj-figs">${prjFig('قيمة المشروع', val, '', Number(p.monthly_amount)>0 ? fmtKWD(p.monthly_amount,{noUnit:true}) + ' ' + (PRJ_EVERY[p.invoice_mode]||'كل شهر') : '')}${prjFig('مفوتر', inv)}${prjFig('محصّل', col, 'pj-in')}${(()=>{ const st = cxR3(prjInvs(p).reduce((t,i)=>t+prjInvSettled(i),0)); return st>0 ? prjFig('مُعالَج (بلا تحصيل)', st, '', 'دين معدوم/خصم/مسامحة/ترحيل') : ''; })()}${prjFig('مصروف ومحجوز', sp, 'pj-out')}${f ? prjFig('المتاح للصرف', f.available, f.available<0 ? 'pj-out' : 'pj-in') : prjFig('المتاح للصرف', null)}</div>
+    ${val > 0 ? `<div class="pj-val-words"><span class="tot-l">قيمة المشروع</span><b class="tot-big">${fmtKWDHtml(val)}</b>${totWordsHtml(val)}</div>` : ''}
     <div class="pj-kvs pj-kvs-2">
       <div class="pj-kv2"><span>بند الميزانية</span><b>${escH(item ? item.name : '—')}</b></div>
       <div class="pj-kv2"><span>الفاتورة</span><b>${PRJ_EVERY[p.invoice_mode] || (p.invoice_mode==='installments' ? prjInst(p).length + ' دفعات حسب الجدول' : 'واحدة بالإجمالي')}</b></div>
