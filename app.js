@@ -12575,8 +12575,8 @@ function startInlineEdit(el){
   el.outerHTML = `
     <span class="inline-edit-wrap" style="display:inline-flex;gap:4px;align-items:center;">
       <input type="text" id="inlineEditInput" value="${escH(cur)}" style="min-height:40px;padding:2px 8px;font-size:inherit;width:auto;min-width:140px;" data-on-click="#24" data-on-keydown="#24">
-      <button type="button" class="btn btn-primary btn-xs" data-on-click="#90" data-on-click-args="${qa([(''+(kind)), (''+(id))])}">حفظ</button>
-      <button type="button" class="btn btn-ghost btn-xs" data-on-click="#91">إلغاء</button>
+      <button type="button" class="btn btn-primary btn-md" data-on-click="#90" data-on-click-args="${qa([(''+(kind)), (''+(id))])}">حفظ</button>
+      <button type="button" class="btn btn-ghost btn-md" data-on-click="#91">إلغاء</button>
     </span>`;
   const inp = document.getElementById('inlineEditInput');
   if(inp){ inp.focus(); inp.select(); }
@@ -12595,8 +12595,8 @@ function startInlineSelectEdit(el, kind, id){
   el.outerHTML = `
     <span class="inline-edit-wrap" style="display:inline-flex;gap:4px;align-items:center;" data-on-click="#24">
       <select id="inlineSelectInput">${optionsHtml}</select>
-      <button type="button" class="btn btn-primary btn-xs" data-on-click="#92" data-on-click-args="${qa([(''+(kind)), (''+(id))])}">حفظ</button>
-      <button type="button" class="btn btn-ghost btn-xs" data-on-click="#91">إلغاء</button>
+      <button type="button" class="btn btn-primary btn-md" data-on-click="#92" data-on-click-args="${qa([(''+(kind)), (''+(id))])}">حفظ</button>
+      <button type="button" class="btn btn-ghost btn-md" data-on-click="#91">إلغاء</button>
     </span>`;
 }
 async function saveInlineSelectEdit(kind, id){
@@ -12795,8 +12795,8 @@ async function renderOrgTree(app){
         <div style="padding:2px 4px;padding-right:${indent}px;line-height:1.5;">
           <span data-tnode="${pid}" data-on-click="toggleTreeNode" data-on-click-args="${qa([(''+(pid)), false])}" style="cursor:pointer;display:inline-block;width:16px;text-align:center;color:var(--muted);">${popen?'▼':'◀'}</span>
           <span style="cursor:pointer;color:var(--blue);font-size:var(--fs-body);font-weight:600;white-space:nowrap;" data-on-click="goEditUser" data-on-click-args="${qa([(''+(u.id))])}">👤 ${escH(u.name)}</span>
-          ${tag ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:var(--fs-xs);">${escH(tag)}</span>` : ''}
-          ${(u.requestApproverId || u.nextApproverId || u.noRequestApprover || u.noNextApprover) ? `<span class="badge" style="background:var(--blue-bg);color:var(--blue);font-size:var(--fs-xs);">مسار معتمَد مخصَّص</span>` : ''}
+          ${tag ? `<span class="tree-tag" style="color:var(--amber);"><i></i>${escH(tag)}</span>` : ''}
+          ${(u.requestApproverId || u.nextApproverId || u.noRequestApprover || u.noNextApprover) ? `<span class="tree-tag" style="color:var(--blue);"><i></i>مسار معتمَد مخصَّص</span>` : ''}
         </div>
         ${popen ? `
         <div class="sub" style="font-size:var(--fs-hint);font-weight:700;padding-right:${detailIndent}px;padding-bottom:2px;margin-bottom:0;">

@@ -3540,6 +3540,20 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
   /* (1.38.3) سطر العدد تحت عنوان مخفي يصير عنوان البطاقة */
   #app .file-hint.cnt-title{font-size:var(--fs-h3) !important;font-weight:800 !important;color:var(--ink) !important;margin:0 !important;line-height:1.4;}
+
+  /* (1.38.4) الشجرة: حقل التعديل وزرّا الحفظ والإلغاء ظاهرة دائماً (على الهاتف تحت الحقل)، وملاحظات «يتبع/مسار مخصّص» نقطة ونص بدل الكبسولة */
+  #app .inline-edit-wrap{display:inline-flex !important;flex-wrap:wrap;gap:6px !important;align-items:center;max-width:100%;white-space:normal;vertical-align:middle;}
+  #app .inline-edit-wrap .btn{width:105px;height:40px;flex:0 0 105px;}
+  #app span:has(> .inline-edit-wrap), #app .tree-row:has(.inline-edit-wrap){white-space:normal !important;}
+  @media (max-width:699px){
+    #app .tree-row:has(.inline-edit-wrap){display:flex;flex-wrap:wrap;align-items:center;}
+    #app span:has(> .inline-edit-wrap){display:block;flex:1 1 100%;}
+    #app .inline-edit-wrap{display:flex !important;width:100%;}
+    #app .inline-edit-wrap > input, #app .inline-edit-wrap > select{flex:1 1 100%;width:100% !important;min-width:0 !important;}
+    #app .inline-edit-wrap .btn{flex:1 1 0;width:auto;}
+  }
+  #app .tree-tag{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:var(--fs-label);margin-inline-start:8px;white-space:normal;}
+  #app .tree-tag > i{width:8px;height:8px;border-radius:50%;background:currentColor;flex:0 0 8px;}
 </style>
 </head>
 <body>
@@ -3560,6 +3574,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=02d16ada71"></script>
+<script src="app.js?v=b0459365fa"></script>
 </body>
 </html>
