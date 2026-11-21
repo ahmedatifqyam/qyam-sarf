@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.40.1', APP_VERSION_DATE = '2026-11-21';
+const APP_VERSION = '1.41.0', APP_VERSION_DATE = '2026-11-21';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:351, base:350, extra:1.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -18137,6 +18137,41 @@ async function cxVoid(id, v){
   showToast(v ? 'حُذفت الحركة' : 'استُرجعت الحركة','success');
   await cxLoadLedger(); cxLoadBalances();
 }
+// ---------- نقل حركات إلى مركز آخر (تصحيح القديم دون تعديله: الأصل يُشطب ويُنشأ مطابق في المركز الصحيح) ----------
+function cxMovable(x){ return !!x && !x._req && !x.voided && x.center_id && !['opening','transfer'].includes(x.kind); }
+function cxMvCount(){ return Object.keys(state.cx.mvSel||{}).length; }
+function cxMvRefresh(){ const n = cxMvCount(); const el = document.getElementById('cxMvCount'); if(el) el.textContent = n; const b = document.getElementById('cxMvBtn'); if(b) b.disabled = !n; }
+function cxMvToggle(id, on){ state.cx.mvSel = state.cx.mvSel || {}; if(on) state.cx.mvSel[id] = 1; else delete state.cx.mvSel[id]; cxMvRefresh(); }
+function cxMvAll(on){ state.cx.mvSel = {}; if(on) cxLedgerFiltered().filter(cxMovable).forEach(x=>{ state.cx.mvSel[x.id] = 1; }); const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); qylEnhance(document.getElementById('app')); } cxMvRefresh(); }
+function cxMvTarget(v){ state.cx.mvTo = v||''; }
+function cxMvBulkTplHtml(){
+  const n = cxMvCount(), cur = state.cx.centerId;
+  const opts = (state.centers||[]).filter(c=>c.companyId===cxCid() && c.stage!=='closed').sort(_byUnit).map(c=>`<option value="${c.id}" ${c.id===state.cx.mvTo?'selected':''}>${escH(unitPathName(c))}</option>`).join('');
+  return `<template id="cxMvTpl"><span class="file-hint">المحدد: <b id="cxMvCount">${n}</b></span>
+    <select id="cxMvTo" class="f-in-lg" title="المركز الذي تُنقل إليه الحركات المحددة" data-on-change="cxMvTarget" data-on-change-args="${qa([QA.v])}"><option value="">— نقل إلى مركز —</option>${opts}</select>
+    <button id="cxMvBtn" class="btn btn-primary btn-md" title="نقل الحركات المحددة إلى المركز المختار، مع بقاء الأصل مشطوباً للمراجعة" ${n?'':'disabled'} data-on-click="cxMvOpen">نقل المحدد</button></template>`;
+}
+async function cxMvOpen(){
+  const ids = Object.keys(state.cx.mvSel||{}).map(Number), to = (document.getElementById('cxMvTo')||{}).value || state.cx.mvTo;
+  if(!ids.length){ showToast('حدّد الحركات أولاً','error'); return; }
+  if(!to){ showToast('اختر المركز الذي تُنقل إليه','error'); return; }
+  const rows = (state.cx.ledger||[]).filter(x=>ids.includes(x.id) && cxMovable(x));
+  if(rows.some(x=>x.center_id===to)){ showToast('بعض الحركات المحددة في هذا المركز أصلاً','error'); return; }
+  const tc = cxUnit(to) || {}, r3 = cxR3, sum = (f)=>r3(rows.reduce((a,x)=>a+Number(f(x)||0),0));
+  const gross = sum(x=>x.gross), fee = sum(x=>x.gateway_fee), netOld = sum(x=>x.net);
+  const netNew = sum(x=>{ const pct = Number(x.company_pct||0) ? cxPctFor(tc, x.kind==='support') : 0; const sh = r3((Number(x.gross||0)-Number(x.gateway_fee||0))*pct/100); return Number(x.gross||0)-Number(x.gateway_fee||0)-sh; });
+  const fromIds = [...new Set(rows.map(x=>x.center_id))];
+  const balLines = fromIds.map(id=>{ const b = Number(cxB(id).balance||0), out = sum(x=>x.center_id===id ? x.net : 0); return `«${escH(cxCenterName(id))}»: <b>${fmtKWD(b)}</b> ← <b>${fmtKWD(r3(b-out))}</b>`; });
+  const tb = Number(cxB(to).balance||0); balLines.push(`«${escH(tc.name||'')}»: <b>${fmtKWD(tb)}</b> ← <b>${fmtKWD(r3(tb+netNew))}</b>`);
+  const a = await askModal({title:`نقل ${rows.length} حركة إلى «${escH(tc.name||'')}»`, confirm:'نقل',
+    text:`المبلغ ${fmtKWD(gross)} · الرسوم ${fmtKWD(fee)} · الصافي المنقول ${fmtKWD(r3(netNew))}${r3(netNew)!==netOld?` (كان ${fmtKWD(netOld)}، حصة الشركة بنسبة المركز الجديد)`:''}<br>الرصيد قبل ← بعد:<br>${balLines.join('<br>')}<br>تبقى الحركات الأصلية في دفترها مشطوبة بعنوان «منقولة» مع اسمك والتاريخ والسبب.`,
+    fields:[{id:'r', label:'سبب النقل', type:'textarea', rows:2}], validate:v=>String(v.r||'').trim() ? null : 'اكتب سبب النقل'});
+  if(!a) return;
+  const r = await db.rpc('qy_ledger_move', {p_ids:rows.map(x=>x.id), p_to:to, p_reason:String(a.r).trim()});
+  if(!(await dbCheck(r,'نقل الحركات'))) return;
+  state.cx.mvSel = {}; showToast(`نُقلت ${r.data||rows.length} حركة إلى «${tc.name||''}»`,'success');
+  await cxLoadLedger(); cxLoadBalances();
+}
 function cxShowVoidToggle(v){ state.cx.showVoid = !!v; const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); qylEnhance(document.getElementById('app')); } }
 function cxSearch(v){ state.cx.q = v||''; qylSt('cxLedger').page = 0; const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); qylEnhance(document.getElementById('app')); } }
 
@@ -18150,24 +18185,26 @@ function cxLedgerFiltered(){
   });
 }
 function cxLedgerRowsHtml(){
-  const imp = cxIsImporter(), fin = cxIsFin(), canTr = cxCanTransfer(), act = fin || canTr, ic = cxShowItemCol(), cols = 7 + (imp?1:0) + (act?1:0) + (ic?1:0);
-  const all = cxLedgerFiltered();
+  const imp = cxIsImporter(), fin = cxIsFin(), canTr = cxCanTransfer(), act = fin || canTr, ic = cxShowItemCol(), cols = 7 + (imp?1:0) + (act?1:0) + (ic?1:0) + (fin?1:0);
+  const all = cxLedgerFiltered(), sel = state.cx.mvSel || {};
   if(!all.length) return `<tr class="cx-empty"><td colspan="${cols}">${state.cx.ledgerLoaded ? 'لا توجد حركات مطابقة.' : 'جارٍ التحميل…'}</td></tr>`;
   return all.map(x=>{
     const p = state.cx.payers[x.id] || {};
     const meta = [CX_LEDGER_KIND[x.kind]||x.kind, x.method, x.period_from ? `${cxDate(x.period_from)} ← ${cxDate(x.period_to)}` : '', x.kind==='transfer' && x.note ? 'السبب: '+x.note : ''].filter(Boolean).join(' · ');
     const tip = [x.agent ? 'المنشئ: '+x.agent : '', x.receipt ? 'الإيصال: '+x.receipt : '', x.note ? 'ملاحظة: '+x.note : ''].filter(Boolean).join('\n');
+    const mvOut = x.voided && x.moved_to_id, mvIn = !x.voided && x.moved_from_id;
     return `<tr class="${x.voided?'cx-void':''}${x._req?' cx-exp-row':''}" data-kind="${cxCatOf(x)}" data-date="${escH(String(x.entry_date||'').slice(0,10))}" ${x.voided?'data-nosum':''} ${tip?`title="${escH(tip)}"`:''}>
+      ${fin ? `<td class="cx-cb">${cxMovable(x) ? `<input type="checkbox" title="تحديد الحركة لنقلها إلى مركز آخر" ${sel[x.id]?'checked':''} data-on-change="cxMvToggle" data-on-change-args="${qa([x.id, QA.c])}">` : ''}</td>` : ''}
       <td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
       ${ic ? `<td data-label="البند" class="cx-item"><div class="cx-clip">${x.center_id===state.cx.centerId ? 'المركز نفسه' : escH(cxCenterName(x.center_id))}</div></td>` : ''}
-      <td data-label="البيان" class="cx-desc"><div class="cx-clip">${escH(x.purpose || CX_LEDGER_KIND[x.kind] || '')}</div><div class="cx-meta">${escH(meta)}${x.voided?' · <span class="cx-tag-red">محذوفة</span>':''}</div>${x.voided ? `<div class="cx-meta cx-void-note">حُذفت${x.voided_by ? ' بواسطة ' + escH(prjUserName(x.voided_by)||'') : ''}${x.voided_at ? ' في ' + cxDate(String(x.voided_at).slice(0,10)) : ''}${x.void_reason ? ' — السبب: ' + escH(x.void_reason) : ''}</div>` : x.restored_at ? `<div class="cx-meta">استُرجعت بواسطة ${escH(prjUserName(x.restored_by)||'')} في ${cxDate(String(x.restored_at).slice(0,10))}${x.void_reason ? ' (كان سبب الحذف: ' + escH(x.void_reason) + ')' : ''}</div>` : ''}</td>
+      <td data-label="البيان" class="cx-desc"><div class="cx-clip">${escH(x.purpose || CX_LEDGER_KIND[x.kind] || '')}</div><div class="cx-meta">${escH(meta)}${mvOut?' · <span class="cx-tag-red">منقولة</span>':x.voided?' · <span class="cx-tag-red">محذوفة</span>':''}${mvIn?' · <b class="cx-mv-in">منقولة إليه</b>':''}</div>${mvIn && x.note ? `<div class="cx-meta">${escH(x.note)}</div>` : ''}${x.voided ? `<div class="cx-meta cx-void-note">${mvOut?'نُقلت':'حُذفت'}${x.voided_by ? ' بواسطة ' + escH(prjUserName(x.voided_by)||'') : ''}${x.voided_at ? ' في ' + cxDate(String(x.voided_at).slice(0,10)) : ''}${x.void_reason ? ' — السبب: ' + escH(x.void_reason) : ''}</div>` : x.restored_at ? `<div class="cx-meta">استُرجعت بواسطة ${escH(prjUserName(x.restored_by)||'')} في ${cxDate(String(x.restored_at).slice(0,10))}${x.void_reason ? ' (كان سبب الحذف: ' + escH(x.void_reason) + ')' : ''}</div>` : ''}</td>
       ${imp ? `<td data-label="الدافع" class="cx-payer"><div class="cx-clip" dir="auto">${escH(p.payer_name||'—')}</div>${p.payer_phone ? `<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>` : ''}</td>` : ''}
       <td data-label="المبلغ" class="num">${fmtKWDHtml(x.gross)}</td>
       <td data-label="الرسوم" class="num">${x.gateway_fee==null ? '—' : fmtKWDHtml(x.gateway_fee)}</td>
       <td data-label="حصة الشركة" class="num">${x.company_share==null ? '—' : fmtKWDHtml(x.company_share)}</td>
       <td data-label="الصافي" class="num cx-strong" ${Number(x.net)<0?'style="color:var(--red)"':''}>${x.net==null ? '—' : fmtKWDHtml(x.net)}</td>
       ${act ? `<td class="cx-act">${x._req ? `<button class="btn btn-ghost btn-xs" data-on-click="openRequest" data-on-click-args="${qa([x.reqId])}">الطلب</button>` : !(x.kind==='transfer' ? canTr : fin) ? '' : x.voided
-        ? `<button class="btn btn-ghost btn-xs" data-on-click="cxVoid" data-on-click-args="${qa([x.id, false])}">استرجاع</button>`
+        ? (mvOut ? `<button class="btn btn-ghost btn-xs" disabled title="الحركة منقولة؛ للتراجع انقل الحركة الجديدة من المركز الآخر إلى هنا">استرجاع</button>` : `<button class="btn btn-ghost btn-xs" data-on-click="cxVoid" data-on-click-args="${qa([x.id, false])}">استرجاع</button>`)
         : `<button class="btn btn-reject btn-xs" data-on-click="cxVoid" data-on-click-args="${qa([x.id, true])}">حذف</button>`}</td>` : ''}</tr>`;
   }).join('');
 }
@@ -18305,7 +18342,8 @@ function cxCenterDetailHtml(){
         ${(state.cx.ledger||[]).some(x=>x.voided) ? `<label class="chk-card cx-void-chk" title="الحركات المحذوفة تبقى مشطوبة للمراجعة"><input type="checkbox" ${state.cx.showVoid?'checked':''} data-on-change="cxShowVoidToggle" data-on-change-args="${qa([QA.c])}"><span>إظهار المحذوفة</span></label>` : ''}
         ${state.cx.itemId && canTr && has && !state.cx.showTransfer ? `<button class="btn btn-ghost btn-md" data-on-click="cxTransferToggle">ترحيل رصيد</button>` : ''}
         ${fin && !state.cx.showEntry ? `<button class="btn btn-primary btn-md" data-on-click="cxEntryToggle">+ تسجيل حركة</button>` : ''}</div></div>
-      <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" data-qyl-kinds='${escH(JSON.stringify(CX_CATS))}' data-qyl-title="دفتر ${escH(c.name)}"><thead><tr><th>التاريخ</th>${ic?'<th>البند</th>':''}<th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin||canTr?'<th></th>':''}</tr></thead>
+      ${fin ? cxMvBulkTplHtml() : ''}
+      <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" ${fin?'data-qyl-bulk="cxMvTpl"':''} data-qyl-kinds='${escH(JSON.stringify(CX_CATS))}' data-qyl-title="دفتر ${escH(c.name)}"><thead><tr>${fin?`<th class="cx-cb" title="تحديد كل الحركات الظاهرة القابلة للنقل" data-noexport><input type="checkbox" data-on-change="cxMvAll" data-on-change-args="${qa([QA.c])}"></th>`:''}<th>التاريخ</th>${ic?'<th>البند</th>':''}<th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin||canTr?'<th></th>':''}</tr></thead>
       <tbody id="cxLedgerBody">${cxLedgerRowsHtml()}</tbody></table>
     </div>
     ${cxSettingsFoldHtml()}
@@ -18475,8 +18513,8 @@ async function cxExportAll(){
     groups.forEach(g=>{ const set = new Set(g.ids), L = rowsAll.filter(x=>set.has(x.center_id)); if(!L.length && !(g.c.id in openOf)) return;
       X.utils.book_append_sheet(wb, sheet('حركات ' + g.c.name, head, (g.c.id in openOf ? [openRow(g.c)] : []).concat(L.map(rowOf)), nf, g.c.id in openOf ? 'المجموع (مع رصيد أول المدة)' : 'المجموع'), cxSheetName(g.c.name, used)); });
     if(wantRaw && (rawSt.length || rawBills.length)){
-      const byReceipt = {}; led.forEach(x=>{ if(x.receipt) byReceipt[String(x.receipt)] = x; });
-      const byRef = {}; led.forEach(x=>{ if(x.order_ref) byRef[String(x.order_ref).replace(/\s/g,'')] = x; });
+      const byReceipt = {}; led.forEach(x=>{ const k = x.receipt ? String(x.receipt) : ''; if(k && (!byReceipt[k] || byReceipt[k].voided)) byReceipt[k] = x; });
+      const byRef = {}; led.forEach(x=>{ const k = x.order_ref ? String(x.order_ref).replace(/\s/g,'') : ''; if(k && (!byRef[k] || byRef[k].voided)) byRef[k] = x; });
       const cName = id => { const c = rootOf[id]; return c ? c.name : (id ? cxCenterName(id) : ''); };
       const rawSheet = (title, rows, drop, mapFn, numCols) => {
         const cols = Object.keys(rows[0]||{}).filter(k=>!drop.includes(k));
