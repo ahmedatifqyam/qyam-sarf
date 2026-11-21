@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.40.0', APP_VERSION_DATE = '2026-11-21';
+const APP_VERSION = '1.40.1', APP_VERSION_DATE = '2026-11-21';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:351, base:350, extra:0.9, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:1.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -13753,19 +13753,21 @@ function renderPermissionsPanel(){
   }).join('');
   return `
     <div class="card" style="margin-top:28px;"><h2>صلاحيات الصفحات — ${escH(coName)}${sc ? ' · '+escH(scName) : ''}</h2>
-      <div class="pj-row cx-srow">
-        <div class="pf w220"><label>الشركة</label>
+      <div class="pj-row cx-srow perm-top">
+        <div class="pf grow1"><label>الشركة</label>
           <select data-on-change="permPickCo" data-on-change-args="${qa([QA.v])}">${state.companies.map(c=>`<option value="${escH(c.id)}" ${c.id===co?'selected':''}>${escH(c.nameAr)}</option>`).join('')}</select></div>
-        <div class="pf w220"><label>النطاق</label>
+        <div class="pf grow1"><label>النطاق</label>
           <select data-on-change="permPickScope" data-on-change-args="${qa([QA.v])}"><option value="" ${!sc?'selected':''}>الشركة كلها</option>${cents.length ? `<option value="*" ${sc==='*'?'selected':''}>كل المراكز</option>${cents.map(c=>{ const n = (state.pagePermsCenter||[]).filter(x=>x.company_id===co && x.scope===c.id).length; return `<option value="${escH(c.id)}" ${c.id===sc?'selected':''}>${'— '.repeat(unitAncestorIds(c.id).filter(x=>(cxUnit(x)||{}).kind==='center').length+1)}${escH(c.name)}${n?' · '+n+' مخصّص':''}</option>`; }).join('')}` : ''}</select></div>
-        <div class="pf w220"><label>الدور</label>${roleSel}</div>
-        ${sc && sc!=='*' && cents.length>1 ? `<div class="pf"><label>&nbsp;</label><button type="button" class="btn btn-ghost btn-md" data-on-click="permCopyToCenters" title="يجعل صلاحيات مراكز أخرى تختارها مثل هذا المركز">نسخ إلى مراكز أخرى</button></div>`
-          : !sc && state.companies.length>1 ? `<div class="pf"><label>&nbsp;</label><button type="button" class="btn btn-ghost btn-md" data-on-click="copyPagePermsToAll" title="يجعل صلاحيات كل الشركات مثل صلاحيات هذه الشركة">نسخ لكل الشركات</button></div>` : ''}
+        <div class="pf grow1"><label>الدور</label>${roleSel}</div>
       </div>
-      ${sc ? `<p class="sub">${sc==='*' ? 'تسري على <b>موظفي كل المراكز</b>' : 'تسري على <b>موظفي «'+escH(scName)+'» وبنوده</b>'} حسب أدوارهم، بدل اختيار شخص شخص. لا تمسّ الإدارة والمالية والمدير التنفيذي. «موروث» = ما لم تغيّره هنا، فيبقى كما في «${escH(inhName)}».</p>
-        <p class="sub" style="font-size:var(--fs-hint);">مثال: في «كل المراكز» اجعل «العهد» للموظف «لا يرى» ولمدير الإدارة / المركز «تحكم كامل»، و«طلب راتب» «لا يرى» لكليهما.</p>`
-      : `<p class="sub">لكل دور في الشركة: هل يرى الصفحة، وماذا يفعل فيها. الخيار «افتراضي» هو الوضع المعمول به الآن. مدير النظام يرى كل شيء دائماً. لوحة التحكم لا تظهر لغير مدير النظام مهما كانت الصلاحية.${cents.length ? ' ولموظفي المراكز اختر «النطاق»: كل المراكز أو مركزاً بعينه.' : ''}</p>`}
-      <p class="sub" style="font-size:var(--fs-hint);">ملاحظة: هذه الصلاحيات تتحكم في ظهور الصفحات والأزرار. أما البيانات المالية نفسها فتحميها قاعدة البيانات للأدوار المالية فقط، فمنح صفحة مالية لدور غير مالي لا يكشف له بيانات لا يملك حق قراءتها.</p>
+      <div class="perm-ex">
+        <div class="perm-ex-t">${sc ? `<div>${sc==='*' ? 'تسري على <b>موظفي كل المراكز</b>' : 'تسري على <b>موظفي «'+escH(scName)+'» وبنوده</b>'} حسب أدوارهم، ولا تمسّ الإدارة والمالية والمدير التنفيذي. «موروث» = كما في «${escH(inhName)}».</div>
+          <div><b>مثال:</b> في «كل المراكز» اجعل «العهد» للموظف «لا يرى» ولمدير الإدارة / المركز «تحكم كامل»، و«طلب راتب» «لا يرى» لكليهما.</div>`
+          : `<div>لكل دور: هل يرى الصفحة، وماذا يفعل فيها. «افتراضي» = المعمول به الآن. مدير النظام يرى كل شيء، ولوحة التحكم له وحده.${cents.length ? ' ولموظفي المراكز اختر «النطاق»: كل المراكز أو مركزاً بعينه.' : ''}</div>`}</div>
+        ${sc && sc!=='*' && cents.length>1 ? `<button type="button" class="btn btn-ghost btn-md" data-on-click="permCopyToCenters" title="يجعل صلاحيات مراكز أخرى تختارها مثل هذا المركز">نسخ إلى مراكز أخرى</button>`
+          : !sc && state.companies.length>1 ? `<button type="button" class="btn btn-ghost btn-md" data-on-click="copyPagePermsToAll" title="يجعل صلاحيات كل الشركات مثل صلاحيات هذه الشركة">نسخ لكل الشركات</button>` : ''}
+      </div>
+      <p class="perm-note">ملاحظة: هذه الصلاحيات تتحكم في ظهور الصفحات والأزرار. أما البيانات المالية نفسها فتحميها قاعدة البيانات للأدوار المالية فقط، فمنح صفحة مالية لدور غير مالي لا يكشف له بيانات لا يملك حق قراءتها.</p>
       <div class="perm-grid">${rowsHtml}</div>
       <p class="sub" style="font-size:var(--fs-hint);margin:8px 0 0;">${pr==='__all' ? '«مختلفة بين الأدوار» = لكل دور صلاحية مختلفة في هذه الصفحة (قف على الخانة لترى صلاحية كل دور)، واختيارك يوحّدها للجميع. ' : ''}الإطار البرتقالي = ${sc ? 'مختلف عن «'+escH(inhName)+'»' : 'مختلف عن الافتراضي'}. تغييراتك على كل الأدوار تُحفظ معاً بزر «حفظ الصلاحيات».</p>
       <div id="permSaveBar" class="actions-row">

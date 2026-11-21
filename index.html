@@ -2700,7 +2700,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* المستويات الوظيفية: أزرار مربعة ثابتة 40 في الهاتف وسطح المكتب */
   #app td.lvl-acts .btn{margin-inline-start:6px;vertical-align:middle;}
   /* صلاحيات الصفحات: دور واحد في كل مرة، صفحتان في الصف على سطح المكتب */
-  .perm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 28px;max-width:780px;}
+  .perm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 28px;max-width:none;}
   .perm-row{display:grid;grid-template-columns:120px minmax(0,1fr);align-items:center;gap:10px;}
   .perm-row .perm-lbl{font-weight:700;font-size:var(--fs-label);}
   .perm-row select{width:100% !important;max-width:100% !important;}
@@ -3558,6 +3558,13 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* (1.39.0) ملاحظات نافذة إبطال الطلب المصروف */
   .vp-notes{margin:8px 0 0;padding-inline-start:20px;display:flex;flex-direction:column;gap:5px;text-align:right;}
   .vp-notes li{line-height:1.6;}
+  /* (1.40.1) صلاحيات الصفحات: الحقول تملأ السطر، والشرح بجانب الزر، والنص واضح */
+  #app .perm-top{margin-bottom:12px;}
+  #app .perm-ex{display:flex;align-items:center;gap:16px;margin:0 0 10px;}
+  #app .perm-ex-t{flex:1 1 auto;min-width:0;color:var(--text);font-size:var(--fs-label);line-height:1.7;}
+  #app .perm-ex > .btn{flex:0 0 auto;width:220px;}
+  #app .perm-note{color:var(--text);font-size:var(--fs-hint);line-height:1.7;margin:0 0 14px;}
+  @media (max-width:699px){ #app .perm-ex{flex-wrap:wrap;} #app .perm-ex > .btn{width:100%;} }
 </style>
 </head>
 <body>
@@ -3578,6 +3585,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=86d28aff2f"></script>
+<script src="app.js?v=9221e704b0"></script>
 </body>
 </html>
