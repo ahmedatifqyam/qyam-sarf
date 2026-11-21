@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.39.0', APP_VERSION_DATE = '2026-11-21';
+const APP_VERSION = '1.40.0', APP_VERSION_DATE = '2026-11-21';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:350, base:350, extra:0.1, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:0.9, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -763,7 +763,7 @@ async function loadAll(){
   state.resetRequests  = d(16).map(r=>({id:r.id, phone:r.phone, userId:r.user_id, companyId:r.company_id,
     status:r.status, requestedAt:r.requested_at, handledBy:r.handled_by, handledAt:r.handled_at}));
   state.pagePerms = d(17);
-  await Promise.all([loadRecurring(), mergeUserPrivate(), loadPeopleNames(), loadMyCompanyNames(), loadCustodies(), loadAvatars(), loadCxLight()]);
+  await Promise.all([loadPagePermsCenter(), loadRecurring(), mergeUserPrivate(), loadPeopleNames(), loadMyCompanyNames(), loadCustodies(), loadAvatars(), loadCxLight()]);
   loadBudgetSums();
   try{ prjLoad(); }catch(e){}
   try{ wcLoad(); }catch(e){}
@@ -2785,6 +2785,40 @@ function pageDefaultLevel(role, key){
 function pageExplicitRow(key, role, companyId){
   return (state.pagePerms||[]).find(p=>p.company_id===companyId && p.role===role && p.page_key===key) || null;
 }
+// (1.40.0) صلاحيات المراكز: تُضبط لكل دور على «كل المراكز» ('*') أو مركز بعينه، وتسري على موظفي المراكز فقط
+async function loadPagePermsCenter(){
+  try{ const r = await db.from('page_permissions_center').select('*'); if(!r.error) state.pagePermsCenter = r.data||[]; }catch(e){}
+}
+// وحدة المستخدم في مركز: الأساسية إن كانت مركزاً أو تحت مركز، وإلا أول إضافية كذلك (مطابق لـ qy_user_perm_unit)
+function permCenterUnit(u){
+  if(!u || ['admin','accountant','cfo','executive_manager'].includes(u.role)) return null;
+  if(u.centerId && cxIsBookUnitId(u.centerId)) return u.centerId;
+  return userExtraUnits(u).map(x=>x.center_id).filter(id=>cxIsBookUnitId(id)).sort()[0] || null;
+}
+function pageCenterRow(scope, role, key, companyId){
+  return (state.pagePermsCenter||[]).find(p=>p.company_id===companyId && p.scope===scope && p.role===role && p.page_key===key) || null;
+}
+// الصلاحية المضبوطة صراحة (أو null): الوحدة فما فوقها ← كل المراكز ← الشركة (مطابق لـ qy_page_row)
+function pageRowLevel(role, key, companyId, unit){
+  if(unit){
+    for(const id of [unit, ...unitAncestorIds(unit)]){ const r = pageCenterRow(id, role, key, companyId); if(r) return r.level; }
+    const all = pageCenterRow('*', role, key, companyId); if(all) return all.level;
+  }
+  const row = pageExplicitRow(key, role, companyId);
+  return row ? row.level : null;
+}
+// مستوى دور في نطاق: '' الشركة · '*' كل المراكز · معرّف مركز
+function pageLevelScoped(role, key, companyId, scope){
+  if(!scope) return pageLevelFor(role, key, companyId);
+  const own = pageCenterRow(scope, role, key, companyId); if(own) return own.level;
+  return pageLevelScoped(role, key, companyId, permParentScope(scope, companyId));
+}
+// النطاق الأعلى: مركز ← المركز الذي فوقه إن وُجد ← كل المراكز ← الشركة
+function permParentScope(scope, companyId){
+  if(!scope) return null; if(scope==='*') return '';
+  const up = unitAncestorIds(scope).find(id=>{ const u = cxUnit(id); return u && u.kind==='center'; });
+  return up || '*';
+}
 function pageLevelFor(role, key, companyId){
   if(role==='admin') return 'full';
   const row = pageExplicitRow(key, role, companyId);
@@ -2794,8 +2828,8 @@ function pageLevel(key){
   const u = state.user; if(!u) return 'none';
   if(u.role==='admin') return 'full';
   const co = state.currentCompanyId || u.companyId;
-  const row = pageExplicitRow(key, u.role, co);
-  if(row) return row.level;
+  const lv = pageRowLevel(u.role, key, co, permCenterUnit(myUserRow()));
+  if(lv) return lv;
   // مستخدم غير مالي مُنح صلاحية إنشاء القوالب أو وصله تنبيه قالب
   if(key==='recurring' && !PAGE_FINANCE_ROLES.includes(u.role)){
     if(recMeFlag()) return 'full';
@@ -3836,7 +3870,8 @@ function canEditMyRequests(companyId){
   const u = state.user; if(!u) return false;
   if(u.role==='admin') return true;
   const co = companyId || state.currentCompanyId || u.companyId;
-  return PAGE_LEVEL_RANK[pageLevelFor(u.role, 'editreq', co)] >= PAGE_LEVEL_RANK.edit;
+  const lv = pageRowLevel(u.role, 'editreq', co, permCenterUnit(myUserRow())) || pageDefaultLevel(u.role, 'editreq');
+  return PAGE_LEVEL_RANK[lv] >= PAGE_LEVEL_RANK.edit;
 }
 function editReqBlocked(req){
   if(canEditMyRequests(req && req.companyId)) return false;
@@ -13658,12 +13693,31 @@ function permAllRoles(){
 function permCo(){ const c = state.permCo; return (c && state.companies.some(x=>x.id===c)) ? c : state.currentCompanyId; }
 function permPickCo(id){
   if(Object.keys(state.permDraft||{}).length && !confirm('لديك تغييرات غير محفوظة لهذه الشركة. تجاهلها والانتقال؟')){ render(); return; }
-  state.permCo = id; state.permDraft = {}; render();
+  state.permCo = id; state.permDraft = {}; state.permScope = ''; render();
+}
+// (1.40.0) النطاق: '' الشركة كلها · '*' كل المراكز · مركز بعينه
+function permCenters(co){ return (state.centers||[]).filter(c=>c.companyId===co && c.kind==='center').sort(_byUnit); }
+function permScope(){ const s = state.permScope||'', co = permCo(); return (!s || s==='*' || permCenters(co).some(c=>c.id===s)) ? s : ''; }
+function permPickScope(v){
+  if(Object.keys(state.permDraft||{}).length && !confirm('لديك تغييرات غير محفوظة لهذا النطاق. تجاهلها والانتقال؟')){ render(); return; }
+  state.permScope = v||''; state.permDraft = {}; render();
+}
+function permScopeName(sc, co){ return !sc ? 'الشركة كلها' : sc==='*' ? 'كل المراكز' : ((cxUnit(sc)||{}).name || sc); }
+// المستوى الموروث للدور في النطاق الحالي (ما يسري لو لم يُضبط هنا)
+function permInherited(role, key){
+  const sc = permScope(), co = permCo();
+  return sc ? pageLevelScoped(role, key, co, permParentScope(sc, co)) : pageDefaultLevel(role, key);
 }
 function permDraftLevel(role, key){
   const d = state.permDraft || {};
   const k = role+'|'+key;
-  return d[k] !== undefined ? d[k] : pageLevelFor(role, key, permCo());
+  return d[k] !== undefined ? d[k] : pageLevelScoped(role, key, permCo(), permScope());
+}
+// من المركز: يفتح صلاحيات الصفحات على هذا المركز مباشرة
+function cxOpenCenterPerms(id){
+  const u = cxUnit(id); if(!u) return;
+  state.permCo = u.companyId; state.permScope = id; state.permDraft = {};
+  state.view = 'admin'; state.adminSubTab = 'permissions'; render(); window.scrollTo(0,0);
 }
 function permSet(role, key, val){
   state.permDraft = state.permDraft || {};
@@ -13680,12 +13734,13 @@ function permSetAll(key, val){
 }
 function permReset(){ state.permDraft = {}; render(); }
 function renderPermissionsPanel(){
-  const roles = permAllRoles(), co = permCo();
+  const roles = permAllRoles(), co = permCo(), sc = permScope(), cents = permCenters(co);
   const coName = (state.companies.find(c=>c.id===co)||{}).nameAr || '';
+  const scName = permScopeName(sc, co), inhName = sc ? permScopeName(permParentScope(sc, co), co) : '';
   const dirty = Object.keys(state.permDraft||{}).length > 0;
   // دور واحد في كل مرة: اختر الدور ثم اضبط صفحاته (بدل جدول عريض لا يتسع للشاشة)
   const pr = state.permRole==='__all' ? '__all' : (state.permRole && roles.some(r=>r.id===state.permRole)) ? state.permRole : (roles[0]||{}).id;
-  const nCustom = rid => PAGE_CATALOG.filter(p=>permDraftLevel(rid, p.key)!==pageDefaultLevel(rid, p.key)).length;
+  const nCustom = rid => PAGE_CATALOG.filter(p=>permDraftLevel(rid, p.key)!==permInherited(rid, p.key)).length;
   const roleSel = `<select data-on-change="permPickRole" data-on-change-args="${qa([QA.v])}"><option value="__all" ${pr==='__all'?'selected':''}>كل الأدوار (تغيير واحد للجميع)</option>${roles.map(r=>{ const n = nCustom(r.id); return `<option value="${escH(r.id)}" ${r.id===pr?'selected':''}>${escH(r.name)}${n ? ' · '+n+' مخصّص' : ''}</option>`; }).join('')}</select>`;
   const lvName = v => (PAGE_LEVELS.find(x=>x[0]===v)||[,v])[1];
   const rowsHtml = pr==='__all' ? PAGE_CATALOG.map(p=>{
@@ -13693,21 +13748,26 @@ function renderPermissionsPanel(){
     const detail = roles.map((r,i)=>r.name+': '+lvName(lv[i])).join('\n');
     return `<div class="perm-row${same?'':' perm-mixed'}"><span class="perm-lbl" title="${escH(p.hint)}">${escH(p.label)}</span><select data-on-change="permSetAll" data-on-change-args="${qa([(''+(p.key)), QA.v])}" title="${escH(detail)}">${same ? '' : '<option value="" selected>مختلفة بين الأدوار</option>'}${PAGE_LEVELS.map(([v,l])=>`<option value="${v}" ${same && lv[0]===v?'selected':''}>${l}</option>`).join('')}</select></div>`;
   }).join('') : PAGE_CATALOG.map(p=>{
-    const cur = permDraftLevel(pr, p.key), def = pageDefaultLevel(pr, p.key);
-    return `<div class="perm-row${cur!==def?' perm-custom':''}"><span class="perm-lbl" title="${escH(p.hint)}">${escH(p.label)}</span><select data-on-change="permSet" data-on-change-args="${qa([(''+pr), (''+(p.key)), QA.v])}" title="${escH(p.hint)}">${PAGE_LEVELS.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}${v===def?' (افتراضي)':''}</option>`).join('')}</select></div>`;
+    const cur = permDraftLevel(pr, p.key), def = permInherited(pr, p.key);
+    return `<div class="perm-row${cur!==def?' perm-custom':''}"><span class="perm-lbl" title="${escH(p.hint)}">${escH(p.label)}</span><select data-on-change="permSet" data-on-change-args="${qa([(''+pr), (''+(p.key)), QA.v])}" title="${escH(p.hint)}">${PAGE_LEVELS.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}${v===def?(sc?' (موروث)':' (افتراضي)'):''}</option>`).join('')}</select></div>`;
   }).join('');
   return `
-    <div class="card" style="margin-top:28px;"><h2>صلاحيات الصفحات — ${escH(coName)}</h2>
-      <div class="row cx-item">
-        <div style="--fw:320px;"><label>الشركة التي تضبط صلاحياتها</label>
+    <div class="card" style="margin-top:28px;"><h2>صلاحيات الصفحات — ${escH(coName)}${sc ? ' · '+escH(scName) : ''}</h2>
+      <div class="pj-row cx-srow">
+        <div class="pf w220"><label>الشركة</label>
           <select data-on-change="permPickCo" data-on-change-args="${qa([QA.v])}">${state.companies.map(c=>`<option value="${escH(c.id)}" ${c.id===co?'selected':''}>${escH(c.nameAr)}</option>`).join('')}</select></div>
-        <div style="--fw:320px;"><label>الدور</label>${roleSel}</div>
-        ${state.companies.length>1 ? `<div><button type="button" class="btn btn-ghost btn-md" data-on-click="copyPagePermsToAll" title="يجعل صلاحيات كل الشركات مثل صلاحيات هذه الشركة">نسخ هذه الصلاحيات لكل الشركات</button></div>` : ''}
+        <div class="pf w220"><label>النطاق</label>
+          <select data-on-change="permPickScope" data-on-change-args="${qa([QA.v])}"><option value="" ${!sc?'selected':''}>الشركة كلها</option>${cents.length ? `<option value="*" ${sc==='*'?'selected':''}>كل المراكز</option>${cents.map(c=>{ const n = (state.pagePermsCenter||[]).filter(x=>x.company_id===co && x.scope===c.id).length; return `<option value="${escH(c.id)}" ${c.id===sc?'selected':''}>${'— '.repeat(unitAncestorIds(c.id).filter(x=>(cxUnit(x)||{}).kind==='center').length+1)}${escH(c.name)}${n?' · '+n+' مخصّص':''}</option>`; }).join('')}` : ''}</select></div>
+        <div class="pf w220"><label>الدور</label>${roleSel}</div>
+        ${sc && sc!=='*' && cents.length>1 ? `<div class="pf"><label>&nbsp;</label><button type="button" class="btn btn-ghost btn-md" data-on-click="permCopyToCenters" title="يجعل صلاحيات مراكز أخرى تختارها مثل هذا المركز">نسخ إلى مراكز أخرى</button></div>`
+          : !sc && state.companies.length>1 ? `<div class="pf"><label>&nbsp;</label><button type="button" class="btn btn-ghost btn-md" data-on-click="copyPagePermsToAll" title="يجعل صلاحيات كل الشركات مثل صلاحيات هذه الشركة">نسخ لكل الشركات</button></div>` : ''}
       </div>
-      <p class="sub">لكل دور في الشركة الحالية: هل يرى الصفحة، وماذا يفعل فيها. الخيار «افتراضي» هو الوضع المعمول به الآن. مدير النظام يرى كل شيء دائماً. لوحة التحكم لا تظهر لغير مدير النظام مهما كانت الصلاحية.</p>
+      ${sc ? `<p class="sub">${sc==='*' ? 'تسري على <b>موظفي كل المراكز</b>' : 'تسري على <b>موظفي «'+escH(scName)+'» وبنوده</b>'} حسب أدوارهم، بدل اختيار شخص شخص. لا تمسّ الإدارة والمالية والمدير التنفيذي. «موروث» = ما لم تغيّره هنا، فيبقى كما في «${escH(inhName)}».</p>
+        <p class="sub" style="font-size:var(--fs-hint);">مثال: في «كل المراكز» اجعل «العهد» للموظف «لا يرى» ولمدير الإدارة / المركز «تحكم كامل»، و«طلب راتب» «لا يرى» لكليهما.</p>`
+      : `<p class="sub">لكل دور في الشركة: هل يرى الصفحة، وماذا يفعل فيها. الخيار «افتراضي» هو الوضع المعمول به الآن. مدير النظام يرى كل شيء دائماً. لوحة التحكم لا تظهر لغير مدير النظام مهما كانت الصلاحية.${cents.length ? ' ولموظفي المراكز اختر «النطاق»: كل المراكز أو مركزاً بعينه.' : ''}</p>`}
       <p class="sub" style="font-size:var(--fs-hint);">ملاحظة: هذه الصلاحيات تتحكم في ظهور الصفحات والأزرار. أما البيانات المالية نفسها فتحميها قاعدة البيانات للأدوار المالية فقط، فمنح صفحة مالية لدور غير مالي لا يكشف له بيانات لا يملك حق قراءتها.</p>
       <div class="perm-grid">${rowsHtml}</div>
-      <p class="sub" style="font-size:var(--fs-hint);margin:8px 0 0;">${pr==='__all' ? '«مختلفة بين الأدوار» = لكل دور صلاحية مختلفة في هذه الصفحة (قف على الخانة لترى صلاحية كل دور)، واختيارك يوحّدها للجميع. ' : ''}الإطار البرتقالي = مختلف عن الافتراضي. تغييراتك على كل الأدوار تُحفظ معاً بزر «حفظ الصلاحيات».</p>
+      <p class="sub" style="font-size:var(--fs-hint);margin:8px 0 0;">${pr==='__all' ? '«مختلفة بين الأدوار» = لكل دور صلاحية مختلفة في هذه الصفحة (قف على الخانة لترى صلاحية كل دور)، واختيارك يوحّدها للجميع. ' : ''}الإطار البرتقالي = ${sc ? 'مختلف عن «'+escH(inhName)+'»' : 'مختلف عن الافتراضي'}. تغييراتك على كل الأدوار تُحفظ معاً بزر «حفظ الصلاحيات».</p>
       <div id="permSaveBar" class="actions-row">
         <button class="btn btn-primary btn-md" data-perm-btn ${dirty?'':'disabled'} data-on-click="savePagePerms" title="يحفظ التغييرات بعد تأكيد كلمة مرورك">حفظ الصلاحيات</button>
         <button class="btn btn-ghost btn-md" data-perm-btn ${dirty?'':'disabled'} data-on-click="permReset" title="يتجاهل التغييرات غير المحفوظة">تراجع</button>
@@ -13717,8 +13777,9 @@ function renderPermissionsPanel(){
 async function savePagePerms(){
   const d = state.permDraft || {}, keys = Object.keys(d);
   if(!keys.length){ showToast('لا تغييرات للحفظ'); return; }
-  const co = permCo();
+  const co = permCo(), sc = permScope();
   const coName = (state.companies.find(c=>c.id===co)||{}).nameAr || '';
+  if(sc){ await savePagePermsCenter(co, sc, coName); return; }
   if(!(await reauthModal('تأكيد حفظ الصلاحيات','ستتغير الصفحات التي يراها كل دور في «'+escH(coName)+'» فور الحفظ.','حفظ'))) return;
   const ups = [], dels = [];
   keys.forEach(k=>{
@@ -13737,6 +13798,41 @@ async function savePagePerms(){
   if(!p.error) state.pagePerms = p.data || [];
   state.permDraft = {};
   showToast('حُفظت صلاحيات الصفحات لـ «'+coName+'»','success'); render();
+}
+// (1.40.0) حفظ نطاق مركز أو كل المراكز: ما يساوي الموروث يُحذف، وغيره يُحفظ
+async function savePagePermsCenter(co, sc, coName){
+  const d = state.permDraft || {}, scName = permScopeName(sc, co);
+  if(!(await reauthModal('تأكيد حفظ الصلاحيات','ستتغير الصفحات التي يراها موظفو «'+escH(scName)+'» في «'+escH(coName)+'» فور الحفظ.','حفظ'))) return;
+  const ups = [], dels = [];
+  Object.keys(d).forEach(k=>{
+    const [role, page] = k.split('|'), lv = d[k];
+    if(lv === permInherited(role, page)) dels.push({role, page}); else ups.push({company_id:co, scope:sc, role, page_key:page, level:lv, updated_by:state.user.name, updated_at:new Date().toISOString()});
+  });
+  if(ups.length){ const r = await db.from('page_permissions_center').upsert(ups, {onConflict:'company_id,scope,role,page_key'}); if(!(await dbCheck(r,'حفظ صلاحيات المراكز'))) return; }
+  for(const x of dels){ const r = await db.from('page_permissions_center').delete().eq('company_id',co).eq('scope',sc).eq('role',x.role).eq('page_key',x.page); if(!(await dbCheck(r,'حفظ صلاحيات المراكز'))) return; }
+  await loadPagePermsCenter();
+  state.permDraft = {};
+  showToast('حُفظت صلاحيات «'+scName+'»','success'); render();
+}
+// (1.40.0) نسخ صلاحيات هذا المركز إلى مراكز أخرى يختارها المدير
+async function permCopyToCenters(){
+  if(Object.keys(state.permDraft||{}).length){ showToast('احفظ التغييرات أولاً ثم انسخها','error'); return; }
+  const co = permCo(), sc = permScope(); if(!sc || sc==='*') return;
+  const others = permCenters(co).filter(c=>c.id!==sc), scName = permScopeName(sc, co);
+  let picked = [];
+  const ok = await askModal({title:'نسخ صلاحيات «'+escH(scName)+'»', confirm:'نسخ',
+    text:'اختر المراكز التي تصبح صلاحياتها مثل «'+escH(scName)+'» تماماً (لكل الأدوار):<div class="chk-grid" style="margin-top:10px;">'+others.map(c=>`<label class="chk-card"><input type="checkbox" data-perm-copy="${escH(c.id)}"><span>${escH(c.name)}</span></label>`).join('')+'</div>',
+    validate:()=>{ picked = [...document.querySelectorAll('[data-perm-copy]:checked')].map(x=>x.dataset.permCopy); return picked.length ? null : 'اختر مركزاً واحداً على الأقل'; }});
+  if(!ok || !picked.length) return;
+  if(!(await reauthModal('تأكيد النسخ','ستتغير صلاحيات '+picked.length+' مركز لتصبح مثل «'+escH(scName)+'».','نسخ'))) return;
+  const src = (state.pagePermsCenter||[]).filter(x=>x.company_id===co && x.scope===sc);
+  for(const t of picked){
+    const r1 = await db.from('page_permissions_center').delete().eq('company_id',co).eq('scope',t);
+    if(!(await dbCheck(r1,'نسخ الصلاحيات'))) return;
+    if(src.length){ const r2 = await db.from('page_permissions_center').insert(src.map(x=>({company_id:co, scope:t, role:x.role, page_key:x.page_key, level:x.level, updated_by:state.user.name, updated_at:new Date().toISOString()}))); if(!(await dbCheck(r2,'نسخ الصلاحيات'))) return; }
+  }
+  await loadPagePermsCenter();
+  showToast('نُسخت الصلاحيات إلى '+picked.length+' مركز','success'); render();
 }
 // ينسخ الصلاحيات الفعلية لهذه الشركة (بعد الحفظ) إلى كل الشركات الأخرى
 async function copyPagePermsToAll(){
@@ -18155,6 +18251,7 @@ function cxSettingsFoldHtml(){
       </div>` : ''}
     ${adm ? `<h3 class="uf-h">الحصص وضبط الرصيد</h3>
       <p class="file-hint">النسبة الفارغة = النسبة الافتراضية للشركة. ومن يرى المركز: لوحة التحكم ← المستخدمون والصلاحيات ← رؤية المراكز.</p>
+      ${c.kind==='center' ? `<div class="pj-row cx-srow"><div class="pf grow1"><label>صلاحيات الصفحات لموظفي المركز</label><div class="file-hint">ما يراه موظفو «${escH(c.name)}» حسب أدوارهم (طلب راتب، العهد، …) بدل اختيار شخص شخص.</div></div><div class="pf"><label>&nbsp;</label><button type="button" class="btn btn-ghost btn-md" data-on-click="cxOpenCenterPerms" data-on-click-args="${qa([(''+c.id)])}">صلاحيات هذا المركز</button></div></div>` : ''}
       ${c.kind==='center' ? `<div class="pj-row cx-srow">
         ${pct()}
         <div class="pf grow1"><label for="cxs_client">الجهة التابع لها</label><select id="cxs_client"><option value="">— غير مرتبط —</option>${cxClientTree().map(({c:cl,depth})=>`<option value="${cl.id}" ${cl.id===c.clientId?'selected':''}>${'— '.repeat(depth)}${escH(cl.name)}</option>`).join('')}</select></div>
