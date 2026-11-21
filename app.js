@@ -7860,6 +7860,7 @@ async function colPrefsLoad(){
   try{ const r = await db.from('user_ui_prefs').select('col_widths').eq('user_id', state.user.id).maybeSingle();
     state.colPrefs = (r && r.data && r.data.col_widths) || {}; }catch(e){ state.colPrefs = {}; }
   state._colLoading = false; colsEnhance();
+  if(state.view==='orgTree' && state.colPrefs['__ui:treeView'] && typeof renderOrgTreeOnly==='function') renderOrgTreeOnly();
 }
 function colPrefsSave(){ clearTimeout(state._colT); state._colT = setTimeout(async ()=>{ if(!state.user) return;
   const r = await db.from('user_ui_prefs').upsert({user_id:state.user.id, col_widths:state.colPrefs||{}, updated_at:new Date().toISOString()}, {onConflict:'user_id'});
@@ -12714,8 +12715,15 @@ function treeRow(opts){
 }
 
 // ===================== نوعا عرض الشجرة: حسب المستوى / هرمي حسب المدير =====================
-function treeViewMode(){ try{ return localStorage.getItem('qayam_tree_view')==='hier' ? 'hier' : 'level'; }catch(e){ return 'level'; } }
-function setTreeView(m){ try{ localStorage.setItem('qayam_tree_view', m); }catch(e){} renderOrgTreeOnly(); }
+// (1.38.5) نوع العرض يُحفظ مع حساب المستخدم (تفضيلات الواجهة) فيكون واحداً في كل أجهزته؛ والجهاز احتياط حتى يصل الحساب
+function treeViewMode(){
+  if(!state.colPrefs) colPrefsLoad();
+  const v = state.colPrefs && state.colPrefs['__ui:treeView'];
+  if(v) return v==='hier' ? 'hier' : 'level';
+  try{ return localStorage.getItem('qayam_tree_view')==='hier' ? 'hier' : 'level'; }catch(e){ return 'level'; }
+}
+function setTreeView(m){ try{ localStorage.setItem('qayam_tree_view', m); }catch(e){}
+  state.colPrefs = state.colPrefs || {}; state.colPrefs['__ui:treeView'] = m==='hier' ? 'hier' : 'level'; colPrefsSave(); renderOrgTreeOnly(); }
 function peopleSorted(list){
   return list.slice().sort((a,b)=> userRank(a)-userRank(b) || String(a.name).localeCompare(String(b.name),'ar'));
 }
