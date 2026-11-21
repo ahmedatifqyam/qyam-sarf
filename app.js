@@ -3,7 +3,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
 const APP_VERSION = '1.37.8', APP_VERSION_DATE = '2026-11-18';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:3.2, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:350, base:350, extra:0.0, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -572,7 +572,7 @@ function dbBeneficiaryToState(b){
 }
 function dbCompanyToState(c){
   return {
-    id:c.id, hrApproverId:c.hr_approver_id||null, invoiceAlertUserIds:(Array.isArray(c.invoice_alert_user_ids) ? c.invoice_alert_user_ids : []), settleUserIds:(Array.isArray(c.settle_user_ids) ? c.settle_user_ids : []), prepayDefaultPct:(c.prepay_default_pct==null ? 80 : Number(c.prepay_default_pct)), gatewayCompanyPct:(c.gateway_company_pct==null?5:Number(c.gateway_company_pct)), supportCompanyPct:(c.support_company_pct==null?10:Number(c.support_company_pct)), importStaleDays:(c.import_stale_days==null?7:Number(c.import_stale_days)), nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'', brandLogo:c.brand_logo_data||'',
+    id:c.id, hrApproverId:c.hr_approver_id||null, invoiceAlertUserIds:(Array.isArray(c.invoice_alert_user_ids) ? c.invoice_alert_user_ids : []), voidPaidUserIds:(Array.isArray(c.void_paid_user_ids) ? c.void_paid_user_ids : []), settleUserIds:(Array.isArray(c.settle_user_ids) ? c.settle_user_ids : []), prepayDefaultPct:(c.prepay_default_pct==null ? 80 : Number(c.prepay_default_pct)), gatewayCompanyPct:(c.gateway_company_pct==null?5:Number(c.gateway_company_pct)), supportCompanyPct:(c.support_company_pct==null?10:Number(c.support_company_pct)), importStaleDays:(c.import_stale_days==null?7:Number(c.import_stale_days)), nameAr:c.name_ar, nameEn:c.name_en||'', taxNumber:c.tax_number||'', logoData:c.logo_data||'', brandLogo:c.brand_logo_data||'',
     footerText:(c.footer_text===undefined ? null : c.footer_text), footerFontMode:c.footer_font_mode||'auto', footerFontSize:(c.footer_font_size!=null ? Number(c.footer_font_size) : 10), footerShowText:c.footer_show_text!==false, footerShowLine:c.footer_show_line!==false,
     footerTextColor:c.footer_text_color||'#111111', footerNumColor:c.footer_num_color||'#111111', footerLineColor:c.footer_line_color||'#888888', pageNumStyle:c.page_num_style||'full', footerOffset:(c.footer_offset_mm!=null ? Number(c.footer_offset_mm) : 4),
     primaryColor:c.primary_color||'#C0392B', verifyPrefix:c.verify_prefix||'', code:c.code, hqCode:c.hq_code||'HQ',
@@ -3989,9 +3989,48 @@ async function executeCancelRequest(id){
   showToast('تم إبطال الطلب ونقله للأرشيف', 'success');
   render();
 }
+// (1.39.0) إبطال طلب مصروف: قيد عاكس لصرفه في دفتر الحركات + إبطاله + سطر في سجله — عملية واحدة في الخادم
+function canVoidPaid(coId){ const u = state.user; if(!u) return false; if(u.role==='admin') return true;
+  const co = state.companies.find(c=>c.id===(coId||state.currentCompanyId)); return !!co && (co.voidPaidUserIds||[]).includes(u.id); }
+async function voidPaidRequest(id){
+  const req = state.requests.find(r=>r.id===id); if(!req) return;
+  if(!canVoidPaid(req.companyId)){ showToast('ليست لديك صلاحية إبطال الطلبات المصروفة','error'); return; }
+  const ans = await askModal({
+    title:'إبطال طلب مصروف ' + (req.number||''), danger:true, confirm:'إبطال الطلب وعكس قيده',
+    text:`هذا الطلب <b>صُرف</b> بمبلغ <b>${fmtKWDHtml(req.totalAmount)}</b>. عند الإبطال يحدث التالي معاً:
+      <ol class="vp-notes">
+        <li><b>قيد عاكس في دفتر الحركات</b> بنفس المبلغ، فيرجع المبلغ إلى البند والمركز. القيد الأصلي يبقى ظاهراً مشطوباً ولا يُحذف.</li>
+        <li><b>يُبطَل الطلب</b> وينتقل إلى «أرشيف الملغاة»، ويخرج من رصيد المركز وتقارير الصرف.</li>
+        <li><b>يُسجَّل في سجل الطلب</b> من أبطله ومتى ولماذا.</li>
+        <li><b>المال نفسه لا يتحرك:</b> إن كان قد خرج من الحساب فعلاً فاسترداده من المستفيد يتم خارج النظام. استعمل هذا الإجراء حين يكون الطلب خطأً أو تجربة.</li>
+        <li><b>إن كان على الصرف استرداد قائم</b> يُرفض الإبطال: اعكس الاسترداد من دفتر الحركات أولاً.</li>
+        <li><b>يمكن استرجاعه</b> لاحقاً من الأرشيف، فيُعاد قيد الصرف تلقائياً.</li>
+      </ol>`,
+    fields:[{id:'reason', label:'سبب الإبطال (إلزامي)', type:'textarea'}],
+    validate:v=> v.reason.trim() ? null : 'السبب إلزامي'
+  });
+  if(!ans) return;
+  const r = await db.rpc('qy_request_void_paid', {p_req:id, p_reason:ans.reason.trim()});
+  if(!(await dbCheck(r, 'إبطال الطلب المصروف'))) return;
+  await Promise.all([refreshRequests(), recReloadLedger()]);
+  showToast('أُبطل الطلب' + (r.data ? ' وعُكس قيد صرفه في دفتر الحركات' : ''), 'success');
+  state.view = 'dashboard'; render();
+}
+async function restorePaidRequest(id){
+  const req = state.requests.find(r=>r.id===id); if(!req) return;
+  if(!canVoidPaid(req.companyId)){ showToast('ليست لديك صلاحية استرجاع الطلبات المصروفة','error'); return; }
+  const ok = await askModal({ title:'استرجاع طلب مصروف ' + (req.number||''), confirm:'استرجاع وإعادة قيد الصرف',
+    text:'يرجع الطلب «مكتملاً» ويُعاد قيد صرفه في دفتر الحركات بنفس المبلغ، فيُخصم من البند والمركز من جديد، ويُسجَّل ذلك في سجل الطلب.' });
+  if(!ok) return;
+  const r = await db.rpc('qy_request_restore_paid', {p_req:id});
+  if(!(await dbCheck(r, 'استرجاع الطلب المصروف'))) return;
+  await Promise.all([refreshRequests(), recReloadLedger()]);
+  showToast('استُرجع الطلب' + (r.data ? ' وأُعيد قيد صرفه' : ''), 'success'); render();
+}
 async function restoreRequest(id){
   const req = state.requests.find(r=>r.id===id);
   if(!req) return;
+  if(req.status==='completed') return restorePaidRequest(id);
   const updates = {is_cancelled:false, cancelled_at:null, cancelled_by_id:null};
   const result = await db.from('requests').update(updates).eq('id', id);
   if(!(await dbCheck(result, 'استرجاع الطلب'))) return;
@@ -12085,6 +12124,10 @@ function renderCompanyEditForm(){
         <div class="co-f co-full" id="cfoDelegationConfirmBox" style="display:${(c.cfoDelegationMode==='delegate_self')?'block':'none'};">
           <label class="check-line"><input type="checkbox" id="editCoCfoConfirm" ${c.cfoDelegationMode==='delegate_self'?'checked':''}> <span>أقرّ أن المدير المالي فوّض المحاسب نفسه باعتماد التحويل، وسيظهر هذا صراحة بالمستند المطبوع</span></label></div>
       </div></section>
+      <section class="co-sec"><h3>إبطال الطلبات المصروفة</h3>
+        <p class="file-hint">زر «إبطال طلب مصروف» يظهر على الطلب المكتمل لمدير النظام دائماً، ولمن تختاره هنا فقط. عند الإبطال يُعكس قيد الصرف في دفتر الحركات ويرجع المبلغ للبند والمركز، ويُبطل الطلب ويُسجَّل السبب في سجله. ومن يملك الإبطال يملك استرجاع الطلب (فيُعاد قيد الصرف).</p>
+        <div class="chk-grid">${companyUsers(c.id).filter(u=>u.role!=='admin').sort((a,b)=>userRank(a)-userRank(b)).map(u=>`<label class="chk-card"><input type="checkbox" data-co-voidpaid="${escH(u.id)}" ${(c.voidPaidUserIds||[]).includes(u.id)?'checked':''}><span>${escH(u.name)} <small class="sub">— ${escH(findRole(u.role).name)}</small></span></label>`).join('') || '<span class="sub">لا مستخدمون في هذه الشركة</span>'}</div>
+      </section>
       ${late.length ? `<section class="co-sec"><h3>تذكيرات الطلبات المتأخرة (إشعارات الجهاز)</h3><div class="co-g">${late.join('')}</div></section>` : ''}
       ${cus.length ? `<section class="co-sec"><h3>💼 العهد</h3><div class="co-g">${cus.join('')}</div></section>` : ''}
       <div class="actions-row" data-bar-actions>
@@ -12203,8 +12246,10 @@ async function saveCompanyEdit(){
     updates.custody_path_mode = ['exec','direct','full'].includes(pm) ? pm : (c.custodyPathMode==='finance' ? 'exec' : (c.custodyPathMode||'exec'));
   }
   if(file){ updates.logo_data = await readFileAsDataURL(file); }
+  { const vp = document.querySelectorAll('[data-co-voidpaid]'); if(vp.length) updates.void_paid_user_ids = [...vp].filter(x=>x.checked).map(x=>x.dataset.coVoidpaid); }
   const result = await db.from('companies').update(updates).eq('id', c.id);
   if(!(await dbCheck(result, 'تعديل الشركة'))) return;
+  if(updates.void_paid_user_ids) c.voidPaidUserIds = updates.void_paid_user_ids;
   { const hs = document.getElementById('editCoHrAppr');
     if(hs && (hs.value||null) !== (c.hrApproverId||null)){ const hr = await db.from('companies').update({hr_approver_id: hs.value||null}).eq('id', c.id); if(await dbCheck(hr, 'معتمد الموارد البشرية')) c.hrApproverId = hs.value||null; } }
   c.nameAr=nameAr; c.nameEn=nameEn; c.taxNumber=tax; c.code=code; c.hqCode=hqCode; c.primaryColor=color; c.cfoDelegationMode=cfoMode;
@@ -14651,6 +14696,7 @@ function renderDashboard(app){
 // الاسترجاع: لمدير النظام، أو لصاحب الطلب إن كان ما زال مرتبطاً بشركة الطلب (يعمل فيها إضافياً/بارتايم)
 function canRestoreReq(r){
   if(!state.user || !r) return false;
+  if(r.status==='completed') return canVoidPaid(r.companyId);   // المصروف يُسترجع بإعادة قيد صرفه: لمن يملك صلاحية إبطاله
   if(state.user.role==='admin') return true;
   if(r.createdById!==state.user.id) return false;
   const me = state.users.find(u=>u.id===state.user.id);
@@ -17009,7 +17055,7 @@ function renderDetail(app){
   app.innerHTML = `
     ${req.isCancelled ? `
       <div class="note-box no-print" style="background:var(--paper-2);border-color:var(--line-2);">
-        <b>هذا الطلب ملغى</b> — تم إبطاله ${req.cancelledAt ? 'بتاريخ ' + fmtDateDMY(req.cancelledAt) : ''}.
+        <b>هذا الطلب ملغى</b> — تم إبطاله ${req.cancelledAt ? 'بتاريخ ' + fmtDateDMY(req.cancelledAt) : ''}${req.cancelReason ? ' · السبب: ' + escH(req.cancelReason) : ''}.
         ${canRestoreReq(req) ? `<button class="btn btn-approve btn-sm2" style="margin-right:10px;" data-on-click="restoreRequest" data-on-click-args="${qa([(''+(req.id))])}"><span class="bl1">استرجاع</span><span class="bl2">الطلب</span></button>` : ''}
       </div>` : ''}
     ${req.fastTracked ? `
@@ -17030,6 +17076,10 @@ function renderDetail(app){
               <div class="doc-actions-row" data-bar-actions>
                 <button class="btn btn-reject btn-sm" data-on-click="deleteRequestCfo" data-on-click-args="${qa([(''+(req.id))])}">إبطال الطلب</button>
               </div>` : '')}
+            ${(req.status==='completed' && !req.isCancelled && canVoidPaid(req.companyId)) ? `
+              <div class="doc-actions-row" data-bar-actions>
+                <button class="btn btn-reject btn-sm" data-on-click="voidPaidRequest" data-on-click-args="${qa([(''+(req.id))])}" title="للطلب المصروف خطأً أو تجربة: يُعكس قيده ويُبطل">إبطال طلب مصروف</button>
+              </div>` : ''}
           </div>
         </div>
       </div>
