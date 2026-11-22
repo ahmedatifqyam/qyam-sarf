@@ -3680,6 +3680,9 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app table.dup-tbl td.dup-subj, #app table.dup-tbl td.dup-no{display:block !important;} #app table.dup-tbl .dup-sub{display:block;}
     #app table.dup-tbl td.dup-noitem{display:none !important;}
     #app table.dup-tbl td.dup-amt{font-size:var(--fs-h3);font-weight:800;text-align:right;} }
+  /* (1.49.1) شريط «عرض باقي الأعمدة» أنحف: 60% من عرضه السابق (36 ← 22) في كل جداول النظام */
+  #app .xs-shade-l, #app .xs-shade-r{width:22px !important;}
+  #app .xs-shade .xs-arr{width:16px !important;height:16px !important;}
 </style>
 </head>
 <body>
@@ -3700,6 +3703,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=0ff3f2bb85"></script>
+<script src="app.js?v=e3a052d79c"></script>
 </body>
 </html>
