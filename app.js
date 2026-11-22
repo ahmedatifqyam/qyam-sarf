@@ -7954,7 +7954,7 @@ async function colPrefsLoad(){
 function colPrefsSave(){ clearTimeout(state._colT); state._colT = setTimeout(async ()=>{ if(!state.user) return;
   const r = await db.from('user_ui_prefs').upsert({user_id:state.user.id, col_widths:state.colPrefs||{}, updated_at:new Date().toISOString()}, {onConflict:'user_id'});
   if(r && r.error) console.warn('colPrefsSave', r.error.message); }, 600); }
-function colApply(t, w){ const ths = [...t.tHead.rows[0].cells]; if(!w || w.length !== ths.length) return false;
+function colApply(t, w){ const ths = [...t.tHead.rows[0].cells]; if(!w || w.length !== ths.length) return false; w = w.map((x,i)=>ths[i].classList.contains('qyl-cb') ? 40 : x);
   const hid = colHidden(t);
   t.style.tableLayout = 'fixed'; ths.forEach((th,i)=>{ th.style.width = (w[i] >= COL_MIN && !hid.has(i)) ? w[i] + 'px' : ''; });
   t.style.width = w.reduce((a,b,i)=>a + (hid.has(i) ? 0 : Math.max(b, COL_MIN)), 0) + 'px'; t.style.minWidth = '100%'; t.classList.add('col-custom');
@@ -8044,9 +8044,10 @@ function colsEnhance(root){
   if(!state.colPrefs){ colPrefsLoad(); }
   app.querySelectorAll('table').forEach(t=>{
     if(t.classList.contains('tcards') || t.closest(COL_SKIP)) return;
+    if(t.hasAttribute('data-qyl') && qylSelOn(t)) qylCbCells(t);   // (1.42.0) عمود التحديد قبل حساب مفتاح الأعمدة وعرضها
     const hr = t.tHead && t.tHead.rows[0]; if(!hr || hr.cells.length < 3) return;
     const key = colKey(t);
-    if(t.dataset.colKey !== key){ t.dataset.colKey = key; delete t.dataset.colApplied; }
+    if(t.dataset.colKey !== key){ if(t.dataset.colKey && t.classList.contains('col-custom')) colReset(t); t.dataset.colKey = key; delete t.dataset.colApplied; }
     [...hr.cells].forEach((th,i)=>{ if(th.querySelector(':scope > .col-rs')) return; th.classList.add('col-th');
       const h = document.createElement('span'); h.className = 'col-rs'; h.title = 'اسحب لتغيير عرض العمود — نقر مزدوج يوسّعه بقدر نصه';
       h.addEventListener('mousedown', ev=>colDragStart(ev, t, i)); h.addEventListener('dblclick', ev=>{ ev.preventDefault(); ev.stopPropagation(); colFit(t, i); });
