@@ -18153,7 +18153,7 @@ async function cxVoid(id, v){
   await cxLoadLedger(); cxLoadBalances();
 }
 // ---------- نقل حركات إلى مركز آخر (تصحيح القديم دون تعديله: الأصل يُشطب ويُنشأ مطابق في المركز الصحيح) ----------
-function cxLedgerTidy(){ const app = document.getElementById('app'); try{ decorateButtons(); iconActs(); }catch(e){} qylEnhance(app); try{ const t = document.querySelector('table[data-qyl="cxLedger"]'); if(t) delete t.dataset.sortedKey; colsEnhance(app); }catch(e){} cxMvRefresh(); }   // بعد إعادة رسم الصفوف يُعاد الترتيب المختار
+function cxLedgerTidy(){ const app = document.getElementById('app'); try{ decorateButtons(); iconActs(); }catch(e){} qylEnhance(app); try{ colsEnhance(app); const t = document.querySelector('table[data-qyl="cxLedger"]'); if(t && t.dataset.colKey && (state.colSort||{})[t.dataset.colKey]){ colSortApply(t); qylApply(t, true); } }catch(e){} cxMvRefresh(); }   // بعد إعادة رسم الصفوف يُعاد الترتيب المختار
 function cxMovable(x){ return !!x && !x._req && !x.voided && x.center_id && !['opening','transfer'].includes(x.kind); }
 function cxMvCount(){ return Object.keys(state.cx.mvSel||{}).length; }
 // (1.41.3) شريط «المحدد» يُعاد بناؤه من القالب عند البحث أو تغيير الصفحة؛ فيُحدَّث القالب والنسخة الظاهرة معاً، ومربع «الكل» يطابق الصفوف

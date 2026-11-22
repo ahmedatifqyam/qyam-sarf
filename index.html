@@ -3584,6 +3584,15 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .btn.btn-ico-view:hover{border-color:var(--info) !important;color:var(--info) !important;}
   #app .btn.btn-ico-view svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;}
   .tip-body[hidden]{display:none !important;}
+  /* (1.41.3) أزرار «السابق / التالي» أصغر في كل الصفحات، والتنقل وشريط «المحدد» في صف واحد */
+  #app .qyl-nav .qyl-pg{width:78px !important;min-width:78px;max-width:78px;flex:0 0 78px;height:32px !important;min-height:0 !important;font-size:var(--fs-label) !important;}
+  #app .qyl-pager{gap:10px;} #app .qyl-pos{min-width:70px;}
+  @media (min-width:700px){
+    #app .qyl-nav-bulk{flex-wrap:nowrap;gap:12px;}
+    #app .qyl-nav-bulk .qyl-bulk{flex-wrap:nowrap;gap:8px;}
+    #app .qyl-bulk select{height:32px !important;min-height:0 !important;width:190px !important;max-width:190px;padding-block:0 !important;}
+    #app .qyl-bulk .btn{height:32px !important;min-height:0 !important;padding:0 14px !important;font-size:var(--fs-label) !important;width:auto !important;}
+  }
 </style>
 </head>
 <body>
