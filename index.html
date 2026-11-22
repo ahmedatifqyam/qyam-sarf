@@ -3565,6 +3565,31 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .perm-ex > .btn{flex:0 0 auto;width:220px;}
   #app .perm-note{color:var(--text);font-size:var(--fs-hint);line-height:1.7;margin:0 0 14px;}
   @media (max-width:699px){ #app .perm-ex{flex-wrap:wrap;} #app .perm-ex > .btn{width:100%;} }
+  /* (1.41.1) شريط القوائم: حقول أصغر بحجم محتواها، والتاريخ «من – إلى» في صف ثانٍ مرتب؛ «تصدير» بجوار البحث في رأس اللوحة */
+  #app .qyl-bar select.qyl-per{width:140px !important;max-width:140px !important;flex:0 0 140px !important;}
+  #app .qyl-bar select.qyl-kind{width:130px !important;max-width:130px !important;flex:0 0 130px !important;}
+  #app .qyl-bar input.qyl-date{width:150px !important;max-width:150px !important;flex:0 0 150px !important;}
+  #app .qyl-g{flex-wrap:nowrap;}
+  #app .qyl-bar.qyl-bar-rng{flex-wrap:wrap;}
+  #app .qyl-bar .qyl-rng{flex:0 0 100%;}
+  #app .qyl-exphost{display:inline-flex;flex:0 0 auto;}
+  #app .qyl-exphost .qy-exp-btn{height:40px !important;}
+  @media (max-width:699px){ #app .qyl-bar select.qyl-per,#app .qyl-bar select.qyl-kind{flex:1 1 0 !important;width:auto !important;max-width:none !important;}
+    #app .qyl-bar input.qyl-date{flex:1 1 0 !important;width:auto !important;max-width:none !important;} }
+  /* (1.41.1) مربع التحديد في الجداول: نفس الحجم في الرأس والصفوف */
+  #app table th.cx-cb,#app table td.cx-cb{width:40px;min-width:40px;max-width:40px;text-align:center;padding-inline:4px !important;}
+  #app table .cx-cb input[type=checkbox]{width:18px !important;height:18px !important;min-width:18px !important;min-height:0 !important;margin:0 !important;vertical-align:middle;}
+  /* (1.41.1) الترتيب من رأس الجدول */
+  #app table[data-qyl] > thead th:not([data-noexport]):not([data-nosort]){cursor:pointer;user-select:none;}
+  #app table[data-qyl] > thead th:not([data-noexport]):not([data-nosort]):hover{color:var(--info);}
+  #app table[data-qyl] > thead th.qyl-sorted-asc::after{content:' ▲';font-size:.75em;color:var(--info);}
+  #app table[data-qyl] > thead th.qyl-sorted-desc::after{content:' ▼';font-size:.75em;color:var(--info);}
+  /* (1.41.1) زر «فتح الطلب» رمز بحجم زر الحذف */
+  #app .btn.btn-ico-view{border:1.5px solid var(--line) !important;color:var(--ink) !important;background:var(--card) !important;}
+  #app .btn.btn-ico-view:hover{border-color:var(--info) !important;color:var(--info) !important;}
+  #app .btn.btn-ico-view svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;}
+  /* (1.41.1) شرح ⓘ المفتوح يعلو البطاقات التالية ولا يُقصّ */
+  #app :is(.card,details,.cx-panel):has(.tip-body:not([hidden])){position:relative;z-index:61;overflow:visible !important;}
 </style>
 </head>
 <body>

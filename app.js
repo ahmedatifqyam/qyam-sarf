@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.41.0', APP_VERSION_DATE = '2026-11-21';
+const APP_VERSION = '1.41.1', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:351, base:350, extra:1.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -2891,7 +2891,8 @@ const QI = {
   help:'<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01" stroke-width="3"/>',
   menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',
   bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
-  cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" stroke-width="2.4"/>'
+  cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" stroke-width="2.4"/>',
+  eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'
 };
 // رمز من المجموعة إن وُجد باسمه، وإلا يُعرض كما هو (رمز نصي قديم)
 function qiOr(x){ return QI[x] ? qi(x) : escH(x||''); }
@@ -7847,7 +7848,7 @@ function qsPlace(w){ const fl = w.querySelector('.qs-float'), b = w.querySelecto
   fl.style.width = W + 'px'; fl.style.left = (left - wr.left) + 'px'; fl.style.top = (r.bottom - wr.top + 6) + 'px'; }
 function qsOpen(w, on, focus){ const k = w.dataset.k, inp = w.querySelector('input');
   w.classList.toggle('open', on);
-  if(on){ _qsOpen.set(k, Date.now()); qsPlace(w); if(focus && inp) setTimeout(()=>{ inp.focus(); try{ inp.setSelectionRange(inp.value.length, inp.value.length); }catch(_){} }, 0); }
+  if(on){ _qsOpen.set(k, Date.now()); qsPlace(w); if(focus && inp) setTimeout(()=>{ try{ inp.focus({preventScroll:true}); }catch(_){ inp.focus(); } try{ inp.setSelectionRange(inp.value.length, inp.value.length); }catch(_){} }, 0); }
   else _qsOpen.delete(k); }
 function searchIcons(){
   document.querySelectorAll('#app input.qy-search').forEach(inp=>{
@@ -18138,11 +18139,12 @@ async function cxVoid(id, v){
   await cxLoadLedger(); cxLoadBalances();
 }
 // ---------- نقل حركات إلى مركز آخر (تصحيح القديم دون تعديله: الأصل يُشطب ويُنشأ مطابق في المركز الصحيح) ----------
+function cxLedgerTidy(){ try{ decorateButtons(); iconActs(); }catch(e){} qylEnhance(document.getElementById('app')); }
 function cxMovable(x){ return !!x && !x._req && !x.voided && x.center_id && !['opening','transfer'].includes(x.kind); }
 function cxMvCount(){ return Object.keys(state.cx.mvSel||{}).length; }
 function cxMvRefresh(){ const n = cxMvCount(); const el = document.getElementById('cxMvCount'); if(el) el.textContent = n; const b = document.getElementById('cxMvBtn'); if(b) b.disabled = !n; }
 function cxMvToggle(id, on){ state.cx.mvSel = state.cx.mvSel || {}; if(on) state.cx.mvSel[id] = 1; else delete state.cx.mvSel[id]; cxMvRefresh(); }
-function cxMvAll(on){ state.cx.mvSel = {}; if(on) cxLedgerFiltered().filter(cxMovable).forEach(x=>{ state.cx.mvSel[x.id] = 1; }); const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); qylEnhance(document.getElementById('app')); } cxMvRefresh(); }
+function cxMvAll(on){ state.cx.mvSel = {}; if(on) cxLedgerFiltered().filter(cxMovable).forEach(x=>{ state.cx.mvSel[x.id] = 1; }); const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); cxLedgerTidy(); } cxMvRefresh(); }
 function cxMvTarget(v){ state.cx.mvTo = v||''; }
 function cxMvBulkTplHtml(){
   const n = cxMvCount(), cur = state.cx.centerId;
@@ -18172,8 +18174,8 @@ async function cxMvOpen(){
   state.cx.mvSel = {}; showToast(`نُقلت ${r.data||rows.length} حركة إلى «${tc.name||''}»`,'success');
   await cxLoadLedger(); cxLoadBalances();
 }
-function cxShowVoidToggle(v){ state.cx.showVoid = !!v; const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); qylEnhance(document.getElementById('app')); } }
-function cxSearch(v){ state.cx.q = v||''; qylSt('cxLedger').page = 0; const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); qylEnhance(document.getElementById('app')); } }
+function cxShowVoidToggle(v){ state.cx.showVoid = !!v; const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); cxLedgerTidy(); } }
+function cxSearch(v){ state.cx.q = v||''; qylSt('cxLedger').page = 0; const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); cxLedgerTidy(); } }
 
 function cxLedgerFiltered(){
   const q = String(state.cx.q||'').trim().toLowerCase();
@@ -18203,7 +18205,7 @@ function cxLedgerRowsHtml(){
       <td data-label="الرسوم" class="num">${x.gateway_fee==null ? '—' : fmtKWDHtml(x.gateway_fee)}</td>
       <td data-label="حصة الشركة" class="num">${x.company_share==null ? '—' : fmtKWDHtml(x.company_share)}</td>
       <td data-label="الصافي" class="num cx-strong" ${Number(x.net)<0?'style="color:var(--red)"':''}>${x.net==null ? '—' : fmtKWDHtml(x.net)}</td>
-      ${act ? `<td class="cx-act">${x._req ? `<button class="btn btn-ghost btn-xs" data-on-click="openRequest" data-on-click-args="${qa([x.reqId])}">الطلب</button>` : !(x.kind==='transfer' ? canTr : fin) ? '' : x.voided
+      ${act ? `<td class="cx-act">${x._req ? `<button class="btn btn-ghost btn-ico btn-ico-view" title="فتح طلب الصرف" aria-label="فتح طلب الصرف" data-no-ico data-on-click="openRequest" data-on-click-args="${qa([x.reqId])}">${qi('eye')}</button>` : !(x.kind==='transfer' ? canTr : fin) ? '' : x.voided
         ? (mvOut ? `<button class="btn btn-ghost btn-xs" disabled title="الحركة منقولة؛ للتراجع انقل الحركة الجديدة من المركز الآخر إلى هنا">استرجاع</button>` : `<button class="btn btn-ghost btn-xs" data-on-click="cxVoid" data-on-click-args="${qa([x.id, false])}">استرجاع</button>`)
         : `<button class="btn btn-reject btn-xs" data-on-click="cxVoid" data-on-click-args="${qa([x.id, true])}">حذف</button>`}</td>` : ''}</tr>`;
   }).join('');
@@ -20959,11 +20961,44 @@ function qylInPeriod(el, items, s){
   if(el.hasAttribute('data-qyl-kinds') && s.kind && s.kind!=='all') inP = inP.filter(i=>i.getAttribute('data-kind')===s.kind);   // فلتر «النوع» العام
   return {hasDate, rg, inP};
 }
+// (1.41.1) ترتيب الجدول بالضغط على رأس العمود: تصاعدي ← تنازلي ← الترتيب الأصلي. موحّد في كل جداول القوائم
+function qylSortKey(td){
+  let t = td ? td.textContent.replace(/\s+/g,' ').trim() : '';
+  const m = t.match(/^(\d{2})-(\d{2})-(\d{4})/); if(m) t = `${m[3]}-${m[2]}-${m[1]}`;
+  const isNum = /^\(?-?[\d٠-٩][\d٠-٩,.\s]*\)?$/.test(t);
+  return {t, n: isNum ? qylNum(t) : null};
+}
+function qylSortRows(el, s, items){
+  if(el.tagName!=='TABLE' || el.tBodies.length!==1) return items;
+  items.forEach((r,i)=>{ if(r._qylOrd==null) r._qylOrd = (window._qylOrdSeq = (window._qylOrdSeq||0) + 1); });
+  const head = el.tHead && el.tHead.rows[0]; if(!head) return items;
+  [...head.cells].forEach((c,i)=>{ c.classList.toggle('qyl-sorted-asc', s.sortI===i && s.sortDir>0); c.classList.toggle('qyl-sorted-desc', s.sortI===i && s.sortDir<0); });
+  if(s.sortI==null && !s._sorted) return items;
+  let arr;
+  if(s.sortI==null){ arr = items.slice().sort((a,b)=>a._qylOrd-b._qylOrd); s._sorted = false; }
+  else {
+    const keyed = items.map(r=>[r, qylSortKey(r.cells[s.sortI])]);
+    const num = keyed.every(([,k])=>k.n!==null || k.t==='' || k.t==='—');
+    keyed.sort((a,b)=>{ const x = a[1], y = b[1];
+      const d = num ? (x.n??-Infinity) - (y.n??-Infinity) : x.t.localeCompare(y.t, 'ar', {numeric:true});
+      return (d || (a[0]._qylOrd - b[0]._qylOrd)) * (d ? s.sortDir : 1); });
+    arr = keyed.map(x=>x[0]); s._sorted = true;
+  }
+  const tb = el.tBodies[0]; arr.forEach(r=>tb.appendChild(r));
+  return arr;
+}
+document.addEventListener('click', e=>{
+  const th = e.target.closest && e.target.closest('table[data-qyl] > thead th'); if(!th) return;
+  if(th.hasAttribute('data-noexport') || th.hasAttribute('data-nosort') || e.target.closest('input,button,select,a,label')) return;
+  const el = th.closest('table'), key = el.getAttribute('data-qyl'), s = qylSt(key), i = th.cellIndex;
+  if(s.sortI===i){ if(s.sortDir>0) s.sortDir = -1; else { s.sortI = null; s.sortDir = 1; } } else { s.sortI = i; s.sortDir = 1; }
+  s.page = 0; qylEls(key).forEach(t=>qylApply(t, true));
+});
 function qylEnhance(root){ (root||document).querySelectorAll('[data-qyl]').forEach(el=>{ try{ qylApply(el); }catch(e){ console.error('qyl', e); } }); }
 // لا يُعاد بناء الشريط والتذييل إلا إذا تغيّر ما يخصهما فعلاً؛ وإلا تبقى العناصر نفسها (فلا يهتز زر تحت الفأرة ولا يُغلق تقويم مفتوح)
 function qylApply(el, force){
   const key = el.getAttribute('data-qyl'), s = qylSt(key);
-  const items = qylItems(el), isTbl = el.tagName==='TABLE';
+  const isTbl = el.tagName==='TABLE', items = qylSortRows(el, s, qylItems(el));
   const {hasDate, rg, inP} = qylInPeriod(el, items, s);
   const n = inP.length, pages = Math.max(1, Math.ceil(n/s.size));
   if(s.page>=pages) s.page = pages-1; if(s.page<0) s.page = 0;
@@ -20971,7 +21006,10 @@ function qylApply(el, force){
   const showSet = new Set(shown);
   items.forEach(i=>{ const v = showSet.has(i) ? '' : 'none'; if(i.style.display!==v) i.style.display = v; });
   const anchor = qylAnchor(el), par = anchor.parentElement; if(!par) return;
-  const canExp = isTbl || el.hasAttribute('data-qyl-cols');
+  const canExp0 = isTbl || el.hasAttribute('data-qyl-cols');
+  const card = el.closest('.card'), host = canExp0 && card ? card.querySelector(':scope > .cx-panel-h .cx-ph-tools, :scope > .cx-panel-h') && card.querySelector('.cx-ph-tools') : null;
+  if(host && !host.querySelector(`[data-qyl-exphost="${key}"]`)){ const w = document.createElement('span'); w.className = 'qyl-exphost'; w.setAttribute('data-qyl-exphost', key); w.innerHTML = qyExportBtn('qyl:'+key); host.prepend(w); }
+  const canExp = canExp0 && !host;
   const big = items.length > QYL_SIZES[0];
   const idOf = i => i ? (i._qylId || (i._qylId = (window._qylSeq = (window._qylSeq||0) + 1))) : 0;   // بصمة الصفوف: صفوف جديدة = إعادة بناء المجاميع
   const sig = [s.per, s.from, s.to, s.size, s.page, s.kind||'', items.length, n, hasDate, canExp, big, idOf(items[0]), idOf(items[items.length-1]), idOf(inP[0])].join('|');
@@ -20979,16 +21017,17 @@ function qylApply(el, force){
   if(!force && el._qylSig===sig && (oldBar || !(hasDate||big)) && oldFoot) return;
   el._qylSig = sig;
   if(oldBar) oldBar.remove(); if(oldFoot) oldFoot.remove();
-  if(!hasDate && !big && !canExp) return;
+  if(!hasDate && !big && !canExp0) return;
   let kinds = []; try{ kinds = JSON.parse(el.getAttribute('data-qyl-kinds')||'[]'); }catch(e){}
   const hasBar = hasDate || big || kinds.length > 0;   // «تصدير» لا يأخذ سطراً وحده: بلا فترة ولا عدد ينتقل إلى سطر الإجمالي
   // شريط الأدوات: الفترة · العرض · تصدير
   const per = s.per;
-  const pick = per==='range' ? `<input type="date" class="qyl-in qyl-date" value="${s.from||''}" title="من تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'from',QA.v])}"><span class="qyl-sep">إلى</span><input type="date" class="qyl-in qyl-date" value="${s.to||''}" title="إلى تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'to',QA.v])}">` : '';
-  const bar = document.createElement('div'); bar.className = 'qyl-bar no-print'; bar.setAttribute('data-qyl-bar', key);
-  bar.innerHTML = `${hasDate ? `<div class="qyl-g"><span class="qyl-l">الفترة</span><select class="qyl-in qyl-per" data-on-change="qylSet" data-on-change-args="${qa([key,'per',QA.v])}">${QYL_PER.map(p=>`<option value="${p[0]}" ${p[0]===per?'selected':''}>${p[1]}</option>`).join('')}</select>${pick}</div>` : ''}
+  const pick = per==='range' ? `<div class="qyl-g qyl-rng"><span class="qyl-l">من</span><input type="date" class="qyl-in qyl-date" value="${s.from||''}" title="من تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'from',QA.v])}"><span class="qyl-l">إلى</span><input type="date" class="qyl-in qyl-date" value="${s.to||''}" title="إلى تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'to',QA.v])}"></div>` : '';
+  const bar = document.createElement('div'); bar.className = 'qyl-bar no-print' + (pick ? ' qyl-bar-rng' : ''); bar.setAttribute('data-qyl-bar', key);
+  bar.innerHTML = `${hasDate ? `<div class="qyl-g"><span class="qyl-l">الفترة</span><select class="qyl-in qyl-per" data-on-change="qylSet" data-on-change-args="${qa([key,'per',QA.v])}">${QYL_PER.map(p=>`<option value="${p[0]}" ${p[0]===per?'selected':''}>${p[1]}</option>`).join('')}</select></div>` : ''}
     ${big ? `<div class="qyl-g"><span class="qyl-l">العرض</span><select class="qyl-in qyl-size" data-on-change="qylSet" data-on-change-args="${qa([key,'size',QA.v])}">${QYL_SIZES.map(z=>`<option value="${z}" ${z===s.size?'selected':''}>${z}</option>`).join('')}</select></div>` : ''}
     ${kinds.length ? `<div class="qyl-g"><span class="qyl-l">النوع</span><select class="qyl-in qyl-kind" data-on-change="qylSet" data-on-change-args="${qa([key,'kind',QA.v])}"><option value="all">الكل</option>${kinds.map(([v,l])=>`<option value="${escH(v)}" ${s.kind===v?'selected':''}>${escH(l)}</option>`).join('')}</select></div>` : ''}
+    ${pick}
     ${canExp ? `<div class="qyl-g qyl-exp">${qyExportBtn('qyl:'+key)}</div>` : ''}`;
   if(hasBar) par.insertBefore(bar, anchor);
   // التذييل: التنقل + مجموع المعروض + إجمالي الفترة
