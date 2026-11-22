@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.48.3', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.49.0', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.5, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:353, base:350, extra:2.9, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -3985,25 +3985,54 @@ function renderNewRequestChoice(app){
   </div>`;
 }
 
+// (1.49.0) النسخ من طلب سابق: صفحة واحدة بتبويبين (المتكررة / كل السابقة)، جدول موحّد وفلاتر.
+//   الموظف يرى طلباته المصروفة فقط؛ المحاسب والمدير المالي ومدير النظام يرون كل طلبات الشركة المصروفة.
+function reqPaidIso(r){
+  const pe = (r.history||[]).slice().reverse().find(h=>h.action==='تم الصرف');
+  const m = pe && toWesternDigits(String(pe.time||'')).match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  return m ? m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0') : String(r.dateGreg||'').slice(0,10);
+}
+function dupBase(){
+  const fin = isFinanceUser();
+  return state.requests.filter(r=>r.status==='completed' && !r.isCancelled && r.requestType!=='custody' && r.companyId===state.currentCompanyId && (fin || r.createdById===state.user.id));
+}
+function dupSet(k, v){ const f = state.dupF = state.dupF || {}; f[k] = v; render();
+  if(k==='q'){ const el = document.querySelector('#app .dup-search'); if(el){ el.focus(); el.setSelectionRange(String(v).length, String(v).length); } } }
+function dupTab(m){ state.duplicateListMode = m; render(); }
 function renderDuplicateList(app){
-  const mode = state.duplicateListMode;
-  let list = state.requests.filter(r=>r.status==='completed' && r.createdById===state.user.id && r.requestType!=='custody');
-  if(mode==='recurring') list = list.filter(r=>r.isRecurring);
-  list = list.slice().reverse();
-
+  const mode = state.duplicateListMode==='recurring' ? 'recurring' : 'all';
+  const f = state.dupF = state.dupF || {q:'', type:'', item:''};
+  const base = dupBase(), rec = base.filter(r=>r.isRecurring), fin = isFinanceUser();
+  let list = mode==='recurring' ? rec : base;
+  if(f.type) list = list.filter(r=>nrTypeOfReq(r)===f.type);
+  if(f.item) list = list.filter(r=>(r.budgetItemId||'')===f.item);
+  if(f.q) list = list.filter(r=>arHas([r.number, r.reason, r.createdBy].concat((r.beneficiaries||[]).map(b=>b.name)), f.q));
+  list = list.slice().sort((a,b)=>reqPaidIso(b).localeCompare(reqPaidIso(a)));
+  const items = [...new Set((mode==='recurring' ? rec : base).map(r=>r.budgetItemId).filter(Boolean))].map(id=>(state.budgetItems||[]).find(b=>b.id===id)).filter(Boolean).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+  const types = [...new Set(base.map(nrTypeOfReq))];
+  const tab = (m, label, n, ico) => fbtn('', label, n, mode===m, [["dupTab",[m]]], false, ico);
+  const benTxt = r => { const n = (r.beneficiaries||[]).map(b=>b.name).filter(Boolean); return n.length ? escH(n.slice(0,2).join('، ')) + (n.length>2 ? ` <small class="dup-more">+${n.length-2}</small>` : '') : '—'; };
+  const rows = list.map(r=>{ const t = nrTypeOfReq(r), it = (state.budgetItems||[]).find(b=>b.id===r.budgetItemId), pd = reqPaidIso(r);
+    return `<tr data-date="${escH(pd)}">
+      <td data-label="رقم الطلب" class="dup-no"><bdi>${escH(r.number||'—')}</bdi><div class="dup-sub">صُرف ${pd ? dmyStr(pd) : '—'}</div></td>
+      <td data-label="الموضوع" class="dup-subj"><b>${escH(r.reason||'')}</b>${r.isRecurring ? ' <span class="dup-tag dup-rec">متكرر</span>' : ''}${t!=='normal' ? ` <span class="dup-tag">${escH(NR_TYPES[t].t.replace('طلب ',''))}</span>` : ''}<div class="dup-sub">${benTxt(r)}${fin && r.createdById!==state.user.id ? ' · أنشأه ' + escH(r.createdBy||'') : ''}</div></td>
+      <td data-label="البند"${it ? '' : ' class="dup-noitem"'}>${escH(it ? it.name : '—')}</td>
+      <td data-label="المبلغ" class="num dup-amt">${fmtKWDHtml(r.totalAmount)}</td>
+      <td class="dup-acts"><div class="dup-acts-w"><button type="button" class="btn btn-primary btn-sm" data-on-click="duplicateFromRequest" data-on-click-args="${qa([''+r.id])}" title="يفتح طلباً جديداً بنفس بياناته لتراجعها قبل الإرسال">نسخ</button><button type="button" class="btn btn-ghost btn-sm dup-view" data-on-click="openRequest" data-on-click-args="${qa([''+r.id])}" title="عرض الطلب الأصلي" aria-label="عرض الطلب الأصلي">${qi('eye')}</button></div></td>
+    </tr>`; }).join('');
   app.innerHTML = `
-    <h1>${mode==='recurring' ? 'الطلبات المتكررة' : 'كل الطلبات المصروفة'}</h1>
-    <p class="sub">اختر طلباً لتعبئة نموذج جديد بنفس بياناته</p>
-    ${list.length===0 ? `<div class="empty">لا توجد طلبات ${mode==='recurring' ? 'متكررة معلّمة' : 'مصروفة'} بعد</div>` : list.map(r=>`
-      <div class="list-item" data-on-click="duplicateFromRequest" data-on-click-args="${qa([(''+(r.id))])}">
-        <div class="li-main">
-          <b>${escH(r.reason)} — ${escH(r.number)}</b>
-          <span>${escH(r.beneficiaries.map(b=>b.name).join('، '))} · ${fmtKWDHtml(r.totalAmount)} د.ك</span>
-        </div>
-        ${r.isRecurring ? `<span class="badge badge-approved">متكرر</span>` : ''}
+    <h1>نسخ من طلب سابق</h1>
+    <p class="sub">اختر طلباً مصروفاً واضغط «نسخ» ليُفتح طلب جديد بنفس بياناته، فتراجعه وتعدّله قبل الإرسال. ورمز العين يفتح الطلب الأصلي.${fin ? ' تظهر لك كل طلبات الشركة المصروفة.' : ' تظهر طلباتك المصروفة فقط.'}</p>
+    <div class="fbar dup-tabs">${tab('recurring','المتكررة', rec.length, 'repeat')}${tab('all','كل الطلبات السابقة', base.length, 'all')}</div>
+    <div class="card cx-panel">
+      <div class="pj-tools dup-tools">
+        <select data-on-change="dupSet" data-on-change-args="${qa(['type', QA.v])}" title="نوع الطلب"><option value="">كل الأنواع</option>${types.map(t=>`<option value="${t}" ${f.type===t?'selected':''}>${escH(NR_TYPES[t].t)}</option>`).join('')}</select>
+        <select data-on-change="dupSet" data-on-change-args="${qa(['item', QA.v])}" title="بند الميزانية"><option value="">كل البنود</option>${items.map(b=>`<option value="${escH(b.id)}" ${f.item===b.id?'selected':''}>${escH(b.name)}</option>`).join('')}</select>
+        <input type="search" class="qy-search dup-search" placeholder="بحث: الموضوع أو الرقم أو المستفيد" value="${escH(f.q||'')}" data-on-input="dupSet" data-on-input-args="${qa(['q', QA.v])}">
       </div>
-    `).join('')}
-  `;
+      ${list.length ? `<div style="overflow-x:auto;"><table class="exec-table dup-tbl tcards" data-qyl-nosel data-qyl="dupList_${mode}" data-qyl-title="${mode==='recurring' ? 'الطلبات المتكررة' : 'الطلبات السابقة'}"><thead><tr><th>رقم الطلب</th><th>الموضوع والمستفيدون</th><th>البند</th><th class="num" data-sum>المبلغ</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : `<div class="ct-empty">${(mode==='recurring' ? rec : base).length ? 'لا نتائج بهذا الفلتر.' : mode==='recurring' ? 'لا طلبات معلّمة «متكرر» بعد. علّم الطلب «يتكرر» عند إنشائه ليظهر هنا.' : 'لا طلبات مصروفة بعد.'}</div>`}
+    </div>`;
 }
 
 function editRequest(id){
