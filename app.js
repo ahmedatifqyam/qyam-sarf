@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.42.0', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.42.1', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:351, base:350, extra:1.2, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:351, base:350, extra:1.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -614,6 +614,7 @@ function mapRequestRow(r){
     verifyCode: r.verify_code||'', isCancelled: !!r.is_cancelled, cancelledAt: r.cancelled_at, cancelledById: r.cancelled_by_id, cancelReason: r.cancel_reason,
     bankTransferRef: r.bank_transfer_ref||'', bankTransferAt: r.bank_transfer_at, fastTracked: !!r.fast_tracked, limitExceeded: !!r.limit_exceeded,
     budgetItemId: r.budget_item_id||null,
+    archiveOnly: !!r.archive_only,   // طلب أرشيفي قبل الرصيد الافتتاحي للمركز: لا يُخصم من رصيده ولا يظهر في كشفه
     requestType: r.request_type||'normal',
     beneficiaries:(r.request_beneficiaries||[]).slice().sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0)).map(b=>({
       name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', statement:b.statement||'', notes:b.notes||'',
@@ -17349,7 +17350,7 @@ function cxCatOf(x){ if(x._req) return 'expense'; if(x.source==='import') return
 // مصروفات الوحدات من الطلبات المكتملة (كما في qy_center_balances) — صفوف للعرض والتصدير فقط
 function cxReqDate(r){ const h = (r.history||[]).filter(x=>x.createdAt); return String((h.length ? h[h.length-1].createdAt : r.createdAtRaw) || '').slice(0,10); }
 function cxExpenseRows(ids){ const set = new Set(ids);
-  return (state.requests||[]).filter(r=>set.has(r.centerId) && r.status==='completed' && !r.isCancelled && (r.amountRoute||'normal')==='normal')
+  return (state.requests||[]).filter(r=>set.has(r.centerId) && r.status==='completed' && !r.isCancelled && !r.archiveOnly && (r.amountRoute||'normal')==='normal')
     .map(r=>({_req:true, id:'r'+r.id, reqId:r.id, center_id:r.centerId, entry_date:cxReqDate(r), kind:'expense', purpose:'طلب ' + (r.number||'') + ' — ' + (r.reason||''), gross:-Number(r.totalAmount||0), gateway_fee:null, company_share:null, net:-Number(r.totalAmount||0), voided:false})); }
 const CX_LEDGER_KIND = {expense:'مصروف (طلب مكتمل)', opening:'رصيد افتتاحي', subscription:'اشتراكات', support:'دعم', manual:'إيراد يدوي', adjust:'تسوية', transfer:'ترحيل'};
 const CX_CLIENT_KIND = [['association','جمعية'],['branch','فرع'],['committee','لجنة'],['company','شركة'],['individual','فرد'],['other','أخرى']];
