@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.41.2', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.41.3', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:351, base:350, extra:1.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -18153,7 +18153,7 @@ async function cxVoid(id, v){
   await cxLoadLedger(); cxLoadBalances();
 }
 // ---------- نقل حركات إلى مركز آخر (تصحيح القديم دون تعديله: الأصل يُشطب ويُنشأ مطابق في المركز الصحيح) ----------
-function cxLedgerTidy(){ try{ decorateButtons(); iconActs(); }catch(e){} qylEnhance(document.getElementById('app')); }
+function cxLedgerTidy(){ const app = document.getElementById('app'); try{ decorateButtons(); iconActs(); }catch(e){} qylEnhance(app); try{ colsEnhance(app); }catch(e){} }
 function cxMovable(x){ return !!x && !x._req && !x.voided && x.center_id && !['opening','transfer'].includes(x.kind); }
 function cxMvCount(){ return Object.keys(state.cx.mvSel||{}).length; }
 function cxMvRefresh(){ const n = cxMvCount(); const el = document.getElementById('cxMvCount'); if(el) el.textContent = n; const b = document.getElementById('cxMvBtn'); if(b) b.disabled = !n; }
@@ -20975,44 +20975,11 @@ function qylInPeriod(el, items, s){
   if(el.hasAttribute('data-qyl-kinds') && s.kind && s.kind!=='all') inP = inP.filter(i=>i.getAttribute('data-kind')===s.kind);   // فلتر «النوع» العام
   return {hasDate, rg, inP};
 }
-// (1.41.1) ترتيب الجدول بالضغط على رأس العمود: تصاعدي ← تنازلي ← الترتيب الأصلي. موحّد في كل جداول القوائم
-function qylSortKey(td){
-  let t = td ? td.textContent.replace(/\s+/g,' ').trim() : '';
-  const m = t.match(/^(\d{2})-(\d{2})-(\d{4})/); if(m) t = `${m[3]}-${m[2]}-${m[1]}`;
-  const isNum = /^\(?-?[\d٠-٩][\d٠-٩,.\s]*\)?$/.test(t);
-  return {t, n: isNum ? qylNum(t) : null};
-}
-function qylSortRows(el, s, items){
-  if(el.tagName!=='TABLE' || el.tBodies.length!==1) return items;
-  items.forEach((r,i)=>{ if(r._qylOrd==null) r._qylOrd = (window._qylOrdSeq = (window._qylOrdSeq||0) + 1); });
-  const head = el.tHead && el.tHead.rows[0]; if(!head) return items;
-  [...head.cells].forEach((c,i)=>{ c.classList.toggle('qyl-sorted-asc', s.sortI===i && s.sortDir>0); c.classList.toggle('qyl-sorted-desc', s.sortI===i && s.sortDir<0); });
-  if(s.sortI==null && !s._sorted) return items;
-  let arr;
-  if(s.sortI==null){ arr = items.slice().sort((a,b)=>a._qylOrd-b._qylOrd); s._sorted = false; }
-  else {
-    const keyed = items.map(r=>[r, qylSortKey(r.cells[s.sortI])]);
-    const num = keyed.every(([,k])=>k.n!==null || k.t==='' || k.t==='—');
-    keyed.sort((a,b)=>{ const x = a[1], y = b[1];
-      const d = num ? (x.n??-Infinity) - (y.n??-Infinity) : x.t.localeCompare(y.t, 'ar', {numeric:true});
-      return (d || (a[0]._qylOrd - b[0]._qylOrd)) * (d ? s.sortDir : 1); });
-    arr = keyed.map(x=>x[0]); s._sorted = true;
-  }
-  const tb = el.tBodies[0]; arr.forEach(r=>tb.appendChild(r));
-  return arr;
-}
-document.addEventListener('click', e=>{
-  const th = e.target.closest && e.target.closest('table[data-qyl] > thead th'); if(!th) return;
-  if(th.hasAttribute('data-noexport') || th.hasAttribute('data-nosort') || e.target.closest('input,button,select,a,label')) return;
-  const el = th.closest('table'), key = el.getAttribute('data-qyl'), s = qylSt(key), i = th.cellIndex;
-  if(s.sortI===i){ if(s.sortDir>0) s.sortDir = -1; else { s.sortI = null; s.sortDir = 1; } } else { s.sortI = i; s.sortDir = 1; }
-  s.page = 0; qylEls(key).forEach(t=>qylApply(t, true));
-});
 function qylEnhance(root){ (root||document).querySelectorAll('[data-qyl]').forEach(el=>{ try{ qylApply(el); }catch(e){ console.error('qyl', e); } }); }
 // لا يُعاد بناء الشريط والتذييل إلا إذا تغيّر ما يخصهما فعلاً؛ وإلا تبقى العناصر نفسها (فلا يهتز زر تحت الفأرة ولا يُغلق تقويم مفتوح)
 function qylApply(el, force){
   const key = el.getAttribute('data-qyl'), s = qylSt(key);
-  const isTbl = el.tagName==='TABLE', items = qylSortRows(el, s, qylItems(el));
+  const isTbl = el.tagName==='TABLE', items = qylItems(el);
   const {hasDate, rg, inP} = qylInPeriod(el, items, s);
   const n = inP.length, pages = Math.max(1, Math.ceil(n/s.size));
   if(s.page>=pages) s.page = pages-1; if(s.page<0) s.page = 0;
