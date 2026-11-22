@@ -3630,6 +3630,20 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .qy-drop.drop-over::after{content:'أفلت الملف هنا';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(239,246,255,.95);color:#1d4ed8;font-weight:800;font-size:var(--fs-label);border-radius:8px;pointer-events:none;z-index:2;}
   #app .pj-lock{background:#f8fafc;border:1px solid var(--border);border-right:4px solid #64748b;border-radius:8px;padding:10px 12px;color:var(--text);font-size:var(--fs-hint);margin-bottom:10px;}
   #app .pj-creq-h .pj-creq-ed{margin-inline-start:auto;}
+  /* (1.48.0) شكل الملفات الموحّد: المرفوع أخضر مع ✓، والناقص متقطع مع رمز رفع (البرتقالي = مطلوب) */
+  #app .btn.file-has{border-color:#86efac;background:#f0fdf4;color:#166534;}
+  #app .btn.file-has::before{content:'✓';font-weight:800;margin-inline-end:6px;}
+  #app .btn.file-has:hover{background:#dcfce7;}
+  #app .btn.file-add{border:1.5px dashed #94a3b8;background:transparent;color:var(--text);gap:6px;}
+  #app .btn.file-add.file-need{border-color:#f59e0b;background:#fffbeb;color:#b45309;}
+  #app .btn.file-add .file-up-i{flex:0 0 auto;}
+  /* (1.48.0) أدوات المشاريع بأربعة فلاتر: في الشاشات المتوسطة الفلاتر في صف، و🔍 والزران في صف تحته */
+  @media (min-width:700px) and (max-width:1180px){
+    #app .pj-tools{flex-wrap:wrap !important;}
+    #app .pj-tools select{flex:1 1 calc(25% - 6px) !important;}
+    #app .pj-tools > .btn{flex:1 1 0 !important;width:auto !important;}
+  }
+  #app .pj-acts-w .btn.file-add, #app .pj-next .btn.file-add{width:auto !important;min-width:150px;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -3650,6 +3664,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=dfc4b07865"></script>
+<script src="app.js?v=3ca2dab731"></script>
 </body>
 </html>

@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.47.0', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.48.0', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.1, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -6201,7 +6201,7 @@ function attButtonHtml(i, b){
   const pend = (b._pend||[]).length;
   const n = saved + pend;
   if(!state.attCounts && !state._attCountsBusy) setTimeout(attLoadCounts, 0);
-  return `<button type="button" class="btn btn-ghost btn-sm" data-on-click="openAttachmentsModal" data-on-click-args="${qa(["draft", (i)])}">📎 مرفقات${n ? ' (' + n + ')' : ''}</button>
+  return `${n ? `<button type="button" class="btn btn-ghost btn-sm file-has" data-on-click="openAttachmentsModal" data-on-click-args="${qa(["draft", (i)])}" title="مرفوع ${n} — اضغط للعرض أو الإضافة">مرفقات (${n})</button>` : fileAddBtn('إضافة مرفقات', 'openAttachmentsModal', ["draft", i], false)}
     ${pend ? `<span class="file-hint" style="margin-right:8px;">${pend} ملف بانتظار الرفع عند الإرسال</span>` : ''}`;
 }
 function renderAttachmentsModal(){
@@ -9125,7 +9125,7 @@ function renderAccount(app){
         <div>
           <label>المرفقات (بطاقة مدنية، حساب بنكي، وغيرها)</label>
           ${(()=>{ const mm = state.beneficiaries.find(x=>x.name===me.name && x.id); return mm
-            ? `<button type="button" class="btn btn-ghost btn-sm" data-on-click="openAttachmentsModal" data-on-click-args="${qa(["master", null, qs(me.name)])}">📎 مرفقات${((state.attCounts||{})[mm.id]||0) ? ' ('+state.attCounts[mm.id]+')' : ''}</button>
+            ? (((state.attCounts||{})[mm.id]||0) ? `<button type="button" class="btn btn-ghost btn-sm file-has" data-on-click="openAttachmentsModal" data-on-click-args="${qa(["master", null, qs(me.name)])}">مرفقات (${state.attCounts[mm.id]})</button>` : fileAddBtn('إضافة مرفقات', 'openAttachmentsModal', ["master", null, qs(me.name)], false)) + `
                <div class="file-hint" style="margin-top:6px;">صور أو PDF — تُحفظ في مجلد خاص وتظهر عند اختيارك مستفيداً في أي طلب.</div>`
             : `<div class="file-hint">لتفعيل المرفقات: املأ الاسم بالإنجليزية والآيبان ثم اضغط «حفظ»، وبعدها يظهر زر المرفقات هنا ويظهر اسمك في قائمة المستفيدين.</div>`; })()}
         </div>
@@ -19032,7 +19032,7 @@ function cxStop(){ /* يمنع فتح/طي الخدمة عند الضغط على
 // المسار: وثيقة (عرض سعر / نموذج خدمة / مقترح خدمة) تُرفع PDF ← اعتماد العميل يفتح المشروع وبنده ← فواتير بصورتين ← تحصيل يُسجَّل إيراداً على البند ← تقرير ← إغلاق.
 // الوثيقة تُرفع جاهزة الآن؛ وحقلا lines/sections في الجدول محجوزان لبنائها من داخل النظام لاحقاً.
 state.prj = {docs:[], projects:[], invoices:[], collections:[], settlements:[], creqs:[], contracts:[], prices:[], loaded:false, cid:null, _loading:false,
-  f:{st:'all', q:'', client:''}, openId:null, docForm:null, approve:null, invForm:null, colForm:null, rcpFor:null, editSet:false,
+  f:{st:'all', q:'', client:'', miss:'', year:''}, openId:null, docForm:null, approve:null, invForm:null, colForm:null, rcpFor:null, editSet:false,
   cf:{q:'', client:''}, contractId:null, cForm:null, pickOpen:false, pickSel:{}};
 const PRJ_DOC_TYPES = [['quote','عرض سعر'],['service_form','نموذج خدمة'],['proposal','مقترح خدمة']];
 const PRJ_DOC_ST = {sent:'بانتظار رد العميل', approved:'اعتمده العميل', rejected:'رفضه العميل', cancelled:'ملغاة'};
@@ -19105,7 +19105,11 @@ async function prjOpenFile(path, name){
     const a = document.createElement('a'); a.href = sg.data.signedUrl; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
   }catch(e){ showToast('تعذّر فتح الملف: ' + e.message, 'error'); }
 }
-function prjFileBtn(path, name, label){ return path ? `<button class="btn btn-ghost btn-sm pj-file" data-on-click="prjOpenFile" data-on-click-args="${qa([path, name||''])}" title="${escH(name||'')}">${escH(label||'عرض الملف')}</button>` : ''; }
+// (1.48.0) شكل موحّد للملفات في كل النظام: المرفوع = إطار أخضر و✓ (يفتح الملف)، والناقص = إطار متقطع ورمز رفع
+function prjFileBtn(path, name, label){ return path ? `<button class="btn btn-ghost btn-sm pj-file file-has" data-on-click="prjOpenFile" data-on-click-args="${qa([path, name||''])}" title="${escH(name ? 'مرفوع: ' + name : 'مرفوع — اضغط لفتحه')}">${escH(label||'عرض الملف')}</button>` : ''; }
+const FILE_UP_SVG = '<svg class="file-up-i" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 16V4m0 0l-5 5m5-5l5 5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// زر رفع ملف ناقص: need = مطلوب ولم يُرفع (برتقالي)، وإلا اختياري (رمادي)
+function fileAddBtn(label, fn, args, need, extraCls){ return `<button type="button" class="btn btn-ghost btn-sm file-add${need ? ' file-need' : ''}${extraCls ? ' ' + extraCls : ''}" data-on-click="${fn}" data-on-click-args="${qa(args||[])}" title="${need ? 'لم يُرفع بعد — اضغط للرفع' : 'لا ملف — اضغط للإضافة'}">${FILE_UP_SVG}${escH(label)}</button>`; }
 
 // ---------- حسابات المشروع ----------
 function prjOfDoc(docId){ return state.prj.projects.find(p=>p.document_id===docId) || null; }
@@ -19285,9 +19289,25 @@ function prjRows(){
     if(f.st==='all' && ['rejected','cancelled'].includes(s)) return false;
     const cl = r.p ? r.p.client_id : r.d.client_id;
     if(f.client && cl!==f.client) return false;
+    if(f.year && prjYearOf(r)!==f.year) return false;
+    if(f.miss && !prjMissOk(r, f.miss)) return false;
     if(q && !arHas([r.p && r.p.name, r.d && r.d.title, r.d && r.d.doc_no, prjClientName(cl)], q)) return false;
     return true;
   }).sort((a,b)=> String((b.p||b.d).created_at).localeCompare(String((a.p||a.d).created_at)));
+}
+// (1.48.0) فلاتر إضافية: السنة (من تاريخ الوثيقة أو بداية المشروع) والنواقص
+function prjRowsAllYears(){ return state.prj.projects.map(p=>({p, d:prjDocOf(p)})).concat(state.prj.docs.filter(d=>!prjOfDoc(d.id)).map(d=>({p:null, d}))).map(prjYearOf).filter(y=>/^\d{4}$/.test(y)); }
+function prjYearOf(r){ return String((r.d && r.d.doc_date) || (r.p && r.p.start_date) || (r.p||r.d).created_at || '').slice(0,4); }
+const PRJ_MISS = [['receipt','ينقصه علم وصول'],['signed','ينقصه النسخة الموقّعة'],['exec','لم يُحدَّد المنفذ'],['report','ينقصه التقرير الختامي'],['transfer','بانتظار التحويل للمركز']];
+function prjMissOk(r, k){
+  const p = r.p, d = r.d;
+  if(k==='signed') return !!(d && d.status==='approved' && !d.signed_path);
+  if(!p || p.status!=='active') return false;
+  if(k==='receipt') return prjMissingReceipts(p).length > 0;
+  if(k==='exec') return !p.exec_by;
+  if(k==='report') return !p.report_path;
+  if(k==='transfer') return prjToTransfer(p) > 0;
+  return true;
 }
 function prjFilter(k, v){ state.prj.f[k] = v; render(); if(k==='q'){ const el = document.querySelector('#app .pj-search'); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } } }
 function prjStep(n, title, body, cls, icon){ return `<div class="pj-step ${cls||''}"><div class="pj-step-h"><span class="pj-step-n">${n}</span><span class="pj-step-t">${title}</span>${icon||''}</div><div class="pj-step-b">${body}</div></div>`; }
@@ -19403,6 +19423,8 @@ function renderProjects(app){
       <div class="pj-tools">
         <select class="pj-csel" data-on-change="prjFilter" data-on-change-args="${qa(['client', QA.v])}"><option value="">كل العملاء</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${f.client===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select>
         <select class="pj-ssel" data-on-change="prjFilter" data-on-change-args="${qa(['st', QA.v])}">${stOpt('all','كل الحالات')}${stOpt('waiting','بانتظار العميل','🟠')}${stOpt('active','نشطة','🟢')}${stOpt('closed','مغلقة','⚪')}${stOpt('rejected','مرفوضة وملغاة','🔴')}${stOpt('due','فواتير مستحقة','🔴')}${stOpt('uncol','غير محصّل','🔴')}</select>
+        <select class="pj-ysel" data-on-change="prjFilter" data-on-change-args="${qa(['year', QA.v])}" title="سنة الوثيقة أو بداية المشروع"><option value="">كل السنوات</option>${[...new Set(prjRowsAllYears())].sort().reverse().map(y=>`<option value="${y}" ${f.year===y?'selected':''}>${y}</option>`).join('')}</select>
+        <select class="pj-msel" data-on-change="prjFilter" data-on-change-args="${qa(['miss', QA.v])}" title="مشاريع ينقصها شيء"><option value="">كل النواقص</option>${PRJ_MISS.map(([k,l])=>`<option value="${k}" ${f.miss===k?'selected':''}>${l}</option>`).join('')}</select>
         <input type="search" class="qy-search pj-search" placeholder="بحث بالاسم أو الرقم أو العميل" value="${escH(f.q||'')}" data-on-input="prjFilter" data-on-input-args="${qa(['q', QA.v])}">
         ${canEditPrj() && !P.docForm && !P.creqForm ? `<button class="btn btn-ghost btn-md" data-on-click="prjCreqNew">+ طلب عميل</button><button class="btn btn-primary btn-md" data-on-click="prjNewDoc">+ مشروع جديد</button>` : ''}
       </div>
@@ -19812,7 +19834,7 @@ function prjNextHtml(p, d){
   if(p.status==='closed') return bar('المشروع مغلق.', '', 'pj-next-done');
   const due = prjDuePeriods(p), rc = prjMissingReceipts(p);
   if(due.length && !state.prj.invForm) return bar(due[0] ? 'فاتورة ' + prjPerName(due[0], p) + ' مستحقة — سجّلها بصورتيها.' : 'سجّل فاتورة المشروع بصورتيها (الفاتورة وعلم الوصول).', ed ? b('prjInvNew', [p.id], '+ فاتورة الآن') : '');
-  if(rc.length) return bar('ارفع علم وصول الفاتورة ' + escH(rc[0].inv_no||'') + '.', ed ? b('prjRcpOpen', [rc[0].id], '+ علم الوصول') : '');
+  if(rc.length) return bar('ارفع علم وصول الفاتورة ' + escH(rc[0].inv_no||'') + '.', ed ? b('prjRcpOpen', [rc[0].id], 'رفع علم الوصول') : '');
   if(prjToTransfer(p) > 0) return bar('حُصّل ' + fmtKWD(prjToTransfer(p)) + ' لم يُحوَّل بعد إلى ' + escH(prjCenterName(p.route_center_id)) + '. أنشئ طلب التحويل؛ عند اكتمال صرفه يُسجَّل الصافي في دفتر المركز بعد نسبة الشركة.', b('prjTransferReq', [p.id], 'تحويل للمركز'));
   if(!p.exec_by) return bar('حدّد منفذ المشروع: الشركة أو جهة خارجية.', ed ? b('prjExecEdit', [p.id], 'تحديد المنفذ') : '');
   const unpaid = prjInvs(p).find(i=>prjInvCollected(i) < Number(i.amount));
@@ -19829,7 +19851,7 @@ function prjDocPanelHtml(d, p){
   const dur = d.open_ended ? 'مفتوح بلا نهاية' : (d.months ? d.months + ' شهر' : '—');
   const fin = isFinanceUser(), ed = canEditPrj();
   return `<div class="card cx-panel">
-    <div class="cx-panel-h"><h2>1 · الوثيقة</h2><div class="cx-ph-tools">${prjFileBtn(d.file_path, d.file_name, 'عرض الوثيقة')}${prjFileBtn(d.signed_path, d.signed_name, 'النسخة الموقّعة')}${ed && d.status!=='sent' && !state.prj.docForm ? `<button class="btn btn-ghost btn-sm" data-on-click="prjEditDoc" data-on-click-args="${qa([d.id])}" title="العنوان والتاريخ والمرجع والملاحظات والملفات وطلب العميل">تعديل</button>` : ''}</div></div>
+    <div class="cx-panel-h"><h2>1 · الوثيقة</h2><div class="cx-ph-tools">${prjFileBtn(d.file_path, d.file_name, 'عرض الوثيقة')}${prjFileBtn(d.signed_path, d.signed_name, 'النسخة الموقّعة')}${!d.signed_path && d.status==='approved' && ed && !state.prj.docForm ? fileAddBtn('رفع النسخة الموقّعة', 'prjEditDoc', [d.id], false) : ''}${ed && d.status!=='sent' && !state.prj.docForm ? `<button class="btn btn-ghost btn-sm" data-on-click="prjEditDoc" data-on-click-args="${qa([d.id])}" title="العنوان والتاريخ والمرجع والملاحظات والملفات وطلب العميل">تعديل</button>` : ''}</div></div>
     ${(()=>{ const q = prjCreqOfDoc(d.id); return q ? `<div class="pj-creq pj-creq-in"><div class="pj-creq-h"><b>طلب العميل</b><span class="file-hint">${cxDate(q.req_date)} · ${escH(PRJ_CREQ_CH[q.channel]||'')}</span>${ed && !state.prj.creqForm ? `<button class="btn btn-ghost btn-sm pj-creq-ed" data-on-click="prjCreqEdit" data-on-click-args="${qa([q.id])}">تعديل</button>` : ''}</div><div class="pj-creq-d">${escH(q.description)}</div>${(q.files||[]).length ? `<div class="pj-acts-w">${prjCreqFilesHtml(q)}</div>` : ''}</div>` : ''; })()}
     <div class="pj-kvs">
       ${kv('النوع', escH(prjDocTypeName(d.doc_type)))}${kv('الرقم', `<bdi>${escH(d.doc_no)}</bdi>`)}${kv('التاريخ', cxDate(d.doc_date))}
@@ -20011,7 +20033,7 @@ function prjInvoicesPanelHtml(p){
         ${i.client_id ? `<div class="file-hint">مرحّلة إلى: ${escH(prjClientName(i.client_id)||'')}</div>` : ''}${setlTxt ? `<div class="file-hint">${escH(setlTxt)}</div>` : ''}</td>
       </tr>
       <tr class="pj-actrow${canc?' cat-off':''}"><td colspan="6"><div class="pj-acts-w">${prjFileBtn(i.invoice_path, i.invoice_name, 'الفاتورة')}${prjFileBtn(i.receipt_path, i.receipt_name, 'علم الوصول')}
-        ${!canc && !i.receipt_path && ed ? `<button class="btn btn-ghost btn-sm" data-on-click="prjRcpOpen" data-on-click-args="${qa([i.id])}">+ علم الوصول</button>` : ''}
+        ${!canc && !i.receipt_path && ed ? fileAddBtn('رفع علم الوصول', 'prjRcpOpen', [i.id], true) : ''}
         ${!canc && rem>0 && fin ? `<button class="btn btn-primary btn-sm" data-on-click="prjColOpen" data-on-click-args="${qa([i.id])}">تحصيل</button>` : ''}
         ${!canc && ed && !state.prj.invForm ? `<button class="btn btn-ghost btn-sm" data-on-click="prjInvEdit" data-on-click-args="${qa([i.id])}">تعديل</button>` : ''}
         ${!canc && col===0 && fin ? `<button class="btn btn-ghost btn-sm pj-act-x" data-on-click="prjInvCancel" data-on-click-args="${qa([i.id])}">إلغاء</button>` : ''}</div></td></tr>
