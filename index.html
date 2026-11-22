@@ -3628,6 +3628,9 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   body.qy-dragging .qy-drop{outline:2px dashed #2563eb;outline-offset:2px;border-radius:8px;}
   .qy-drop.drop-over{position:relative;}
   .qy-drop.drop-over::after{content:'أفلت الملف هنا';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(239,246,255,.95);color:#1d4ed8;font-weight:800;font-size:var(--fs-label);border-radius:8px;pointer-events:none;z-index:2;}
+  #app .pj-locked .pj-sec-h small{font-weight:500;font-size:var(--fs-hint);color:var(--text);margin-inline-start:8px;}
+  #app .pj-locked .pj-kvs{margin-bottom:0;grid-template-columns:repeat(4,minmax(0,1fr)) !important;}
+  @media (max-width:699px){ #app .pj-locked .pj-kvs{grid-template-columns:repeat(2,minmax(0,1fr)) !important;} }
   #app .pj-lock{background:#f8fafc;border:1px solid var(--border);border-right:4px solid #64748b;border-radius:8px;padding:10px 12px;color:var(--text);font-size:var(--fs-hint);margin-bottom:10px;}
   #app .pj-creq-h .pj-creq-ed{margin-inline-start:auto;}
   /* (1.48.0) شكل الملفات الموحّد: المرفوع أخضر مع ✓، والناقص متقطع مع رمز رفع (البرتقالي = مطلوب) */
@@ -3649,7 +3652,11 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   @container pjtools (max-width:620px){
     #app .pj-tools select{flex:1 1 calc(50% - 4px) !important;}
   }
-  #app .pj-acts-w .btn.file-add, #app .pj-next .btn.file-add{width:auto !important;min-width:150px;white-space:nowrap;}
+  /* (1.48.3) صف أزرار الفاتورة: كل الأزرار النصية بعرض واحد 150 (الملفات المرفوعة والناقصة والتحصيل والإلغاء)، والتعديل مربع رمز */
+  @media (min-width:700px){
+    #app tr.pj-actrow .pj-acts-w .btn:not(.btn-ico){width:150px !important;min-width:150px !important;white-space:nowrap;}
+  }
+  #app .pj-next .btn.file-add{width:auto !important;min-width:150px;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -3670,6 +3677,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=9e15e4a3fb"></script>
+<script src="app.js?v=ef23026c75"></script>
 </body>
 </html>

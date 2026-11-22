@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.48.2', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.48.3', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:2.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.5, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -19702,15 +19702,21 @@ function prjDocFormHtml(){
       </div>
       <div class="pj-row">
         <div class="pf grow1"><label for="pjd_title">العنوان</label><input id="pjd_title" type="text" value="${escH(d.title||'')}" placeholder="مثال: إدارة حسابات التواصل — الوقف الكبير"></div>
-        <div class="pf w300"><label for="pjd_contract_id">المرجع (العقد أو الملحق)</label><select id="pjd_contract_id">${prjContractOpts(d.client_id, d.contract_id)}</select></div>
-      </div>
-      <div class="pj-row">
-        <div class="pf w300"><label for="pjd_file">ملف الوثيقة${d.file_path ? ' (اتركه للإبقاء على الحالي)' : ''}</label><input id="pjd_file" type="file" accept="application/pdf,image/*"></div>
-        ${lock ? `<div class="pf w300"><label for="pjd_signed">النسخة الموقّعة${d.signed_path ? ' (اتركه للإبقاء على الحالية)' : ''}</label><input id="pjd_signed" type="file" accept="application/pdf,image/*"></div>` : ''}
         <div class="pf grow1"><label for="pjd_notes">ملاحظات</label><input id="pjd_notes" type="text" value="${escH(d.notes||'')}" placeholder="اختياري"></div>
       </div>
+      <div class="pj-row">
+        <div class="pf grow1"><label for="pjd_contract_id">المرجع (العقد أو الملحق)</label><select id="pjd_contract_id">${prjContractOpts(d.client_id, d.contract_id)}</select></div>
+        <div class="pf grow1"><label for="pjd_file">ملف الوثيقة${d.file_path ? ' (اتركه للإبقاء على الحالي)' : ''}</label><input id="pjd_file" type="file" accept="application/pdf,image/*"></div>
+        ${lock ? `<div class="pf grow1"><label for="pjd_signed">النسخة الموقّعة${d.signed_path ? ' (اتركه للإبقاء على الحالية)' : ''}</label><input id="pjd_signed" type="file" accept="application/pdf,image/*"></div>` : ''}
+      </div>
     </div>
-    ${lock ? `<div class="pj-sec"><div class="pj-lock">القيمة وطريقة الدفع والمدة والبنود صارت للمشروع بعد فتحه، فلا تُعدَّل من هنا. الاسم والمدة والصرف قبل الدفع تُعدَّل من «2 · المبالغ والصرف» بزر «تعديل».</div>${prjLinesViewHtml(d)}</div>`
+    ${lock ? `<div class="pj-sec pj-locked"><div class="pj-sec-h">القيمة والدفع <small>للقراءة — صارت للمشروع بعد فتحه، وتُعدَّل من «2 · المبالغ والصرف»</small></div>
+      <div class="pj-kvs">
+        <div class="pj-kv2"><span>القيمة</span><b>${fmtKWDHtml(d.amount)}${PRJ_EVERY[d.amount_kind] ? ' <small>' + PRJ_EVERY[d.amount_kind] + '</small>' : ''}</b></div>
+        <div class="pj-kv2"><span>طريقة الدفع</span><b>${escH(PRJ_PAY[d.amount_kind]||'مرة واحدة')}${prjInst(d).length>1 ? ' — ' + prjInst(d).length + ' دفعات' : ''}</b></div>
+        <div class="pj-kv2"><span>المدة</span><b>${d.open_ended ? 'مفتوح بلا نهاية' : (d.months ? d.months + ' شهر' : '—')}</b></div>
+        <div class="pj-kv2"><span>بداية التنفيذ</span><b>${cxDate(d.start_date)}</b></div>
+      </div>${prjLinesViewHtml(d)}</div>`
       : prjPayHtml(d) + prjLinesFormHtml(d)}
     <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjDocSave" data-on-click="prjDocSave">${d.id ? 'حفظ التعديل' : 'حفظ الوثيقة'}</button><button class="btn btn-ghost btn-sm" data-on-click="prjDocCancel">إلغاء</button>${d.file_path ? prjFileBtn(d.file_path, d.file_name, 'الملف الحالي') : ''}</div>
   </div>`;
@@ -20032,7 +20038,7 @@ function prjInvoicesPanelHtml(p){
       <td data-label="الحالة">${canc ? prjBadge('ملغاة','cancelled') : rem<=0 ? prjBadge(prjInvSettled(i)>0 ? 'مُعالَجة' : 'محصّلة','ok') : col>0 ? prjBadge('محصّلة جزئياً','due') : prjBadge('غير محصّلة','sent')}${!canc && !i.receipt_path ? prjBadge('ينقص علم الوصول','due') : ''}${!canc && later && rem>0 ? prjBadge('سداد في ' + cxDate(later.due_date),'due') : ''}
         ${i.client_id ? `<div class="file-hint">مرحّلة إلى: ${escH(prjClientName(i.client_id)||'')}</div>` : ''}${setlTxt ? `<div class="file-hint">${escH(setlTxt)}</div>` : ''}</td>
       </tr>
-      <tr class="pj-actrow${canc?' cat-off':''}"><td colspan="6"><div class="pj-acts-w">${prjFileBtn(i.invoice_path, i.invoice_name, 'الفاتورة')}${prjFileBtn(i.receipt_path, i.receipt_name, 'علم الوصول')}
+      <tr class="pj-actrow${canc?' cat-off':''}"><td colspan="6"><div class="pj-acts-w">${i.invoice_path ? prjFileBtn(i.invoice_path, i.invoice_name, 'الفاتورة') : (!canc && ed ? fileAddBtn('رفع الفاتورة', 'prjInvEdit', [i.id], true) : '')}${prjFileBtn(i.receipt_path, i.receipt_name, 'علم الوصول')}
         ${!canc && !i.receipt_path && ed ? fileAddBtn('رفع علم الوصول', 'prjRcpOpen', [i.id], true) : ''}
         ${!canc && rem>0 && fin ? `<button class="btn btn-primary btn-sm" data-on-click="prjColOpen" data-on-click-args="${qa([i.id])}">تحصيل</button>` : ''}
         ${!canc && ed && !state.prj.invForm ? `<button class="btn btn-ghost btn-sm" data-on-click="prjInvEdit" data-on-click-args="${qa([i.id])}">تعديل</button>` : ''}
