@@ -3637,10 +3637,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .btn.file-add{border:1.5px dashed #94a3b8;background:transparent;color:var(--text);gap:6px;}
   #app .btn.file-add.file-need{border-color:#f59e0b;background:#fffbeb;color:#b45309;}
   #app .btn.file-add .file-up-i{flex:0 0 auto;}
-  /* (1.48.0) أدوات المشاريع بأربعة فلاتر: في الشاشات المتوسطة الفلاتر في صف، و🔍 والزران في صف تحته */
-  @media (min-width:700px) and (max-width:1180px){
+  /* (1.48.1) أدوات المشاريع بأربعة فلاتر: حسب عرض البطاقة نفسها (لا عرض النافذة) — إن ضاقت عن صف واحد
+     صارت الفلاتر الأربعة في صف بعرض متساوٍ، و🔍 والزران في صف تحته */
+  #app .card:has(> .pj-tools){container-type:inline-size;container-name:pjtools;}
+  @container pjtools (min-width:560px) and (max-width:1100px){
     #app .pj-tools{flex-wrap:wrap !important;}
-    #app .pj-tools select{flex:1 1 calc(25% - 6px) !important;}
+    #app .pj-tools select{flex:1 1 calc(25% - 6px) !important;width:auto !important;max-width:none !important;}
     #app .pj-tools > .btn{flex:1 1 0 !important;width:auto !important;}
   }
   #app .pj-acts-w .btn.file-add, #app .pj-next .btn.file-add{width:auto !important;min-width:150px;white-space:nowrap;}
@@ -3664,6 +3666,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=3ca2dab731"></script>
+<script src="app.js?v=32ee67753e"></script>
 </body>
 </html>
