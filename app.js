@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.46.0', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.47.0', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:1.9, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:2.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -1750,7 +1750,7 @@ function secVisibleRows(){
   if(!state.secShowDone) rows = rows.filter(x=>!x.reviewed);
   if(state.secKind) rows = rows.filter(x=>x.kind===state.secKind);
   const q = (state.secQ||'').trim().toLowerCase();
-  if(q) rows = rows.filter(x=>JSON.stringify(x).toLowerCase().includes(q) || (SEC_KIND_AR[x.kind]||'').includes(q));
+  if(q) rows = rows.filter(x=>arHas([JSON.stringify(x), SEC_KIND_AR[x.kind]||''], q));
   return rows;
 }
 function secUserName(id){ if(!id) return '—'; const u = (state.users||[]).find(x=>x.id===id); return u ? u.name : id; }
@@ -3415,10 +3415,25 @@ function searchSectionIndex(){
   }
   return out;
 }
+// (1.47.0) البحث الذكي في كل النظام: يوحّد الحروف المتشابهة فلا يلزم كتابتها بالضبط
+//   أ إ آ ٱ ← ا · ى ← ي · ة ← ه · ؤ ← و · ئ ← ي · بلا تشكيل ولا تطويل · الأرقام الهندية ← عربية
+//   وكل كلمة في البحث تُطابق مستقلة (بأي ترتيب)، و«ال» في أولها اختيارية: «الاتقان» تجد «إتقان»، و«قرانيه» تجد «قرآنية»
+const AR_DIG = '٠١٢٣٤٥٦٧٨٩', FA_DIG = '۰۱۲۳۴۵۶۷۸۹';
+function arNorm(x){
+  return String(x==null ? '' : x).toLowerCase()
+    .replace(/[ً-ٰٟۖ-ۭـ​-‏⁦-⁩]/g, '')
+    .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
+    .replace(/[٠-٩]/g, d=>String(AR_DIG.indexOf(d))).replace(/[۰-۹]/g, d=>String(FA_DIG.indexOf(d)))
+    .replace(/\s+/g, ' ').trim();
+}
+function arHas(hay, q){
+  const qn = arNorm(q); if(!qn) return true;
+  const h = arNorm(Array.isArray(hay) ? hay.filter(v=>v!=null).join(' ') : hay);
+  return qn.split(' ').every(w=> h.includes(w) || (w.length > 3 && w.startsWith('ال') && h.includes(w.slice(2))));
+}
 function searchRequestMatches(v){
   return state.requests.filter(r=>r.companyId===state.currentCompanyId && (
-    (r.number||'').toLowerCase().includes(v) || (r.numberRaw||'').toLowerCase().includes(v) || (r.reason||'').toLowerCase().includes(v) ||
-    r.beneficiaries.some(b=>(b.name||'').toLowerCase().includes(v)))).slice(0,6);
+    arHas([r.number, r.numberRaw, r.reason].concat(r.beneficiaries.map(b=>b.name)), v))).slice(0,6);
 }
 function updateSearchDrop(){
   const box = document.getElementById('searchDrop'); const inp = document.getElementById('searchInput');
@@ -3427,7 +3442,7 @@ function updateSearchDrop(){
   state.searchResults = null;
   const v = inp.value.trim().toLowerCase();
   if(!v){ box.innerHTML=''; box.style.display='none'; return; }
-  const secs = searchSectionIndex().filter(x=>x.label.toLowerCase().includes(v)).slice(0,6);
+  const secs = searchSectionIndex().filter(x=>arHas(x.label, v)).slice(0,6);
   const reqs = searchRequestMatches(v);
   state._searchSecs = secs;
   let html = '';
@@ -3609,13 +3624,11 @@ function doSearch(){
   if(!v){ return; }
   const matches = state.requests.filter(r=>
     r.companyId===state.currentCompanyId && (
-      (r.number||'').toLowerCase().includes(v) || (r.numberRaw||'').toLowerCase().includes(v) ||
-      (r.reason||'').toLowerCase().includes(v) ||
-      r.beneficiaries.some(b=>(b.name||'').toLowerCase().includes(v))
+      arHas([r.number, r.numberRaw, r.reason].concat(r.beneficiaries.map(b=>b.name)), v)
     )
   );
   if(matches.length===0){
-    const secs = searchSectionIndex().filter(x=>x.label.toLowerCase().includes(v));
+    const secs = searchSectionIndex().filter(x=>arHas(x.label, v));
     if(secs.length){ state._searchSecs = secs; runSearchSection(0); return; }
     showToast('لم يتم العثور على طلب أو صفحة تطابق هذا البحث','error');
     state.searchResults = null;
@@ -9979,13 +9992,13 @@ function ledgerRows(){
       const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/), dmy = m ? m[3]+'-'+m[2]+'-'+m[1] : '';
       if(raw.indexOf(q) === -1 && dmy.indexOf(q) === -1) return false;
     }
-    if(f.cDesc && (t.description||'').toLowerCase().indexOf(f.cDesc.toLowerCase()) === -1) return false;
-    if(f.cBene && (t.beneficiary||'').toLowerCase().indexOf(f.cBene.toLowerCase()) === -1) return false;
+    if(f.cDesc && !arHas(t.description, f.cDesc)) return false;
+    if(f.cBene && !arHas(t.beneficiary, f.cBene)) return false;
     if(f.cIn  && !(t.direction==='in'  && t.amount >= Number(f.cIn)))  return false;
     if(f.cOut && !(t.direction==='out' && t.amount >= Number(f.cOut))) return false;
     if(f.q){
       const q = f.q.toLowerCase();
-      if(!((t.description||'').toLowerCase().includes(q) || (t.beneficiary||'').toLowerCase().includes(q) || (t.note||'').toLowerCase().includes(q))) return false;
+      if(!arHas([t.description, t.beneficiary, t.note], q)) return false;
     }
     return true;
   };
@@ -11423,7 +11436,7 @@ function attachQuickAdds(){
   function open(inp, filter){
     const dl=document.getElementById(inp.dataset.combo); if(!dl) return;
     let opts=[...dl.options].map(o=>o.value).filter(Boolean);
-    const f=(filter||'').trim(); if(f) opts=opts.filter(v=>v.includes(f));
+    const f=(filter||'').trim(); if(f) opts=opts.filter(v=>arHas(v, f));
     if(!opts.length){ close(); return; }
     if(!panel){ panel=document.createElement('div'); panel.className='combo-panel'; panel.dir='rtl'; document.body.appendChild(panel); }
     cur=inp; panel.innerHTML='';
@@ -12214,7 +12227,7 @@ function filterAdminNav(q){
   document.querySelectorAll('#adminNavList [data-nav-group]').forEach(group=>{
     let anyVisible = false;
     group.querySelectorAll('[data-nav-item]').forEach(item=>{
-      const match = !q || item.getAttribute('data-nav-label').includes(q);
+      const match = !q || arHas(item.getAttribute('data-nav-label'), q);
       item.style.display = match ? '' : 'none';
       if(match) anyVisible = true;
     });
@@ -16482,7 +16495,7 @@ function cusDocsHtml(kc){
       ${!l && (state.cusQueue||[]).length ? `<div class="note-box no-print">في الانتظار <b>${state.cusQueue.length}</b> سند مصوّر: بعد حفظ هذا السند يُحمَّل التالي تلقائياً.</div>` : ''}
       <div class="cus-2col"><div><label>المبلغ (د.ك) *</label><input id="cusLineAmt" type="number" min="0.001" step="0.001" inputmode="decimal" dir="ltr" style="--fw:100%;direction:ltr;text-align:center;" value="${l ? l.amount : dr.amt}" data-on-change="cusDraftSave"></div>
         <div><label>النوع</label><select id="cusLineKind" style="--fw:100%;" data-on-change="cusDraftSave"><option value="expense" ${(l ? l.kind==='expense' : (dr.kind||state.cusDocsKind)!=='receipt') ? 'selected' : ''}>مصروف</option><option value="receipt" ${(l ? l.kind==='receipt' : (dr.kind||state.cusDocsKind)==='receipt') ? 'selected' : ''}>مقبوض</option></select></div></div>
-      <label>الوصف *</label><input id="cusLineDesc" type="text" maxlength="300" list="cusDescList" autocomplete="off" style="--fw:100%;" value="${l ? escH(l.description) : escH(dr.desc)}" placeholder="مثال: ضيافة اجتماع أولياء الأمور" data-on-change="cusDescChange">
+      <label>الوصف *</label><input id="cusLineDesc" type="text" maxlength="300" data-combo="cusDescList" autocomplete="off" style="--fw:100%;" value="${l ? escH(l.description) : escH(dr.desc)}" placeholder="مثال: ضيافة اجتماع أولياء الأمور" data-on-change="cusDescChange">
       <datalist id="cusDescList">${cusDescSuggest().map(x=>`<option value="${escH(x)}"></option>`).join('')}</datalist>
       <div class="cus-qchips no-print">${['ضيافة','مواصلات','وقود','مطبوعات','صيانة','مشتريات'].map(t=>`<button type="button" class="cus-qchip" data-on-click="cusDescPick" data-on-click-args="${qa([t])}">${t}</button>`).join('')}</div>
       <div class="cus-2col"><div><label>رقم الفاتورة (اختياري)</label><input id="cusLineInv" type="text" maxlength="60" style="--fw:100%;" value="${l ? escH(l.invoiceNo) : escH(dr.inv)}" data-on-change="cusDraftSave"></div>
@@ -17739,7 +17752,7 @@ function cxClientFormHtml(){
     <div class="uf-grid uf-2b">
       <div class="cx-pair2"><div><label for="cxc_kind">النوع</label><select id="cxc_kind">${opt(sup ? SUP_KIND : CX_CLIENT_KIND, d.kind)}</select></div>
       <div><label for="cxc_status">الحالة</label><select id="cxc_status"><option value="active" ${d.status==='active'?'selected':''}>نشط</option><option value="inactive" ${d.status==='inactive'?'selected':''}>موقوف</option></select></div></div>
-      ${sup ? `<div class="cx-pair2"><div><label for="cxc_activity">النشاط</label><input id="cxc_activity" type="text" list="supActList" value="${escH(d.activity||'')}" placeholder="طباعة، تجهيزات، نقل…"><datalist id="supActList">${[...new Set((state.cx.clients||[]).map(c=>c.activity).filter(Boolean))].map(a=>`<option value="${escH(a)}">`).join('')}</datalist></div>
+      ${sup ? `<div class="cx-pair2"><div><label for="cxc_activity">النشاط</label><input id="cxc_activity" type="text" data-combo="supActList" value="${escH(d.activity||'')}" placeholder="طباعة، تجهيزات، نقل…"><datalist id="supActList">${[...new Set((state.cx.clients||[]).map(c=>c.activity).filter(Boolean))].map(a=>`<option value="${escH(a)}">`).join('')}</datalist></div>
         <div><label for="cxc_party">التصنيف</label><select id="cxc_party" ${cxIsFin() ? '' : 'disabled title="تحويله لعميل ومورد للمالية"'}>${opt([['supplier','مورد'],['both','عميل ومورد']], d.party)}</select></div></div>`
       : `<div class="cx-pair2"><div><label for="cxc_parent">يتبع</label><select id="cxc_parent"><option value="">— عميل رئيسي —</option>${parents.map(c=>`<option value="${c.id}" ${c.id===d.parent_id?'selected':''}>${escH(c.name)}</option>`).join('')}</select></div>
         <div><label for="cxc_party">التصنيف</label><select id="cxc_party" data-on-change="cxPartyChange">${opt([['client','عميل'],['both','عميل ومورد']], d.party)}</select></div></div>`}
@@ -17790,7 +17803,7 @@ function renderClients(app){
   state.cx.cMode = 'client';
   const all = cxClientTree().filter(({c})=>(c.party||'client')!=='supplier'), cs = state.centers||[];
   const q = String(state.cx.cliQ||'').trim().toLowerCase();
-  const hit = c => !q || [c.name, c.nameEn, ...(c.phones||[]).map(p=>p.number), ...(c.contacts||[]).flatMap(x=>[x.name, x.title])].some(v=>String(v||'').toLowerCase().includes(q));
+  const hit = c => !q || arHas([c.name, c.nameEn, ...(c.phones||[]).map(p=>p.number), ...(c.contacts||[]).flatMap(x=>[x.name, x.title])], q);
   const tree = q ? all.filter(({c})=>hit(c)) : all;
   const rows = tree.map(({c,depth})=>{
     const kn = (CX_CLIENT_KIND.find(k=>k[0]===c.kind)||[0,c.kind])[1];
@@ -17829,7 +17842,7 @@ function supBankFormHtml(d){
     <div class="uf-grid uf-2b">
       ${inp('cxc_iban','الآيبان',d.iban,'dir="ltr" placeholder="KW00 XXXX…"')}
       ${inp('cxc_account_name','اسم صاحب الحساب',d.account_name,'placeholder="كما في شهادة الآيبان"')}
-      ${inp('cxc_bank_name','البنك',d.bank_name,'list="supBankList" placeholder="مثال: بنك الكويت الوطني"')}
+      ${inp('cxc_bank_name','البنك',d.bank_name,'data-combo="supBankList" placeholder="مثال: بنك الكويت الوطني"')}
       ${inp('cxc_license_no','رقم الرخصة التجارية',d.license_no,'dir="ltr"')}
     </div>
     <datalist id="supBankList">${['بنك الكويت الوطني','بيت التمويل الكويتي','بنك بوبيان','بنك الخليج','البنك التجاري الكويتي','بنك برقان','البنك الأهلي الكويتي','بنك الكويت الدولي','بنك وربة'].map(b=>`<option value="${b}">`).join('')}</datalist>
@@ -17857,7 +17870,7 @@ function renderSuppliers(app){
   state.cx.cMode = 'supplier';
   const lvl = pageLevel('suppliers'), canW = cxIsFin() || lvl==='edit' || lvl==='full', canDel = cxIsFin() || lvl==='full';
   const list = (state.cx.clients||[]).filter(c=>c.company_id===cxCid() && (c.party==='supplier' || c.party==='both')).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
-  const q = (state.cx.supQ||'').trim(), shown = q ? list.filter(c=>[c.name,c.name_en,c.activity,c.iban].some(v=>String(v||'').toLowerCase().includes(q.toLowerCase()))) : list;
+  const q = (state.cx.supQ||'').trim(), shown = q ? list.filter(c=>arHas([c.name,c.name_en,c.activity,c.iban], q)) : list;
   const rows = shown.map(c=>{
     const kn = (SUP_KIND.concat(CX_CLIENT_KIND).find(k=>k[0]===c.kind)||[0,c.kind||''])[1];
     const ph = (c.phones||[]).filter(p=>p.number).slice(0,2).map(p=>`<div class="cx-ln"><bdi dir="ltr">${escH(p.number)}</bdi></div>`).join('') || '—';
@@ -17897,7 +17910,7 @@ function nrSupFilter(v){ state.nrSupQ = v; const box = document.getElementById('
 function nrSupItemsHtml(d){
   const used = new Set(d.beneficiaries.map(b=>b.supplierId).filter(Boolean));
   const q = (state.nrSupQ||'').trim().toLowerCase();
-  const L = nrSupList().filter(c=>!q || [c.name,c.name_en,c.activity].some(v=>String(v||'').toLowerCase().includes(q)));
+  const L = nrSupList().filter(c=>!q || arHas([c.name,c.name_en,c.activity], q));
   if(!state.nrSup) return '<div class="ct-empty">جارٍ التحميل…</div>';
   if(!L.length) return `<div class="ct-empty">${q ? 'لا مورد بهذا الاسم.' : 'لا موردين مسجّلين بعد.'}${canSeeSuppliers() ? ' أضفه من «العملاء والموردون ← الموردون».' : ' اطلب من المالية تسجيله.'}</div>`;
   return L.map(c=>`<button type="button" class="sup-pick-i${used.has(c.id) ? ' pj-have' : ''}" data-on-click="nrSupApply" data-on-click-args="${qa([c.id])}" ${used.has(c.id) ? 'disabled' : ''}><b>${escH(c.name)}</b>${c.activity ? `<small class="pj-muted"> · ${escH(c.activity)}</small>` : ''}<span class="sup-pick-ib">${c.iban ? '<bdi dir="ltr">…' + escH(String(c.iban).slice(-4)) + '</bdi>' : '<span class="bbh-warn">بلا آيبان</span>'}</span></button>`).join('');
@@ -18392,7 +18405,7 @@ function cxLedgerFiltered(){
   return all.filter(x=>{
     if(!q) return true;
     const p = state.cx.payers[x.id] || {};
-    return [x.purpose, x.note, x.agent, x.method, x.receipt, p.payer_name, p.payer_phone, CX_LEDGER_KIND[x.kind]].some(t=>String(t||'').toLowerCase().includes(q));
+    return arHas([x.purpose, x.note, x.agent, x.method, x.receipt, p.payer_name, p.payer_phone, CX_LEDGER_KIND[x.kind]], q);
   });
 }
 function cxLedgerRowsHtml(){
@@ -18843,7 +18856,7 @@ async function catLoad(){
   else if(state.prj && state.prj.pickOpen) render();   // نافذة «نسخ من خدمات الشركة» كانت تبقى على «جارٍ التحميل»
 }
 function catKids(pid){ return (state.cat.items||[]).filter(x=>(x.parent_id||null)===(pid||null)).sort((a,b)=>(a.sort-b.sort) || String(a.name).localeCompare(String(b.name),'ar')); }
-function catMatch(x){ const q = (state.cat.q||'').trim(); if(!q) return true; const t = [x.name, x.description].join(' '); return t.includes(q) || catKids(x.id).some(catMatch); }
+function catMatch(x){ const q = (state.cat.q||'').trim(); if(!q) return true; return arHas([x.name, x.description], q) || catKids(x.id).some(catMatch); }
 function catToggle(id){ state.cat.open[id] = !state.cat.open[id]; render(); }
 function catNew(level, parentId){ state.cat.edit = {id:null, level, parent_id:parentId||null, name:'', description:'', unit:level===3?'قطعة':'', price:''}; if(parentId) state.cat.open[parentId] = true; render(); catFocus(); }
 function catEdit(id){ const x = state.cat.items.find(i=>i.id===id); if(!x) return; state.cat.sel = id; state.cat.edit = Object.assign({}, x, {price:x.price==null?'':x.price}); render(); catFocus(); }
@@ -19272,7 +19285,7 @@ function prjRows(){
     if(f.st==='all' && ['rejected','cancelled'].includes(s)) return false;
     const cl = r.p ? r.p.client_id : r.d.client_id;
     if(f.client && cl!==f.client) return false;
-    if(q){ const t = [r.p && r.p.name, r.d && r.d.title, r.d && r.d.doc_no, prjClientName(cl)].join(' '); if(!t.includes(q)) return false; }
+    if(q && !arHas([r.p && r.p.name, r.d && r.d.title, r.d && r.d.doc_no, prjClientName(cl)], q)) return false;
     return true;
   }).sort((a,b)=> String((b.p||b.d).created_at).localeCompare(String((a.p||a.d).created_at)));
 }
@@ -20348,7 +20361,7 @@ function renderContracts(app){
   if(!canSeeCatalog()){ state.view='dashboard'; render(); return; }
   prjEnsure();
   const P = state.prj, f = P.cf, q = (f.q||'').trim(), clients = cxClientTree();
-  const mains = P.contracts.filter(c=>!c.parent_id && (!f.client || c.client_id===f.client) && (!q || (c.title + ' ' + prjClientName(c.client_id)).includes(q)));
+  const mains = P.contracts.filter(c=>!c.parent_id && (!f.client || c.client_id===f.client) && (!q || arHas([c.title, prjClientName(c.client_id)], q)));
   const rows = mains.map(c=>{
     const ads = P.contracts.filter(a=>a.parent_id===c.id), np = P.prices.filter(x=>x.contract_id===c.id || ads.some(a=>a.id===x.contract_id)).length;
     return `<tr data-on-click="openContract" data-on-click-args="${qa([c.id])}" class="pj-row"><td data-label="العقد"><b>${escH(c.title)}</b>${c.active ? '' : ' ' + prjBadge('منتهٍ','closed')}${prjContractEndSoon(c) ? ' ' + prjBadge('ينتهي قريباً','due') : ''}</td>
@@ -20612,7 +20625,7 @@ function renderWContracts(app){
     if(f.st==='ended' && c.status!=='ended') return false;
     if(f.unit==='co' && c.unit_id) return false;
     if(f.unit && f.unit!=='co' && c.unit_id!==f.unit) return false;
-    if(q && !(wcName(c) + ' ' + (c.job_title||'') + ' ' + (c.phone||'') + ' ' + (c.civil_id||'')).includes(q)) return false;
+    if(q && !arHas([wcName(c), c.job_title, c.phone, c.civil_id], q)) return false;
     return true;
   });
   const chip = (k,l) => `<button class="pj-chip${f.st===k?' on':''}" data-on-click="wcFilter" data-on-click-args="${qa(['st',k])}">${l}</button>`;
@@ -20875,7 +20888,7 @@ function gwMappingHtml(){
     </tbody></table>
     <h3 class="cx-h3">إضافة ربط</h3>
     <div class="row">
-      <div class="f-lg"><label>اسم الجهة كما في Tap</label><input id="gwm_name" type="text" dir="auto" list="gwm_sugg" placeholder="مثال: Garah Alaly"><datalist id="gwm_sugg">${sugg.map(a=>`<option value="${escH(a)}">`).join('')}</datalist></div>
+      <div class="f-lg"><label>اسم الجهة كما في Tap</label><input id="gwm_name" type="text" dir="auto" data-combo="gwm_sugg" placeholder="مثال: Garah Alaly"><datalist id="gwm_sugg">${sugg.map(a=>`<option value="${escH(a)}">`).join('')}</datalist></div>
       <div class="f-lg"><label>المركز</label><select id="gwm_center"><option value="">— اختر المركز —</option>${gwCentersOptions('')}</select></div>
     </div>
     <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwMapAdd">إضافة الربط</button>${sugg.length?`<span class="file-hint">جهات في المعلّقة بلا ربط: ${sugg.map(escH).join('، ')}</span>`:''}</div>
@@ -21591,7 +21604,7 @@ function glUsage(code){
 function renderGlChart(app){
   if(!glReady(app, 'دليل الحسابات')) return;
   const g = glSt(), q = String(g.q||'').trim();
-  const rows = glTree().filter(({a})=>(!g.kind || a.kind===g.kind) && (!q || a.code.includes(q) || a.name.includes(q)));
+  const rows = glTree().filter(({a})=>(!g.kind || a.kind===g.kind) && (!q || arHas([a.code, a.name], q)));
   const others = (state.companies||[]).filter(c=>c.id!==glCid());
   const body = rows.map(({a, depth})=>{
     const use = glUsage(a.code);
