@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.43.1', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.44.0', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:1.5, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:1.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -5174,12 +5174,33 @@ async function openRequest(id){
 function kwToday(){ return new Date(Date.now() + 3*3600e3).toISOString().slice(0,10); }   // تاريخ اليوم بتوقيت الكويت
 function kwAddDays(n){ return new Date(Date.now() + 3*3600e3 + n*864e5).toISOString().slice(0,10); }
 function deferOn(r){ const d = r && r.defer; return !!(d && d.kind && !d.releasedAt) && !r.isCancelled && !['completed','rejected'].includes(r.status); }
-function deferActive(r){ if(!deferOn(r)) return false; const d = r.defer; return d.kind==='date' ? String(d.until) > kwToday() : !d.metAt; }
+function deferActive(r){ if(!deferOn(r)) return false; const d = r.defer; return d.kind==='date' ? String(d.until) > kwToday() : !d.metAt; }   // project / balance: حتى يُسجَّل دخول المبلغ
 function deferDaysLeft(r){ const d = r.defer; if(!d || d.kind!=='date') return 0; return Math.round((new Date(d.until+'T00:00:00Z') - new Date(kwToday()+'T00:00:00Z'))/864e5); }
 function deferLabel(r){
   const d = r.defer; if(!d) return '';
   if(d.kind==='date'){ const n = deferDaysLeft(r); return 'حتى '+dmyStr(d.until)+(n>0 ? ' · باقي '+(n===1?'يوم واحد':n===2?'يومان':n+(n<=10?' أيام':' يوماً')) : ''); }
+  if(d.kind==='balance') return 'حتى يتوفر رصيد «'+(d.projectName||'')+'»';
   return 'حتى دخول مبلغ مشروع «'+(d.projectName||'')+'»';
+}
+// (1.44.0) طلب مركز: هل يكفي رصيد المركز؟ (المتاح من الخادم، يُحفظ مؤقتاً ثم يُعاد الرسم)
+function isCenterPayReq(r){ return !!(r && r.centerId && (r.amountRoute||'normal')==='normal'); }
+function reqCenterAvail(r){
+  state._reqAvail = state._reqAvail || {};
+  const c = state._reqAvail[r.id];
+  if(c && Date.now()-c.at < 60000) return c.v;
+  if(!c || !c.loading){
+    state._reqAvail[r.id] = {v:c ? c.v : null, at:c ? c.at : 0, loading:true};
+    db.rpc('qy_req_center_avail_ui', {p_req:r.id}).then(x=>{ state._reqAvail[r.id] = {v:(x && !x.error && x.data!=null) ? Number(x.data) : null, at:Date.now()}; if(state.view==='detail' && state.activeReqId===r.id) render(); }).catch(()=>{ state._reqAvail[r.id] = {v:null, at:Date.now()}; });
+  }
+  return c ? c.v : null;
+}
+// بعد انتهاء أي تأجيل أو رفعه: تنبيه المحاسب إن لم يكفِ رصيد المركز
+function centerShortHtml(req){
+  if(!isCenterPayReq(req) || !req.defer || deferActive(req) || req.isCancelled) return '';
+  if(!['pending_transfer_request','pending_transfer_approval','pending_disbursement'].includes(req.status)) return '';
+  const v = reqCenterAvail(req); if(v==null || v >= Number(req.totalAmount||0)) return '';
+  const cn = (cxUnit(req.centerId)||{}).name || '';
+  return `<div class="defer-box defer-short no-print"><div class="defer-t"><div>⚠ <b>رصيد «${escH(cn)}» لا يكفي هذا الطلب</b></div><div class="defer-s">المتاح ${fmtKWDHtml(v)} د.ك، والطلب ${fmtKWDHtml(req.totalAmount)} د.ك. انتهى التأجيل لكن الرصيد ما زال ناقصاً؛ تأكد قبل الصرف.</div></div></div>`;
 }
 function deferBadge(r){ return `<span class="badge defer-badge" title="${escH(String(deferLabel(r)).replace(/[\u2066-\u2069\u200f]/g,''))}">⏸ مؤجل الصرف</span>`; }
 function canDeferRelease(r){ const me = state.user; if(!me || !deferOn(r)) return false; return me.role==='admin' || r.defer.byId===me.id || ['accountant','cfo'].includes(me.role); }
@@ -5189,10 +5210,12 @@ async function deferAsk(req, title, confirmLbl){
   let projects = [];
   try{ const pr = await db.rpc('qy_defer_projects', {p_company:req.companyId}); if(!pr.error) projects = pr.data||[]; }catch(e){}
   const d = req.defer || {};
-  const kinds = [['d3','3 أيام'],['d7','7 أيام'],['d10','10 أيام'],['d15','15 يوماً'],['d30','30 يوماً'],['date','إلى تاريخ محدد']].concat(projects.length ? [['project','حتى دخول مبلغ مشروع']] : []);
-  const kind0 = d.kind==='project' && projects.length ? 'project' : d.kind==='date' ? 'date' : 'd3';
+  const kinds = [['d3','3 أيام'],['d7','7 أيام'],['d10','10 أيام'],['d15','15 يوماً'],['d30','30 يوماً'],['date','إلى تاريخ محدد']]
+    .concat(isCenterPayReq(req) ? [['balance','حتى يتوفر رصيد المركز']] : [], projects.length ? [['project','حتى دخول مبلغ مشروع']] : []);
+  const kind0 = d.kind==='project' && projects.length ? 'project' : d.kind==='balance' && isCenterPayReq(req) ? 'balance' : d.kind==='date' ? 'date' : 'd3';
   const p = askModal({title, confirm:confirmLbl,
-    text:'يُعتمد الطلب ويكمل مساره، لكن المحاسب لا يصرفه قبل الموعد أو دخول المبلغ. يظهر عنده في «مؤجلة الصرف»، ويصله إشعار حين ينتهي التأجيل.',
+    text:'يُعتمد الطلب ويكمل مساره، لكن المحاسب لا يصرفه قبل الموعد أو دخول المبلغ. يظهر عنده في «مؤجلة الصرف»، ويصله إشعار حين ينتهي التأجيل.'
+      + (isCenterPayReq(req) ? '<br>«حتى يتوفر رصيد المركز»: ينتهي تلقائياً حين يغطي رصيد المركز مبلغ الطلب.' : ''),
     fields:[
       {id:'kind', label:'التأجيل', type:'select', value:kind0, options:kinds},
       {id:'until', label:'إلى تاريخ', type:'date', value:d.kind==='date' ? d.until : kwAddDays(7)},
@@ -5210,6 +5233,7 @@ async function deferAsk(req, title, confirmLbl){
   const v = await p; if(!v) return null;
   if(/^d\d+$/.test(v.kind)) return {kind:'date', until:kwAddDays(Number(v.kind.slice(1))), project:null, reason:v.reason.trim()};
   if(v.kind==='date') return {kind:'date', until:v.until, project:null, reason:v.reason.trim()};
+  if(v.kind==='balance') return {kind:'balance', until:null, project:null, reason:v.reason.trim()};
   return {kind:'project', until:null, project:v.project, reason:v.reason.trim()};
 }
 async function deferSave(reqId, d){
@@ -5240,11 +5264,11 @@ function deferBoxHtml(req){
   const d = req.defer, act = deferActive(req);
   const btns = [];
   if(act && canDeferRelease(req) && ['accountant','cfo','admin'].includes(state.user.role))
-    btns.push(d.kind==='project' ? `<button type="button" class="btn btn-approve btn-md" data-on-click="deferRelease" data-on-click-args="${qa([req.id,'money'])}">دخل المبلغ</button>`
+    btns.push(d.kind!=='date' ? `<button type="button" class="btn btn-approve btn-md" data-on-click="deferRelease" data-on-click-args="${qa([req.id,'money'])}">دخل المبلغ</button>`
                                  : `<button type="button" class="btn btn-ghost btn-md" data-on-click="deferRelease" data-on-click-args="${qa([req.id,'early'])}">صرف قبل الموعد</button>`);
   if(canDeferEdit(req)) btns.push(`<button type="button" class="btn btn-ghost btn-md" data-on-click="deferEdit" data-on-click-args="${qa([req.id])}">تعديل التأجيل</button>`);
   if(act && canDeferRelease(req) && (state.user.role==='admin' || d.byId===state.user.id)) btns.push(`<button type="button" class="btn btn-ghost btn-md" data-on-click="deferRelease" data-on-click-args="${qa([req.id,'cancel'])}">إلغاء التأجيل</button>`);
-  const head = act ? `⏸ <b>الصرف مؤجل ${deferLabel(req)}</b>` : `✓ <b>انتهى تأجيل الصرف</b> — ${d.kind==='project' ? 'دخل مبلغ مشروع «'+escH(d.projectName)+'»' : 'حلّ الموعد'}، والطلب جاهز للصرف`;
+  const head = act ? `⏸ <b>الصرف مؤجل ${deferLabel(req)}</b>` : `✓ <b>انتهى تأجيل الصرف</b> — ${d.kind==='project' ? 'دخل مبلغ مشروع «'+escH(d.projectName)+'»' : d.kind==='balance' ? 'توفر رصيد «'+escH(d.projectName)+'»' : 'حلّ الموعد'}، والطلب جاهز للصرف`;
   return `<div class="defer-box no-print${act ? '' : ' defer-done'}"><div class="defer-t"><div>${head}</div><div class="defer-s">السبب: ${escH(d.reason)} · أجّله ${escH(d.byName||'')}</div></div>${btns.length ? `<div class="defer-b">${btns.join('')}</div>` : ''}</div>`;
 }
 
@@ -17189,7 +17213,7 @@ function renderDetail(app){
   const pMine = paperStepForMe(req);
   const turn = (canAct && !req.isCancelled && !(req.status==='pending_transfer_request' && deferActive(req))) ? ({pending_transfer_request:['تسجيل التحويل','approveFix'], pending_transfer_approval:['اعتماد التحويل','approveFix'], pending_disbursement:['تأكيد إتمام الصرف','markDisbursedFix']}[req.status] || ['اعتماد الطلب أو رفضه','approveFix'])
     : (pMine ? ['تسجيل اعتماد ورقي عن '+((userById(pMine.approverId)||{}).name||''), 'paperRecordOpen'] : null);
-  const myTurnHtml = deferBoxHtml(req) + (turn ? `<div class="my-turn no-print">
+  const myTurnHtml = deferBoxHtml(req) + centerShortHtml(req) + (turn ? `<div class="my-turn no-print">
       <div class="my-turn-t">⏳ بانتظارك الآن: <b>${escH(turn[0])}</b></div>
       <button type="button" class="btn btn-approve btn-md" ${turn[1]==='paperRecordOpen' ? `data-on-click="paperRecordOpen" data-on-click-args="${qa([(''+req.id), 'approve'])}"` : `data-on-click="${turn[1]}"`}>${escH(turn[1]==='paperRecordOpen' ? 'اعتماد ورقي' : turn[1]==='markDisbursedFix' ? 'تأكيد الصرف' : req.status==='pending_transfer_request' ? 'تسجيل التحويل' : 'اعتماد')}</button>
       <div class="my-turn-h">${req.status==='pending_decision' || pMine ? 'وللرفض: زر «رفض» أسفل الطلب وفي الشريط السفلي.' : 'وللرفض لأسباب محاسبية: زره أسفل الطلب وفي الشريط السفلي.'}</div>
