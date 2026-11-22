@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.42.1', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.43.0', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:351, base:350, extra:1.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -616,6 +616,9 @@ function mapRequestRow(r){
     budgetItemId: r.budget_item_id||null,
     archiveOnly: !!r.archive_only,   // طلب أرشيفي قبل الرصيد الافتتاحي للمركز: لا يُخصم من رصيده ولا يظهر في كشفه
     requestType: r.request_type||'normal',
+    defer: r.defer_kind ? {kind:r.defer_kind, until:r.defer_until||'', projectId:r.defer_project_id||'', projectName:r.defer_project_name||'', reason:r.defer_reason||'',
+      byId:r.defer_by_id||'', byName:r.defer_by_name||'', at:r.defer_at||null, metAt:r.defer_met_at||null, releasedAt:r.defer_released_at||null,
+      releasedBy:r.defer_released_by||'', releaseNote:r.defer_release_note||''} : null,
     beneficiaries:(r.request_beneficiaries||[]).slice().sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0)).map(b=>({
       name:b.name, nameEn:b.name_en||'', iban:b.iban||'', civilId:b.national_id||'', statement:b.statement||'', notes:b.notes||'',
       amount:Number(b.amount), deduction:Number(b.deduction||0), deductionNote:b.deduction_note||'',
@@ -800,6 +803,7 @@ function getMyPendingRequests(cidOverride){
   const list = state.requests.filter(r=>r.companyId===cid && !r.isCancelled && !isUnderReview(r));
   return list.filter(r=>{
     if(r.status==='pending_decision') return !!myDecisionStep(r, myId) || !!paperStepForMe(r);
+    if(r.status==='pending_transfer_request' && deferActive(r)) return false;   // (1.43.0) مؤجل الصرف: في «مؤجلة الصرف» لا في «بانتظار قرارك»
     if(r.status==='pending_transfer_request' || r.status==='pending_disbursement') return role==='accountant';
     if(r.status==='pending_transfer_approval'){
       const target = cfoApprovalTarget(r);
@@ -5166,6 +5170,84 @@ async function openRequest(id){
   render();
 }
 
+// ===================== (1.43.0) اعتماد مع تأجيل الصرف =====================
+function kwToday(){ return new Date(Date.now() + 3*3600e3).toISOString().slice(0,10); }   // تاريخ اليوم بتوقيت الكويت
+function kwAddDays(n){ return new Date(Date.now() + 3*3600e3 + n*864e5).toISOString().slice(0,10); }
+function deferOn(r){ const d = r && r.defer; return !!(d && d.kind && !d.releasedAt) && !r.isCancelled && !['completed','rejected'].includes(r.status); }
+function deferActive(r){ if(!deferOn(r)) return false; const d = r.defer; return d.kind==='date' ? String(d.until) > kwToday() : !d.metAt; }
+function deferDaysLeft(r){ const d = r.defer; if(!d || d.kind!=='date') return 0; return Math.round((new Date(d.until+'T00:00:00Z') - new Date(kwToday()+'T00:00:00Z'))/864e5); }
+function deferLabel(r){
+  const d = r.defer; if(!d) return '';
+  if(d.kind==='date'){ const n = deferDaysLeft(r); return 'حتى '+dmyStr(d.until)+(n>0 ? ' · باقي '+(n===1?'يوم واحد':n===2?'يومان':n+(n<=10?' أيام':' يوماً')) : ''); }
+  return 'حتى دخول مبلغ مشروع «'+(d.projectName||'')+'»';
+}
+function deferBadge(r){ return `<span class="badge defer-badge" title="${escH(String(deferLabel(r)).replace(/[\u2066-\u2069\u200f]/g,''))}">⏸ مؤجل الصرف</span>`; }
+function canDeferRelease(r){ const me = state.user; if(!me || !deferOn(r)) return false; return me.role==='admin' || r.defer.byId===me.id || ['accountant','cfo'].includes(me.role); }
+function canDeferEdit(r){ const me = state.user; return !!me && deferOn(r) && ['pending_decision','pending_transfer_request'].includes(r.status) && (me.role==='admin' || r.defer.byId===me.id); }
+// نافذة التأجيل: 3 أيام · 10 أيام · تاريخ محدد · حتى دخول مبلغ مشروع
+async function deferAsk(req, title, confirmLbl){
+  let projects = [];
+  try{ const pr = await db.rpc('qy_defer_projects', {p_company:req.companyId}); if(!pr.error) projects = pr.data||[]; }catch(e){}
+  const d = req.defer || {};
+  const kinds = [['d3','3 أيام'],['d10','10 أيام'],['date','إلى تاريخ محدد']].concat(projects.length ? [['project','حتى دخول مبلغ مشروع']] : []);
+  const kind0 = d.kind==='project' && projects.length ? 'project' : d.kind==='date' ? 'date' : 'd3';
+  const p = askModal({title, confirm:confirmLbl,
+    text:'يُعتمد الطلب ويكمل مساره، لكن المحاسب لا يصرفه قبل الموعد أو دخول المبلغ. يظهر عنده في «مؤجلة الصرف»، ويصله إشعار حين ينتهي التأجيل.',
+    fields:[
+      {id:'kind', label:'التأجيل', type:'select', value:kind0, options:kinds},
+      {id:'until', label:'إلى تاريخ', type:'date', value:d.kind==='date' ? d.until : kwAddDays(7)},
+      {id:'project', label:'المشروع', type:'select', value:d.projectId||'', options:[['','اختر المشروع']].concat(projects.map(x=>[x.id, x.name+(x.client ? ' — '+x.client : '')]))},
+      {id:'reason', label:'السبب (إلزامي)', type:'textarea', rows:2, value:d.reason||''}],
+    validate:v=>{
+      if(!v.reason.trim()) return 'السبب إلزامي';
+      if(v.kind==='date' && !(v.until > kwToday())) return 'اختر تاريخاً بعد اليوم';
+      if(v.kind==='project' && !v.project) return 'اختر المشروع';
+      return null; }});
+  // إظهار حقل التاريخ أو المشروع حسب الاختيار
+  const sync = ()=>{ const k = (document.getElementById('ask_kind')||{}).value;
+    [['until', k==='date'], ['project', k==='project']].forEach(([id, on])=>{ const el = document.getElementById('ask_'+id); if(!el) return; el.style.display = on ? '' : 'none'; const lb = el.previousElementSibling; if(lb && lb.tagName==='LABEL') lb.style.display = on ? '' : 'none'; }); };
+  const ks = document.getElementById('ask_kind'); if(ks){ ks.addEventListener('change', sync); sync(); }
+  const v = await p; if(!v) return null;
+  if(v.kind==='d3' || v.kind==='d10') return {kind:'date', until:kwAddDays(v.kind==='d3' ? 3 : 10), project:null, reason:v.reason.trim()};
+  if(v.kind==='date') return {kind:'date', until:v.until, project:null, reason:v.reason.trim()};
+  return {kind:'project', until:null, project:v.project, reason:v.reason.trim()};
+}
+async function deferSave(reqId, d){
+  const r = await db.rpc('qy_request_defer', {p_req:reqId, p_kind:d.kind, p_until:d.until, p_project:d.project, p_reason:d.reason});
+  return await dbCheck(r, 'تأجيل الصرف');
+}
+async function deferEdit(id){
+  const req = state.requests.find(r=>r.id===id); if(!req) return;
+  const d = await deferAsk(req, 'تعديل تأجيل الصرف', 'حفظ'); if(!d) return;
+  if(!(await deferSave(id, d))) return;
+  await refreshRequests(); showToast('عُدّل تأجيل الصرف','success'); render();
+}
+// رفع التأجيل: «دخل المبلغ» / «صرف قبل الموعد» للمحاسب، و«إلغاء التأجيل» لمن أجّله أو مدير النظام
+async function deferRelease(id, mode){
+  const req = state.requests.find(r=>r.id===id); if(!req) return;
+  const t = {money:['دخل المبلغ','المبلغ دخل الحساب البنكي ولم يُسجَّل في النظام بعد؟ اكتب ما يثبت ذلك، ثم يصبح الطلب جاهزاً للصرف.','مثال: دخل المبلغ في البنك يوم 22-11 بتحويل من العميل'],
+             early:['صرف قبل الموعد','الطلب مؤجل '+deferLabel(req)+'. اكتب سبب الصرف قبل الموعد، ثم يصبح جاهزاً للصرف.','مثال: طلب المدير التنفيذي صرفه اليوم'],
+             cancel:['إلغاء التأجيل','يعود الطلب طلباً عادياً يصرفه المحاسب متى وصل إليه.','']}[mode];
+  const v = await askModal({title:t[0], confirm:t[0], text:t[1], fields:[{id:'note', label:'السبب (إلزامي)', type:'textarea', rows:2, hint:t[2]}], validate:x=>x.note.trim() ? null : 'السبب إلزامي'});
+  if(!v) return;
+  const r = await db.rpc('qy_request_defer_release', {p_req:id, p_note:(mode==='money' ? 'دخل المبلغ: ' : mode==='early' ? 'صرف قبل الموعد: ' : 'إلغاء التأجيل: ')+v.note.trim()});
+  if(!(await dbCheck(r, t[0]))) return;
+  await refreshRequests(); showToast('رُفع التأجيل، والطلب جاهز للصرف','success'); render();
+}
+// صندوق التأجيل في عرض الطلب (يراه كل من يرى الطلب)
+function deferBoxHtml(req){
+  if(!deferOn(req)) return '';
+  const d = req.defer, act = deferActive(req);
+  const btns = [];
+  if(act && canDeferRelease(req) && ['accountant','cfo','admin'].includes(state.user.role))
+    btns.push(d.kind==='project' ? `<button type="button" class="btn btn-approve btn-md" data-on-click="deferRelease" data-on-click-args="${qa([req.id,'money'])}">دخل المبلغ</button>`
+                                 : `<button type="button" class="btn btn-ghost btn-md" data-on-click="deferRelease" data-on-click-args="${qa([req.id,'early'])}">صرف قبل الموعد</button>`);
+  if(canDeferEdit(req)) btns.push(`<button type="button" class="btn btn-ghost btn-md" data-on-click="deferEdit" data-on-click-args="${qa([req.id])}">تعديل التأجيل</button>`);
+  if(act && canDeferRelease(req) && (state.user.role==='admin' || d.byId===state.user.id)) btns.push(`<button type="button" class="btn btn-ghost btn-md" data-on-click="deferRelease" data-on-click-args="${qa([req.id,'cancel'])}">إلغاء التأجيل</button>`);
+  const head = act ? `⏸ <b>الصرف مؤجل ${deferLabel(req)}</b>` : `✓ <b>انتهى تأجيل الصرف</b> — ${d.kind==='project' ? 'دخل مبلغ مشروع «'+escH(d.projectName)+'»' : 'حلّ الموعد'}، والطلب جاهز للصرف`;
+  return `<div class="defer-box no-print${act ? '' : ' defer-done'}"><div class="defer-t"><div>${head}</div><div class="defer-s">السبب: ${escH(d.reason)} · أجّله ${escH(d.byName||'')}</div></div>${btns.length ? `<div class="defer-b">${btns.join('')}</div>` : ''}</div>`;
+}
+
 function canActOn(req){
   if(isUnderReview(req)) return false;   // لم يأخذ رقماً بعد: خارج سلسلة الاعتماد مؤقتاً
   if(req.status==='completed' || req.status==='rejected') return false;
@@ -5336,6 +5418,11 @@ async function finalizeApprove(req, signatureOverride){
   }
   if(!(await setRequestStatus(req, newStatus))){ render(); return; }
   for(const he of postHist){ await pushHistory(req, he); }
+  const pd = state.pendingDefer; state.pendingDefer = null;
+  if(pd && pd.reqId===req.id){
+    if(await deferSave(req.id, pd)){ await refreshRequests(); showToast('اعتُمد الطلب، وصرفه مؤجل', 'success'); render(); return; }
+    showToast('اعتُمد الطلب لكن لم يُحفظ التأجيل؛ افتح الطلب وأعد التأجيل', 'error'); render(); return;
+  }
   showToast('تم اعتماد الطلب', 'success');
   render();
   if(newStatus==='pending_decision') paperAfterApprove(req);
@@ -6604,6 +6691,7 @@ const REQ_CAT = {
   review:  {c:'#7c3aed', dot:'🟣', label:'قيد المراجعة'},
   decision:{c:'#d97706', dot:'🟠', label:'قيد القرار'},
   finance: {c:'#2563eb', dot:'🔵', label:'في يد المالية'},
+  deferred:{c:'#0e7490', dot:'⏸', label:'مؤجلة الصرف'},
   done:    {c:'#15803d', dot:'🟢', label:'تم الصرف'},
   rejected:{c:'#b91c1c', dot:'🔴', label:'مرفوض'},
   cancelled:{c:'#9ca3af', dot:'⚪', label:'ملغى'},
@@ -6614,6 +6702,7 @@ function reqCat(r){
   if(typeof isUnderReview==='function' && isUnderReview(r) && !['completed','rejected'].includes(r.status) && !TAIL_FLOW.includes(r.status)) return 'review';
   if(r.status==='completed') return 'done';
   if(r.status==='rejected') return 'rejected';
+  if(r.status==='pending_transfer_request' && deferActive(r)) return 'deferred';
   if(TAIL_FLOW.includes(r.status) || ['pending_accountant','pending_cfo'].includes(r.status)) return 'finance';
   return 'decision';
 }
@@ -6627,7 +6716,7 @@ function handedFromNames(r){
 // الشريط الملوّن على يمين بطاقة الطلب بلون حالته (المسنَد إليك تميّزه شارة اليدين 🤝)
 function reqStripStyle(r){ return `border-right:6px solid ${REQ_CAT[reqCat(r)].c};`; }
 // أزرار الفلتر: مربّع اللون والاسم والعدد، بحد أيمن بلون الحالة وحد أسفل وظل خفيف، وعرض واحد ثابت
-const REQ_CAT_ICON = {review:'review', decision:'hour', finance:'bank', done:'done', rejected:'rej', cancelled:'ban', handed:'hand'};
+const REQ_CAT_ICON = {review:'review', decision:'hour', finance:'bank', deferred:'cal', done:'done', rejected:'rej', cancelled:'ban', handed:'hand'};
 function fbtn(k, label, n, on, act, blink, ico, boxC){
   const c = k ? REQ_CAT[k].c : (boxC || '');
   // الرمز بخط رفيع كرموز الشريط الجانبي، وبلون الحد الأيمن نفسه (لون الحالة)
@@ -14738,7 +14827,7 @@ function renderDashboard(app){
               <span data-label="الحالة">
                 ${isUnderReview(r)
                   ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);" title="لم يُرسل نهائياً بعد — لا يراه المعتمدون">قيد المراجعة</span>`
-                  : statusBadge(r.status, r.isCancelled, myTurn, !subNoteText, myTurn && isOverdueFor(r, state.user.id))}${r.fastTracked ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:var(--fs-xs);" title="تخطّى بعض خطوات الاعتماد لأن المبلغ ضمن الحد الأدنى">⚡ حد أدنى</span>` : ''}${(isUnspecifiedBudget(r.budgetItemId) && !r.isCancelled && r.status!=='rejected' && r.status!=='completed') ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:var(--fs-xs);" title="الصرف متوقف حتى يُسنَد الطلب إلى بند ميزانية">⚠ بند غير محدد</span>` : ''}
+                  : deferActive(r) ? deferBadge(r) : statusBadge(r.status, r.isCancelled, myTurn, !subNoteText, myTurn && isOverdueFor(r, state.user.id))}${r.fastTracked ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:var(--fs-xs);" title="تخطّى بعض خطوات الاعتماد لأن المبلغ ضمن الحد الأدنى">⚡ حد أدنى</span>` : ''}${(isUnspecifiedBudget(r.budgetItemId) && !r.isCancelled && r.status!=='rejected' && r.status!=='completed') ? `<span class="badge" style="background:var(--amber-bg);color:var(--amber);margin-top:3px;font-size:var(--fs-xs);" title="الصرف متوقف حتى يُسنَد الطلب إلى بند ميزانية">⚠ بند غير محدد</span>` : ''}
                 ${subNoteText ? `<span class="badge sub-status-note ${subNoteClass}">${subNoteText}</span>` : ''}
                 ${reqPaperBadge(r)}
                 ${(()=>{ const hf = handedFromNames(r); return hf.length ? `<span class="badge handed-badge" title="أُسند إليك قرار ${escH(hf.join('، '))} في هذا الطلب">🤝 مُسنَد إليك من ${escH(hf.join('، '))}</span>` : ''; })()}
@@ -14761,7 +14850,7 @@ function renderDashboard(app){
   const selBtn = (ico, inner) => `<label class="fb fb-sel"><span class="fb-ic" style="color:var(--teal);">${qi(ico)}</span>${inner}</label>`;
   // شبكة واحدة بأزرار ثابتة العرض تصعد للأعلى كلما اتسع العرض: الكل · طلباتي · بانتظار قرارك · الحالات · ثم الفترة في آخرها
   // كل زر يعمل وحده بالتبادل (وإطفاؤه يعيد «الكل»)، والفترة وحدها تجتمع معها
-  const statusBtns = ['review','decision','finance','done','rejected','cancelled','handed'].map(k=>fbtn(k, REQ_CAT[k].label,
+  const statusBtns = ['review','decision','finance'].concat(periodFiltered.some(r=>reqCat(r)==='deferred') ? ['deferred'] : [], ['done','rejected','cancelled','handed']).map(k=>fbtn(k, REQ_CAT[k].label,
         k==='handed' ? periodFiltered.filter(r=>handedFromNames(r).length>0).length : periodFiltered.filter(r=>reqCat(r)===k).length,
         statusFilter===k || (k==='done' && statusFilter==='completed'), [["dashToggleCat",[k]]])).join('');
   const periodBar = `
@@ -14856,7 +14945,7 @@ function renderOldCoPanel(){
         <span data-label="تاريخ الصرف" class="req-field-value">${pd||'—'}</span>
         <span data-label="المستفيدون" class="req-field-value" style="padding-right:22px;">${(r.beneficiaries||[]).length}</span>
         <span data-label="المبلغ" class="req-field-value" style="font-weight:700;color:var(--ink);">${fmtKWDHtml(r.totalAmount)} د.ك</span>
-        <span data-label="الحالة">${statusBadge(r.status, r.isCancelled, false, true)}${reqPaperBadge(r)}</span>
+        <span data-label="الحالة">${deferActive(r) ? deferBadge(r) : statusBadge(r.status, r.isCancelled, false, true)}${reqPaperBadge(r)}</span>
       </div>`; }).join('')}
   </div></div>` : '<div class="empty">لا توجد طلبات ضمن هذا الاختيار</div>';
   return `<div class="card no-print">
@@ -17071,6 +17160,8 @@ function renderDetail(app){
     actionsHtml = `
       <div class="note-box no-print"><b>سبب الرفض:</b> ${escH(lastRejection ? lastRejection.note : '')}</div>
       <div class="actions-row no-print" data-bar-actions><button class="btn btn-primary btn-lg" data-on-click="resubmitFix">تعديل وإعادة الإرسال</button></div>`;
+  } else if(canAct && req.status==='pending_transfer_request' && deferActive(req)){
+    actionsHtml = '';   // مؤجل الصرف: أزرار «دخل المبلغ» / «صرف قبل الموعد» في صندوق التأجيل أعلى الطلب
   } else if(canAct && req.status==='pending_transfer_request'){
     actionsHtml = `
       <div class="actions-row no-print" data-bar-actions>
@@ -17088,6 +17179,7 @@ function renderDetail(app){
     actionsHtml = `
       <div class="actions-row no-print" data-bar-actions>
         <button class="btn btn-approve btn-md" data-on-click="approveFix">اعتماد</button>
+        ${req.status==='pending_decision' ? `<button class="btn btn-ghost btn-md2" data-on-click="approveDeferFix" title="اعتماد مع تأجيل الصرف: تعتمد الطلب، ولا يصرفه المحاسب قبل الموعد أو دخول مبلغ المشروع">اعتماد وتأجيل</button>` : ''}
         ${escT ? `<button class="btn btn-ghost btn-md2" data-on-click="approveEscalateFix" data-on-click-args="${qa([(''+(escT.id))])}" title="تعتمد أنت ثم يُضاف ${escH(escT.name)} كخطوة اعتماد تالية لهذا الطلب"><span class="bl1">اعتماد وإحالة</span><span class="bl2">إلى ${escH(escT.name)}</span></button>` : ''}
         <button class="btn btn-reject btn-md" data-on-click="openRejectModal" data-on-click-args="${qa([(''+(req.id))])}">رفض</button>
       </div>`;
@@ -17095,13 +17187,13 @@ function renderDetail(app){
 
   // «بانتظارك الآن»: صندوق واضح أعلى الطلب بما هو مطلوب منك وزره، فلا يُبحث عن الزر في الشريط السفلي
   const pMine = paperStepForMe(req);
-  const turn = (canAct && !req.isCancelled) ? ({pending_transfer_request:['تسجيل التحويل','approveFix'], pending_transfer_approval:['اعتماد التحويل','approveFix'], pending_disbursement:['تأكيد إتمام الصرف','markDisbursedFix']}[req.status] || ['اعتماد الطلب أو رفضه','approveFix'])
+  const turn = (canAct && !req.isCancelled && !(req.status==='pending_transfer_request' && deferActive(req))) ? ({pending_transfer_request:['تسجيل التحويل','approveFix'], pending_transfer_approval:['اعتماد التحويل','approveFix'], pending_disbursement:['تأكيد إتمام الصرف','markDisbursedFix']}[req.status] || ['اعتماد الطلب أو رفضه','approveFix'])
     : (pMine ? ['تسجيل اعتماد ورقي عن '+((userById(pMine.approverId)||{}).name||''), 'paperRecordOpen'] : null);
-  const myTurnHtml = turn ? `<div class="my-turn no-print">
+  const myTurnHtml = deferBoxHtml(req) + (turn ? `<div class="my-turn no-print">
       <div class="my-turn-t">⏳ بانتظارك الآن: <b>${escH(turn[0])}</b></div>
       <button type="button" class="btn btn-approve btn-md" ${turn[1]==='paperRecordOpen' ? `data-on-click="paperRecordOpen" data-on-click-args="${qa([(''+req.id), 'approve'])}"` : `data-on-click="${turn[1]}"`}>${escH(turn[1]==='paperRecordOpen' ? 'اعتماد ورقي' : turn[1]==='markDisbursedFix' ? 'تأكيد الصرف' : req.status==='pending_transfer_request' ? 'تسجيل التحويل' : 'اعتماد')}</button>
       <div class="my-turn-h">${req.status==='pending_decision' || pMine ? 'وللرفض: زر «رفض» أسفل الطلب وفي الشريط السفلي.' : 'وللرفض لأسباب محاسبية: زره أسفل الطلب وفي الشريط السفلي.'}</div>
-    </div>` : '';
+    </div>` : '');
 
   // الاعتماد الورقي: أزرار المسجِّل، وتنبيه لكل من يرى الطلب، وروابط الأوراق الموقعة
   if(paperStepForMe(req)){
@@ -17221,9 +17313,10 @@ function renderDetail(app){
   `;
 
   app.innerHTML = pathSideWrap(app.innerHTML, 'مسار الطلب', stepperHtml);
-  window.approveFix = ()=>{ state.pendingEscalate = null; approve(req); };   // اعتماد عادي يلغي أي إحالة معلّقة من محاولة سابقة
+  window.approveFix = ()=>{ state.pendingEscalate = null; state.pendingDefer = null; approve(req); };
+  window.approveDeferFix = async ()=>{ const d = await deferAsk(req, 'اعتماد مع تأجيل الصرف', 'اعتماد وتأجيل'); if(!d) return; state.pendingEscalate = null; state.pendingDefer = Object.assign({reqId:req.id}, d); approve(req); };   // اعتماد عادي يلغي أي إحالة معلّقة من محاولة سابقة
   window.markDisbursedFix = ()=>markDisbursed(req);
-  window.approveEscalateFix = (targetId)=>{ state.pendingEscalate = {reqId:req.id, targetId}; approve(req); };
+  window.approveEscalateFix = (targetId)=>{ state.pendingDefer = null; state.pendingEscalate = {reqId:req.id, targetId}; approve(req); };
   window.resubmitFix = ()=>resubmit(req);
   window.rebuildRequestPathFix = ()=>rebuildRequestPath(req);
   window.rebuildResetFix = ()=>rebuildRequestPathAndReset(req);
