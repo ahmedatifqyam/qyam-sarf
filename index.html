@@ -3640,10 +3640,14 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* (1.48.1) أدوات المشاريع بأربعة فلاتر: حسب عرض البطاقة نفسها (لا عرض النافذة) — إن ضاقت عن صف واحد
      صارت الفلاتر الأربعة في صف بعرض متساوٍ، و🔍 والزران في صف تحته */
   #app .card:has(> .pj-tools){container-type:inline-size;container-name:pjtools;}
-  @container pjtools (min-width:560px) and (max-width:1100px){
+  @container pjtools (max-width:1100px){
     #app .pj-tools{flex-wrap:wrap !important;}
-    #app .pj-tools select{flex:1 1 calc(25% - 6px) !important;width:auto !important;max-width:none !important;}
-    #app .pj-tools > .btn{flex:1 1 0 !important;width:auto !important;}
+    #app .pj-tools select{flex:1 1 calc(25% - 6px) !important;width:auto !important;max-width:none !important;min-width:0 !important;}
+    #app .pj-tools > .btn{flex:1 1 0 !important;width:auto !important;min-width:0 !important;}
+  }
+  /* أضيق من 620: كل فلترين في صف */
+  @container pjtools (max-width:620px){
+    #app .pj-tools select{flex:1 1 calc(50% - 4px) !important;}
   }
   #app .pj-acts-w .btn.file-add, #app .pj-next .btn.file-add{width:auto !important;min-width:150px;white-space:nowrap;}
 </style>
@@ -3666,6 +3670,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=32ee67753e"></script>
+<script src="app.js?v=9e15e4a3fb"></script>
 </body>
 </html>
