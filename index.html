@@ -3624,6 +3624,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .defer-box .defer-b{display:flex;gap:8px;flex:0 0 auto;}
   #app .defer-box .defer-b .btn{width:150px;}
   @media (max-width:699px){ #app .defer-box{flex-wrap:wrap;} #app .defer-box .defer-b{flex:1 1 100%;} #app .defer-box .defer-b .btn{flex:1 1 0;width:auto;} }
+  /* (1.46.0) السحب والإفلات: الحقول التي تقبل الملفات تتلوّن أثناء السحب، و«أفلت الملف هنا» فوق الحقل المستهدف */
+  body.qy-dragging .qy-drop{outline:2px dashed #2563eb;outline-offset:2px;border-radius:8px;}
+  .qy-drop.drop-over{position:relative;}
+  .qy-drop.drop-over::after{content:'أفلت الملف هنا';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(239,246,255,.95);color:#1d4ed8;font-weight:800;font-size:var(--fs-label);border-radius:8px;pointer-events:none;z-index:2;}
+  #app .pj-lock{background:#f8fafc;border:1px solid var(--border);border-right:4px solid #64748b;border-radius:8px;padding:10px 12px;color:var(--text);font-size:var(--fs-hint);margin-bottom:10px;}
+  #app .pj-creq-h .pj-creq-ed{margin-inline-start:auto;}
 </style>
 </head>
 <body>
@@ -3644,6 +3650,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=a50cb051e3"></script>
+<script src="app.js?v=fb48a96e51"></script>
 </body>
 </html>

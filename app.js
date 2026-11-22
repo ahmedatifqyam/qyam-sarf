@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.45.0', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.46.0', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:352, base:350, extra:1.7, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:1.9, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -8036,6 +8036,47 @@ function fileButtons(){
     inp.addEventListener('change', show);
   });
 }
+// (1.46.0) السحب والإفلات لكل حقول الملفات في النظام: عند سحب ملف فوق الصفحة تتلوّن الحقول التي تقبل الملفات،
+// والإفلات على حقل يضع الملف فيه كأنه اختير بالضغط (يُطلق change فتعمل خطواته كما هي). الإفلات خارج الحقول لا يفتح الملف في المتصفح.
+function qyDropZones(){
+  document.querySelectorAll('input[type=file]').forEach(inp=>{
+    if(inp.disabled) return;
+    let z = inp.closest('label');
+    if(!z){ const par = inp.parentElement; z = par && par.querySelectorAll('input[type=file]').length===1 ? par : inp; }
+    z.classList.add('qy-drop'); z._qyInp = inp;
+  });
+}
+function qyAcceptOk(inp, f){
+  const acc = String(inp.accept||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean); if(!acc.length) return true;
+  const n = String(f.name||'').toLowerCase(), t = String(f.type||'').toLowerCase();
+  return acc.some(a=> a.startsWith('.') ? n.endsWith(a) : a.endsWith('/*') ? t.startsWith(a.slice(0,-1)) : t===a);
+}
+function qyDropInto(inp, list){
+  let files = [...list];
+  const bad = files.filter(f=>!qyAcceptOk(inp, f));
+  files = files.filter(f=>qyAcceptOk(inp, f));
+  if(!files.length){ showToast('نوع الملف غير مقبول هنا' + (bad[0] ? ': ' + bad[0].name : ''), 'error'); return; }
+  if(!inp.multiple && files.length > 1){ showToast('هذا الحقل يقبل ملفاً واحداً — أُخذ «' + files[0].name + '»', 'info'); files = files.slice(0,1); }
+  else if(bad.length) showToast('تُرك ' + bad.length + ' ملف بنوع غير مقبول', 'info');
+  try{ const dt = new DataTransfer(); files.forEach(f=>dt.items.add(f)); inp.files = dt.files; }
+  catch(e){ showToast('المتصفح لا يدعم الإفلات هنا — اضغط الحقل واختر الملف', 'error'); return; }
+  inp.dispatchEvent(new Event('input', {bubbles:true})); inp.dispatchEvent(new Event('change', {bubbles:true}));
+}
+(function qyDnDInit(){
+  if(window.__qyDnD) return; window.__qyDnD = true;
+  const hasFiles = e => !!(e.dataTransfer && [...(e.dataTransfer.types||[])].includes('Files'));
+  let depth = 0, over = null;
+  const setOver = z => { if(over===z) return; if(over) over.classList.remove('drop-over'); over = z; if(z) z.classList.add('drop-over'); };
+  const end = () => { depth = 0; setOver(null); document.body.classList.remove('qy-dragging'); };
+  document.addEventListener('dragenter', e=>{ if(!hasFiles(e)) return; if(depth++===0){ qyDropZones(); document.body.classList.add('qy-dragging'); } });
+  document.addEventListener('dragleave', e=>{ if(!hasFiles(e)) return; if(--depth<=0) end(); });
+  document.addEventListener('dragover', e=>{ if(!hasFiles(e)) return; e.preventDefault();
+    const z = e.target.closest && e.target.closest('.qy-drop'); setOver(z && z._qyInp && !z._qyInp.disabled ? z : null);
+    e.dataTransfer.dropEffect = over ? 'copy' : 'none'; });
+  document.addEventListener('drop', e=>{ if(!hasFiles(e)) return; e.preventDefault();
+    const z = over; end(); if(z && z._qyInp) qyDropInto(z._qyInp, e.dataTransfer.files); });
+  window.addEventListener('blur', end);
+})();
 // (16 نوفمبر) شبكة النماذج على الحاسوب: داخل البطاقة الواحدة كل الحقول بعرض واحد (أعرضها، مقرّباً لمقاس معتمد)،
 // والصف الذي فيه حقل واحد يصعد إلى الصف السابق إن كان فيه مكان — فلا حقل وحده في صف ولا أعراض متفاوتة
 const FORM_W = [180, 280, 380, 580];
@@ -19605,6 +19646,7 @@ function prjInstEdit(i, k, v){ prjDocSync(); const d = state.prj.docForm, x = d 
   x[k] = k==='amount' ? (String(v).trim()==='' ? '' : cxR3(cxN(v))) : v; prjPayRefresh(); }
 function prjDocFormHtml(){
   const d = state.prj.docForm, clients = cxClientTree();
+  const lock = !!(d.id && prjOfDoc(d.id));   // (1.46.0) بعد فتح المشروع: القيمة وطريقة الدفع والبنود والعميل صارت للمشروع
   const pend = prjCreqPending('').concat(d.id && prjCreqOfDoc(d.id) ? [prjCreqOfDoc(d.id)] : []), cq = d.creq_id || '';
   return `<div class="card cx-panel pj-form" id="pjDocForm">
     <div class="cx-panel-h pj-form-h"><h2>${d.id ? 'تعديل الوثيقة ' + escH(d.doc_no||'') : 'وثيقة جديدة'}</h2><p class="file-hint">ارفع الوثيقة جاهزة (PDF أو صورة) واكتب بياناتها. الرقم يُعطى تلقائياً: رمز الشركة-الرقم/السنة. ويمكن اختيار بنودها من «خدمات الشركة» في آخر النموذج.</p>
@@ -19621,7 +19663,7 @@ function prjDocFormHtml(){
       <div class="pj-row">
         <div class="pf w160"><label for="pjd_doc_type">نوع الوثيقة</label><select id="pjd_doc_type">${PRJ_DOC_TYPES.map(([k,l])=>`<option value="${k}" ${d.doc_type===k?'selected':''}>${l}</option>`).join('')}</select></div>
         <div class="pf w160"><label for="pjd_doc_date">تاريخ الوثيقة</label><input id="pjd_doc_date" type="date" value="${escH(d.doc_date||'')}"></div>
-        <div class="pf grow1"><label for="pjd_client_id">العميل</label><select id="pjd_client_id" data-on-change="prjClientPick" data-on-change-args="${qa(['doc', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${d.client_id===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select></div>
+        <div class="pf grow1"><label for="pjd_client_id">العميل</label><select id="pjd_client_id" ${lock ? 'disabled title="العميل مرتبط بالمشروع ولا يتغير بعد فتحه"' : ''} data-on-change="prjClientPick" data-on-change-args="${qa(['doc', QA.v])}"><option value="">— اختر العميل —</option><option value="__new">+ عميل جديد…</option>${clients.map(({c,depth})=>`<option value="${escH(c.id)}" ${d.client_id===c.id?'selected':''}>${depth?'— ':''}${escH(c.name)}</option>`).join('')}</select></div>
       </div>
       <div class="pj-row">
         <div class="pf grow1"><label for="pjd_title">العنوان</label><input id="pjd_title" type="text" value="${escH(d.title||'')}" placeholder="مثال: إدارة حسابات التواصل — الوقف الكبير"></div>
@@ -19629,11 +19671,12 @@ function prjDocFormHtml(){
       </div>
       <div class="pj-row">
         <div class="pf w300"><label for="pjd_file">ملف الوثيقة${d.file_path ? ' (اتركه للإبقاء على الحالي)' : ''}</label><input id="pjd_file" type="file" accept="application/pdf,image/*"></div>
+        ${lock ? `<div class="pf w300"><label for="pjd_signed">النسخة الموقّعة${d.signed_path ? ' (اتركه للإبقاء على الحالية)' : ''}</label><input id="pjd_signed" type="file" accept="application/pdf,image/*"></div>` : ''}
         <div class="pf grow1"><label for="pjd_notes">ملاحظات</label><input id="pjd_notes" type="text" value="${escH(d.notes||'')}" placeholder="اختياري"></div>
       </div>
     </div>
-    ${prjPayHtml(d)}
-    ${prjLinesFormHtml(d)}
+    ${lock ? `<div class="pj-sec"><div class="pj-lock">القيمة وطريقة الدفع والمدة والبنود صارت للمشروع بعد فتحه، فلا تُعدَّل من هنا. الاسم والمدة والصرف قبل الدفع تُعدَّل من «2 · المبالغ والصرف» بزر «تعديل».</div>${prjLinesViewHtml(d)}</div>`
+      : prjPayHtml(d) + prjLinesFormHtml(d)}
     <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjDocSave" data-on-click="prjDocSave">${d.id ? 'حفظ التعديل' : 'حفظ الوثيقة'}</button><button class="btn btn-ghost btn-sm" data-on-click="prjDocCancel">إلغاء</button>${d.file_path ? prjFileBtn(d.file_path, d.file_name, 'الملف الحالي') : ''}</div>
   </div>`;
 }
@@ -19641,6 +19684,7 @@ function prjOpenEnded(c){ const d = state.prj.docForm; if(d) d.open_ended = !!c;
 async function prjDocSave(){
   prjDocSync();
   const d = state.prj.docForm; if(!d) return;
+  if(d.id && prjOfDoc(d.id)) return prjDocSaveLocked(d);
   if(!d.client_id){ fieldErr('#pjd_client_id','اختر العميل'); return; }
   if(!String(d.title||'').trim()){ fieldErr('#pjd_title','اكتب العنوان'); return; }
   const lines = (d.lines||[]).filter(l=>String(l.name||'').trim() || Number(l.price)).map(l=>({catalog_id:l.catalog_id||null, section:l.section||null, name:String(l.name||'').trim(), qty:Number(l.qty)||0, unit:String(l.unit||'').trim()||null, price:cxR3(Number(l.price)||0)}));
@@ -19694,6 +19738,28 @@ async function prjDocSave(){
   }catch(e){ if(e.message!=='-') showToast('تعذّر الحفظ: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'حفظ'; } }
 }
 
+// (1.46.0) تعديل وثيقة فُتح مشروعها: البيانات الوصفية والملفات فقط (القيمة والدفع والبنود للمشروع)
+async function prjDocSaveLocked(d){
+  if(!String(d.title||'').trim()){ fieldErr('#pjd_title','اكتب العنوان'); return; }
+  if(d.creq_id==='__new' && !String((document.getElementById('pjdq_desc')||{}).value||'').trim()){ fieldErr('#pjdq_desc','اكتب ما يطلبه العميل، أو أعد القائمة إلى «اختر أو أنشئ طلب العميل»'); return; }
+  const btn = document.getElementById('pjDocSave'); if(btn){ btn.disabled = true; btn.textContent = 'جارٍ الحفظ…'; }
+  try{
+    const f1 = prjFileOf('pjd_file'), f2 = prjFileOf('pjd_signed');
+    const u1 = f1 ? await prjUpload(f1, 'docs') : null, u2 = f2 ? await prjUpload(f2, 'docs') : null;
+    const row = {doc_type:d.doc_type, contract_id:d.contract_id||null, title:String(d.title).trim(), doc_date:d.doc_date||null, notes:String(d.notes||'').trim()||null};
+    if(u1){ row.file_path = u1.path; row.file_name = u1.name; }
+    if(u2){ row.signed_path = u2.path; row.signed_name = u2.name; }
+    const r = await db.from('prj_documents').update(row).eq('id', d.id);
+    if(!(await dbCheck(r, 'حفظ الوثيقة'))){ db.storage.from('attachments').remove([u1,u2].filter(Boolean).map(x=>x.path)).catch(()=>{}); throw new Error('-'); }
+    const prev = prjCreqOfDoc(d.id), want = d.creq_id || '';
+    if(prev && prev.id !== want) await dbCheck(await db.from('prj_client_requests').update({status:'new', doc_id:null}).eq('id', prev.id), 'فك ربط الطلب');
+    if(want==='__new'){ const qr = await prjCreqRead('pjdq', null);
+      if(qr) await dbCheck(await db.from('prj_client_requests').insert(Object.assign(qr, {company_id:state.currentCompanyId, client_id:d.client_id, status:'linked', doc_id:d.id, created_by:state.user.id})), 'حفظ طلب العميل'); }
+    else if(want && (!prev || prev.id !== want)) await dbCheck(await db.from('prj_client_requests').update({status:'linked', doc_id:d.id}).eq('id', want), 'ربط طلب العميل');
+    showToast('حُفظ تعديل الوثيقة','success'); state.prj.docForm = null; await prjLoad();
+  }catch(e){ if(e.message!=='-') showToast('تعذّر الحفظ: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'حفظ التعديل'; } }
+}
+
 // ===================== صفحة المشروع / الوثيقة =====================
 function prjOpenRow(){
   const id = state.prj.openId || '';
@@ -19713,6 +19779,7 @@ function renderProject(app){
     <h1 class="pj-h1">${escH(p ? p.name : d.title)} ${st}</h1>
     <p class="sub">${escH(prjClientName(cl)||'')}${d ? ' · ' + escH(prjDocTypeName(d.doc_type)) + ' ' + escH(d.doc_no) : ''}</p>
     ${state.prj.docForm ? prjDocFormHtml() : ''}
+    ${state.prj.creqForm ? prjCreqFormHtml() : ''}
     ${d ? prjSecId(prjDocPanelHtml(d, p), 'pjsec-doc') : ''}
     ${p ? prjSecId(prjMoneyPanelHtml(p), 'pjsec-money') + prjSecId(prjInvoicesPanelHtml(p), 'pjsec-inv') + prjSecId(prjExecPanelHtml(p), 'pjsec-exec') + prjSecId(prjClosePanelHtml(p), 'pjsec-close') : ''}`;
 }
@@ -19749,8 +19816,8 @@ function prjDocPanelHtml(d, p){
   const dur = d.open_ended ? 'مفتوح بلا نهاية' : (d.months ? d.months + ' شهر' : '—');
   const fin = isFinanceUser(), ed = canEditPrj();
   return `<div class="card cx-panel">
-    <div class="cx-panel-h"><h2>1 · الوثيقة</h2><div class="cx-ph-tools">${prjFileBtn(d.file_path, d.file_name, 'عرض الوثيقة')}${prjFileBtn(d.signed_path, d.signed_name, 'النسخة الموقّعة')}</div></div>
-    ${(()=>{ const q = prjCreqOfDoc(d.id); return q ? `<div class="pj-creq pj-creq-in"><div class="pj-creq-h"><b>طلب العميل</b><span class="file-hint">${cxDate(q.req_date)} · ${escH(PRJ_CREQ_CH[q.channel]||'')}</span></div><div class="pj-creq-d">${escH(q.description)}</div>${(q.files||[]).length ? `<div class="pj-acts-w">${prjCreqFilesHtml(q)}</div>` : ''}</div>` : ''; })()}
+    <div class="cx-panel-h"><h2>1 · الوثيقة</h2><div class="cx-ph-tools">${prjFileBtn(d.file_path, d.file_name, 'عرض الوثيقة')}${prjFileBtn(d.signed_path, d.signed_name, 'النسخة الموقّعة')}${ed && d.status!=='sent' && !state.prj.docForm ? `<button class="btn btn-ghost btn-sm" data-on-click="prjEditDoc" data-on-click-args="${qa([d.id])}" title="العنوان والتاريخ والمرجع والملاحظات والملفات وطلب العميل">تعديل</button>` : ''}</div></div>
+    ${(()=>{ const q = prjCreqOfDoc(d.id); return q ? `<div class="pj-creq pj-creq-in"><div class="pj-creq-h"><b>طلب العميل</b><span class="file-hint">${cxDate(q.req_date)} · ${escH(PRJ_CREQ_CH[q.channel]||'')}</span>${ed && !state.prj.creqForm ? `<button class="btn btn-ghost btn-sm pj-creq-ed" data-on-click="prjCreqEdit" data-on-click-args="${qa([q.id])}">تعديل</button>` : ''}</div><div class="pj-creq-d">${escH(q.description)}</div>${(q.files||[]).length ? `<div class="pj-acts-w">${prjCreqFilesHtml(q)}</div>` : ''}</div>` : ''; })()}
     <div class="pj-kvs">
       ${kv('النوع', escH(prjDocTypeName(d.doc_type)))}${kv('الرقم', `<bdi>${escH(d.doc_no)}</bdi>`)}${kv('التاريخ', cxDate(d.doc_date))}
       ${kv('القيمة', fmtKWDHtml(d.amount) + (PRJ_EVERY[d.amount_kind] ? ' <small>' + PRJ_EVERY[d.amount_kind] + '</small>' : ''))}${kv('طريقة الدفع', escH(PRJ_PAY[d.amount_kind]||'مرة واحدة') + (prjInst(d).length>1 ? ' — ' + prjInst(d).map((x,i)=>'الدفعة ' + (i+1) + ': ' + cxDate(x.date) + ' ' + fmtKWDHtml(x.amount)).join('، ') : ''))}${kv('المدة', dur)}${kv('بداية التنفيذ', cxDate(d.start_date))}
@@ -19933,6 +20000,7 @@ function prjInvoicesPanelHtml(p){
       <tr class="pj-actrow${canc?' cat-off':''}"><td colspan="6"><div class="pj-acts-w">${prjFileBtn(i.invoice_path, i.invoice_name, 'الفاتورة')}${prjFileBtn(i.receipt_path, i.receipt_name, 'علم الوصول')}
         ${!canc && !i.receipt_path && ed ? `<button class="btn btn-ghost btn-sm" data-on-click="prjRcpOpen" data-on-click-args="${qa([i.id])}">+ علم الوصول</button>` : ''}
         ${!canc && rem>0 && fin ? `<button class="btn btn-primary btn-sm" data-on-click="prjColOpen" data-on-click-args="${qa([i.id])}">تحصيل</button>` : ''}
+        ${!canc && ed && !state.prj.invForm ? `<button class="btn btn-ghost btn-sm" data-on-click="prjInvEdit" data-on-click-args="${qa([i.id])}">تعديل</button>` : ''}
         ${!canc && col===0 && fin ? `<button class="btn btn-ghost btn-sm pj-act-x" data-on-click="prjInvCancel" data-on-click-args="${qa([i.id])}">إلغاء</button>` : ''}</div></td></tr>
       ${state.prj.rcpFor===i.id ? `<tr class="pj-subrow"><td colspan="6"><div class="uf-flex"><div class="f-lg"><label for="pjr_file">صورة علم الوصول</label><input id="pjr_file" type="file" accept="application/pdf,image/*"></div><div class="f-md"><label>&nbsp;</label><div class="cx-actions pj-inline"><button class="btn btn-primary btn-sm" data-on-click="prjRcpSave" data-on-click-args="${qa([i.id])}">رفع</button><button class="btn btn-ghost btn-sm" data-on-click="prjRcpOpen" data-on-click-args="${qa([''])}">إلغاء</button></div></div></div></td></tr>` : ''}
       ${state.prj.colForm && state.prj.colForm.invId===i.id ? `<tr class="pj-subrow"><td colspan="6">${prjColFormHtml(i, rem)}</td></tr>` : ''}`;
@@ -19952,33 +20020,43 @@ function prjInvNew(pid){
   state.prj.invForm = {pid, period: per0, amount: prjPerAmount(p, per0, rem)};
   render(); setTimeout(()=>{ const el = document.getElementById('pji_no'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus({preventScroll:true}); } }, 60);
 }
+// (1.46.0) تعديل فاتورة: الرقم والتاريخ والفترة والملفان دائماً؛ والمبلغ فقط إن لم يُحصَّل منها شيء ولم تُعالَج
+function prjInvEdit(id){
+  const i = state.prj.invoices.find(x=>x.id===id); if(!i) return;
+  state.prj.invForm = {id:i.id, pid:i.project_id, period:i.period||'', amount:i.amount, inv_no:i.inv_no||'', inv_date:i.inv_date||'', invoice_path:i.invoice_path, invoice_name:i.invoice_name, receipt_path:i.receipt_path, receipt_name:i.receipt_name,
+    amtLocked: prjInvCollected(i) > 0 || prjSettles(i).length > 0};
+  state.prj.rcpFor = null; render();
+  setTimeout(()=>{ const el = document.getElementById('pji_no'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus({preventScroll:true}); } }, 60);
+}
 function prjInvFormHtml(p, due){
-  const f = state.prj.invForm, per = [];
+  const f = state.prj.invForm, per = [], ed = !!f.id;
   if(p.invoice_mode!=='single') per.push(...prjAllPeriods(p));
-  const used = new Set(prjInvs(p).map(i=>i.period));
+  const used = new Set(prjInvs(p).filter(i=>i.id!==f.id).map(i=>i.period));
   return `<div class="pj-approve">
-    <h3 class="uf-h">فاتورة جديدة</h3>
+    <h3 class="uf-h">${ed ? 'تعديل الفاتورة ' + escH(f.inv_no||'') : 'فاتورة جديدة'}</h3>
     <div class="uf-flex">
-      <div class="f-md"><label for="pji_no">رقم الفاتورة</label><input id="pji_no" type="text" dir="ltr" placeholder="من البرنامج المحاسبي"></div>
-      <div class="f-md"><label for="pji_date">التاريخ</label><input id="pji_date" type="date" value="${cxToday()}"></div>
+      <div class="f-md"><label for="pji_no">رقم الفاتورة</label><input id="pji_no" type="text" dir="ltr" placeholder="من البرنامج المحاسبي" value="${escH(f.inv_no||'')}"></div>
+      <div class="f-md"><label for="pji_date">التاريخ</label><input id="pji_date" type="date" value="${escH(f.inv_date||cxToday())}"></div>
       ${per.length ? `<div class="f-md"><label for="pji_period">${p.invoice_mode==='installments' ? 'الدفعة' : p.invoice_mode==='monthly' ? 'الشهر' : 'الفترة'}</label><select id="pji_period" data-on-change="prjInvPerPick" data-on-change-args="${qa([QA.v])}">${per.map(ym=>`<option value="${ym}" ${f.period===ym?'selected':''} ${used.has(ym)?'disabled':''}>${escH(prjPerName(ym, p))}${used.has(ym)?' (صدرت)':''}</option>`).join('')}</select></div>` : ''}
-      <div class="f-md"><label for="pji_amount">المبلغ (د.ك)</label><input id="pji_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String(f.amount||''))}"></div>
+      <div class="f-md"><label for="pji_amount">المبلغ (د.ك)</label><input id="pji_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String(f.amount||''))}" ${f.amtLocked ? 'disabled title="حُصّل منها أو عولجت، فلا يتغير مبلغها"' : ''}></div>
     </div>
     <div class="uf-flex">
-      <div class="f-lg"><label for="pji_inv">صورة الفاتورة</label><input id="pji_inv" type="file" accept="application/pdf,image/*"></div>
-      <div class="f-lg"><label for="pji_rcp">صورة علم الوصول (يمكن إضافتها لاحقاً)</label><input id="pji_rcp" type="file" accept="application/pdf,image/*"></div>
+      <div class="f-lg"><label for="pji_inv">صورة الفاتورة${ed ? ' (اتركه للإبقاء على الحالية)' : ''}</label><input id="pji_inv" type="file" accept="application/pdf,image/*"></div>
+      <div class="f-lg"><label for="pji_rcp">صورة علم الوصول${ed ? (f.receipt_path ? ' (اتركه للإبقاء على الحالية)' : '') : ' (يمكن إضافتها لاحقاً)'}</label><input id="pji_rcp" type="file" accept="application/pdf,image/*"></div>
     </div>
-    <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjInvBtn" data-on-click="prjInvSave">حفظ الفاتورة</button><button class="btn btn-ghost btn-sm" data-on-click="prjInvClose">إلغاء</button></div>
+    ${f.amtLocked ? '<p class="file-hint">المبلغ لا يتغير لأن الفاتورة حُصّل منها أو عولجت. لتصحيحه: ألغِ التحصيل أو المعالجة أولاً.</p>' : ''}
+    <div class="cx-actions"><button class="btn btn-primary btn-md" id="pjInvBtn" data-on-click="prjInvSave">${ed ? 'حفظ التعديل' : 'حفظ الفاتورة'}</button><button class="btn btn-ghost btn-sm" data-on-click="prjInvClose">إلغاء</button>${ed ? prjFileBtn(f.invoice_path, f.invoice_name, 'الفاتورة الحالية') + prjFileBtn(f.receipt_path, f.receipt_name, 'علم الوصول الحالي') : ''}</div>
   </div>`;
 }
 function prjInvClose(){ state.prj.invForm = null; render(); }
 async function prjInvSave(){
   const f = state.prj.invForm, p = f && state.prj.projects.find(x=>x.id===f.pid); if(!p) return;
   const g = k => (document.getElementById('pji_'+k)||{}).value || '';
-  const amount = cxR3(cxN(g('amount'))); if(!(amount>0)){ fieldErr('#pji_amount','اكتب المبلغ'); return; }
-  const fi = prjFileOf('pji_inv'); if(!fi){ fieldErr('#pji_inv','أرفق صورة الفاتورة'); return; }
+  const amount = f.amtLocked ? cxR3(Number(f.amount)) : cxR3(cxN(g('amount'))); if(!(amount>0)){ fieldErr('#pji_amount','اكتب المبلغ'); return; }
+  const fi = prjFileOf('pji_inv'); if(!fi && !f.id){ fieldErr('#pji_inv','أرفق صورة الفاتورة'); return; }
   const period = p.invoice_mode!=='single' ? (g('period') || null) : null;
-  if(period && prjInvs(p).some(i=>i.period===period)){ showToast('فاتورة هذه الفترة صدرت من قبل','error'); return; }
+  if(period && prjInvs(p).some(i=>i.period===period && i.id!==f.id)){ showToast('فاتورة هذه الفترة صدرت من قبل','error'); return; }
+  if(f.id) return prjInvSaveEdit(f, p, {inv_no:g('no').trim()||null, inv_date:g('date')||f.inv_date||cxToday(), period, amount}, fi);
   const btn = document.getElementById('pjInvBtn'); if(btn){ btn.disabled = true; btn.textContent = 'جارٍ الرفع…'; }
   try{
     const a = await prjUpload(fi, 'invoices'), rf = prjFileOf('pji_rcp'), b = rf ? await prjUpload(rf, 'receipts') : null;
@@ -19988,6 +20066,17 @@ async function prjInvSave(){
     if(!(await dbCheck(r,'حفظ الفاتورة'))){ db.storage.from('attachments').remove([a.path].concat(b?[b.path]:[])).catch(()=>{}); throw new Error('-'); }
     showToast(b ? 'حُفظت الفاتورة — التالي: التحصيل عند دفع العميل' : 'حُفظت الفاتورة — ارفع علم الوصول عند استلامه','success'); state.prj.invForm = null; await prjLoad(); window.scrollTo({top:0, behavior:'smooth'});
   }catch(e){ if(e.message!=='-') showToast('تعذّر: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'حفظ الفاتورة'; } }
+}
+async function prjInvSaveEdit(f, p, row, fi){
+  const btn = document.getElementById('pjInvBtn'); if(btn){ btn.disabled = true; btn.textContent = 'جارٍ الحفظ…'; }
+  try{
+    const rf = prjFileOf('pji_rcp'), a = fi ? await prjUpload(fi, 'invoices') : null, b = rf ? await prjUpload(rf, 'receipts') : null;
+    if(a){ row.invoice_path = a.path; row.invoice_name = a.name; }
+    if(b){ row.receipt_path = b.path; row.receipt_name = b.name; }
+    const r = await db.from('prj_invoices').update(row).eq('id', f.id);
+    if(!(await dbCheck(r,'تعديل الفاتورة'))){ db.storage.from('attachments').remove([a,b].filter(Boolean).map(x=>x.path)).catch(()=>{}); throw new Error('-'); }
+    showToast('حُفظ تعديل الفاتورة','success'); state.prj.invForm = null; await prjLoad();
+  }catch(e){ if(e.message!=='-') showToast('تعذّر: ' + e.message, 'error'); if(btn){ btn.disabled = false; btn.textContent = 'حفظ التعديل'; } }
 }
 function prjRcpOpen(id){ state.prj.rcpFor = id || null; render(); if(id) setTimeout(()=>{ const el = document.getElementById('pjr_file'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 60); }
 async function prjRcpSave(id){
