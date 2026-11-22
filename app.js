@@ -18158,8 +18158,9 @@ function cxMovable(x){ return !!x && !x._req && !x.voided && x.center_id && !['o
 function cxMvCount(){ return Object.keys(state.cx.mvSel||{}).length; }
 // (1.41.3) شريط «المحدد» يُعاد بناؤه من القالب عند البحث أو تغيير الصفحة؛ فيُحدَّث القالب والنسخة الظاهرة معاً، ومربع «الكل» يطابق الصفوف
 function bulkSync(tplId, fn){ const t = document.getElementById(tplId); [document, t && t.content].forEach(r=>{ if(r) try{ fn(r); }catch(e){} }); }
-function cxMvRefresh(){ const n = cxMvCount();
-  bulkSync('cxMvTpl', r=>{ r.querySelectorAll('#cxMvCount').forEach(e=>{ e.textContent = n; }); r.querySelectorAll('#cxMvBtn').forEach(b=>{ b.disabled = !n; }); });
+function cxMvSum(){ const sel = state.cx.mvSel||{}; return cxR3((state.cx.ledger||[]).reduce((a,x)=>a + (sel[x.id] ? Number(x.net||0) : 0), 0)); }
+function cxMvRefresh(){ const n = cxMvCount(), sm = fmtKWDHtml(cxMvSum());
+  bulkSync('cxMvTpl', r=>{ r.querySelectorAll('#cxMvCount').forEach(e=>{ e.textContent = n; }); r.querySelectorAll('#cxMvSum').forEach(e=>{ e.innerHTML = sm; }); r.querySelectorAll('#cxMvBtn').forEach(b=>{ b.disabled = !n; }); });
   const all = document.querySelector('table[data-qyl="cxLedger"] > thead th.cx-cb input'); if(all){ const mv = cxLedgerFiltered().filter(cxMovable), sel = state.cx.mvSel||{}; all.checked = !!mv.length && mv.every(x=>sel[x.id]); all.indeterminate = !all.checked && mv.some(x=>sel[x.id]); } }
 function cxMvToggle(id, on){ state.cx.mvSel = state.cx.mvSel || {}; if(on) state.cx.mvSel[id] = 1; else delete state.cx.mvSel[id]; cxMvRefresh(); }
 function cxMvAll(on){ state.cx.mvSel = {}; if(on) cxLedgerFiltered().filter(cxMovable).forEach(x=>{ state.cx.mvSel[x.id] = 1; }); const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); cxLedgerTidy(); } cxMvRefresh(); }
@@ -18167,7 +18168,7 @@ function cxMvTarget(v){ state.cx.mvTo = v||''; }
 function cxMvBulkTplHtml(){
   const n = cxMvCount(), cur = state.cx.centerId;
   const opts = (state.centers||[]).filter(c=>c.companyId===cxCid() && c.stage!=='closed').sort(_byUnit).map(c=>`<option value="${c.id}" ${c.id===state.cx.mvTo?'selected':''}>${escH(unitPathName(c))}</option>`).join('');
-  return `<template id="cxMvTpl"><span class="file-hint">المحدد: <b id="cxMvCount">${n}</b></span>
+  return `<template id="cxMvTpl"><span class="file-hint">المحدد: <b id="cxMvCount">${n}</b> · صافيها: <b id="cxMvSum">${fmtKWDHtml(cxMvSum())}</b></span>
     <select id="cxMvTo" class="f-in-lg" title="المركز الذي تُنقل إليه الحركات المحددة" data-on-change="cxMvTarget" data-on-change-args="${qa([QA.v])}"><option value="">— نقل إلى مركز —</option>${opts}</select>
     <button id="cxMvBtn" class="btn btn-primary btn-md" title="نقل الحركات المحددة إلى المركز المختار، مع بقاء الأصل مشطوباً للمراجعة" ${n?'':'disabled'} data-on-click="cxMvOpen">نقل المحدد</button></template>`;
 }
@@ -20643,7 +20644,8 @@ function gwMappingHtml(){
     <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwMapAdd">إضافة الربط</button>${sugg.length?`<span class="file-hint">جهات في المعلّقة بلا ربط: ${sugg.map(escH).join('، ')}</span>`:''}</div>
   </details>`;
 }
-function gwPendToggle(id, on){ state.cx.pendSel = state.cx.pendSel || {}; if(on) state.cx.pendSel[id] = 1; else delete state.cx.pendSel[id]; const n = Object.keys(state.cx.pendSel).length; bulkSync('gwBulkTpl', r=>r.querySelectorAll('#gwSelCount').forEach(e=>{ e.textContent = n; })); }
+function gwPendToggle(id, on){ state.cx.pendSel = state.cx.pendSel || {}; if(on) state.cx.pendSel[id] = 1; else delete state.cx.pendSel[id]; const n = Object.keys(state.cx.pendSel).length; const sm = fmtKWDHtml(gwSelSum()); bulkSync('gwBulkTpl', r=>{ r.querySelectorAll('#gwSelCount').forEach(e=>{ e.textContent = n; }); r.querySelectorAll('#gwSelSum').forEach(e=>{ e.innerHTML = sm; }); }); }
+function gwSelSum(){ const sel = state.cx.pendSel||{}; return cxR3((state.cx.pending||[]).reduce((a,x)=>a + (sel[x.id] ? Number(x.gross||0) : 0), 0)); }
 function gwBulkCenter(v){ state.cx.bulkCenter = v||''; }
 function gwPendAll(on){ state.cx.pendSel = {}; if(on) (state.cx.pending||[]).filter(x=>!x.agent).forEach(x=>{ state.cx.pendSel[x.id] = 1; }); render(); }
 async function gwAssignSel(){
@@ -20854,7 +20856,7 @@ function gwPendingHtml(){
         <td data-label="المركز">${fin ? `<select class="cx-sel-sm" data-on-change="gwAssignAgent" data-on-change-args="${qa([g.agent, QA.v])}"><option value="">— اختر المركز —</option>${gwCentersOptions(gwAgentCenter(g.agent))}</select>` : '—'}</td></tr>`).join('')}
       </tbody></table>` : ''}
     ${none.length ? (()=>{ const ds = none.map(x=>gwRefDate(x.order_ref)).filter(Boolean).sort(); return `<h3 class="cx-h3">بلا جهة (${none.length}) <span class="file-hint">فواتيرها ليست في الملفات المرفوعة${ds.length ? `، وأقدمها أُنشئ ${cxDate(ds[0])}. ارفع ملف فواتير من ${cxDate(ds[0].slice(0,8)+'01')} تُعبّأ جهاتها تلقائياً` : ''}</span></h3>`; })() + `
-      ${fin ? `<template id="gwBulkTpl"><span class="file-hint">المحدد: <b id="gwSelCount">${nSel}</b></span>
+      ${fin ? `<template id="gwBulkTpl"><span class="file-hint">المحدد: <b id="gwSelCount">${nSel}</b> · مبلغها: <b id="gwSelSum">${fmtKWDHtml(gwSelSum())}</b></span>
         <select id="gwSelCenter" class="f-in-lg" data-on-change="gwBulkCenter" data-on-change-args="${qa([QA.v])}"><option value="">— المركز —</option>${gwCentersOptions(state.cx.bulkCenter||'')}</select>
         <button class="btn btn-primary btn-md" data-on-click="gwAssignSel">تصنيف المحدد</button></template>` : ''}
       <table class="exec-table cx-tbl" data-qyl="gwPendNone" ${fin?'data-qyl-bulk="gwBulkTpl"':''} data-qyl-title="الحركات المعلّقة بلا جهة"><thead><tr>${fin?`<th class="cx-cb" title="تحديد الكل"><input type="checkbox" data-on-change="gwPendAll" data-on-change-args="${qa([QA.c])}" ${nSel && nSel===none.length?'checked':''}></th>`:''}<th>التاريخ</th><th>الدافع</th><th>الجهة (agent)</th><th>البيان</th><th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th></tr></thead><tbody>
