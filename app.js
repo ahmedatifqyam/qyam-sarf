@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.43.0', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.43.1', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:351, base:350, extra:1.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:352, base:350, extra:1.5, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -5189,7 +5189,7 @@ async function deferAsk(req, title, confirmLbl){
   let projects = [];
   try{ const pr = await db.rpc('qy_defer_projects', {p_company:req.companyId}); if(!pr.error) projects = pr.data||[]; }catch(e){}
   const d = req.defer || {};
-  const kinds = [['d3','3 أيام'],['d10','10 أيام'],['date','إلى تاريخ محدد']].concat(projects.length ? [['project','حتى دخول مبلغ مشروع']] : []);
+  const kinds = [['d3','3 أيام'],['d7','7 أيام'],['d10','10 أيام'],['d15','15 يوماً'],['d30','30 يوماً'],['date','إلى تاريخ محدد']].concat(projects.length ? [['project','حتى دخول مبلغ مشروع']] : []);
   const kind0 = d.kind==='project' && projects.length ? 'project' : d.kind==='date' ? 'date' : 'd3';
   const p = askModal({title, confirm:confirmLbl,
     text:'يُعتمد الطلب ويكمل مساره، لكن المحاسب لا يصرفه قبل الموعد أو دخول المبلغ. يظهر عنده في «مؤجلة الصرف»، ويصله إشعار حين ينتهي التأجيل.',
@@ -5208,7 +5208,7 @@ async function deferAsk(req, title, confirmLbl){
     [['until', k==='date'], ['project', k==='project']].forEach(([id, on])=>{ const el = document.getElementById('ask_'+id); if(!el) return; el.style.display = on ? '' : 'none'; const lb = el.previousElementSibling; if(lb && lb.tagName==='LABEL') lb.style.display = on ? '' : 'none'; }); };
   const ks = document.getElementById('ask_kind'); if(ks){ ks.addEventListener('change', sync); sync(); }
   const v = await p; if(!v) return null;
-  if(v.kind==='d3' || v.kind==='d10') return {kind:'date', until:kwAddDays(v.kind==='d3' ? 3 : 10), project:null, reason:v.reason.trim()};
+  if(/^d\d+$/.test(v.kind)) return {kind:'date', until:kwAddDays(Number(v.kind.slice(1))), project:null, reason:v.reason.trim()};
   if(v.kind==='date') return {kind:'date', until:v.until, project:null, reason:v.reason.trim()};
   return {kind:'project', until:null, project:v.project, reason:v.reason.trim()};
 }
