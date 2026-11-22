@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.44.0', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.45.0', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:352, base:350, extra:1.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -607,7 +607,7 @@ function dbCompanyToState(c){
 
 function mapRequestRow(r){
   return {
-    id:r.id, number:r.number, reason:r.reason, detailedReason:r.detailed_reason||'', salutationText:r.salutation_text||'', referenceText:r.reference_text||'', requestNotes:r.request_notes||'', totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
+    id:r.id, number:reqNoView(r.number, r.company_id), numberRaw:r.number||null, reason:r.reason, detailedReason:r.detailed_reason||'', salutationText:r.salutation_text||'', referenceText:r.reference_text||'', requestNotes:r.request_notes||'', totalAmount:Number(r.total_amount), status:r.status, origin:r.origin,
     centerId:r.center_id, amountRoute:r.amount_route||'normal', routeCenterId:r.route_center_id||null, companyId:r.company_id, createdBy:r.created_by, createdById:r.created_by_id, dateGreg:r.date_greg, dateHijri:r.date_hijri,
     createdAtRaw:r.created_at, isRecurring: !!r.is_recurring,
     numberPrefix:r.number_prefix||null, numberSuffix:r.number_suffix||null, reviewUntil:r.review_until||null,
@@ -746,6 +746,7 @@ async function loadAll(){
   if('system_tagline' in state.appSettings) brandCacheSet('tagline', state.appSettings.system_tagline || '-');
   if('system_tagline2' in state.appSettings) brandCacheSet('tagline2', state.appSettings.system_tagline2 || '-');
   state.brandSettled = true;
+  reapplyReqNoView();   // الأرقام صيغت قبل تحميل الإعدادات
 
   state.barToggles = {};
   d(8).forEach(t=>{ state.barToggles[t.button_key] = t.visible; });
@@ -2092,7 +2093,7 @@ async function renderVerifyPage(reqId){
           <table style="width:100%;border-collapse:collapse;">
             <tr style="border-bottom:1px solid var(--line);">
               <td style="padding:8px 0 8px 12px;font-size:var(--fs-hint);font-weight:700;white-space:nowrap;width:90px;vertical-align:baseline;">رقم الطلب</td>
-              <td style="padding:8px 0;font-size:var(--fs-label);font-weight:700;direction:ltr;text-align:right;vertical-align:baseline;">${esc(r.number)}</td>
+              <td style="padding:8px 0;font-size:var(--fs-label);font-weight:700;text-align:right;vertical-align:baseline;"><bdi dir="${reqNoDir((r.company||{}).id||r.company_id)==='en'?'ltr':'rtl'}">${esc(reqNoView(r.number, (r.company||{}).id||r.company_id))}</bdi></td>
             </tr>
             ${r.reason != null ? `<tr style="border-bottom:1px solid var(--line);">
               <td style="padding:8px 0 8px 12px;font-size:var(--fs-hint);font-weight:700;white-space:nowrap;vertical-align:baseline;">البيان</td>
@@ -2689,6 +2690,21 @@ function reqNumberTemplate(){
   }
   return { prefix: `${companyCode}-${unitCode}-`, suffix: `/${year}` };
 }
+// اتجاه عرض رقم الطلب لكل شركة — عرض فقط، والرقم المحفوظ لا يتغير.
+// «ar» (الافتراضي): السنة يسار التسلسل ‎2026/048‎ — «en»: السنة يمين ‎048/2026‎
+function reqNoDirMap(){
+  try{ return JSON.parse((state.appSettings && state.appSettings.req_no_dir) || '{}') || {}; }catch(e){ return {}; }
+}
+function reqNoDir(companyId){ return reqNoDirMap()[companyId]==='en' ? 'en' : 'ar'; }
+function reqNoFormat(num, dir){
+  if(!num) return num;
+  const m = String(num).match(/^(.*?)(\d+)\/(\d{4})$/);
+  if(!m) return String(num);
+  return dir==='en' ? `${m[1]}${m[2]}/${m[3]}` : `${m[1]}${m[3]}/${m[2]}`;
+}
+function reqNoView(num, companyId){ return reqNoFormat(num, reqNoDir(companyId)); }
+// إعادة صياغة أرقام الطلبات المحمّلة بعد تغيير الاتجاه، بلا إعادة تحميل
+function reapplyReqNoView(){ (state.requests||[]).forEach(r=>{ if(r.numberRaw) r.number = reqNoView(r.numberRaw, r.companyId); }); }
 
 // ═══ نافذة المراجعة ═══════════════════════════════════════════════════
 // بعد الإرسال يُحفظ الطلب في القاعدة بلا رقم لمدة يحدّدها الأدمن. وما دام
@@ -2716,8 +2732,9 @@ function genReqNumber(){
   const {prefix, suffix} = reqNumberTemplate();
   let maxN = 0;
   state.requests.forEach(r=>{
-    if(r.number && r.number.startsWith(prefix) && r.number.endsWith(suffix)){
-      const middle = r.number.slice(prefix.length, r.number.length - suffix.length);
+    const raw = r.numberRaw || r.number;
+    if(raw && raw.startsWith(prefix) && raw.endsWith(suffix)){
+      const middle = raw.slice(prefix.length, raw.length - suffix.length);
       const num = parseInt(middle, 10);
       if(!isNaN(num) && num > maxN) maxN = num;
     }
@@ -3400,7 +3417,7 @@ function searchSectionIndex(){
 }
 function searchRequestMatches(v){
   return state.requests.filter(r=>r.companyId===state.currentCompanyId && (
-    (r.number||'').toLowerCase().includes(v) || (r.reason||'').toLowerCase().includes(v) ||
+    (r.number||'').toLowerCase().includes(v) || (r.numberRaw||'').toLowerCase().includes(v) || (r.reason||'').toLowerCase().includes(v) ||
     r.beneficiaries.some(b=>(b.name||'').toLowerCase().includes(v)))).slice(0,6);
 }
 function updateSearchDrop(){
@@ -3592,7 +3609,7 @@ function doSearch(){
   if(!v){ return; }
   const matches = state.requests.filter(r=>
     r.companyId===state.currentCompanyId && (
-      r.number.toLowerCase().includes(v) ||
+      (r.number||'').toLowerCase().includes(v) || (r.numberRaw||'').toLowerCase().includes(v) ||
       (r.reason||'').toLowerCase().includes(v) ||
       r.beneficiaries.some(b=>(b.name||'').toLowerCase().includes(v))
     )
@@ -5054,9 +5071,9 @@ async function finalizeRequestNow(req, opts){
     if(!opts.silent) showToast('تعذّر منح الرقم: ' + error.message, 'error');
     return false;
   }
-  req.number = data;
+  req.numberRaw = data; req.number = reqNoView(data, req.companyId);
   req.reviewUntil = new Date().toISOString();
-  if(!opts.silent) showToast('تم إرسال الطلب نهائياً — رقمه ' + data, 'success');
+  if(!opts.silent) showToast('تم إرسال الطلب نهائياً — رقمه ' + req.number, 'success');
   return true;
 }
 
@@ -7142,7 +7159,7 @@ function renderLetterPages(req){
     </div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;">
       <p class="doc-greeting" style="margin:0;padding-right:0;">تحية طيبة وبعد،...</p>
-      <span class="doc-red" style="font-size:14px;font-weight:600;text-decoration:underline;">رقم الطلب: ${req.number || '— قيد المراجعة —'}</span>
+      <span class="doc-red" style="font-size:14px;font-weight:600;text-decoration:underline;">رقم الطلب: ${req.number ? `<bdi dir="${reqNoDir(req.companyId)==='en'?'ltr':'rtl'}">${escH(req.number)}</bdi>` : '— قيد المراجعة —'}</span>
     </div>
     <div class="doc-subject-bar" style="margin-top:4px;">${isCus ? 'طلب صرف عهدة' : (req.requestType==='payroll' ? 'طلب صرف رواتب' : req.requestType==='reward' ? 'طلب صرف مكافآت' : 'طلب صرف')} – <span>${escH(req.reason)}</span></div>
     <div style="margin-top:4px;font-size:13px;">بند الصرف: <b>${requestBudgetName(req) ? escH(requestBudgetName(req)) : 'غير محدد'}</b></div>
@@ -12270,10 +12287,15 @@ function renderCompanyEditForm(){
         ${F('الاسم بالعربي', `<input id="editCoNameAr" type="text" value="${escH(c.nameAr)}">`, '', 'editCoNameAr')}
         ${F('الاسم بالإنجليزي', `<input id="editCoNameEn" type="text" value="${escH(c.nameEn||'')}" dir="ltr">`, '', 'editCoNameEn')}
         ${F('الرقم الضريبي / السجل التجاري', `<input id="editCoTax" type="text" value="${escH(c.taxNumber||'')}" dir="ltr">`, '', 'editCoTax')}
-        ${F('رمز الشركة', `<input id="editCoCode" type="text" value="${escH(c.code)}" dir="ltr">`, 'يدخل في رقم الطلب.', 'editCoCode')}
-        ${F('رمز الإدارة', `<input id="editCoHqCode" type="text" value="${escH(c.hqCode)}" dir="ltr">`, '', 'editCoHqCode')}
-        ${F('اللون الرئيسي والشعار', `<div class="co-two co-brand"><input id="editCoColor" type="color" value="${c.primaryColor||'#C0392B'}" aria-label="اللون الرئيسي"><input id="editCoLogo" type="file" accept="image/*"></div>`, c.logoData ? '✓ يوجد شعار/ترويسة محفوظة' : 'الشعار أو الترويسة (اختياري)', 'editCoColor')}
+        ${F('اللون الرئيسي', `<input id="editCoColor" type="color" value="${c.primaryColor||'#C0392B'}" aria-label="اللون الرئيسي" style="width:100%;height:40px;padding:2px;">`, '', 'editCoColor')}
+        ${F('الشعار / الترويسة', `<input id="editCoLogo" type="file" accept="image/*">`, c.logoData ? '✓ يوجد شعار/ترويسة محفوظة' : 'اختياري.', 'editCoLogo')}
         ${F('رمز العملة', `<input id="editCoCurrency" type="text" value="${escH(c.currency_symbol||'د.ك')}" placeholder="د.ك أو $ أو ر.س" maxlength="10">`, 'يظهر في التقارير بدلاً من «د.ك».', 'editCoCurrency')}
+      </div></section>
+      <section class="co-sec"><h3>ترقيم الطلبات</h3><div class="co-g">
+        ${F('رمز الشركة', `<input id="editCoCode" type="text" data-on-input="coNoPreview" value="${escH(c.code)}" dir="ltr">`, 'يدخل في رقم الطلب.', 'editCoCode')}
+        ${F('رمز الإدارة', `<input id="editCoHqCode" type="text" data-on-input="coNoPreview" value="${escH(c.hqCode)}" dir="ltr">`, '', 'editCoHqCode')}
+        ${F('اتجاه رقم الطلب', `<select id="editCoNoDir" data-on-change="coNoPreview">${opt([['ar','عربي — السنة يسار'],['en','إنجليزي — السنة يمين']], reqNoDir(c.id))}</select>`, 'طريقة عرض فقط، والرقم المحفوظ لا يتغير.', 'editCoNoDir')}
+        ${F('شكل رقم الطلب', `<input id="editCoNoPreview" type="text" readonly tabindex="-1" dir="${reqNoDir(c.id)==='en'?'ltr':'rtl'}" value="${escH(coNoSample(c.code, c.hqCode, reqNoDir(c.id)))}" style="font-weight:700;background:var(--bg-soft,#f5f5f2);">`, 'مثال يتغيّر مع الرمزين والاتجاه.', 'editCoNoPreview')}
         ${F('⏳ نافذة المراجعة (دقائق)', num('editCoReviewWindow', c.reviewWindowMinutes==null ? 10 : c.reviewWindowMinutes, 0, 120), 'يبقى الطلب بلا رقم هذه المدة ويستطيع صاحبه تعديله. 0 = يُرقَّم فوراً.', 'editCoReviewWindow')}
         ${F('📝 «مراجعة قبل الإرسال»', `<select id="editCoReviewMode">${opt([['optional','اختيارية لكل مستخدم'],['required','إلزامية للجميع'],['off','معطّلة (إرسال مباشر)']], c.reviewMode||'optional')}</select>`, 'ملخص المبلغ والمستفيدين والبند قبل الإرسال.', 'editCoReviewMode')}
       </div></section>
@@ -12329,6 +12351,14 @@ async function executeDeleteCompany(id){
   render();
 }
 
+// مثال حيّ لشكل رقم الطلب في نموذج تعديل الشركة
+function coNoSample(code, hq, dir){ return reqNoFormat(`${code||'CO'}-${hq||'HQ'}-048/${new Date().getFullYear()}`, dir); }
+function coNoPreview(){
+  const el = document.getElementById('editCoNoPreview'); if(!el) return;
+  const dir = ((document.getElementById('editCoNoDir')||{}).value==='en') ? 'en' : 'ar';
+  el.value = coNoSample((document.getElementById('editCoCode')||{}).value.trim(), (document.getElementById('editCoHqCode')||{}).value.trim(), dir);
+  el.dir = dir==='en' ? 'ltr' : 'rtl';
+}
 async function saveCompanyEdit(){
   const c = state.companies.find(x=>x.id===state.editingCompanyId);
   if(!c) return;
@@ -12431,6 +12461,15 @@ async function saveCompanyEdit(){
   if(c.hasCustodyOver){ c.custodyOverMode = updates.custody_over_mode; c.custodyOverValue = updates.custody_over_value; c.custodyAlertUserId = updates.custody_alert_user_id || ''; }
   if(c.hasCustodyPath) c.custodyPathMode = updates.custody_path_mode;
   if(updates.logo_data) c.logoData = updates.logo_data;
+  { // اتجاه رقم الطلب: يُحفظ في الإعدادات العامة لكل شركة، ويُعاد عرض الأرقام فوراً
+    const nd = (document.getElementById('editCoNoDir')||{}).value==='en' ? 'en' : 'ar';
+    if(nd !== reqNoDir(c.id)){
+      const m = reqNoDirMap(); m[c.id] = nd; const val = JSON.stringify(m);
+      const rn = await db.from('app_settings').upsert({key:'req_no_dir', value:val});
+      if(!(await dbCheck(rn, 'حفظ اتجاه رقم الطلب'))) return;
+      state.appSettings = state.appSettings||{}; state.appSettings.req_no_dir = val; reapplyReqNoView();
+    }
+  }
   state.editingCompanyId = null;
   showToast('تم حفظ تعديلات الشركة', 'success');
   render();
@@ -14782,8 +14821,8 @@ function renderDashboard(app){
       // بلا رقم = الأحدث: يتصدّر عند التنازلي
       if(!r.number) return '9999|~';          // لا سنة أعلى منها، فيتصدّر
       // السنة ثم البادئة ثم التسلسل مبطَّناً — فلا تختلط وحدة بوحدة ولا سنة بسنة
-      const m = String(r.number).match(/^(.*-)(\d+)\/(\d{4})$/);
-      if(!m) return String(r.number);
+      const m = String(r.numberRaw||r.number).match(/^(.*-)(\d+)\/(\d{4})$/);
+      if(!m) return String(r.numberRaw||r.number);
       return m[3] + '|' + m[1] + '|' + m[2].padStart(6,'0');
     }
     if(col==='reason') return (r.reason||'');
@@ -15480,7 +15519,7 @@ function renderAppRequestView(req){
         <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:15px;font-weight:700;color:var(--red);">
           <span>رقم الطلب:</span>
           ${req.number
-            ? `<span dir="ltr" style="unicode-bidi:isolate;">${escH(req.number)}</span>`
+            ? `<span dir="${reqNoDir(req.companyId)==='en'?'ltr':'rtl'}" style="unicode-bidi:isolate;">${escH(req.number)}</span>`
             : `<span style="color:var(--amber);">قيد المراجعة</span>`}
         </div>
         <span style="font-size:15px;font-weight:600;color:var(--text);text-decoration:underline;line-height:1.15;">${req.dateHijri||'—'}</span>
