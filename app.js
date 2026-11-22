@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.41.1', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.41.2', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:351, base:350, extra:1.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -1017,7 +1017,12 @@ function setPageTip(txt){
   const tb = document.getElementById('tbPage'); if(!tb) return;
   let b = document.getElementById('tbTip');
   if(!b){ b = document.createElement('button'); b.type = 'button'; b.id = 'tbTip'; b.className = 'tb-tip'; b.textContent = 'ⓘ';
-    b.addEventListener('click', ()=>{ if(b.dataset.tip) showToast(b.dataset.tip, 'info'); }); tb.after(b); }
+    b.addEventListener('click', ev=>{ ev.stopPropagation(); if(!b.dataset.tip) return;
+      let box = document.getElementById('tbTipBox');
+      if(!box){ box = document.createElement('div'); box.id = 'tbTipBox'; box.className = 'tip-body tip-page no-print'; box.hidden = true; document.body.appendChild(box);
+        document.addEventListener('pointerdown', e=>{ const x = document.getElementById('tbTipBox'); if(x && !x.hidden && !x.contains(e.target) && e.target.id!=='tbTip'){ x.hidden = true; } }, true);
+        document.addEventListener('keydown', e=>{ const x = document.getElementById('tbTipBox'); if(e.key==='Escape' && x) x.hidden = true; }); }
+      box.textContent = b.dataset.tip; box.hidden = !box.hidden; if(!box.hidden) tipPlace(box, b); }); tb.after(b); }
   if(txt && txt.length > 2 && txt!==' '){ b.hidden = false; b.dataset.tip = txt; b.title = txt; b.setAttribute('aria-label', 'عن هذه الصفحة: ' + txt); }
   else { b.hidden = true; b.dataset.tip = ''; b.removeAttribute('title'); }
 }
@@ -7646,17 +7651,25 @@ function infoTips(){
 }
 // الشرح عائم تحت زر ⓘ: لا يدفع الحقول ولا يغيّر ترتيب الصفحة
 function tipPlace(el, b){
-  const host = el.parentElement; if(!host) return;
-  if(getComputedStyle(host).position==='static') host.style.position = 'relative';
-  const hr = host.getBoundingClientRect(), br = b.getBoundingClientRect();
-  const w = Math.min(440, Math.max(320, hr.width), innerWidth - 24);
-  el.style.width = w + 'px';
-  el.style.top = (br.bottom - hr.top + 6) + 'px';
-  // الصفحة من اليمين: يبدأ الشرح من حافة الزر اليمنى، ولا يخرج عن الشاشة يساراً
-  let vRight = Math.min(br.right + 8, innerWidth - 12);          // الحافة اليمنى على الشاشة
-  if(vRight - w < 12) vRight = Math.min(innerWidth - 12, 12 + w); // لا يخرج يساراً
-  el.style.left = (vRight - w - hr.left) + 'px'; el.style.right = 'auto';
+  // (1.41.2) عائم فوق كل شيء: موضعه على الشاشة نفسها (لا يُقصّ داخل بطاقة ولا تغطيه البطاقة التالية)
+  if(!el || !b || el.hidden || !b.isConnected){ return; }
+  el._tipBtn = b;
+  const br = b.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = innerHeight;
+  const w = Math.min(440, Math.max(320, (el.parentElement ? el.parentElement.getBoundingClientRect().width : 320)), vw - 24);
+  el.style.width = w + 'px'; el.style.right = 'auto';
+  let right = Math.min(br.right + 8, vw - 12); if(right - w < 12) right = Math.min(vw - 12, 12 + w);   // الصفحة من اليمين
+  el.style.left = (right - w) + 'px';
+  let top = br.bottom + 6; const h = el.offsetHeight;
+  if(top + h > vh - 8 && br.top - h - 6 > 8) top = br.top - h - 6;   // لا مكان تحته: يظهر فوق الزر
+  el.style.top = top + 'px';
 }
+function floatsPlace(){
+  document.querySelectorAll('#app .tip-body:not([hidden])').forEach(el=>{ if(el._tipBtn && el._tipBtn.isConnected) tipPlace(el, el._tipBtn); });
+  document.querySelectorAll('#app .qs-wrap.open').forEach(qsPlace);
+  const pb = document.getElementById('tbTipBox'), pt = document.getElementById('tbTip'); if(pb && !pb.hidden && pt) tipPlace(pb, pt);
+}
+window.addEventListener('scroll', ()=>requestAnimationFrame(floatsPlace), true);
+window.addEventListener('resize', ()=>requestAnimationFrame(floatsPlace));
 // الهاتف: اسم الحقل بخط عريض على اليمين والحقل على يساره في سطر واحد
 function pairFields(){
   if(!isPhone() || state.view==='login') return;
@@ -7843,9 +7856,10 @@ const FILE_CLIP_SVG = '<svg class="file-field-i" viewBox="0 0 24 24" width="18" 
 const QS_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>';
 const _qsOpen = new Map();   // المفتاح ← وقت آخر استعمال
 function qsPlace(w){ const fl = w.querySelector('.qs-float'), b = w.querySelector('.qs-btn'); if(!fl || !b) return;
-  const vw = document.documentElement.clientWidth, W = Math.min(320, vw - 24), r = b.getBoundingClientRect(), wr = w.getBoundingClientRect();
+  // (1.41.2) عائم على الشاشة نفسها فوق كل المحتوى
+  const vw = document.documentElement.clientWidth, W = Math.min(320, vw - 24), r = b.getBoundingClientRect();
   const left = Math.max(12, Math.min(r.right - W, vw - W - 12));
-  fl.style.width = W + 'px'; fl.style.left = (left - wr.left) + 'px'; fl.style.top = (r.bottom - wr.top + 6) + 'px'; }
+  fl.style.width = W + 'px'; fl.style.left = left + 'px'; fl.style.top = (r.bottom + 6) + 'px'; }
 function qsOpen(w, on, focus){ const k = w.dataset.k, inp = w.querySelector('input');
   w.classList.toggle('open', on);
   if(on){ _qsOpen.set(k, Date.now()); qsPlace(w); if(focus && inp) setTimeout(()=>{ try{ inp.focus({preventScroll:true}); }catch(_){ inp.focus(); } try{ inp.setSelectionRange(inp.value.length, inp.value.length); }catch(_){} }, 0); }
@@ -7870,7 +7884,7 @@ function searchIcons(){
 document.addEventListener('pointerdown', e=>{ document.querySelectorAll('#app .qs-wrap.open').forEach(w=>{ if(w.contains(e.target)) return;
   const i = w.querySelector('input'), act = e.target.closest && e.target.closest('button,a,select,input,textarea,label,[data-on-click]');
   if(act || (i && !String(i.value||'').trim())) qsOpen(w, false); }); }, true);   // ضغط زر آخر يغلقه ويبقى البحث فعّالاً (الرمز ملوّن)
-window.addEventListener('resize', ()=>document.querySelectorAll('#app .qs-wrap.open').forEach(qsPlace));
+
 function fileButtons(){
   // (1.34.0) حقل ملف موحّد بشكل حقول النموذج (ارتفاع 40): رمز مشبك + «اختر ملفاً…»؛ بعد الاختيار يظهر اسم الملف داخله مع ✕ لإلغائه
   document.querySelectorAll('#app input[type=file]').forEach(inp=>{
@@ -21022,12 +21036,11 @@ function qylApply(el, force){
   const hasBar = hasDate || big || kinds.length > 0;   // «تصدير» لا يأخذ سطراً وحده: بلا فترة ولا عدد ينتقل إلى سطر الإجمالي
   // شريط الأدوات: الفترة · العرض · تصدير
   const per = s.per;
-  const pick = per==='range' ? `<div class="qyl-g qyl-rng"><span class="qyl-l">من</span><input type="date" class="qyl-in qyl-date" value="${s.from||''}" title="من تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'from',QA.v])}"><span class="qyl-l">إلى</span><input type="date" class="qyl-in qyl-date" value="${s.to||''}" title="إلى تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'to',QA.v])}"></div>` : '';
-  const bar = document.createElement('div'); bar.className = 'qyl-bar no-print' + (pick ? ' qyl-bar-rng' : ''); bar.setAttribute('data-qyl-bar', key);
-  bar.innerHTML = `${hasDate ? `<div class="qyl-g"><span class="qyl-l">الفترة</span><select class="qyl-in qyl-per" data-on-change="qylSet" data-on-change-args="${qa([key,'per',QA.v])}">${QYL_PER.map(p=>`<option value="${p[0]}" ${p[0]===per?'selected':''}>${p[1]}</option>`).join('')}</select></div>` : ''}
+  const pick = per==='range' ? `<span class="qyl-rng"><input type="date" class="qyl-in qyl-date" value="${s.from||''}" title="من تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'from',QA.v])}"><span class="qyl-l">إلى</span><input type="date" class="qyl-in qyl-date" value="${s.to||''}" title="إلى تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'to',QA.v])}"></span>` : '';
+  const bar = document.createElement('div'); bar.className = 'qyl-bar no-print'; bar.setAttribute('data-qyl-bar', key);
+  bar.innerHTML = `${hasDate ? `<div class="qyl-g"><span class="qyl-l">الفترة</span><select class="qyl-in qyl-per" data-on-change="qylSet" data-on-change-args="${qa([key,'per',QA.v])}">${QYL_PER.map(p=>`<option value="${p[0]}" ${p[0]===per?'selected':''}>${p[1]}</option>`).join('')}</select>${pick}</div>` : ''}
     ${big ? `<div class="qyl-g"><span class="qyl-l">العرض</span><select class="qyl-in qyl-size" data-on-change="qylSet" data-on-change-args="${qa([key,'size',QA.v])}">${QYL_SIZES.map(z=>`<option value="${z}" ${z===s.size?'selected':''}>${z}</option>`).join('')}</select></div>` : ''}
     ${kinds.length ? `<div class="qyl-g"><span class="qyl-l">النوع</span><select class="qyl-in qyl-kind" data-on-change="qylSet" data-on-change-args="${qa([key,'kind',QA.v])}"><option value="all">الكل</option>${kinds.map(([v,l])=>`<option value="${escH(v)}" ${s.kind===v?'selected':''}>${escH(l)}</option>`).join('')}</select></div>` : ''}
-    ${pick}
     ${canExp ? `<div class="qyl-g qyl-exp">${qyExportBtn('qyl:'+key)}</div>` : ''}`;
   if(hasBar) par.insertBefore(bar, anchor);
   // التذييل: التنقل + مجموع المعروض + إجمالي الفترة

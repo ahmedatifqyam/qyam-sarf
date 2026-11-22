@@ -1691,7 +1691,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   .tip-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;margin:0 6px;padding:0;border:0;border-radius:50%;
     background:var(--blue-bg);color:var(--blue);font-size:var(--fs-body);line-height:1;cursor:pointer;vertical-align:middle;font-family:inherit;flex:0 0 22px;}
   .tip-btn.on{background:var(--blue);color:#fff;}
-  .tip-body{position:absolute !important;z-index:40;box-sizing:border-box;box-shadow:0 8px 22px rgba(0,0,0,.16);border:1px solid var(--info-line);background:var(--blue-bg);border-radius:8px;padding:8px 12px !important;margin:0 !important;font-size:var(--fs-hint);line-height:1.7;color:var(--text) !important;}
+  .tip-body{position:fixed !important;z-index:1100;max-height:70vh;overflow:auto;box-sizing:border-box;box-shadow:0 8px 22px rgba(0,0,0,.16);border:1px solid var(--info-line);background:var(--blue-bg);border-radius:8px;padding:8px 12px !important;margin:0 !important;font-size:var(--fs-hint);line-height:1.7;color:var(--text) !important;}
   /* مؤشر التمرير الجانبي: طرف باهت وسهم ‹ حين يبقى محتوى جهة اليسار */
   .xs{position:relative;}
   .adm-tabs2.xs.xs-more{-webkit-mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px);mask-image:linear-gradient(to right, rgba(0,0,0,.25) 0, #000 46px);}
@@ -3376,7 +3376,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .qs-btn:hover{border-color:var(--info);color:var(--info);}
   #app .qs-wrap.has .qs-btn, #app .qs-wrap.open .qs-btn{border-color:var(--info);background:var(--info-bg);color:var(--info);}
   #app .qs-wrap.has:not(.open) .qs-btn::after{content:'';position:absolute;top:5px;inset-inline-end:5px;width:8px;height:8px;border-radius:50%;background:var(--info);}
-  #app .qs-float{display:none;position:absolute;z-index:60;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.14);box-sizing:border-box;}
+  #app .qs-float{display:none;position:fixed;z-index:1100;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.14);box-sizing:border-box;}
   #app .qs-wrap.open .qs-float{display:block;}
   #app .qs-float input.qy-search{width:100% !important;max-width:none !important;flex:none !important;margin:0 !important;height:40px;}
   /* أدوات صفحة المشاريع: الفلتران ثم 🔍 ثم الزران في صف واحد */
@@ -3566,12 +3566,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .perm-note{color:var(--text);font-size:var(--fs-hint);line-height:1.7;margin:0 0 14px;}
   @media (max-width:699px){ #app .perm-ex{flex-wrap:wrap;} #app .perm-ex > .btn{width:100%;} }
   /* (1.41.1) شريط القوائم: حقول أصغر بحجم محتواها، والتاريخ «من – إلى» في صف ثانٍ مرتب؛ «تصدير» بجوار البحث في رأس اللوحة */
-  #app .qyl-bar select.qyl-per{width:140px !important;max-width:140px !important;flex:0 0 140px !important;}
-  #app .qyl-bar select.qyl-kind{width:130px !important;max-width:130px !important;flex:0 0 130px !important;}
-  #app .qyl-bar input.qyl-date{width:150px !important;max-width:150px !important;flex:0 0 150px !important;}
-  #app .qyl-g{flex-wrap:nowrap;}
-  #app .qyl-bar.qyl-bar-rng{flex-wrap:wrap;}
-  #app .qyl-bar .qyl-rng{flex:0 0 100%;}
+  #app .qyl-bar{gap:8px 12px;}
+  #app .qyl-bar select.qyl-per{width:110px !important;max-width:110px !important;flex:0 0 110px !important;}
+  #app .qyl-bar select.qyl-kind{width:110px !important;max-width:110px !important;flex:0 0 110px !important;}
+  #app .qyl-bar select.qyl-size{width:70px !important;max-width:70px !important;flex:0 0 70px !important;}
+  #app .qyl-bar input.qyl-date{width:122px !important;max-width:122px !important;flex:0 0 122px !important;padding:0 6px !important;}
+  #app .qyl-g,#app .qyl-rng{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;}
   #app .qyl-exphost{display:inline-flex;flex:0 0 auto;}
   #app .qyl-exphost .qy-exp-btn{height:40px !important;}
   @media (max-width:699px){ #app .qyl-bar select.qyl-per,#app .qyl-bar select.qyl-kind{flex:1 1 0 !important;width:auto !important;max-width:none !important;}
@@ -3588,8 +3588,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   #app .btn.btn-ico-view{border:1.5px solid var(--line) !important;color:var(--ink) !important;background:var(--card) !important;}
   #app .btn.btn-ico-view:hover{border-color:var(--info) !important;color:var(--info) !important;}
   #app .btn.btn-ico-view svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;}
-  /* (1.41.1) شرح ⓘ المفتوح يعلو البطاقات التالية ولا يُقصّ */
-  #app :is(.card,details,.cx-panel):has(.tip-body:not([hidden])){position:relative;z-index:61;overflow:visible !important;}
+  .tip-body[hidden]{display:none !important;}
 </style>
 </head>
 <body>
