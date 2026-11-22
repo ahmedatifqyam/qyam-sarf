@@ -21027,7 +21027,7 @@ function qylApply(el, force){
     const ncol = [...headRow.cells].reduce((t,c)=>t + (c.colSpan||1), 0), byI = {};
     const main = cols.find(c=>/الصافي|الرصيد/.test(c.label)) || cols[cols.length-1];
     const trow = (lab, cnt, arr, cls, words) => { arr.forEach((x,j)=>{ byI[cols[j].i] = x.v; });
-      let h = `<tr class="qyl-trow ${cls}"><td colspan="${firstSum}" class="qyl-tl"><span class="qyl-tl-l">${escH(lab)}</span><span class="qyl-tl-n">${cnt} ${cnt===1 ? 'سجل' : cnt<=10 ? 'سجلات' : 'سجلاً'}</span>${words ? `<div class="tafqeet">${escH(amountToArabicWords(Math.abs(byI[main.i])) + (byI[main.i]<0 ? ' (بالسالب)' : ''))}</div>` : ''}</td>`;
+      let h = `<tr class="qyl-trow ${cls}"><td colspan="${firstSum}" class="qyl-tl"><span class="qyl-tl-l">${escH(lab)}</span><span class="qyl-tl-n">${cnt} ${cnt===1 ? 'سجل' : cnt<=10 ? 'سجلات' : 'سجلاً'}</span></td>`;
       for(let i = firstSum; i < ncol; i++){ const c = cols.find(x=>x.i===i); h += c ? `<td class="num"><b>${fmtKWDHtml(byI[i])}</b></td>` : '<td></td>'; }
       return h + '</tr>'; };
     const tf = document.createElement('tfoot'); tf.className = 'qyl-tfoot';
