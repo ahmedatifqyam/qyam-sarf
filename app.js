@@ -7954,7 +7954,7 @@ async function colPrefsLoad(){
 function colPrefsSave(){ clearTimeout(state._colT); state._colT = setTimeout(async ()=>{ if(!state.user) return;
   const r = await db.from('user_ui_prefs').upsert({user_id:state.user.id, col_widths:state.colPrefs||{}, updated_at:new Date().toISOString()}, {onConflict:'user_id'});
   if(r && r.error) console.warn('colPrefsSave', r.error.message); }, 600); }
-function colApply(t, w){ const ths = [...t.tHead.rows[0].cells]; if(!w || w.length !== ths.length) return false; w = w.map((x,i)=>ths[i].classList.contains('qyl-cb') ? 40 : x);
+function colApply(t, w){ const ths = [...t.tHead.rows[0].cells]; if(!w || w.length !== ths.length) return false; w = w.map((x,i)=>ths[i].classList.contains('qyl-cb') ? 36 : x);
   const hid = colHidden(t);
   t.style.tableLayout = 'fixed'; ths.forEach((th,i)=>{ th.style.width = (w[i] >= COL_MIN && !hid.has(i)) ? w[i] + 'px' : ''; });
   t.style.width = w.reduce((a,b,i)=>a + (hid.has(i) ? 0 : Math.max(b, COL_MIN)), 0) + 'px'; t.style.minWidth = '100%'; t.classList.add('col-custom');
@@ -20991,7 +20991,7 @@ function qylCbCells(el){
     const th = document.createElement('th'); th.className = 'qyl-cb no-print'; th.setAttribute('data-noexport',''); th.setAttribute('data-nosort','');
     th.title = 'تحديد السطور المعروضة في هذه الصفحة'; th.innerHTML = '<input type="checkbox" class="qyl-cbp" aria-label="تحديد المعروض">';
     hr.insertBefore(th, hr.cells[0]);
-    const cg = el.querySelector(':scope > colgroup'); if(cg && !cg.querySelector('col.qyl-cbcol')){ const c = document.createElement('col'); c.className = 'qyl-cbcol'; c.style.width = '40px'; cg.insertBefore(c, cg.firstChild); }   // جدول بأعمدة ثابتة العرض: عمود للمربعات أولاً
+    const cg = el.querySelector(':scope > colgroup'); if(cg && !cg.querySelector('col.qyl-cbcol')){ const c = document.createElement('col'); c.className = 'qyl-cbcol'; c.style.width = '36px'; cg.insertBefore(c, cg.firstChild); }   // جدول بأعمدة ثابتة العرض: عمود للمربعات أولاً
     [...el.tHead.rows].slice(1).forEach(r=>qylCbPad(r, 'th'));
   }
   const items = new Set(qylItems(el));
