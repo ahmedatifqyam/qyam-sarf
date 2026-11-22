@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.41.3', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.42.0', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:351, base:350, extra:1.2, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -17890,7 +17890,7 @@ async function cxLoadBalances(){
     const nb = document.getElementById('nrCenterBal'); if(nb) nb.innerHTML = cxStaffBalLine((document.getElementById('centerUnitSelect')||{}).value || (state.draft||{}).centerUnitId || cxStaffUnitId());
   }
 }
-function cxOpenCenter(id){ state.view = 'centerBook'; state.cx.centerId = id; state.cx.itemId = ''; cxResetLedgerView(); render(); window.scrollTo(0,0); cxLoadLedger(); }
+function cxOpenCenter(id){ state.view = 'centerBook'; qylSel('cxLedger').clear(); state.cx.centerId = id; state.cx.itemId = ''; cxResetLedgerView(); render(); window.scrollTo(0,0); cxLoadLedger(); }
 async function cxLoadLedger(){
   const ids = cxScopeIds(); if(!ids.length) return;
   const key = ids.join(','); state.cx._ledgerKey = key;
@@ -18153,30 +18153,21 @@ async function cxVoid(id, v){
   await cxLoadLedger(); cxLoadBalances();
 }
 // ---------- نقل حركات إلى مركز آخر (تصحيح القديم دون تعديله: الأصل يُشطب ويُنشأ مطابق في المركز الصحيح) ----------
-function cxLedgerTidy(){ const app = document.getElementById('app'); try{ decorateButtons(); iconActs(); }catch(e){} qylEnhance(app); try{ colsEnhance(app); const t = document.querySelector('table[data-qyl="cxLedger"]'); if(t && t.dataset.colKey && (state.colSort||{})[t.dataset.colKey]){ colSortApply(t); qylApply(t, true); } }catch(e){} cxMvRefresh(); }   // بعد إعادة رسم الصفوف يُعاد الترتيب المختار
+function cxLedgerTidy(){ const app = document.getElementById('app'); try{ decorateButtons(); iconActs(); }catch(e){} qylEnhance(app); try{ colsEnhance(app); const t = document.querySelector('table[data-qyl="cxLedger"]'); if(t && t.dataset.colKey && (state.colSort||{})[t.dataset.colKey]){ colSortApply(t); qylApply(t, true); } }catch(e){} }   // بعد إعادة رسم الصفوف يُعاد الترتيب المختار
 function cxMovable(x){ return !!x && !x._req && !x.voided && x.center_id && !['opening','transfer'].includes(x.kind); }
-function cxMvCount(){ return Object.keys(state.cx.mvSel||{}).length; }
-// (1.41.3) شريط «المحدد» يُعاد بناؤه من القالب عند البحث أو تغيير الصفحة؛ فيُحدَّث القالب والنسخة الظاهرة معاً، ومربع «الكل» يطابق الصفوف
-function bulkSync(tplId, fn){ const t = document.getElementById(tplId); [document, t && t.content].forEach(r=>{ if(r) try{ fn(r); }catch(e){} }); }
-function cxMvSum(){ const sel = state.cx.mvSel||{}; return cxR3((state.cx.ledger||[]).reduce((a,x)=>a + (sel[x.id] ? Number(x.net||0) : 0), 0)); }
-function cxMvRefresh(){ const n = cxMvCount(), sm = fmtKWDHtml(cxMvSum());
-  bulkSync('cxMvTpl', r=>{ r.querySelectorAll('#cxMvCount').forEach(e=>{ e.textContent = n; }); r.querySelectorAll('#cxMvSum').forEach(e=>{ e.innerHTML = sm; }); r.querySelectorAll('#cxMvBtn').forEach(b=>{ b.disabled = !n; }); });
-  const all = document.querySelector('table[data-qyl="cxLedger"] > thead th.cx-cb input'); if(all){ const mv = cxLedgerFiltered().filter(cxMovable), sel = state.cx.mvSel||{}; all.checked = !!mv.length && mv.every(x=>sel[x.id]); all.indeterminate = !all.checked && mv.some(x=>sel[x.id]); } }
-function cxMvToggle(id, on){ state.cx.mvSel = state.cx.mvSel || {}; if(on) state.cx.mvSel[id] = 1; else delete state.cx.mvSel[id]; cxMvRefresh(); }
-function cxMvAll(on){ state.cx.mvSel = {}; if(on) cxLedgerFiltered().filter(cxMovable).forEach(x=>{ state.cx.mvSel[x.id] = 1; }); const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); cxLedgerTidy(); } cxMvRefresh(); }
 function cxMvTarget(v){ state.cx.mvTo = v||''; }
 function cxMvBulkTplHtml(){
-  const n = cxMvCount(), cur = state.cx.centerId;
+  const cur = state.cx.centerId;
   const opts = (state.centers||[]).filter(c=>c.companyId===cxCid() && c.stage!=='closed').sort(_byUnit).map(c=>`<option value="${c.id}" ${c.id===state.cx.mvTo?'selected':''}>${escH(unitPathName(c))}</option>`).join('');
-  return `<template id="cxMvTpl"><span class="file-hint">المحدد: <b id="cxMvCount">${n}</b> · صافيها: <b id="cxMvSum">${fmtKWDHtml(cxMvSum())}</b></span>
-    <select id="cxMvTo" class="f-in-lg" title="المركز الذي تُنقل إليه الحركات المحددة" data-on-change="cxMvTarget" data-on-change-args="${qa([QA.v])}"><option value="">— نقل إلى مركز —</option>${opts}</select>
-    <button id="cxMvBtn" class="btn btn-primary btn-md" title="نقل الحركات المحددة إلى المركز المختار، مع بقاء الأصل مشطوباً للمراجعة" ${n?'':'disabled'} data-on-click="cxMvOpen">نقل المحدد</button></template>`;
+  return `<template id="cxMvTpl"><select id="cxMvTo" class="f-in-lg" title="المركز الذي تُنقل إليه الحركات المحددة" data-on-change="cxMvTarget" data-on-change-args="${qa([QA.v])}"><option value="">— نقل إلى مركز —</option>${opts}</select>
+    <button id="cxMvBtn" class="btn btn-primary btn-md" title="نقل الحركات المحددة إلى المركز المختار، مع بقاء الأصل مشطوباً للمراجعة" data-on-click="cxMvOpen">نقل المحدد</button></template>`;
 }
 async function cxMvOpen(){
-  const ids = Object.keys(state.cx.mvSel||{}).map(Number), to = (document.getElementById('cxMvTo')||{}).value || state.cx.mvTo;
-  if(!ids.length){ showToast('حدّد الحركات أولاً','error'); return; }
+  const selR = qylSelRows('cxLedger'), ids = selR.map(r=>Number(r.getAttribute('data-id'))).filter(Number.isFinite), to = (document.getElementById('cxMvTo')||{}).value || state.cx.mvTo;
+  if(!selR.length){ showToast('حدّد الحركات أولاً','error'); return; }
   if(!to){ showToast('اختر المركز الذي تُنقل إليه','error'); return; }
-  const rows = (state.cx.ledger||[]).filter(x=>ids.includes(x.id) && cxMovable(x));
+  const rows = (state.cx.ledger||[]).filter(x=>ids.includes(x.id) && cxMovable(x)), skip = selR.length - rows.length;
+  if(!rows.length){ showToast('المحدد لا يحتوي حركات تُنقل (المصروفات والرصيد الافتتاحي والترحيل والمشطوب لا تُنقل)','error'); return; }
   if(rows.some(x=>x.center_id===to)){ showToast('بعض الحركات المحددة في هذا المركز أصلاً','error'); return; }
   const tc = cxUnit(to) || {}, r3 = cxR3, sum = (f)=>r3(rows.reduce((a,x)=>a+Number(f(x)||0),0));
   const gross = sum(x=>x.gross), fee = sum(x=>x.gateway_fee), netOld = sum(x=>x.net);
@@ -18185,12 +18176,12 @@ async function cxMvOpen(){
   const balLines = fromIds.map(id=>{ const b = Number(cxB(id).balance||0), out = sum(x=>x.center_id===id ? x.net : 0); return `«${escH(cxCenterName(id))}»: <b>${fmtKWD(b)}</b> ← <b>${fmtKWD(r3(b-out))}</b>`; });
   const tb = Number(cxB(to).balance||0); balLines.push(`«${escH(tc.name||'')}»: <b>${fmtKWD(tb)}</b> ← <b>${fmtKWD(r3(tb+netNew))}</b>`);
   const a = await askModal({title:`نقل ${rows.length} حركة إلى «${escH(tc.name||'')}»`, confirm:'نقل',
-    text:`المبلغ ${fmtKWD(gross)} · الرسوم ${fmtKWD(fee)} · الصافي المنقول ${fmtKWD(r3(netNew))}${r3(netNew)!==netOld?` (كان ${fmtKWD(netOld)}، حصة الشركة بنسبة المركز الجديد)`:''}<br>الرصيد قبل ← بعد:<br>${balLines.join('<br>')}<br>تبقى الحركات الأصلية في دفترها مشطوبة بعنوان «منقولة» مع اسمك والتاريخ والسبب.`,
+    text:`${skip ? `تُتجاوز ${skip} من السطور المحددة لأنها لا تُنقل (مصروف أو رصيد افتتاحي أو ترحيل أو مشطوبة).<br>` : ''}المبلغ ${fmtKWD(gross)} · الرسوم ${fmtKWD(fee)} · الصافي المنقول ${fmtKWD(r3(netNew))}${r3(netNew)!==netOld?` (كان ${fmtKWD(netOld)}، حصة الشركة بنسبة المركز الجديد)`:''}<br>الرصيد قبل ← بعد:<br>${balLines.join('<br>')}<br>تبقى الحركات الأصلية في دفترها مشطوبة بعنوان «منقولة» مع اسمك والتاريخ والسبب.`,
     fields:[{id:'r', label:'سبب النقل', type:'textarea', rows:2}], validate:v=>String(v.r||'').trim() ? null : 'اكتب سبب النقل'});
   if(!a) return;
   const r = await db.rpc('qy_ledger_move', {p_ids:rows.map(x=>x.id), p_to:to, p_reason:String(a.r).trim()});
   if(!(await dbCheck(r,'نقل الحركات'))) return;
-  state.cx.mvSel = {}; showToast(`نُقلت ${r.data||rows.length} حركة إلى «${tc.name||''}»`,'success');
+  qylSel('cxLedger').clear(); showToast(`نُقلت ${r.data||rows.length} حركة إلى «${tc.name||''}»`,'success');
   await cxLoadLedger(); cxLoadBalances();
 }
 function cxShowVoidToggle(v){ state.cx.showVoid = !!v; const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); cxLedgerTidy(); } }
@@ -18206,16 +18197,15 @@ function cxLedgerFiltered(){
   });
 }
 function cxLedgerRowsHtml(){
-  const imp = cxIsImporter(), fin = cxIsFin(), canTr = cxCanTransfer(), act = fin || canTr, ic = cxShowItemCol(), cols = 7 + (imp?1:0) + (act?1:0) + (ic?1:0) + (fin?1:0);
-  const all = cxLedgerFiltered(), sel = state.cx.mvSel || {};
+  const imp = cxIsImporter(), fin = cxIsFin(), canTr = cxCanTransfer(), act = fin || canTr, ic = cxShowItemCol(), cols = 7 + (imp?1:0) + (act?1:0) + (ic?1:0);
+  const all = cxLedgerFiltered();
   if(!all.length) return `<tr class="cx-empty"><td colspan="${cols}">${state.cx.ledgerLoaded ? 'لا توجد حركات مطابقة.' : 'جارٍ التحميل…'}</td></tr>`;
   return all.map(x=>{
     const p = state.cx.payers[x.id] || {};
     const meta = [CX_LEDGER_KIND[x.kind]||x.kind, x.method, x.period_from ? `${cxDate(x.period_from)} ← ${cxDate(x.period_to)}` : '', x.kind==='transfer' && x.note ? 'السبب: '+x.note : ''].filter(Boolean).join(' · ');
     const tip = [x.agent ? 'المنشئ: '+x.agent : '', x.receipt ? 'الإيصال: '+x.receipt : '', x.note ? 'ملاحظة: '+x.note : ''].filter(Boolean).join('\n');
     const mvOut = x.voided && x.moved_to_id, mvIn = !x.voided && x.moved_from_id;
-    return `<tr class="${x.voided?'cx-void':''}${x._req?' cx-exp-row':''}" data-kind="${cxCatOf(x)}" data-date="${escH(String(x.entry_date||'').slice(0,10))}" ${x.voided?'data-nosum':''} ${tip?`title="${escH(tip)}"`:''}>
-      ${fin ? `<td class="cx-cb">${cxMovable(x) ? `<input type="checkbox" title="تحديد الحركة لنقلها إلى مركز آخر" ${sel[x.id]?'checked':''} data-on-change="cxMvToggle" data-on-change-args="${qa([x.id, QA.c])}">` : ''}</td>` : ''}
+    return `<tr class="${x.voided?'cx-void':''}${x._req?' cx-exp-row':''}" data-id="${escH(String(x.id))}" data-kind="${cxCatOf(x)}" data-date="${escH(String(x.entry_date||'').slice(0,10))}" ${x.voided?'data-nosum':''} ${tip?`title="${escH(tip)}"`:''}>
       <td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
       ${ic ? `<td data-label="البند" class="cx-item"><div class="cx-clip">${x.center_id===state.cx.centerId ? 'المركز نفسه' : escH(cxCenterName(x.center_id))}</div></td>` : ''}
       <td data-label="البيان" class="cx-desc"><div class="cx-clip">${escH(x.purpose || CX_LEDGER_KIND[x.kind] || '')}</div><div class="cx-meta">${escH(meta)}${mvOut?' · <span class="cx-tag-red">منقولة</span>':x.voided?' · <span class="cx-tag-red">محذوفة</span>':''}${mvIn?' · <b class="cx-mv-in">منقولة إليه</b>':''}</div>${mvIn && x.note ? `<div class="cx-meta">${escH(x.note)}</div>` : ''}${x.voided ? `<div class="cx-meta cx-void-note">${mvOut?'نُقلت':'حُذفت'}${x.voided_by ? ' بواسطة ' + escH(prjUserName(x.voided_by)||'') : ''}${x.voided_at ? ' في ' + cxDate(String(x.voided_at).slice(0,10)) : ''}${x.void_reason ? ' — السبب: ' + escH(x.void_reason) : ''}</div>` : x.restored_at ? `<div class="cx-meta">استُرجعت بواسطة ${escH(prjUserName(x.restored_by)||'')} في ${cxDate(String(x.restored_at).slice(0,10))}${x.void_reason ? ' (كان سبب الحذف: ' + escH(x.void_reason) + ')' : ''}</div>` : ''}</td>
@@ -18364,7 +18354,7 @@ function cxCenterDetailHtml(){
         ${state.cx.itemId && canTr && has && !state.cx.showTransfer ? `<button class="btn btn-ghost btn-md" data-on-click="cxTransferToggle">ترحيل رصيد</button>` : ''}
         ${fin && !state.cx.showEntry ? `<button class="btn btn-primary btn-md" data-on-click="cxEntryToggle">+ تسجيل حركة</button>` : ''}</div></div>
       ${fin ? cxMvBulkTplHtml() : ''}
-      <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" ${fin?'data-qyl-bulk="cxMvTpl"':''} data-qyl-kinds='${escH(JSON.stringify(CX_CATS))}' data-qyl-title="دفتر ${escH(c.name)}"><thead><tr>${fin?`<th class="cx-cb" title="تحديد كل الحركات الظاهرة القابلة للنقل" data-noexport><input type="checkbox" data-on-change="cxMvAll" data-on-change-args="${qa([QA.c])}"></th>`:''}<th>التاريخ</th>${ic?'<th>البند</th>':''}<th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin||canTr?'<th></th>':''}</tr></thead>
+      <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" ${fin?'data-qyl-bulk="cxMvTpl"':''} data-qyl-kinds='${escH(JSON.stringify(CX_CATS))}' data-qyl-title="دفتر ${escH(c.name)}"><thead><tr><th>التاريخ</th>${ic?'<th>البند</th>':''}<th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin||canTr?'<th></th>':''}</tr></thead>
       <tbody id="cxLedgerBody">${cxLedgerRowsHtml()}</tbody></table>
     </div>
     ${cxSettingsFoldHtml()}
@@ -20496,7 +20486,7 @@ async function gwLoad(noAuto){
   const pid = state.cx.pending.map(x=>x.id); state.cx.payers = {};
   for(let i=0;i<pid.length;i+=200){ const p = await db.from('center_ledger_payers').select('*').in('ledger_id', pid.slice(i,i+200)); (p.data||[]).forEach(x=>{ state.cx.payers[x.ledger_id] = x; }); }
   const im = state.cx.imp; if(im && (!im.accountId || !state.cx.gwAccounts.some(x=>x.id===im.accountId)) && state.cx.gwAccounts.length) im.accountId = state.cx.gwAccounts[0].id;
-  state.cx.pendSel = {};
+  state.cx.pendSel = {}; qylSel('gwPendNone').clear();
   if(state.view==='gwImport') render();
   // معلّق بلا جهة وفاتورته محفوظة: تُعبّأ جهته ويُصنَّف تلقائياً (لا يضيف مالاً جديداً)
   if(!noAuto && !state.cx._rematching && cxIsImporter() && gwRematchRows().length){
@@ -20644,17 +20634,14 @@ function gwMappingHtml(){
     <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwMapAdd">إضافة الربط</button>${sugg.length?`<span class="file-hint">جهات في المعلّقة بلا ربط: ${sugg.map(escH).join('، ')}</span>`:''}</div>
   </details>`;
 }
-function gwPendToggle(id, on){ state.cx.pendSel = state.cx.pendSel || {}; if(on) state.cx.pendSel[id] = 1; else delete state.cx.pendSel[id]; const n = Object.keys(state.cx.pendSel).length; const sm = fmtKWDHtml(gwSelSum()); bulkSync('gwBulkTpl', r=>{ r.querySelectorAll('#gwSelCount').forEach(e=>{ e.textContent = n; }); r.querySelectorAll('#gwSelSum').forEach(e=>{ e.innerHTML = sm; }); }); }
-function gwSelSum(){ const sel = state.cx.pendSel||{}; return cxR3((state.cx.pending||[]).reduce((a,x)=>a + (sel[x.id] ? Number(x.gross||0) : 0), 0)); }
 function gwBulkCenter(v){ state.cx.bulkCenter = v||''; }
-function gwPendAll(on){ state.cx.pendSel = {}; if(on) (state.cx.pending||[]).filter(x=>!x.agent).forEach(x=>{ state.cx.pendSel[x.id] = 1; }); render(); }
 async function gwAssignSel(){
-  const ids = Object.keys(state.cx.pendSel||{}).map(Number), centerId = (document.getElementById('gwSelCenter')||{}).value || state.cx.bulkCenter;
+  const ids = qylSelRows('gwPendNone').map(r=>Number(r.getAttribute('data-id'))).filter(Number.isFinite), centerId = (document.getElementById('gwSelCenter')||{}).value || state.cx.bulkCenter;
   if(!ids.length){ showToast('حدد حركة واحدة على الأقل','error'); return; }
   if(!centerId){ showToast('اختر المركز','error'); return; }
   const r = await db.rpc('qy_ledger_assign', {p_ids:ids, p_center:centerId});
   if(!(await dbCheck(r,'تصنيف الحركات'))) return;
-  showToast(`صُنّفت ${r.data||0} حركة إلى ${cxCenterName(centerId)}`,'success'); await gwLoad();
+  qylSel('gwPendNone').clear(); showToast(`صُنّفت ${r.data||0} حركة إلى ${cxCenterName(centerId)}`,'success'); await gwLoad();
 }
 // فترة الكشف من اسم الملف: «FROM 01.11.2026 TO 12.11.2026» (هي الفترة المصدَّرة فعلاً، ولو خلت أيام من الحركات)
 function gwNameRange(name){
@@ -20856,11 +20843,10 @@ function gwPendingHtml(){
         <td data-label="المركز">${fin ? `<select class="cx-sel-sm" data-on-change="gwAssignAgent" data-on-change-args="${qa([g.agent, QA.v])}"><option value="">— اختر المركز —</option>${gwCentersOptions(gwAgentCenter(g.agent))}</select>` : '—'}</td></tr>`).join('')}
       </tbody></table>` : ''}
     ${none.length ? (()=>{ const ds = none.map(x=>gwRefDate(x.order_ref)).filter(Boolean).sort(); return `<h3 class="cx-h3">بلا جهة (${none.length}) <span class="file-hint">فواتيرها ليست في الملفات المرفوعة${ds.length ? `، وأقدمها أُنشئ ${cxDate(ds[0])}. ارفع ملف فواتير من ${cxDate(ds[0].slice(0,8)+'01')} تُعبّأ جهاتها تلقائياً` : ''}</span></h3>`; })() + `
-      ${fin ? `<template id="gwBulkTpl"><span class="file-hint">المحدد: <b id="gwSelCount">${nSel}</b> · مبلغها: <b id="gwSelSum">${fmtKWDHtml(gwSelSum())}</b></span>
-        <select id="gwSelCenter" class="f-in-lg" data-on-change="gwBulkCenter" data-on-change-args="${qa([QA.v])}"><option value="">— المركز —</option>${gwCentersOptions(state.cx.bulkCenter||'')}</select>
+      ${fin ? `<template id="gwBulkTpl">        <select id="gwSelCenter" class="f-in-lg" data-on-change="gwBulkCenter" data-on-change-args="${qa([QA.v])}"><option value="">— المركز —</option>${gwCentersOptions(state.cx.bulkCenter||'')}</select>
         <button class="btn btn-primary btn-md" data-on-click="gwAssignSel">تصنيف المحدد</button></template>` : ''}
-      <table class="exec-table cx-tbl" data-qyl="gwPendNone" ${fin?'data-qyl-bulk="gwBulkTpl"':''} data-qyl-title="الحركات المعلّقة بلا جهة"><thead><tr>${fin?`<th class="cx-cb" title="تحديد الكل"><input type="checkbox" data-on-change="gwPendAll" data-on-change-args="${qa([QA.c])}" ${nSel && nSel===none.length?'checked':''}></th>`:''}<th>التاريخ</th><th>الدافع</th><th>الجهة (agent)</th><th>البيان</th><th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th></tr></thead><tbody>
-      ${none.map(x=>{ const p = state.cx.payers[x.id]||{}; return `<tr data-date="${escH(String(x.entry_date||'').slice(0,10))}">${fin?`<td class="cx-cb"><input type="checkbox" ${sel[x.id]?'checked':''} data-on-change="gwPendToggle" data-on-change-args="${qa([x.id, QA.c])}"></td>`:''}<td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
+      <table class="exec-table cx-tbl" data-qyl="gwPendNone" ${fin?'data-qyl-bulk="gwBulkTpl"':''} data-qyl-title="الحركات المعلّقة بلا جهة"><thead><tr><th>التاريخ</th><th>الدافع</th><th>الجهة (agent)</th><th>البيان</th><th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th></tr></thead><tbody>
+      ${none.map(x=>{ const p = state.cx.payers[x.id]||{}; return `<tr data-id="${x.id}" data-date="${escH(String(x.entry_date||'').slice(0,10))}"><td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
         <td data-label="الدافع" class="cx-name"><div dir="auto">${escH(p.payer_name||'—')}</div>${p.payer_phone?`<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>`:''}</td>
         <td data-label="الجهة" class="cx-agent">${(()=>{ const rd = gwRefDate(x.order_ref); return `<div class="cx-meta" style="color:var(--red)">لا فاتورة في الملفات</div>${rd ? `<div class="cx-meta">الفاتورة أُنشئت ${cxDate(rd)}</div>` : ''}`; })()}</td>
         <td data-label="البيان">${x.purpose ? `<div>${escH(x.purpose)}</div>` : ''}<div class="cx-meta">${escH(x.method||'')}</div></td><td data-label="المبلغ" class="num">${fmtKWDHtml(x.gross)}</td><td data-label="الرسوم" class="num">${fmtKWDHtml(x.gateway_fee)}</td></tr>`; }).join('')}
@@ -20963,7 +20949,7 @@ function qylNum0(t){ const v = parseFloat(String(t||'').replace(/[٠-٩]/g, d=>'
 function qylSumCols(el){
   if(el.tagName!=='TABLE') return el.hasAttribute('data-qyl-sum') ? [{i:-1, label:el.getAttribute('data-qyl-sum')||'المبلغ'}] : [];
   const head = el.tHead && el.tHead.rows[0]; if(!head) return [];
-  return [...head.cells].map((c,i)=>c.hasAttribute('data-sum') ? {i, label:c.textContent.trim()} : null).filter(Boolean);
+  return [...head.cells].map((c,i)=>c.hasAttribute('data-sum') ? {i, label:colLabel(c)} : null).filter(Boolean);
 }
 function qylSums(el, cols, rows){
   return cols.map(c=>({label:c.label, v: Math.round(rows.filter(r=>!r.hasAttribute('data-nosum')).reduce((a,r)=>a + (c.i<0 ? qylNum(r.getAttribute('data-amt')) : qylNum(r.cells[c.i] && r.cells[c.i].textContent)), 0)*1000)/1000}));
@@ -20981,10 +20967,84 @@ function qylInPeriod(el, items, s){
   if(el.hasAttribute('data-qyl-kinds') && s.kind && s.kind!=='all') inP = inP.filter(i=>i.getAttribute('data-kind')===s.kind);   // فلتر «النوع» العام
   return {hasDate, rg, inP};
 }
-function qylEnhance(root){ (root||document).querySelectorAll('[data-qyl]').forEach(el=>{ try{ qylApply(el); }catch(e){ console.error('qyl', e); } }); }
+// ===================== (1.42.0) التحديد الموحّد في كل جداول القوائم =====================
+// عمود مربعات أول كل جدول قائمة: مربع الصف، ومربع الرأس = المعروض في هذه الصفحة، و«الكل» قبل «الفترة» = كل السطور المطابقة للفترة والنوع والبحث في كل الصفحات.
+// تحت الجدول: عدد المحدد ومجموع عموده الرئيسي، و«تصدير» يعرض «المحدد فقط». الإجراءات الخاصة (مثل نقل الحركات) تقرأ المحدد من qylSelRows.
+function qylSelOn(el){ return el.tagName==='TABLE' && !isPhone() && !el.hasAttribute('data-qyl-nosel') && !el.classList.contains('tcards') && !el.closest(COL_SKIP) && el.tHead && el.tHead.rows.length > 0 && el.tHead.rows[0].cells.length > 0; }
+function qylSel(key){ const s = qylSt(key); return s.sel instanceof Set ? s.sel : (s.sel = new Set()); }
+function qylRowKey(r){
+  const id = r.getAttribute('data-id') || r.getAttribute('data-qyl-id'); if(id) return 'i:' + id;
+  if(r._qk) return r._qk;
+  const t = [...r.cells].filter(c=>!c.classList.contains('qyl-cb')).map(c=>c.textContent.replace(/\s+/g,' ').trim()).join('|');
+  let x = 0; for(let i = 0; i < t.length; i++) x = (x*31 + t.charCodeAt(i)) | 0;
+  return (r._qk = 't:' + (x>>>0).toString(36) + ':' + t.length);
+}
+function qylCbPad(r, tag){
+  const c0 = r.cells[0]; if(!c0 || c0.hasAttribute('data-qcb') || c0.classList.contains('qyl-cb')) return;
+  if(r.cells.length===1 && (c0.colSpan||1) > 1){ c0.colSpan = c0.colSpan + 1; c0.setAttribute('data-qcb','1'); c0._qySpan = c0.colSpan; return; }
+  const c = document.createElement(tag); c.className = 'qyl-cb no-print'; c.setAttribute('data-qcb','1'); r.insertBefore(c, c0);
+}
+function qylCbCells(el){
+  const hr = el.tHead.rows[0];
+  if(!(hr.cells[0] && hr.cells[0].classList.contains('qyl-cb'))){
+    const th = document.createElement('th'); th.className = 'qyl-cb no-print'; th.setAttribute('data-noexport',''); th.setAttribute('data-nosort','');
+    th.title = 'تحديد السطور المعروضة في هذه الصفحة'; th.innerHTML = '<input type="checkbox" class="qyl-cbp" aria-label="تحديد المعروض">';
+    hr.insertBefore(th, hr.cells[0]);
+    const cg = el.querySelector(':scope > colgroup'); if(cg && !cg.querySelector('col.qyl-cbcol')){ const c = document.createElement('col'); c.className = 'qyl-cbcol'; c.style.width = '40px'; cg.insertBefore(c, cg.firstChild); }   // جدول بأعمدة ثابتة العرض: عمود للمربعات أولاً
+    [...el.tHead.rows].slice(1).forEach(r=>qylCbPad(r, 'th'));
+  }
+  const items = new Set(qylItems(el));
+  [...el.tBodies].forEach(b=>[...b.rows].forEach(r=>{
+    const c0 = r.cells[0]; if(!c0 || c0.classList.contains('qyl-cb') || c0.hasAttribute('data-qcb')) return;
+    const single = r.cells.length===1 && (c0.colSpan||1) > 1;
+    if(!items.has(r) || single){ qylCbPad(r, 'td'); return; }
+    const td = document.createElement('td'); td.className = 'qyl-cb no-print'; td.setAttribute('data-on-click','qylCbCell'); td.setAttribute('data-on-click-args', JSON.stringify([QA.e]));
+    td.innerHTML = '<input type="checkbox" class="qyl-cbr" aria-label="تحديد السطر">'; r.insertBefore(td, c0);
+  }));
+  el.querySelectorAll(':scope > tfoot:not(.qyl-tfoot) > tr').forEach(r=>qylCbPad(r, 'td'));
+}
+// الضغط على خلية المربع لا يفتح السطر (مثل فتح الطلب)، ويبدّل المربع إن لم يُضغط المربع نفسه
+function qylCbCell(ev){ if(!ev) return; ev.stopPropagation(); const td = ev.target && ev.target.closest && ev.target.closest('td.qyl-cb'); if(!td || ev.target.tagName==='INPUT') return;
+  const inp = td.querySelector('input.qyl-cbr'); if(inp){ inp.checked = !inp.checked; qylSelChange(inp); } }
+function qylView(el){ const s = qylSt(el.getAttribute('data-qyl')), items = qylItems(el), {inP} = qylInPeriod(el, items, s);
+  const a = s.page*s.size, shown = inP.slice(a, a + s.size); return {items, inP, shown}; }
+function qylSelectable(r){ const c = r.cells[0]; return !!(c && c.classList.contains('qyl-cb') && c.querySelector('input.qyl-cbr')); }
+function qylSelRows(key){ const el = qylEls(key)[0]; if(!el) return []; const sel = qylSel(key); return qylView(el).inP.filter(r=>qylSelectable(r) && sel.has(qylRowKey(r))); }
+function qylSelChange(inp){
+  const el = inp.closest('[data-qyl]') || qylEls(inp.getAttribute('data-k')||'')[0]; if(!el) return;
+  const key = el.getAttribute('data-qyl'), sel = qylSel(key), on = inp.checked;
+  const put = rows => rows.filter(qylSelectable).forEach(r=>{ const k = qylRowKey(r); if(on) sel.add(k); else sel.delete(k); });
+  if(inp.classList.contains('qyl-cbr')) put([inp.closest('tr')]);
+  else if(inp.classList.contains('qyl-cbp')) put(qylView(el).shown);
+  else if(inp.classList.contains('qyl-cba')) put(qylView(el).inP);
+  qylEls(key).forEach(qylSelSync);
+}
+function qylSelClear(key){ qylSel(key).clear(); qylEls(key).forEach(qylSelSync); }
+function qylMainCol(el){ const cols = qylSumCols(el); return cols.find(c=>/الصافي|الرصيد/.test(c.label)) || cols[cols.length-1] || null; }
+function qylSelSync(el){
+  if(!qylSelOn(el)) return;
+  const key = el.getAttribute('data-qyl'), sel = qylSel(key), {inP, shown} = qylView(el);
+  qylItems(el).forEach(r=>{ const i = r.cells[0] && r.cells[0].querySelector('input.qyl-cbr'); if(!i) return; const on = sel.has(qylRowKey(r)); if(i.checked !== on) i.checked = on; r.classList.toggle('qyl-sel', on); });
+  const st = (box, rows)=>{ if(!box) return; rows = rows.filter(qylSelectable); const k = rows.filter(r=>sel.has(qylRowKey(r))).length; box.checked = !!rows.length && k===rows.length; box.indeterminate = k>0 && k<rows.length; box.disabled = !rows.length; };
+  st(el.tHead.rows[0].querySelector('input.qyl-cbp'), shown);
+  const par = qylAnchor(el).parentElement; if(!par) return;
+  const bar = [...par.children].find(x=>x.getAttribute('data-qyl-bar')===key), foot = [...par.children].find(x=>x.getAttribute('data-qyl-foot')===key);
+  st(bar && bar.querySelector('input.qyl-cba'), inP);
+  const info = foot && foot.querySelector('.qyl-selinfo'); if(!info) return;
+  const rows = inP.filter(r=>qylSelectable(r) && sel.has(qylRowKey(r))), m = qylMainCol(el);
+  if(!rows.length){ info.hidden = true; info.innerHTML = ''; return; }
+  const sum = m ? qylSums(el, [m], rows)[0].v : null;
+  info.hidden = false;
+  info.innerHTML = `المحدد: <b>${rows.length}</b>${m ? ` · ${escH(m.label)}: <b class="num">${fmtKWDHtml(sum)}</b>` : ''} <button type="button" class="qyl-selx" data-no-ico data-on-click="qylSelClear" data-on-click-args="${qa([key])}" title="إلغاء تحديد كل السطور">إلغاء التحديد</button>`;
+}
+document.addEventListener('change', e=>{ const t = e.target; if(t && t.classList && (t.classList.contains('qyl-cbr') || t.classList.contains('qyl-cbp') || t.classList.contains('qyl-cba'))) qylSelChange(t); });
+let _qylView = null;
+function qylEnhance(root){ if(_qylView !== state.view){ _qylView = state.view; Object.values(state.qyl||{}).forEach(x=>{ if(x && x.sel instanceof Set) x.sel.clear(); }); }   // صفحة أخرى: يبدأ التحديد من جديد
+  (root||document).querySelectorAll('[data-qyl]').forEach(el=>{ try{ qylApply(el); }catch(e){ console.error('qyl', e); } }); }
 // لا يُعاد بناء الشريط والتذييل إلا إذا تغيّر ما يخصهما فعلاً؛ وإلا تبقى العناصر نفسها (فلا يهتز زر تحت الفأرة ولا يُغلق تقويم مفتوح)
 function qylApply(el, force){
   const key = el.getAttribute('data-qyl'), s = qylSt(key);
+  const selOn = qylSelOn(el); if(selOn) qylCbCells(el);
   const isTbl = el.tagName==='TABLE', items = qylItems(el);
   const {hasDate, rg, inP} = qylInPeriod(el, items, s);
   const n = inP.length, pages = Math.max(1, Math.ceil(n/s.size));
@@ -20999,9 +21059,9 @@ function qylApply(el, force){
   const canExp = canExp0 && !host;
   const big = items.length > QYL_SIZES[0];
   const idOf = i => i ? (i._qylId || (i._qylId = (window._qylSeq = (window._qylSeq||0) + 1))) : 0;   // بصمة الصفوف: صفوف جديدة = إعادة بناء المجاميع
-  const sig = [s.per, s.from, s.to, s.size, s.page, s.kind||'', items.length, n, hasDate, canExp, big, idOf(items[0]), idOf(items[items.length-1]), idOf(inP[0])].join('|');
+  const sig = [s.per, s.from, s.to, s.size, s.page, s.kind||'', items.length, n, hasDate, canExp, big, idOf(items[0]), idOf(items[items.length-1]), idOf(inP[0]), selOn].join('|');
   const oldBar = [...par.children].find(x=>x.getAttribute('data-qyl-bar')===key), oldFoot = [...par.children].find(x=>x.getAttribute('data-qyl-foot')===key);
-  if(!force && el._qylSig===sig && (oldBar || !(hasDate||big)) && oldFoot) return;
+  if(!force && el._qylSig===sig && (oldBar || !(hasDate||big)) && oldFoot){ if(selOn) qylSelSync(el); return; }
   el._qylSig = sig;
   if(oldBar) oldBar.remove(); if(oldFoot) oldFoot.remove();
   if(!hasDate && !big && !canExp0) return;
@@ -21011,7 +21071,7 @@ function qylApply(el, force){
   const per = s.per;
   const pick = per==='range' ? `<span class="qyl-rng"><input type="date" class="qyl-in qyl-date" value="${s.from||''}" title="من تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'from',QA.v])}"><span class="qyl-l">إلى</span><input type="date" class="qyl-in qyl-date" value="${s.to||''}" title="إلى تاريخ" data-on-change="qylSet" data-on-change-args="${qa([key,'to',QA.v])}"></span>` : '';
   const bar = document.createElement('div'); bar.className = 'qyl-bar no-print'; bar.setAttribute('data-qyl-bar', key);
-  bar.innerHTML = `${hasDate ? `<div class="qyl-g"><span class="qyl-l">الفترة</span><select class="qyl-in qyl-per" data-on-change="qylSet" data-on-change-args="${qa([key,'per',QA.v])}">${QYL_PER.map(p=>`<option value="${p[0]}" ${p[0]===per?'selected':''}>${p[1]}</option>`).join('')}</select>${pick}</div>` : ''}
+  bar.innerHTML = `${selOn ? `<label class="qyl-g qyl-allg" title="تحديد كل السطور في كل الصفحات، حسب الفترة والنوع والبحث"><input type="checkbox" class="qyl-cba" data-k="${escH(key)}"><span class="qyl-l">الكل</span></label>` : ''}${hasDate ? `<div class="qyl-g"><span class="qyl-l">الفترة</span><select class="qyl-in qyl-per" data-on-change="qylSet" data-on-change-args="${qa([key,'per',QA.v])}">${QYL_PER.map(p=>`<option value="${p[0]}" ${p[0]===per?'selected':''}>${p[1]}</option>`).join('')}</select>${pick}</div>` : ''}
     ${big ? `<div class="qyl-g"><span class="qyl-l">العرض</span><select class="qyl-in qyl-size" data-on-change="qylSet" data-on-change-args="${qa([key,'size',QA.v])}">${QYL_SIZES.map(z=>`<option value="${z}" ${z===s.size?'selected':''}>${z}</option>`).join('')}</select></div>` : ''}
     ${kinds.length ? `<div class="qyl-g"><span class="qyl-l">النوع</span><select class="qyl-in qyl-kind" data-on-change="qylSet" data-on-change-args="${qa([key,'kind',QA.v])}"><option value="all">الكل</option>${kinds.map(([v,l])=>`<option value="${escH(v)}" ${s.kind===v?'selected':''}>${escH(l)}</option>`).join('')}</select></div>` : ''}
     ${canExp ? `<div class="qyl-g qyl-exp">${qyExportBtn('qyl:'+key)}</div>` : ''}`;
@@ -21042,12 +21102,14 @@ function qylApply(el, force){
       <button type="button" class="btn btn-ghost btn-sm qyl-pg" data-no-ico data-on-click="qylPage" data-on-click-args="${qa([key,-1])}" ${s.page<=0?'disabled':''}>→ السابق</button>
       <span class="qyl-pos"><b>${n ? a+1 : 0}–${b}</b> من <b>${n}</b></span>
       <button type="button" class="btn btn-ghost btn-sm qyl-pg" data-no-ico data-on-click="qylPage" data-on-click-args="${qa([key,1])}" ${s.page>=pages-1?'disabled':''}>التالي ←</button></div>` : '';
-  foot.innerHTML = `${pager || bulk ? `<div class="qyl-nav${bulk ? ' qyl-nav-bulk' : ''}">${pager}${bulk}</div>` : ''}
+  const selInfo = selOn ? '<span class="qyl-selinfo" hidden></span>' : '';
+  foot.innerHTML = `${pager || bulk || selInfo ? `<div class="qyl-nav${bulk || selInfo ? ' qyl-nav-bulk' : ''}${!pager && !bulk ? ' qyl-nav-sel' : ''}">${pager}${selInfo}${bulk}</div>` : ''}
     ${!n ? `<div class="qyl-sum qyl-sum-q0 qyl-sum-none" style="--qn:0;--qe:${expCell?'auto':'0px'}"><div class="qyl-sc qyl-sc-h">لا توجد سجلات في ${escH(rg.label||'هذا العرض')}</div>${expCell}</div>`
       : inTable ? '' : n > shown.length ? sumLine('المعروض', shown.length, sumShown, '') : ''}
     ${!n ? '' : inTable ? (expCell ? `<div class="qyl-sum qyl-sum-expo">${expCell}</div>` : '') : sumLine(hasDate ? 'إجمالي ' + rg.label : 'الإجمالي', n, sumAll, 'qyl-sum-all', expCell)}`;
   if(anchor.nextSibling) par.insertBefore(foot, anchor.nextSibling); else par.appendChild(foot);
   if(isTbl && el.dataset.colKey) colHideApply(el);   // الأعمدة المخفية تخفي مجاميعها في سطر الإجمالي
+  if(selOn) qylSelSync(el);
 }
 function qylSet(key, field, v){
   const s = qylSt(key);
@@ -21076,15 +21138,21 @@ const QY_EXP_TYPES = {xlsx:'Excel', pdf:'PDF', csv:'CSV'};
 function qyExportBtn(src, types){
   const t = (types||['xlsx','pdf','csv']).filter(x=>QY_EXP_TYPES[x]);
   return `<div class="qy-exp"><button type="button" class="btn btn-ghost btn-sm qy-exp-btn" data-no-ico data-on-click="qyExpToggle" data-on-click-args="${qa([QA.t])}">${qi('download','qi-btn')}تصدير ▾</button>
-    <div class="qy-exp-menu" hidden>${t.map(x=>`<button type="button" data-no-ico data-on-click="qyExport" data-on-click-args="${qa([src, x])}">${QY_EXP_TYPES[x]}</button>`).join('')}</div></div>`;
+    <div class="qy-exp-menu" hidden data-src="${escH(src)}" data-types="${escH(t.join(','))}">${t.map(x=>`<button type="button" data-no-ico data-on-click="qyExport" data-on-click-args="${qa([src, x])}">${QY_EXP_TYPES[x]}</button>`).join('')}</div></div>`;
 }
 function qyExpClose(except){ document.querySelectorAll('.qy-exp-menu:not([hidden])').forEach(m=>{ if(m!==except) m.hidden = true; }); }
-function qyExpToggle(btn){ const m = btn && btn.parentElement && btn.parentElement.querySelector('.qy-exp-menu'); if(!m) return; qyExpClose(m); m.hidden = !m.hidden; }
+function qyExpToggle(btn){ const m = btn && btn.parentElement && btn.parentElement.querySelector('.qy-exp-menu'); if(!m) return; qyExpClose(m); m.hidden = !m.hidden;
+  // (1.42.0) عند وجود سطور محددة: «المحدد فقط» تحت أنواع التصدير
+  m.querySelectorAll('.qy-exp-sel').forEach(x=>x.remove());
+  const src = m.getAttribute('data-src')||''; if(m.hidden || !src.startsWith('qyl:')) return;
+  const n = qylSelRows(src.slice(4)).length; if(!n) return;
+  const types = (m.getAttribute('data-types')||'').split(',').filter(x=>QY_EXP_TYPES[x]);
+  m.insertAdjacentHTML('beforeend', `<div class="qy-exp-sel qy-exp-selh">المحدد فقط (${n})</div>` + types.map(x=>`<button type="button" class="qy-exp-sel" data-no-ico data-on-click="qyExport" data-on-click-args="${qa([src+'#sel', x])}">${QY_EXP_TYPES[x]}</button>`).join('')); }
 document.addEventListener('click', e=>{ if(!(e.target.closest && e.target.closest('.qy-exp'))) qyExpClose(); }, true);
 async function qyExport(src, fmt){
   qyExpClose();
   let d = null;
-  if(String(src).startsWith('qyl:')) d = qylData(String(src).slice(4));
+  if(String(src).startsWith('qyl:')){ const k = String(src).slice(4).replace(/#sel$/,''); d = qylData(k, /#sel$/.test(src)); }
   else if(typeof window[src]==='function') d = window[src]();
   if(!d){ showToast('لا يوجد ما يُصدَّر','error'); return; }
   return qyExportData(fmt, d);
@@ -21097,13 +21165,14 @@ function qylCellText(c){
   return t.textContent.replace(/[‎‏⁦-⁩؜]/g,'').replace(/\s+/g,' ').replace(/^(\s*—\s*)+|(\s*—\s*)+$/g,'').replace(/(\s*—\s*){2,}/g,' — ').trim();
 }
 function qyCompanyName(){ const co = (state.companies||[]).find(c=>c.id===state.currentCompanyId); return co ? (co.nameAr||co.name||'') : ''; }
-function qylData(key){
+function qylData(key, onlySel){
   const el = qylEls(key)[0]; if(!el) return null;
-  const s = qylSt(key), items = qylItems(el), {hasDate, rg, inP:rows} = qylInPeriod(el, items, s);
+  const s = qylSt(key), items = qylItems(el), {hasDate, rg, inP:rows0} = qylInPeriod(el, items, s);
+  const rows = onlySel ? qylSelRows(key) : rows0; if(onlySel && !rows.length) return null;
   let head = [], body = [], numIdx = new Set(), nosum = rows.map(r=>r.hasAttribute('data-nosum'));
   if(el.tagName==='TABLE'){
     const hr = el.tHead && el.tHead.rows[0]; const keep = [];
-    [...(hr ? hr.cells : [])].forEach((c,i)=>{ const t = c.textContent.trim(); if(t && !c.hasAttribute('data-noexport') && c.style.display!=='none'){ keep.push(i); head.push(t); if(c.hasAttribute('data-sum') || c.classList.contains('num')) numIdx.add(head.length-1); } });
+    [...(hr ? hr.cells : [])].forEach((c,i)=>{ const t = colLabel(c); if(t && !c.hasAttribute('data-noexport') && c.style.display!=='none'){ keep.push(i); head.push(t); if(c.hasAttribute('data-sum') || c.classList.contains('num')) numIdx.add(head.length-1); } });
     body = rows.map(r=>keep.map((i,j)=>{ const c = r.cells[i]; if(!c) return ''; const t = qylCellText(c); return numIdx.has(j) ? (t==='—'||t==='' ? '' : qylNum(t)) : t; }));
   } else {
     try{ head = JSON.parse(el.getAttribute('data-qyl-cols')||'[]'); }catch(e){ head = []; }
@@ -21113,6 +21182,7 @@ function qylData(key){
   const card = el.closest('.card'); const h2 = card && card.querySelector('h2');
   let title = el.getAttribute('data-qyl-title') || (h2 ? h2.textContent.trim() : '') || document.title;
   if(s.kind && s.kind!=='all'){ try{ const k = JSON.parse(el.getAttribute('data-qyl-kinds')||'[]').find(x=>x[0]===s.kind); if(k) title += ' — ' + k[1]; }catch(e){} }
+  if(onlySel) title += ' — المحدد (' + rows.length + ')';
   return {title, period: hasDate ? rg.label : '', head, body, numIdx, nosum, company: qyCompanyName()};
 }
 function qylFileName(d){ return (d.title + (d.period ? ' - ' + d.period : '')).replace(/[‎‏⁦-⁩؜]/g,'').replace(/[\\/:*?"<>|]+/g,' ').trim() || 'تصدير'; }

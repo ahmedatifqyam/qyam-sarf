@@ -3593,6 +3593,22 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     #app .qyl-bulk select{height:32px !important;min-height:0 !important;width:190px !important;max-width:190px;padding-block:0 !important;}
     #app .qyl-bulk .btn{height:32px !important;min-height:0 !important;padding:0 14px !important;font-size:var(--fs-label) !important;width:auto !important;}
   }
+  /* (1.42.0) التحديد الموحّد في جداول القوائم */
+  #app table th.qyl-cb,#app table td.qyl-cb{width:40px !important;min-width:40px;max-width:40px;text-align:center;padding-inline:4px !important;}
+  #app table td.qyl-cb{cursor:pointer;}
+  #app table .qyl-cb input[type=checkbox]{width:18px !important;height:18px !important;min-width:18px !important;min-height:0 !important;margin:0 !important;vertical-align:middle;cursor:pointer;accent-color:var(--info);}
+  #app table .qyl-cb .col-rs{display:none !important;}
+  #app table tr.qyl-sel > td{background:var(--info-bg) !important;}
+  #app .qyl-bar .qyl-allg{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;}
+  #app .qyl-bar .qyl-allg input{width:18px;height:18px;margin:0;cursor:pointer;accent-color:var(--info);}
+  #app .qyl-selinfo{font-size:var(--fs-label);color:var(--muted);white-space:nowrap;display:inline-flex;align-items:center;gap:4px;}
+  #app .qyl-selinfo[hidden]{display:none !important;}
+  #app .qyl-selinfo b{color:var(--ink);}
+  #app .qyl-selinfo .qyl-selx{all:unset;cursor:pointer;color:var(--info);font-weight:700;margin-inline-start:8px;font-size:var(--fs-label);}
+  #app .qyl-selinfo .qyl-selx:hover{text-decoration:underline;}
+  #app .qyl-nav-sel:has(> .qyl-selinfo[hidden]:only-child){display:none;}
+  .qy-exp-menu .qy-exp-selh{padding:8px 14px 4px;font-size:var(--fs-label);color:var(--muted);border-top:1px solid var(--line);margin-top:4px;}
+  @media print{ .qyl-cb{display:none !important;} tr.qyl-sel > td{background:none !important;} }
 </style>
 </head>
 <body>
