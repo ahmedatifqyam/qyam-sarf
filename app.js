@@ -18153,10 +18153,14 @@ async function cxVoid(id, v){
   await cxLoadLedger(); cxLoadBalances();
 }
 // ---------- نقل حركات إلى مركز آخر (تصحيح القديم دون تعديله: الأصل يُشطب ويُنشأ مطابق في المركز الصحيح) ----------
-function cxLedgerTidy(){ const app = document.getElementById('app'); try{ decorateButtons(); iconActs(); }catch(e){} qylEnhance(app); try{ colsEnhance(app); }catch(e){} }
+function cxLedgerTidy(){ const app = document.getElementById('app'); try{ decorateButtons(); iconActs(); }catch(e){} qylEnhance(app); try{ colsEnhance(app); }catch(e){} cxMvRefresh(); }
 function cxMovable(x){ return !!x && !x._req && !x.voided && x.center_id && !['opening','transfer'].includes(x.kind); }
 function cxMvCount(){ return Object.keys(state.cx.mvSel||{}).length; }
-function cxMvRefresh(){ const n = cxMvCount(); const el = document.getElementById('cxMvCount'); if(el) el.textContent = n; const b = document.getElementById('cxMvBtn'); if(b) b.disabled = !n; }
+// (1.41.3) شريط «المحدد» يُعاد بناؤه من القالب عند البحث أو تغيير الصفحة؛ فيُحدَّث القالب والنسخة الظاهرة معاً، ومربع «الكل» يطابق الصفوف
+function bulkSync(tplId, fn){ const t = document.getElementById(tplId); [document, t && t.content].forEach(r=>{ if(r) try{ fn(r); }catch(e){} }); }
+function cxMvRefresh(){ const n = cxMvCount();
+  bulkSync('cxMvTpl', r=>{ r.querySelectorAll('#cxMvCount').forEach(e=>{ e.textContent = n; }); r.querySelectorAll('#cxMvBtn').forEach(b=>{ b.disabled = !n; }); });
+  const all = document.querySelector('table[data-qyl="cxLedger"] > thead th.cx-cb input'); if(all){ const mv = cxLedgerFiltered().filter(cxMovable), sel = state.cx.mvSel||{}; all.checked = !!mv.length && mv.every(x=>sel[x.id]); all.indeterminate = !all.checked && mv.some(x=>sel[x.id]); } }
 function cxMvToggle(id, on){ state.cx.mvSel = state.cx.mvSel || {}; if(on) state.cx.mvSel[id] = 1; else delete state.cx.mvSel[id]; cxMvRefresh(); }
 function cxMvAll(on){ state.cx.mvSel = {}; if(on) cxLedgerFiltered().filter(cxMovable).forEach(x=>{ state.cx.mvSel[x.id] = 1; }); const a = document.getElementById('cxLedgerBody'); if(a){ a.innerHTML = cxLedgerRowsHtml(); cxLedgerTidy(); } cxMvRefresh(); }
 function cxMvTarget(v){ state.cx.mvTo = v||''; }
@@ -20639,7 +20643,7 @@ function gwMappingHtml(){
     <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwMapAdd">إضافة الربط</button>${sugg.length?`<span class="file-hint">جهات في المعلّقة بلا ربط: ${sugg.map(escH).join('، ')}</span>`:''}</div>
   </details>`;
 }
-function gwPendToggle(id, on){ state.cx.pendSel = state.cx.pendSel || {}; if(on) state.cx.pendSel[id] = 1; else delete state.cx.pendSel[id]; const n = Object.keys(state.cx.pendSel).length; const el = document.getElementById('gwSelCount'); if(el) el.textContent = n; }
+function gwPendToggle(id, on){ state.cx.pendSel = state.cx.pendSel || {}; if(on) state.cx.pendSel[id] = 1; else delete state.cx.pendSel[id]; const n = Object.keys(state.cx.pendSel).length; bulkSync('gwBulkTpl', r=>r.querySelectorAll('#gwSelCount').forEach(e=>{ e.textContent = n; })); }
 function gwBulkCenter(v){ state.cx.bulkCenter = v||''; }
 function gwPendAll(on){ state.cx.pendSel = {}; if(on) (state.cx.pending||[]).filter(x=>!x.agent).forEach(x=>{ state.cx.pendSel[x.id] = 1; }); render(); }
 async function gwAssignSel(){
