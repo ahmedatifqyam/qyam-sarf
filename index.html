@@ -3686,6 +3686,12 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
   /* (1.50.0) طلب نيابةً عن موظف */
   #app .step-onbehalf{display:block;font-size:var(--fs-xs);color:#b45309;font-weight:700;}
   #app .nr-ob-h{font-weight:500;}
+  /* (1.51.0) الطلب المُعدّ نيابةً وينتظر الإرسال */
+  #app .ob-box{background:#eff6ff;border:1px solid #bfdbfe;border-right:6px solid #2563eb;border-radius:10px;padding:12px 14px;margin-bottom:12px;color:var(--text);font-size:var(--fs-label);line-height:1.8;}
+  #app .ob-box > div{font-size:var(--fs-hint);}
+  #app .ob-box .ob-acts{display:flex;gap:8px;margin-top:10px;}
+  #app .ob-box .ob-acts .btn{width:150px;}
+  @media (max-width:699px){ #app .ob-box .ob-acts .btn{flex:1 1 0;width:auto;} }
 </style>
 </head>
 <body>
@@ -3706,6 +3712,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=8d142dba08"></script>
+<script src="app.js?v=x"></script>
 </body>
 </html>

@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.52.0', APP_VERSION_DATE = '2026-11-23';
+const APP_VERSION = '1.53.0', APP_VERSION_DATE = '2026-11-23';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:3.4, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:350, base:350, extra:0.1, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -616,7 +616,7 @@ function mapRequestRow(r){
     budgetItemId: r.budget_item_id||null,
     archiveOnly: !!r.archive_only,   // طلب أرشيفي قبل الرصيد الافتتاحي للمركز: لا يُخصم من رصيده ولا يظهر في كشفه
     requestType: r.request_type||'normal',
-    onBehalfById: r.on_behalf_by_id||'', onBehalfByName: r.on_behalf_by_name||'',
+    onBehalfById: r.on_behalf_by_id||'', onBehalfByName: r.on_behalf_by_name||'', awaitingOwner: !!r.awaiting_owner,
     defer: r.defer_kind ? {kind:r.defer_kind, until:r.defer_until||'', projectId:r.defer_project_id||'', projectName:r.defer_project_name||'', reason:r.defer_reason||'',
       byId:r.defer_by_id||'', byName:r.defer_by_name||'', at:r.defer_at||null, metAt:r.defer_met_at||null, releasedAt:r.defer_released_at||null,
       releasedBy:r.defer_released_by||'', releaseNote:r.defer_release_note||''} : null,
@@ -802,8 +802,9 @@ async function refreshRequests(){
 function getMyPendingRequests(cidOverride){
   if(!state.user) return [];
   const role = state.user.role, myId = state.user.id, cid = cidOverride || state.currentCompanyId;
-  const list = state.requests.filter(r=>r.companyId===cid && !r.isCancelled && !isUnderReview(r));
+  const list = state.requests.filter(r=>r.companyId===cid && !r.isCancelled && (!isUnderReview(r) || (r.awaitingOwner && r.createdById===myId)));
   return list.filter(r=>{
+    if(r.awaitingOwner) return r.createdById===myId;   // (1.51.0) طلب أُعدّ لي نيابةً: بانتظار إرسالي
     if(r.status==='pending_decision') return !!myDecisionStep(r, myId) || !!paperStepForMe(r);
     if(r.status==='pending_transfer_request' && deferActive(r)) return false;   // (1.43.0) مؤجل الصرف: في «مؤجلة الصرف» لا في «بانتظار قرارك»
     if(r.status==='pending_transfer_request' || r.status==='pending_disbursement') return role==='accountant';
@@ -4351,7 +4352,7 @@ function computeBudgetItemFigures(itemId){
   const reversed = txs.filter(t=>t.direction==='in' && t.reversesId).reduce((s,t)=>s+t.amount,0);
   const spent    = out - reversed;
 
-  const live = (state.requests||[]).filter(r=>r.budgetItemId===itemId && !r.isCancelled && r.status!=='rejected');
+  const live = (state.requests||[]).filter(r=>r.budgetItemId===itemId && !r.isCancelled && r.status!=='rejected' && !r.awaitingOwner);
   let committed = live.filter(r=>COMMITTED_STATUSES.includes(r.status))
                         .reduce((s,r)=>s+(Number(r.totalAmount)||0),0);
   let pending   = live.filter(r=>isPendingDecisionStatus(r.status))
@@ -5052,7 +5053,11 @@ async function createNewRequest(o){
     logBudgetOverrun(req.id, ol.budgetItemId, ol.stage, ol.requestedAmount, ol.availableBalance);
     state._pendingOverrunLog = null;
   }
-  if(winMin <= 0){
+  if(obUser){
+    // (1.51.0) نيابةً: يبقى «بانتظار الإرسال» حتى يرسله صاحبه أو مدير النظام
+    req.awaitingOwner = true; req.reviewUntil = '2099-12-31T00:00:00Z';
+    showToast('حُفظ الطلب باسم ' + obUser.name + ' بانتظار إرساله — وصله إشعار ليراجعه ويرسله، ويمكنك إرساله أنت من صفحة الطلب', 'success');
+  }else if(winMin <= 0){
     await finalizeRequestNow(req, {silent:true});
     showToast((isCustody ? 'تم إرسال طلب العهدة — رقمه ' : 'تم إرسال الطلب بنجاح — رقمه ') + (req.number||''), 'success');
   }else{
@@ -5149,10 +5154,26 @@ async function finalizeRequestNow(req, opts){
   return true;
 }
 
+// (1.51.0) صندوق الطلب المُعدّ نيابةً وينتظر الإرسال
+function onBehalfAwaitBoxHtml(req, mine){
+  const by = escH(req.onBehalfByName || 'مدير النظام'), owner = escH(req.createdBy || '');
+  const isAdm = state.user.role==='admin';
+  const btns = (mine || isAdm) ? `<div class="rev-actions ob-acts">
+      <button class="btn btn-ghost btn-md" data-on-click="editRequest" data-on-click-args="${qa([''+req.id])}">تعديل</button>
+      <button class="btn btn-reject btn-md" data-on-click="deleteRequestInReview" data-on-click-args="${qa([''+req.id])}">حذف</button>
+      <button class="btn btn-primary btn-md" data-on-click="sendRequestFinal" data-on-click-args="${qa([''+req.id])}">${mine ? 'إرسال الطلب' : 'إرسال نيابةً'}</button></div>` : '';
+  const txt = mine
+    ? `<b>📝 أعدّ لك ${by} هذا الطلب — راجعه ثم أرسله</b><div>لم يأخذ رقماً ولم يصل المعتمدين، ولا يُحسب على البند. عدّله إن لزم، ثم «إرسال الطلب» فيصير طلبك ويبدأ مساره. وإن لم يكن لك فاحذفه، ويُشعَر من أعدّه.</div>`
+    : `<b>📝 بانتظار إرسال ${owner}</b><div>أعدّه ${by} نيابةً عنه. لم يأخذ رقماً ولم يصل المعتمدين. إن أرسله صاحبه صار طلبه تماماً، وإن أرسلته أنت «نيابةً» مضى وعليه أثر النيابة في المسار والسجل والطباعة.</div>`;
+  return `<div class="ob-box no-print">${txt}${btns}</div>`;
+}
 async function sendRequestFinal(id){
   const req = state.requests.find(r=>r.id===id);
   if(!req || req.number) return;
-  if(!confirm('إرسال الطلب نهائياً الآن؟\n\nسيأخذ رقمه ويصل المعتمدين، ولن يمكنك حذفه بعدها.')) return;
+  const obAdmin = req.awaitingOwner && req.createdById!==state.user.id;
+  if(!confirm(obAdmin ? 'إرسال الطلب نيابةً عن ' + (req.createdBy||'') + ' دون انتظاره؟\n\nسيأخذ رقمه ويصل المعتمدين، وعليه أثر «نيابةً» في المسار والسجل والطباعة.'
+                      : 'إرسال الطلب نهائياً الآن؟\n\nسيأخذ رقمه ويصل المعتمدين، ولن يمكنك حذفه بعدها.')) return;
+  if(req.awaitingOwner){ if(await finalizeRequestNow(req)){ await refreshRequests(); render(); } return; }
   if(await finalizeRequestNow(req)) render();
 }
 
@@ -5173,7 +5194,7 @@ async function deleteRequestInReview(id){
 let _reviewTicker = null;
 function myRequestsUnderReview(){
   if(!state.user) return [];
-  return state.requests.filter(r=>isUnderReview(r) && r.createdById===state.user.id && r.companyId===state.currentCompanyId);
+  return state.requests.filter(r=>isUnderReview(r) && !r.awaitingOwner && r.createdById===state.user.id && r.companyId===state.currentCompanyId);
 }
 // العدّاد يُحدّث نصّ الثواني وحده في مكانه، ولا يُعيد رسم الصفحة.
 // وإعادة الرسم كل ثانية كانت تهدم أي قائمة منسدلة مفتوحة وأي حقل
@@ -15732,6 +15753,7 @@ function renderAppRequestView(req){
       // نافذة المراجعة: الطلب بلا رقم، وصاحبه وحده يراه ويتصرف فيه
       if(!isUnderReview(req)) return '';
       const mine = req.createdById===state.user.id;
+      if(req.awaitingOwner) return onBehalfAwaitBoxHtml(req, mine);
       const secs = reviewSecondsLeft(req);
       if(!mine){
         return `<div style="padding:12px 14px;background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:8px;margin-bottom:12px;">
