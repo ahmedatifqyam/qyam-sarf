@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.51.0', APP_VERSION_DATE = '2026-11-23';
+const APP_VERSION = '1.52.0', APP_VERSION_DATE = '2026-11-23';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:353, base:350, extra:3.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -2684,12 +2684,37 @@ function reqNumberTemplate(){
   const company = state.companies.find(c=>c.id===state.currentCompanyId);
   const companyCode = company ? company.code : 'CO';
   const me = state.users.find(u=>u.id===state.user.id);
-  let unitCode = company ? company.hqCode : 'HQ';
-  if(me && me.centerId){
-    const withCode = nearestUnit(me.centerId, c=>!!c.code);   // وحدة بلا رمز ترث رمز أقرب وحدة أم، وإلا رمز الإدارة العامة للشركة
-    if(withCode) unitCode = withCode.code;
+  const unitCode = unitNumberPart(me && me.centerId, company);
+  return { prefix: unitCode ? `${companyCode}-${unitCode}-` : `${companyCode}-`, suffix: `/${year}` };
+}
+// طريقة ترقيم الوحدة (23 نوفمبر) — تُحفظ في الإعدادات العامة لكل وحدة:
+// own = رمز هذه الوحدة (الافتراضي إن كان لها رمز) · parent = مثل الوحدة الأعلى (الافتراضي بلا رمز)
+// hq = رمز الإدارة · company = رمز الشركة فقط بلا جزء أوسط
+const UNIT_NO_MODES = [['own','رمز هذه الوحدة'],['parent','مثل الوحدة الأعلى'],['hq','رمز الإدارة'],['company','رمز الشركة فقط']];
+function unitNoModeMap(){
+  try{ return JSON.parse((state.appSettings && state.appSettings.unit_no_mode) || '{}') || {}; }catch(e){ return {}; }
+}
+function unitNoMode(u){ const m = unitNoModeMap()[u.id]; return UNIT_NO_MODES.some(x=>x[0]===m) ? m : (u.code ? 'own' : 'parent'); }
+// الجزء الأوسط من رقم الطلب لوحدة: رمز وحدة، أو رمز الإدارة، أو '' (رمز الشركة فقط)
+function unitNumberPart(centerId, company){
+  const hq = company ? (company.hqCode || 'HQ') : 'HQ';
+  let cur = centerId ? state.centers.find(c=>c.id===centerId) : null, g = 0;
+  while(cur && g++<40){
+    const m = unitNoMode(cur);
+    if(m==='company') return '';
+    if(m==='hq') return hq;
+    if(m==='own' && cur.code) return cur.code;
+    cur = cur.parentId ? state.centers.find(c=>c.id===cur.parentId) : null;
   }
-  return { prefix: `${companyCode}-${unitCode}-`, suffix: `/${year}` };
+  return hq;
+}
+async function saveUnitNoMode(unitId, mode){
+  const map = unitNoModeMap(), def = (()=>{ const u = state.centers.find(c=>c.id===unitId)||{}; return u.code ? 'own' : 'parent'; })();
+  if((map[unitId]||def) === mode) return true;
+  map[unitId] = mode; const val = JSON.stringify(map);
+  const r = await db.from('app_settings').upsert({key:'unit_no_mode', value:val});
+  if(!(await dbCheck(r, 'حفظ طريقة الترقيم'))) return false;
+  state.appSettings = state.appSettings||{}; state.appSettings.unit_no_mode = val; return true;
 }
 // اتجاه عرض رقم الطلب لكل شركة — عرض فقط، والرقم المحفوظ لا يتغير.
 // «ar» (الافتراضي): السنة يسار التسلسل ‎2026/048‎ — «en»: السنة يمين ‎048/2026‎
@@ -7809,7 +7834,7 @@ const FIELD_TIPS = {
   "أيام العطلة (لا تذكير فيها)": "الأيام التي لا تُرسل فيها تذكيرات التأخير، حتى لا يصل الموظفين إشعار في عطلتهم الأسبوعية.",
   "تكرار التذكير كل (ساعات)": "عدد الساعات بين تذكير وآخر للشخص نفسه ما دام الطلب متأخراً عنده. مثال: 4 تعني تذكيراً كل أربع ساعات خارج ساعات الهدوء.",
   "نسخة للمالي ومنشئ الطلب بعد (أيام)": "إذا بقي الطلب متأخراً هذه المدة، يصل التذكير أيضاً إلى المدير المالي وإلى من أنشأ الطلب، ليعرفوا بالتأخير ويتابعوه.",
-  "الرمز (للترقيم)": "يدخل في رقم طلبات هذه الوحدة بدل رمز الإدارة. الوحدة التي بلا رمز تأخذ رمز أقرب وحدة فوقها لها رمز، فإن لم توجد فرمز الإدارة.",
+  "الرمز وطريقة الترقيم": "الرمز يدخل في رقم طلبات هذه الوحدة. وبجانبه طريقة الترقيم: «رمز هذه الوحدة» مثل ش.ق.ع-MKT-2026/001، أو «مثل الوحدة الأعلى»، أو «رمز الإدارة» مثل ش.ق.ع-أ-2026/001، أو «رمز الشركة فقط» مثل ش.ق.ع-2026/001. الوحدات التي بلا رمز ولا اختيار تأخذ رمز أقرب وحدة فوقها. يسري على الطلبات الجديدة فقط.",
   "تتبع الوحدة": "الوحدة الأعلى التي تقع تحتها هذه الوحدة في الهيكل. منها ترث الترويسة والتذييل والرمز إن لم يكن لها، وتُجمع ميزانيتها في ميزانية الأعلى.",
   "الجهة التابع لها (اختياري)": "العميل الذي يتبع له هذا المركز، مثل الجمعية أو الفرع الذي يُشغَّل المركز لصالحه. يُختار من قائمة العملاء.",
   "الميزانية الشهرية (د.ك)": "رقم مرجعي يُقارن به صرف الشهر في التقارير وزر الميزانية. لا يمنع الصرف إذا تجاوزته الطلبات، وإنما يظهر التجاوز في التقارير.",
@@ -12387,6 +12412,7 @@ async function addCenter(){
   if(!(await dbCheck(result, 'إضافة المركز'))) return;
   center.clientId = clientId; center.description = result._descSkipped ? '' : (description||''); center.stage = 'active';
   state.centers.push(center);
+  { const nm = (document.getElementById('newCenterNoMode')||{}).value; if(nm) await saveUnitNoMode(center.id, nm); }
   showToast('تمت إضافة المركز', 'success');
   backToAdminList('centers');
 }
@@ -12660,7 +12686,7 @@ function unitBasicFieldsHtml(prefix, c){
   return `
       <div class="co-g">
         <div class="co-f"><label for="${prefix}Name">اسم الوحدة</label><input id="${prefix}Name" type="text" value="${escH(c.name||'')}" placeholder="مثال: مركز حولي"></div>
-        <div class="co-f"><label for="${prefix}Code">الرمز (للترقيم)</label><input id="${prefix}Code" type="text" dir="ltr" value="${escH(c.code||'')}" placeholder="HWL"></div>
+        <div class="co-f"><label for="${prefix}Code">الرمز وطريقة الترقيم</label><div class="co-two"><input id="${prefix}Code" type="text" dir="ltr" value="${escH(c.code||'')}" placeholder="HWL"><select id="${prefix}NoMode" aria-label="طريقة الترقيم" title="طريقة الترقيم">${UNIT_NO_MODES.map(([v,l])=>`<option value="${v}" ${(c.id ? unitNoMode(c) : 'own')===v?'selected':''}>${l}</option>`).join('')}</select></div></div>
         <div class="co-f"><label for="${prefix}Kind">النوع</label><select id="${prefix}Kind" data-on-change="unitKindToggle" data-on-change-args="${qa([prefix])}">${unitTypeOptionsHtml(kind)}</select></div>
         <div class="co-f"><label for="${prefix}Parent">تتبع الوحدة</label><select id="${prefix}Parent">${unitOptionsHtml(c.companyId||state.currentCompanyId, c.parentId||'', c.id ? {noneLabel:'تحت الشركة مباشرة', excludeId:c.id} : {noneLabel:'تحت الشركة مباشرة'})}</select></div>
         <div class="co-f" id="${prefix}ClientBox" ${kind==='center'?'':'style="display:none;"'}><label for="${prefix}Client">الجهة التابع لها (اختياري)</label><select id="${prefix}Client">${unitClientOptionsHtml(c.clientId||'')}</select></div>
@@ -12752,6 +12778,7 @@ async function saveCenterEdit(){
   if(c.hasMinSingle) c.minSingleApprover = updates.min_single_approver;
   c.requireBankTransferRef = updates.require_bank_transfer_ref;
   if(updates.letterhead_data) c.letterheadData = updates.letterhead_data;
+  { const nm = (document.getElementById('editCenterNoMode')||{}).value; if(nm && !(await saveUnitNoMode(c.id, nm))) return; }
   state.editingCenterId = null;
   showToast('تم حفظ تعديلات المركز', 'success');
   render();
