@@ -3,7 +3,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
 const APP_VERSION = '1.54.0', APP_VERSION_DATE = '2026-11-23';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:354, base:350, extra:3.6, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:354, base:350, extra:3.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -19565,7 +19565,7 @@ function prjAddFormHtml(p){
   let body = '';
   if(k==='doc'){
     body = `<div class="uf-flex">
-      <div class="f-md"><label for="pjad_change_type">نوع الملحق</label><select id="pjad_change_type">${Object.entries(PRJ_ADD_CHANGE).map(([v,l])=>`<option value="${v}" ${f.change_type===v?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="f-md"><label for="pjad_change_type">التغيير</label><select id="pjad_change_type">${Object.entries(PRJ_ADD_CHANGE).map(([v,l])=>`<option value="${v}" ${f.change_type===v?'selected':''}>${l}</option>`).join('')}</select></div>
       <div class="f-md"><label for="pjad_amount">التغيّر في القيمة (د.ك)</label><input id="pjad_amount" type="text" inputmode="decimal" dir="ltr" value="${escH(String(f.amount||''))}" placeholder="صفر للتمديد"></div>
       <div class="f-md"><label for="pjad_date">التاريخ</label><input id="pjad_date" type="date" value="${escH(f.date||cxToday())}"></div>
     </div>
