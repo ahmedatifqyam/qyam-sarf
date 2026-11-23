@@ -1,9 +1,9 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.49.1', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.50.0', APP_VERSION_DATE = '2026-11-22';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
-const APP_WORK = {hours:353, base:350, extra:3.2, at:'2026-11-14', since:'2026-09-05'};
+const APP_WORK = {hours:353, base:350, extra:3.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
 const OWNER_PHONE = '98937472';
 function isOwnerUser(u){ return !!u && u.role==='admin' && String(u.phone||'').replace(/\D/g,'').endsWith(OWNER_PHONE); }
@@ -616,6 +616,7 @@ function mapRequestRow(r){
     budgetItemId: r.budget_item_id||null,
     archiveOnly: !!r.archive_only,   // طلب أرشيفي قبل الرصيد الافتتاحي للمركز: لا يُخصم من رصيده ولا يظهر في كشفه
     requestType: r.request_type||'normal',
+    onBehalfById: r.on_behalf_by_id||'', onBehalfByName: r.on_behalf_by_name||'',
     defer: r.defer_kind ? {kind:r.defer_kind, until:r.defer_until||'', projectId:r.defer_project_id||'', projectName:r.defer_project_name||'', reason:r.defer_reason||'',
       byId:r.defer_by_id||'', byName:r.defer_by_name||'', at:r.defer_at||null, metAt:r.defer_met_at||null, releasedAt:r.defer_released_at||null,
       releasedBy:r.defer_released_by||'', releaseNote:r.defer_release_note||''} : null,
@@ -4879,7 +4880,10 @@ async function submitDraftInner(){
 async function createNewRequest(o){
   const {reasonInput, detailedReasonInput, budgetItemId, beneficiaries, beneRows, total, requestNotes, identityDiffs} = o;
   const isCustody = o.requestType==='custody';
-  const creatorUser = state.users.find(u=>u.id===state.user.id);
+  const obId = (!isCustody && state.user.role==='admin' && state.draft && state.draft.onBehalfId) ? state.draft.onBehalfId : '';
+  const obUser = obId ? state.users.find(u=>u.id===obId) : null;
+  if(obId && !obUser){ showToast('الموظف المختار للنيابة غير موجود — أعد اختياره','error'); return false; }
+  const creatorUser = obUser || state.users.find(u=>u.id===state.user.id);
   const {steps: rawChain, error: chainError} = buildDecisionChain(creatorUser, state.currentCompanyId);
   // العهدة: مسارها يبنيه الخادم من صاحب العهدة وإعداد الشركة (لا من منشئها)، فلا يُحكم عليه هنا
   if(chainError && !isCustody){
@@ -4952,10 +4956,11 @@ async function createNewRequest(o){
     totalAmount: total,
     beneficiaries,
     status: initialStatus,
-    createdBy: state.user.name,
-    createdById: state.user.id,
+    createdBy: obUser ? obUser.name : state.user.name,
+    createdById: obUser ? obUser.id : state.user.id,
+    onBehalfById: obUser ? state.user.id : '', onBehalfByName: obUser ? state.user.name : '',
     origin: 'center',
-    centerId: (state.draft && state.draft.centerUnitId && (nrUnitOptions().length || isCenterStaff())) ? state.draft.centerUnitId : (creatorUser ? creatorUser.centerId : null),
+    centerId: obUser ? (obUser.centerId||null) : (state.draft && state.draft.centerUnitId && (nrUnitOptions().length || isCenterStaff())) ? state.draft.centerUnitId : (creatorUser ? creatorUser.centerId : null),
     dateGreg: dates.greg,
     dateHijri: dates.hijri,
     createdAtRaw: new Date().toISOString(),
@@ -4964,7 +4969,7 @@ async function createNewRequest(o){
     limitExceeded: checkLimitExceeded(creatorUser ? creatorUser.centerId : null, total, beneficiaries),
     companyId: state.currentCompanyId,
     budgetItemId: budgetItemId,
-    history: [{step:'created', actor: state.user.name, userId: state.user.id, action:'إنشاء الطلب', note:'', time: fmtDate()}],
+    history: [{step:'created', actor: state.user.name, userId: state.user.id, action:'إنشاء الطلب', note: obUser ? 'نيابةً عن ' + obUser.name : '', time: fmtDate()}],
     approvalSteps: []
   };
   const reqInsert = await db.from('requests').insert({
@@ -9465,7 +9470,9 @@ function sigSlotsForRequest(req){
   const last = pred => H.slice(cut+1).reverse().find(pred) || null;
   const cu = userOf(req.createdById), first = (req.history||[])[0];
   // المنشئ في أعلى السلسلة (اعتمد بإنشائه): اسمه في الموضع الأول، وتوقيعه وختمه في الموضع الثاني مع اعتماده — لا يتكرّران
-  slots.push({kind:'creator', user:cu, actor:(first&&first.actor)||req.createdBy||(cu&&cu.name)||'', time:(first&&first.time)||'', step:'', signed:true, sigOverride:'', noSig:isSelfApproved(req)});
+  slots.push(req.onBehalfById
+    ? {kind:'creator', user:cu, actor:req.createdBy||(cu&&cu.name)||'', time:(first&&first.time)||'', step:'أُنشئ نيابةً عنه بواسطة ' + (req.onBehalfByName||'مدير النظام'), signed:true, sigOverride:'', noSig:true}
+    : {kind:'creator', user:cu, actor:(first&&first.actor)||req.createdBy||(cu&&cu.name)||'', time:(first&&first.time)||'', step:'', signed:true, sigOverride:'', noSig:isSelfApproved(req)});
   const orders = [...new Set((req.approvalSteps||[]).map(x=>x.sequenceOrder))].sort((a,b)=>a-b);
   orders.forEach(ord=>{
     const rows = req.approvalSteps.filter(x=>x.sequenceOrder===ord);
@@ -15371,6 +15378,7 @@ function renderNewRequest(app){
           <label class="btn btn-ghost btn-md" title="رفع ملف Excel للمستفيدين بعد ملئه فيُضافون للطلب">⬆ رفع<input id="nrXlsFile" data-csv type="file" accept=".xlsx,.xls,.csv" hidden data-on-change="nrXlsUpload"></label></div></div></div>
       <div class="nr-bi-row nr-wide">
       <div class="nr-bi-col">
+      ${nrOnBehalfHtml(d)}
       ${nrUnitOptions().length && !state.editingReqId ? nrUnitPickHtml(d) : ''}
       ${nrBookMode(d) ? (nrUnitOptions().length && !state.editingReqId ? '' : nrCenterUnitHtml(d)) : `<div class="nr-f"><label>بند الميزانية <span style="color:var(--red);">*</span></label>
       <select id="budgetItemSelect" data-on-change="onBudgetItemSelectChange" style="width:100%;">
@@ -17281,7 +17289,7 @@ function renderDetail(app){
   const creatorStepHtml = `<div class="step done" style="min-width:80px;">
     ${avSrc(req.createdById) ? `<div class="dot dot-av" style="background:var(--primary,var(--info));"><img src="${escH(avSrc(req.createdById))}" alt=""></div>` : `<div class="dot" style="background:var(--primary,var(--info));font-size:var(--fs-xs);width:26px;height:26px;line-height:26px;">✎</div>`}
     <p style="font-size:var(--fs-xs);color:var(--muted,var(--muted));">منشئ الطلب</p>
-    <span class="step-approver">${escH(creatorName)}</span>
+    <span class="step-approver">${escH(creatorName)}</span>${req.onBehalfByName ? `<span class="step-onbehalf" title="أنشأه ${escH(req.onBehalfByName)} نيابةً عن ${escH(creatorName)}">أنشأه نيابةً: ${escH(req.onBehalfByName)}</span>` : ''}
     <span class="step-approve-time">${escH(creatorTime)}</span>
   </div>`;
 
@@ -18040,6 +18048,20 @@ function nrBookMode(d){
   return nrIsBookReq(d);
 }
 function nrUnitPick(v){ syncDraftFromDOM(); if(state.draft){ state.draft.centerUnitId = v; if(nrIsBookReq(state.draft)) state.draft.budgetItemId = ''; } render(); }
+// (1.50.0) طلب نيابةً عن موظف — لمدير النظام فقط، في الطلب الجديد (غير العهدة).
+//   يُنسب الطلب للموظف (مساره من مديره ووحدته)، ويحفظ الخادم من أنشأه فعلاً (on_behalf_by)، ويُشعَر الموظف.
+function nrOnBehalfUsers(){
+  return (state.users||[]).filter(u=>u.role!=='admin' && !u.isSuspended && userHasCompany(u, state.currentCompanyId)).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar'));
+}
+function nrOnBehalfHtml(d){
+  if(!state.user || state.user.role!=='admin' || state.editingReqId || d.requestType==='custody') return '';
+  const cur = d.onBehalfId||'';
+  return `<div class="nr-f"><label for="nrOnBehalf">إنشاء نيابةً عن <small class="nr-ob-h">(اختياري)</small></label>
+    <select id="nrOnBehalf" data-on-change="nrOnBehalfSet" data-on-change-args="${qa([QA.v])}" title="يُنسب الطلب للموظف ويبدأ مساره من مديره، ويُسجَّل أنك أنشأته نيابةً عنه ويُشعَر بذلك">
+      <option value="">— أنا (بلا نيابة) —</option>${nrOnBehalfUsers().map(u=>`<option value="${escH(u.id)}" ${u.id===cur?'selected':''}>${escH(u.name)}${(cxUnit(u.centerId)||{}).name ? ' — ' + escH(cxUnit(u.centerId).name) : ''}</option>`).join('')}
+    </select>${cur ? '<div class="file-hint">يُنسب الطلب له، ومساره من مديره ووحدته، ويُسجَّل أنك أنشأته نيابةً عنه ويصله إشعار.</div>' : ''}</div>`;
+}
+function nrOnBehalfSet(v){ try{ syncDraftFromDOM(); }catch(e){} state.draft = state.draft || {}; state.draft.onBehalfId = v || ''; try{ saveDraftToStorage(); }catch(e){} render(); }
 function nrUnitPickHtml(d){
   const o = nrUnitOptions(), s = nrChosenUnit(d); if(!s) return '';
   if(s.book && !(state.cx.balances||[]).length && !state.cx._balLoading){ state.cx._balLoading = true; cxLoadBalances().finally(()=>{ state.cx._balLoading = false; }); }
