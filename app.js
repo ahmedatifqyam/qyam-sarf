@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.50.0', APP_VERSION_DATE = '2026-11-22';
+const APP_VERSION = '1.50.1', APP_VERSION_DATE = '2026-11-23';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:353, base:350, extra:3.4, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -12383,8 +12383,8 @@ function renderCompanyEditForm(){
         ${F('رمز العملة', `<input id="editCoCurrency" type="text" value="${escH(c.currency_symbol||'د.ك')}" placeholder="د.ك أو $ أو ر.س" maxlength="10">`, 'يظهر في التقارير بدلاً من «د.ك».', 'editCoCurrency')}
       </div></section>
       <section class="co-sec"><h3>ترقيم الطلبات</h3><div class="co-g">
-        ${F('رمز الشركة', `<input id="editCoCode" type="text" data-on-input="coNoPreview" value="${escH(c.code)}" dir="ltr">`, 'يدخل في رقم الطلب.', 'editCoCode')}
-        ${F('رمز الإدارة', `<input id="editCoHqCode" type="text" data-on-input="coNoPreview" value="${escH(c.hqCode)}" dir="ltr">`, '', 'editCoHqCode')}
+        ${F('رمز الشركة', `<input id="editCoCode" type="text" data-on-input="coNoPreview" value="${escH(c.code)}" dir="ltr">`, 'الجزء الأول من رقم كل طلب. تغييره لا يغيّر أرقام الطلبات القديمة، فلا تغيّره بعد بدء التشغيل الفعلي.', 'editCoCode')}
+        ${F('رمز الإدارة', `<input id="editCoHqCode" type="text" data-on-input="coNoPreview" value="${escH(c.hqCode)}" dir="ltr">`, 'الجزء الأوسط من رقم الطلب. يُستعمل حين لا يكون لمركز المُرسِل أو وحدته رمز خاص، أي الطلب صادر من الإدارة العامة. مثال: ش.ق.ك-إ-2026/048. تغييره يسري على الطلبات الجديدة فقط.', 'editCoHqCode')}
         ${F('اتجاه رقم الطلب', `<select id="editCoNoDir" data-on-change="coNoPreview">${opt([['ar','عربي — السنة يسار'],['en','إنجليزي — السنة يمين']], reqNoDir(c.id))}</select>`, 'طريقة عرض فقط، والرقم المحفوظ لا يتغير.', 'editCoNoDir')}
         ${F('شكل رقم الطلب', `<input id="editCoNoPreview" type="text" readonly tabindex="-1" dir="${reqNoDir(c.id)==='en'?'ltr':'rtl'}" value="${escH(coNoSample(c.code, c.hqCode, reqNoDir(c.id)))}" style="font-weight:700;background:var(--bg-soft,#f5f5f2);">`, 'مثال يتغيّر مع الرمزين والاتجاه.', 'editCoNoPreview')}
         ${F('⏳ نافذة المراجعة (دقائق)', num('editCoReviewWindow', c.reviewWindowMinutes==null ? 10 : c.reviewWindowMinutes, 0, 120), 'يبقى الطلب بلا رقم هذه المدة ويستطيع صاحبه تعديله. 0 = يُرقَّم فوراً.', 'editCoReviewWindow')}
