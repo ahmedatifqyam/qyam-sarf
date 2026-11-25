@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.56.0', APP_VERSION_DATE = '2026-11-24';
+const APP_VERSION = '1.57.0', APP_VERSION_DATE = '2026-11-25';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:354, base:350, extra:3.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -2686,28 +2686,27 @@ function reqNumberTemplate(){
   const companyCode = company ? company.code : 'CO';
   const me = state.users.find(u=>u.id===state.user.id);
   const unitCode = unitNumberPart(me && me.centerId, company);
-  return { prefix: unitCode ? `${companyCode}-${unitCode}-` : `${companyCode}-`, suffix: `/${year}` };
+  // (1.57.0) شكل الرقم مثل الورق: «ش.ق.ك 52/2026» للشركة، «م.ق.ن 22/2026» للمركز ذي الرمز — بلا رمز إدارة ولا أصفار
+  return { prefix: `${unitCode || companyCode} `, suffix: `/${year}` };
 }
 // طريقة ترقيم الوحدة (23 نوفمبر) — تُحفظ في الإعدادات العامة لكل وحدة:
 // own = رمز هذه الوحدة (الافتراضي إن كان لها رمز) · parent = مثل الوحدة الأعلى (الافتراضي بلا رمز)
-// hq = رمز الإدارة · company = رمز الشركة فقط بلا جزء أوسط
-const UNIT_NO_MODES = [['own','رمز هذه الوحدة'],['parent','مثل الوحدة الأعلى'],['hq','رمز الإدارة'],['company','رمز الشركة فقط']];
+// company = رمز الشركة · (1.57.0) أُلغي «رمز الإدارة»: الطلب بلا رمز وحدة يأخذ رمز الشركة كما في الورق
+const UNIT_NO_MODES = [['own','رمز هذه الوحدة'],['parent','مثل الوحدة الأعلى'],['company','رمز الشركة']];
 function unitNoModeMap(){
   try{ return JSON.parse((state.appSettings && state.appSettings.unit_no_mode) || '{}') || {}; }catch(e){ return {}; }
 }
 function unitNoMode(u){ const m = unitNoModeMap()[u.id]; return UNIT_NO_MODES.some(x=>x[0]===m) ? m : (u.code ? 'own' : 'parent'); }
-// الجزء الأوسط من رقم الطلب لوحدة: رمز وحدة، أو رمز الإدارة، أو '' (رمز الشركة فقط)
+// رمز بداية رقم الطلب لوحدة: رمز الوحدة، أو '' (رمز الشركة)
 function unitNumberPart(centerId, company){
-  const hq = company ? (company.hqCode || 'HQ') : 'HQ';
   let cur = centerId ? state.centers.find(c=>c.id===centerId) : null, g = 0;
   while(cur && g++<40){
     const m = unitNoMode(cur);
-    if(m==='company') return '';
-    if(m==='hq') return hq;
+    if(m==='company' || m==='hq') return '';
     if(m==='own' && cur.code) return cur.code;
     cur = cur.parentId ? state.centers.find(c=>c.id===cur.parentId) : null;
   }
-  return hq;
+  return '';
 }
 async function saveUnitNoMode(unitId, mode){
   const map = unitNoModeMap(), def = (()=>{ const u = state.centers.find(c=>c.id===unitId)||{}; return u.code ? 'own' : 'parent'; })();
@@ -2767,7 +2766,7 @@ function genReqNumber(){
     }
   });
   const n = maxN + 1;
-  return `${prefix}${String(n).padStart(3,'0')}${suffix}`;
+  return `${prefix}${n}${suffix}`;
 }
 // أسماء الأدوار النظامية قابلة للتعديل (تُحفظ في الإعدادات العامة)
 function roleNameOverrides(){
@@ -7859,7 +7858,7 @@ const FIELD_TIPS = {
   "أيام العطلة (لا تذكير فيها)": "الأيام التي لا تُرسل فيها تذكيرات التأخير، حتى لا يصل الموظفين إشعار في عطلتهم الأسبوعية.",
   "تكرار التذكير كل (ساعات)": "عدد الساعات بين تذكير وآخر للشخص نفسه ما دام الطلب متأخراً عنده. مثال: 4 تعني تذكيراً كل أربع ساعات خارج ساعات الهدوء.",
   "نسخة للمالي ومنشئ الطلب بعد (أيام)": "إذا بقي الطلب متأخراً هذه المدة، يصل التذكير أيضاً إلى المدير المالي وإلى من أنشأ الطلب، ليعرفوا بالتأخير ويتابعوه.",
-  "الرمز وطريقة الترقيم": "الرمز يدخل في رقم طلبات هذه الوحدة، وبجانبه طريقة الترقيم. أمثلة بالعربي ثم بالإنجليزي: «رمز هذه الوحدة» ش.ق.ع-تس-2026/001 أو QAD-MKT-001/2026. «رمز الإدارة» ش.ق.ع-أ-2026/001 أو QAD-HQ-001/2026. «رمز الشركة فقط» ش.ق.ع-2026/001 أو QAD-001/2026. «مثل الوحدة الأعلى» تأخذ طريقة الوحدة التي فوقها. اجعل رمز الشركة ورموز الوحدات بلغة واحدة حتى لا يختلط الرقم. يسري على الطلبات الجديدة فقط.",
+  "الرمز وطريقة الترقيم": "الرمز يدخل في رقم طلبات هذه الوحدة، وبجانبه طريقة الترقيم. أمثلة: «رمز هذه الوحدة» م.ق.ن 2026/22 أو MKT 22/2026. «رمز الشركة» ش.ق.ك 2026/52 أو QAD 52/2026. «مثل الوحدة الأعلى» تأخذ طريقة الوحدة التي فوقها. اجعل رمز الشركة ورموز الوحدات بلغة واحدة حتى لا يختلط الرقم. يسري على الطلبات الجديدة فقط.",
   "تتبع الوحدة": "الوحدة الأعلى التي تقع تحتها هذه الوحدة في الهيكل. منها ترث الترويسة والتذييل والرمز إن لم يكن لها، وتُجمع ميزانيتها في ميزانية الأعلى.",
   "الجهة التابع لها (اختياري)": "العميل الذي يتبع له هذا المركز، مثل الجمعية أو الفرع الذي يُشغَّل المركز لصالحه. يُختار من قائمة العملاء.",
   "الميزانية الشهرية (د.ك)": "رقم مرجعي يُقارن به صرف الشهر في التقارير وزر الميزانية. لا يمنع الصرف إذا تجاوزته الطلبات، وإنما يظهر التجاوز في التقارير.",
@@ -12518,8 +12517,8 @@ function renderCompanyEditForm(){
       </div></section>
       <section class="co-sec"><h3>ترقيم الطلبات</h3><div class="co-g">
         ${F('رمز الشركة', `<input id="editCoCode" type="text" data-on-input="coNoPreview" value="${escH(c.code)}" dir="ltr">`, 'الجزء الأول من رقم كل طلب، مثل ش.ق.ع-أ-2026/001 بالعربي أو QAD-HQ-001/2026 بالإنجليزي. اجعله بلغة رموز الوحدات نفسها حتى لا يختلط الرقم. تغييره لا يغيّر أرقام الطلبات القديمة، فلا تغيّره بعد بدء التشغيل الفعلي.', 'editCoCode')}
-        ${F('رمز الإدارة', `<input id="editCoHqCode" type="text" data-on-input="coNoPreview" value="${escH(c.hqCode)}" dir="ltr">`, 'الجزء الأوسط من رقم الطلب. يُستعمل حين لا يكون لمركز المُرسِل أو وحدته رمز خاص، أي الطلب صادر من الإدارة العامة. مثال: ش.ق.ع-أ-2026/001 بالعربي أو QAD-HQ-001/2026 بالإنجليزي، فاجعله بلغة رمز الشركة. تغييره يسري على الطلبات الجديدة فقط.', 'editCoHqCode')}
-        ${F('اتجاه رقم الطلب', `<select id="editCoNoDir" data-on-change="coNoPreview">${opt([['ar','عربي — السنة يسار'],['en','إنجليزي — السنة يمين']], reqNoDir(c.id))}</select>`, '«عربي» يضع السنة يسار التسلسل: ش.ق.ع-أ-2026/001. «إنجليزي» يضعها يمينه: QAD-HQ-001/2026. طريقة عرض فقط، والرقم المحفوظ لا يتغير، ويُفضَّل أن يوافق لغة الرموز.', 'editCoNoDir')}
+        ${F('رمز الإدارة', `<input id="editCoHqCode" type="text" data-on-input="coNoPreview" value="${escH(c.hqCode)}" dir="ltr">`, 'رمز داخلي للإدارة العامة. لم يعد يدخل في رقم الطلب: طلبات الإدارة تأخذ رمز الشركة وحده، مثل ش.ق.ك 2026/52.', 'editCoHqCode')}
+        ${F('اتجاه رقم الطلب', `<select id="editCoNoDir" data-on-change="coNoPreview">${opt([['ar','عربي — السنة يسار'],['en','إنجليزي — السنة يمين']], reqNoDir(c.id))}</select>`, '«عربي» يضع السنة يسار التسلسل: ش.ق.ك 2026/52. «إنجليزي» يضعها يمينه: QAD 52/2026. طريقة عرض فقط، والرقم المحفوظ لا يتغير، ويُفضَّل أن يوافق لغة الرموز.', 'editCoNoDir')}
         ${F('شكل رقم الطلب', `<input id="editCoNoPreview" type="text" readonly tabindex="-1" dir="${reqNoDir(c.id)==='en'?'ltr':'rtl'}" value="${escH(coNoSample(c.code, c.hqCode, reqNoDir(c.id)))}" style="font-weight:700;background:var(--bg-soft,#f5f5f2);">`, 'مثال يتغيّر مع الرمزين والاتجاه.', 'editCoNoPreview')}
         ${F('⏳ نافذة المراجعة (دقائق)', num('editCoReviewWindow', c.reviewWindowMinutes==null ? 10 : c.reviewWindowMinutes, 0, 120), 'يبقى الطلب بلا رقم هذه المدة ويستطيع صاحبه تعديله. 0 = يُرقَّم فوراً.', 'editCoReviewWindow')}
         ${F('📝 «مراجعة قبل الإرسال»', `<select id="editCoReviewMode">${opt([['optional','اختيارية لكل مستخدم'],['required','إلزامية للجميع'],['off','معطّلة (إرسال مباشر)']], c.reviewMode||'optional')}</select>`, 'ملخص المبلغ والمستفيدين والبند قبل الإرسال.', 'editCoReviewMode')}
@@ -12577,7 +12576,7 @@ async function executeDeleteCompany(id){
 }
 
 // مثال حيّ لشكل رقم الطلب في نموذج تعديل الشركة
-function coNoSample(code, hq, dir){ return reqNoFormat(`${code||'CO'}-${hq||'HQ'}-048/${new Date().getFullYear()}`, dir); }
+function coNoSample(code, hq, dir){ return reqNoFormat(`${code||'CO'} 52/${new Date().getFullYear()}`, dir); }
 function coNoPreview(){
   const el = document.getElementById('editCoNoPreview'); if(!el) return;
   const dir = ((document.getElementById('editCoNoDir')||{}).value==='en') ? 'en' : 'ar';
@@ -15047,7 +15046,7 @@ function renderDashboard(app){
       // بلا رقم = الأحدث: يتصدّر عند التنازلي
       if(!r.number) return '9999|~';          // لا سنة أعلى منها، فيتصدّر
       // السنة ثم البادئة ثم التسلسل مبطَّناً — فلا تختلط وحدة بوحدة ولا سنة بسنة
-      const m = String(r.numberRaw||r.number).match(/^(.*-)(\d+)\/(\d{4})$/);
+      const m = String(r.numberRaw||r.number).match(/^(.*?)(\d+)\/(\d{4})$/);   // (1.57.0) يقبل «ش.ق.ك 52/2026» و«ش.ق.ك-أ-001/2026»
       if(!m) return String(r.numberRaw||r.number);
       return m[3] + '|' + m[1] + '|' + m[2].padStart(6,'0');
     }
