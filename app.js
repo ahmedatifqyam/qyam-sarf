@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://ricnftouvkidfqllnybl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_4pGMLmvs9XN7DK16fp1ymQ_UzRyojRe';
 // رقم الإصدار (رئيسي.ميزة.إصلاح): يزيد الأوسط مع كل ميزة جديدة والأخير مع كل إصلاح، والأول مع تغيير كبير. يُحدَّث مع كل نشر.
-const APP_VERSION = '1.54.1', APP_VERSION_DATE = '2026-11-24';
+const APP_VERSION = '1.56.0', APP_VERSION_DATE = '2026-11-24';
 // ساعات العمل: تُحسب من سجل التحديثات عند كل نشر (tools/workhours.py)، ويُضاف إليها تقدير مدير النظام لما قبل السجل وخارجه
 const APP_WORK = {hours:354, base:350, extra:3.7, at:'2026-11-14', since:'2026-09-05'};
 // مالك النظام: حساب مدير النظام صاحب الهاتف 98937472 — لا يُحذف، وساعات العمل تظهر له وحده (الحماية في القاعدة: qy_owner_guard)
@@ -8708,7 +8708,8 @@ function exportAnalyticsData(){
   const rows = state._analyticsRows || [], meta = state._analyticsMeta || {};
   const nm = r => r.kind==='co' ? '▪ ' + r.name + ' (المجموع)' : ' '.repeat((r.depth||0)*2) + r.name;
   return {title:'التقرير المالي حسب الجهة' + (meta.scope==='all' ? ' — كل الشركات' : meta.scope==='one' ? ' — ' + companyNameOf(state.currentCompanyId) : ''), period:[meta.selMonth && meta.selMonth!=='all' ? 'شهر '+meta.selMonth : '', meta.selYear ? 'سنة '+meta.selYear : ''].filter(Boolean).join(' · '),
-    head:['الجهة','عدد الطلبات المصروفة','إجمالي المصروف (د.ك)'], body: rows.map(r=>[nm(r), Number(r.count)||0, Number(r.total)||0]), numIdx:new Set([2])};
+    head:['الجهة','عدد الطلبات المصروفة','إجمالي المصروف (د.ك)'], body: rows.map(r=>[nm(r), Number(r.count)||0, Number(r.total)||0]), numIdx:new Set([2]),
+    flags: rows.map(r=>({sub: r.kind==='co'})), totRow:['الإجمالي', Number(meta.grandCount)||0, Number(meta.grandTotal)||0]};
 }
 function exportAnalyticsCSV(){
   const rows = state._analyticsRows || [];
@@ -8849,7 +8850,7 @@ function renderAnalytics(app){
     ${budgetCardHtml}
   `);
   state._analyticsRows = rows;
-  state._analyticsMeta = {selYear, selMonth, scope};
+  state._analyticsMeta = {selYear, selMonth, scope, grandTotal, grandCount};
 }
 
 // ===================== إسناد المعاملات =====================
@@ -18595,8 +18596,14 @@ function cxLedgerFiltered(){
     return arHas([x.purpose, x.note, x.agent, x.method, x.receipt, p.payer_name, p.payer_phone, CX_LEDGER_KIND[x.kind]], q);
   });
 }
+// (1.55.0) تاريخ إنشاء فاتورة البوابة من رقمها؛ يُعلَّم إن كانت من شهر غير شهر الدفع
+function cxInvDateHtml(x){
+  const d = x.order_ref ? gwRefDate(x.order_ref) : ''; if(!d) return '—';
+  const other = d.slice(0,7) !== String(x.entry_date||'').slice(0,7);
+  return other ? `<span style="color:#b45309;font-weight:700" title="الفاتورة من شهر غير شهر الدفع">${cxDate(d)}</span>` : cxDate(d);
+}
 function cxLedgerRowsHtml(){
-  const imp = cxIsImporter(), fin = cxIsFin(), canTr = cxCanTransfer(), act = fin || canTr, ic = cxShowItemCol(), cols = 7 + (imp?1:0) + (act?1:0) + (ic?1:0);
+  const imp = cxIsImporter(), fin = cxIsFin(), canTr = cxCanTransfer(), act = fin || canTr, ic = cxShowItemCol(), cols = 8 + (imp?1:0) + (act?1:0) + (ic?1:0);
   const all = cxLedgerFiltered();
   if(!all.length) return `<tr class="cx-empty"><td colspan="${cols}">${state.cx.ledgerLoaded ? 'لا توجد حركات مطابقة.' : 'جارٍ التحميل…'}</td></tr>`;
   return all.map(x=>{
@@ -18605,7 +18612,8 @@ function cxLedgerRowsHtml(){
     const tip = [x.agent ? 'المنشئ: '+x.agent : '', x.receipt ? 'الإيصال: '+x.receipt : '', x.note ? 'ملاحظة: '+x.note : ''].filter(Boolean).join('\n');
     const mvOut = x.voided && x.moved_to_id, mvIn = !x.voided && x.moved_from_id;
     return `<tr class="${x.voided?'cx-void':''}${x._req?' cx-exp-row':''}" data-id="${escH(String(x.id))}" data-kind="${cxCatOf(x)}" data-date="${escH(String(x.entry_date||'').slice(0,10))}" ${x.voided?'data-nosum':''} ${tip?`title="${escH(tip)}"`:''}>
-      <td data-label="التاريخ" class="cx-nowrap">${cxDate(x.entry_date)}</td>
+      <td data-label="تاريخ الدفع" class="cx-nowrap">${cxDate(x.entry_date)}</td>
+      <td data-label="تاريخ الفاتورة" class="cx-nowrap">${cxInvDateHtml(x)}</td>
       ${ic ? `<td data-label="البند" class="cx-item"><div class="cx-clip">${x.center_id===state.cx.centerId ? 'المركز نفسه' : escH(cxCenterName(x.center_id))}</div></td>` : ''}
       <td data-label="البيان" class="cx-desc"><div class="cx-clip">${escH(x.purpose || CX_LEDGER_KIND[x.kind] || '')}</div><div class="cx-meta">${escH(meta)}${mvOut?' · <span class="cx-tag-red">منقولة</span>':x.voided?' · <span class="cx-tag-red">محذوفة</span>':''}${mvIn?' · <b class="cx-mv-in">منقولة إليه</b>':''}</div>${mvIn && x.note ? `<div class="cx-meta">${escH(x.note)}</div>` : ''}${x.voided ? `<div class="cx-meta cx-void-note">${mvOut?'نُقلت':'حُذفت'}${x.voided_by ? ' بواسطة ' + escH(prjUserName(x.voided_by)||'') : ''}${x.voided_at ? ' في ' + cxDate(String(x.voided_at).slice(0,10)) : ''}${x.void_reason ? ' — السبب: ' + escH(x.void_reason) : ''}</div>` : x.restored_at ? `<div class="cx-meta">استُرجعت بواسطة ${escH(prjUserName(x.restored_by)||'')} في ${cxDate(String(x.restored_at).slice(0,10))}${x.void_reason ? ' (كان سبب الحذف: ' + escH(x.void_reason) + ')' : ''}</div>` : ''}</td>
       ${imp ? `<td data-label="الدافع" class="cx-payer"><div class="cx-clip" dir="auto">${escH(p.payer_name||'—')}</div>${p.payer_phone ? `<div class="cx-meta"><bdi dir="ltr">${escH(p.payer_phone)}</bdi></div>` : ''}</td>` : ''}
@@ -18753,7 +18761,7 @@ function cxCenterDetailHtml(){
         ${state.cx.itemId && canTr && has && !state.cx.showTransfer ? `<button class="btn btn-ghost btn-md" data-on-click="cxTransferToggle">ترحيل رصيد</button>` : ''}
         ${fin && !state.cx.showEntry ? `<button class="btn btn-primary btn-md" data-on-click="cxEntryToggle">+ تسجيل حركة</button>` : ''}</div></div>
       ${fin ? cxMvBulkTplHtml() : ''}
-      <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" ${fin?'data-qyl-bulk="cxMvTpl"':''} data-qyl-kinds='${escH(JSON.stringify(CX_CATS))}' data-qyl-title="دفتر ${escH(c.name)}"><thead><tr><th>التاريخ</th>${ic?'<th>البند</th>':''}<th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin||canTr?'<th></th>':''}</tr></thead>
+      <table class="exec-table cx-tbl cx-ledger" data-qyl="cxLedger" ${fin?'data-qyl-bulk="cxMvTpl"':''} data-qyl-kinds='${escH(JSON.stringify(CX_CATS))}' data-qyl-title="دفتر ${escH(c.name)}"><thead><tr><th>تاريخ الدفع</th><th title="تاريخ إنشاء فاتورة بوابة الدفع (من رقمها). المحاسب يحسب الاشتراك بهذا التاريخ، والنظام بتاريخ الدفع">تاريخ الفاتورة</th>${ic?'<th>البند</th>':''}<th>البيان</th>${imp?'<th>الدافع</th>':''}<th class="num" data-sum>المبلغ</th><th class="num" data-sum>الرسوم</th><th class="num" data-sum>حصة الشركة</th><th class="num" data-sum>الصافي</th>${fin||canTr?'<th></th>':''}</tr></thead>
       <tbody id="cxLedgerBody">${cxLedgerRowsHtml()}</tbody></table>
     </div>
     ${cxSettingsFoldHtml()}
@@ -18817,11 +18825,52 @@ function cxExportAllHtml(){
 }
 function cxExpAllSet(k, v){ const e = state.cx.expAll || (state.cx.expAll = {}); e[k] = v; }
 function cxSheetName(n, used){ let b = String(n||'مركز').replace(/[\\/?*\[\]:]/g,' ').trim().slice(0,28) || 'مركز', x = b, i = 2; while(used.has(x)) x = b.slice(0,25) + ' ' + (i++); used.add(x); return x; }
+// ---------- (1.56.0) تنسيق Excel الموحّد لكل التصدير في النظام ----------
+// العنوان عريض كبير، سطر الشركة والفترة، رأس الجدول كحلي بخط أبيض عريض، الصفوف بلونين متناوبين،
+// المحذوف مشطوب رمادي، رصيد أول المدة أصفر عريض، الصف الفرعي (مجموع جهة) عريض، الإجمالي عريض بخلفية وخط فاصل.
+const QY_XLS_NUM = '#,##0.000;[Red](#,##0.000)';
+const QY_XLS_ST = (()=>{
+  const B = {top:{style:'thin',color:{rgb:'D6DCE4'}}, bottom:{style:'thin',color:{rgb:'D6DCE4'}}, left:{style:'thin',color:{rgb:'D6DCE4'}}, right:{style:'thin',color:{rgb:'D6DCE4'}}};
+  const al = {horizontal:'right', vertical:'center', readingOrder:2};
+  return {
+    title:{font:{bold:true, sz:14, color:{rgb:'1F3A5F'}}, alignment:{horizontal:'right', readingOrder:2}},
+    sub:{font:{sz:11, color:{rgb:'555555'}}, alignment:{horizontal:'right', readingOrder:2}},
+    head:{font:{bold:true, color:{rgb:'FFFFFF'}}, fill:{patternType:'solid', fgColor:{rgb:'1F3A5F'}}, alignment:{horizontal:'center', vertical:'center', wrapText:true, readingOrder:2}, border:B},
+    a:{fill:{patternType:'solid', fgColor:{rgb:'FFFFFF'}}, alignment:al, border:B},
+    b:{fill:{patternType:'solid', fgColor:{rgb:'EEF3F9'}}, alignment:al, border:B},
+    open:{font:{bold:true}, fill:{patternType:'solid', fgColor:{rgb:'FFF4D6'}}, alignment:al, border:B},
+    sub2:{font:{bold:true, color:{rgb:'1F3A5F'}}, fill:{patternType:'solid', fgColor:{rgb:'E3EAF3'}}, alignment:al, border:B},
+    tot:{font:{bold:true, sz:12}, fill:{patternType:'solid', fgColor:{rgb:'D9E3F0'}}, alignment:al, border:Object.assign({}, B, {top:{style:'medium',color:{rgb:'1F3A5F'}}})}
+  };
+})();
+// o = {title, sub, head:[..], rows:[{cells:[..], v:محذوف, open:رصيد أول المدة, sub:صف فرعي}], numFrom: أول عمود رقمي (كل ما بعده رقمي) أو numIdx:Set, tot:[..]|null}
+function qyXlsSheet(X, o){
+  const h = o.head, rows = o.rows, isNum = j => o.numIdx ? o.numIdx.has(j) : (o.numFrom!=null && j >= o.numFrom);
+  const ws = X.utils.aoa_to_sheet([[o.title], [o.sub||''], [], h, ...rows.map(r=>r.cells), ...(o.tot ? [o.tot] : [])]);
+  const put = (r, c, st) => { const ref = X.utils.encode_cell({r, c}); if(!ws[ref]) ws[ref] = {t:'s', v:''}; ws[ref].s = st; if(isNum(c) && ws[ref].t==='n') ws[ref].z = QY_XLS_NUM; };
+  const cp = st => JSON.parse(JSON.stringify(st));
+  put(0, 0, QY_XLS_ST.title); put(1, 0, QY_XLS_ST.sub);
+  h.forEach((x,j)=>put(3, j, QY_XLS_ST.head));
+  let band = 0;
+  rows.forEach((r,i)=>{ const base = r.open ? QY_XLS_ST.open : r.sub ? QY_XLS_ST.sub2 : (band++ % 2 ? QY_XLS_ST.b : QY_XLS_ST.a);
+    h.forEach((x,j)=>{ const st = cp(base); if(r.v) st.font = Object.assign({}, st.font||{}, {strike:true, color:{rgb:'8A8A8A'}}); put(4+i, j, st); }); });
+  if(o.tot) h.forEach((x,j)=>put(4+rows.length, j, cp(QY_XLS_ST.tot)));
+  const w = j => String(j==null?'':j).length;
+  ws['!cols'] = h.map((x,j)=>({wch: Math.min(50, Math.max(w(x)+4, ...rows.slice(0,300).map(r=>w(r.cells[j])+2), isNum(j)?15:9))}));
+  ws['!rows'] = [{hpt:24}, {hpt:18}, {hpt:6}, {hpt:30}];
+  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:Math.max(0,h.length-1)}}, {s:{r:1,c:0}, e:{r:1,c:Math.max(0,h.length-1)}}];
+  ws['!views'] = [{RTL:true}];
+  return ws;
+}
+function qyXlsBook(X){ const wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]}; return wb; }
 // مكتبة Excel بالتنسيق (خط عريض، خلفيات، شطب)؛ عند تعذّرها تُستعمل العادية بلا تنسيق
 async function qylLoadXlsxStyled(){
   if(window.__xlsxStyled && window.XLSX) return window.XLSX;
   try{ await new Promise((ok, ko)=>{ const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
-    window.__xlsxStyled = true; return window.XLSX; }catch(e){ return qylLoadXlsx(); }
+    window.__xlsxStyled = true; return window.XLSX; }catch(e){
+    if(window.XLSX) return window.XLSX;
+    await new Promise((ok, ko)=>{ const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+    return window.XLSX; }
 }
 async function cxExportAll(){
   const cxDd = v => { const m = String(v||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? m[3]+'-'+m[2]+'-'+m[1] : ''; };
@@ -18883,34 +18932,10 @@ async function cxExportAll(){
     const openRow = c => ({open:true, cells: head.map((h,j)=> j===0 ? cxDd(from) : j===hc('المركز') ? c.name : j===hc('النوع') ? 'رصيد أول المدة' : j===hc('البيان') ? 'الرصيد قبل ' + cxDd(from) : j===head.length-1 ? openOf[c.id] : '')});
     let X; try{ X = await qylLoadXlsxStyled(); }catch(err){ showToast('تعذّر تحميل أداة Excel','error'); return; }
     const per = (from ? 'من ' + cxDd(from) : 'من البداية') + ' إلى ' + (to ? cxDd(to) : 'اليوم') + (kind!=='all' ? ' · ' + catName[kind] : '');
-    const co = qyCompanyName(), wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
-    // التنسيق: عنوان عريض كبير، رأس الجدول بخلفية داكنة، الصفوف بلونين متناوبين، المحذوف مشطوب رمادي، رصيد أول المدة والمجموع بخلفية وخط عريض
-    const B = {top:{style:'thin',color:{rgb:'D6DCE4'}}, bottom:{style:'thin',color:{rgb:'D6DCE4'}}, left:{style:'thin',color:{rgb:'D6DCE4'}}, right:{style:'thin',color:{rgb:'D6DCE4'}}};
-    const ST = {
-      title:{font:{bold:true, sz:14, color:{rgb:'1F3A5F'}}, alignment:{horizontal:'right', readingOrder:2}},
-      sub:{font:{sz:11, color:{rgb:'555555'}}, alignment:{horizontal:'right', readingOrder:2}},
-      head:{font:{bold:true, color:{rgb:'FFFFFF'}}, fill:{patternType:'solid', fgColor:{rgb:'1F3A5F'}}, alignment:{horizontal:'center', vertical:'center', wrapText:true, readingOrder:2}, border:B},
-      a:{fill:{patternType:'solid', fgColor:{rgb:'FFFFFF'}}, alignment:{horizontal:'right', vertical:'center', readingOrder:2}, border:B},
-      b:{fill:{patternType:'solid', fgColor:{rgb:'EEF3F9'}}, alignment:{horizontal:'right', vertical:'center', readingOrder:2}, border:B},
-      open:{font:{bold:true}, fill:{patternType:'solid', fgColor:{rgb:'FFF4D6'}}, alignment:{horizontal:'right', readingOrder:2}, border:B},
-      tot:{font:{bold:true, sz:12}, fill:{patternType:'solid', fgColor:{rgb:'D9E3F0'}}, alignment:{horizontal:'right', readingOrder:2}, border:Object.assign({}, B, {top:{style:'medium',color:{rgb:'1F3A5F'}}})}
-    };
+    const co = qyCompanyName(), wb = qyXlsBook(X);
     const sheet = (title, h, rows, nfrom, totLabel) => {
       const tot = h.map((x,j)=> j===0 ? (totLabel||'المجموع') : (j>=nfrom ? Math.round(rows.filter(r=>!r.v).reduce((a,r)=>a + (typeof r.cells[j]==='number' ? r.cells[j] : 0), 0)*1000)/1000 : ''));
-      const ws = X.utils.aoa_to_sheet([[title], [co + ' · ' + per], [], h, ...rows.map(r=>r.cells), tot]);
-      const put = (r, c, st) => { const ref = X.utils.encode_cell({r, c}); if(!ws[ref]) ws[ref] = {t:'s', v:''}; ws[ref].s = st; };
-      put(0, 0, ST.title); put(1, 0, ST.sub);
-      h.forEach((x,j)=>put(3, j, ST.head));
-      rows.forEach((r,i)=>{ const base = r.open ? ST.open : (i % 2 ? ST.b : ST.a);
-        h.forEach((x,j)=>{ const st = JSON.parse(JSON.stringify(base)); if(r.v) st.font = Object.assign({}, st.font||{}, {strike:true, color:{rgb:'8A8A8A'}});
-          if(j>=nfrom) st.alignment = Object.assign({}, st.alignment, {horizontal:'right'}); put(4+i, j, st);
-          const c = ws[X.utils.encode_cell({r:4+i, c:j})]; if(j>=nfrom && c && c.t==='n') c.z = '#,##0.000;[Red](#,##0.000)'; }); });
-      h.forEach((x,j)=>{ const st = JSON.parse(JSON.stringify(ST.tot)); if(j>=nfrom) st.alignment = Object.assign({}, st.alignment, {horizontal:'right'}); put(4+rows.length, j, st);
-        const c = ws[X.utils.encode_cell({r:4+rows.length, c:j})]; if(j>=nfrom && c && c.t==='n') c.z = '#,##0.000;[Red](#,##0.000)'; });
-      ws['!cols'] = h.map((x,j)=>({wch: Math.min(50, Math.max(String(x).length+4, ...rows.slice(0,300).map(r=>String(r.cells[j]==null?'':r.cells[j]).length+2), j>=nfrom?15:9))}));
-      ws['!rows'] = [{hpt:24}, {hpt:18}, {hpt:6}, {hpt:30}];
-      ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:h.length-1}}, {s:{r:1,c:0}, e:{r:1,c:h.length-1}}];
-      ws['!views'] = [{RTL:true}]; return ws; };
+      return qyXlsSheet(X, {title, sub: co + ' · ' + per, head:h, rows, numFrom:nfrom, tot}); };
     // الملخص
     const sh = ['المركز', ...(from && kind==='all' ? ['رصيد أول المدة'] : []), 'البوابة (صافٍ)','الدعم (صافٍ)','إيرادات أخرى (صافٍ)','رسوم البوابة','حصة الشركة','المصروفات','الترحيل','صافي حركة الفترة', ...(from && kind==='all' ? ['رصيد آخر المدة'] : []), 'الرصيد الحالي'];
     const sum = (arr, f) => cxR3(arr.reduce((a,x)=>a + Number(f(x)||0), 0));
@@ -18931,7 +18956,7 @@ async function cxExportAll(){
         const h = ['المركز','في النظام', ...cols];
         const body = rows.map(r=>{ const m = mapFn(r); return {cells:[m.center, m.inSys, ...cols.map(k=>{ const v = r[k]; return numCols.includes(k) && v!=='' && !isNaN(Number(v)) ? Number(v) : v; })]}; });
         const ws = sheet(title, h, body, h.length);   // بلا مجاميع رقمية افتراضية
-        cols.forEach((k,i)=>{ if(!numCols.includes(k)) return; body.forEach((r,ri)=>{ const c = ws[X.utils.encode_cell({r:4+ri, c:2+i})]; if(c && c.t==='n'){ c.z = '#,##0.000;[Red](#,##0.000)'; if(c.s) c.s.alignment = Object.assign({}, c.s.alignment, {horizontal:'right'}); } }); });
+        cols.forEach((k,i)=>{ if(!numCols.includes(k)) return; body.forEach((r,ri)=>{ const c = ws[X.utils.encode_cell({r:4+ri, c:2+i})]; if(c && c.t==='n') c.z = QY_XLS_NUM; }); });
         return ws; };
       if(rawSt.length) X.utils.book_append_sheet(wb, rawSheet('كشف حساب البوابة (الملف الأصلي)', rawSt, ['card','refund_id','destination_id'], r=>{
         const desc = String(r.description||''); if(!/^sale/i.test(desc)) return {center:'', inSys:/^fee/i.test(desc) ? 'لا (رسوم)' : /^transfer/i.test(desc) ? 'لا (تحويل)' : 'لا'};
@@ -21277,6 +21302,14 @@ function gwPick(kind, el){
 }
 function gwClearFile(kind){ const im = state.cx.imp; im[kind==='statement'?'stmt':'bills'] = null; im.rows = null; im.info = null; render(); }
 function gwSetAccount(v){ state.cx.imp.accountId = v; if(state.cx.imp.rows) render(); }
+async function gwSetAccCenter(id, centerId){
+  const a = (state.cx.gwAccounts||[]).find(x=>x.id===id); if(!a) return;
+  const nm = centerId ? cxCenterName(centerId) : '';
+  if(!confirm(centerId ? `جعل كل دفعات «${a.name}» لمركز «${nm}»؟\n\nيسري على الرفعات القادمة لهذا الحساب، ولا يغيّر ما سُجّل سابقاً.` : `إرجاع «${a.name}» حساباً مشتركاً يوزّع الدفعات حسب الجهات؟`)){ render(); return; }
+  const r = await db.from('gateway_accounts').update({center_id:centerId||null}).eq('id', id);
+  if(!(await dbCheck(r,'حفظ مركز الحساب'))) return;
+  showToast('تم الحفظ','success'); await gwLoad();
+}
 async function gwAddAccount(){
   const n = ((document.getElementById('gw_acc_name')||{}).value||'').trim(); if(!n){ showToast('أدخل اسم الحساب','error'); return; }
   const r = await db.from('gateway_accounts').insert({company_id:cxCid(), name:n});
@@ -21409,7 +21442,8 @@ function gwSetRange(which, v){ const im = state.cx.imp; if(!im || !im.info || !v
 // رقم الطلب في الكشف = رقم الفاتورة، ومنه تاريخ إنشائها: خانتان ثم YYYYMMDD
 function gwRefDate(ref){ const m = String(ref||'').trim().match(/^\d{2}(20\d{2})(\d{2})(\d{2})\d+$/); return m ? `${m[1]}-${m[2]}-${m[3]}` : ''; }
 // القفل: آخر رصيد افتتاحي في الشركة، ولكل مركز تاريخه
-function gwLockDate(centerId){ const o = state.cx.openDates||{}; if(centerId) return o[centerId] || ''; return Object.values(o).sort().pop() || ''; }
+// (1.55.0) بلا مركز: أقدم رصيد افتتاحي في الشركة (لا أحدثها)، فلا تسقط دفعة لم يُعرف مركزها بعد؛ تذهب للمعلّق وتُقفل عند تصنيفها بتاريخ مركزها
+function gwLockDate(centerId){ const o = state.cx.openDates||{}; if(centerId) return o[centerId] || ''; return Object.values(o).sort()[0] || ''; }
 function gwBillsMerged(){ const m = Object.assign({}, state.cx.gwBills||{}); const im = state.cx.imp; if(im && im.bills) im.bills.rows.forEach(b=>{ const k = String(b.invoice_number||'').trim(); if(k) m[k] = b; }); return m; }
 function gwBillInfo(b){ return {agent:b.agent||'', purpose:b.description||'', payer_name:[b.customer_first_name, b.customer_last_name].filter(Boolean).join(' '), payer_phone:b.customer_phone||''}; }
 // الحركات المعلّقة بلا جهة التي صار لها فاتورة
@@ -21463,7 +21497,9 @@ async function gwCheckDup(list){
   }
   return set;
 }
-function gwRowCenter(x){ return x.agent ? gwAgentCenter(x.agent) : null; }
+// (1.55.0) حساب بوابة خاص بمركز: كل دفعاته لمركزه، بلا ربط جهات
+function gwAccCenter(){ const im = state.cx.imp, a = (state.cx.gwAccounts||[]).find(x=>x.id===(im && im.accountId)); return a && a.center_id && (state.centers||[]).some(c=>c.id===a.center_id && c.companyId===cxCid()) ? a.center_id : null; }
+function gwRowCenter(x){ return gwAccCenter() || (x.agent ? gwAgentCenter(x.agent) : null); }
 function gwCalc(x){
   const cid = gwRowCenter(x), c = (state.centers||[]).find(t=>t.id===cid);
   if(!c) return {center:null, share:null, net:null, pct:null};
@@ -21637,7 +21673,10 @@ function renderGwImport(app){
       </div>
       <div class="cx-actions"><button class="btn btn-primary btn-md" data-on-click="gwSaveSettings">حفظ</button></div>
       <h3 class="cx-h3">حسابات البوابة <span class="file-hint">لكل حساب تاجر مستقل (مثل حساب ثانٍ لمركز) — يظهر الاختيار عند وجود أكثر من حساب</span></h3>
-      <div class="cx-chips">${accs.map(a=>`<span class="cx-chip"><b>${escH(a.name)}</b></span>`).join('') || '<span class="file-hint">لا يوجد</span>'}</div>
+      <table class="exec-table cx-tbl" data-qyl="gwAccs" data-qyl-title="حسابات البوابة"><thead><tr><th>الحساب</th><th>مركز الحساب</th></tr></thead><tbody>
+      ${accs.map(a=>`<tr><td data-label="الحساب"><b>${escH(a.name)}</b></td><td data-label="مركز الحساب"><select class="cx-sel-sm" data-on-change="gwSetAccCenter" data-on-change-args="${qa([a.id, QA.v])}"><option value="">مشترك — حسب ربط الجهات</option>${gwCentersOptions(a.center_id||'')}</select></td></tr>`).join('') || '<tr class="cx-empty"><td colspan="2">لا يوجد</td></tr>'}
+      </tbody></table>
+      <p class="file-hint">حساب خاص بمركز: كل دفعاته تذهب إلى مركزه مباشرة دون ربط الجهات، وملف الفواتير له اختياري (للغرض واسم الدافع). الحساب المشترك يوزّع الدفعات حسب جهة كل فاتورة.</p>
       <div class="row"><div class="f-lg"><label>حساب جديد</label><input id="gw_acc_name" type="text" placeholder="مثال: Tap — الأندلس"></div><div class="cx-row-btn"><button class="btn btn-ghost btn-md" data-on-click="gwAddAccount">إضافة حساب</button></div></div>
       <h3 class="cx-h3">من يرفع الملفات <span class="file-hint">المحاسب والمدير يرفعون دائماً</span></h3>
       <table class="exec-table cx-tbl" data-qyl="gwImporters" data-qyl-title="من يرفع ملفات البوابة"><thead><tr><th>المستخدم</th><th>الدور</th><th data-noexport>يرفع</th></tr></thead><tbody>
@@ -21924,10 +21963,12 @@ function qylData(key, onlySel){
   let title = el.getAttribute('data-qyl-title') || (h2 ? h2.textContent.trim() : '') || document.title;
   if(s.kind && s.kind!=='all'){ try{ const k = JSON.parse(el.getAttribute('data-qyl-kinds')||'[]').find(x=>x[0]===s.kind); if(k) title += ' — ' + k[1]; }catch(e){} }
   if(onlySel) title += ' — المحدد (' + rows.length + ')';
-  return {title, period: hasDate ? rg.label : '', head, body, numIdx, nosum, company: qyCompanyName()};
+  const flags = rows.map(r=>({v: r.classList.contains('cx-void') || /line-through/.test(r.getAttribute('style')||'')}));
+  return {title, period: hasDate ? rg.label : '', head, body, numIdx, nosum, flags, company: qyCompanyName()};
 }
 function qylFileName(d){ return (d.title + (d.period ? ' - ' + d.period : '')).replace(/[‎‏⁦-⁩؜]/g,'').replace(/[\\/:*?"<>|]+/g,' ').trim() || 'تصدير'; }
 async function qylLoadXlsx(){
+  try{ return await qylLoadXlsxStyled(); }catch(e){}   // (1.56.0) المكتبة المنسّقة أولاً (تقرأ وتكتب مثل العادية)
   if(window.XLSX) return window.XLSX;
   await new Promise((ok, ko)=>{ const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
   return window.XLSX;
@@ -21937,7 +21978,7 @@ async function qyExportData(fmt, d){
   if(!d.body || !d.body.length){ showToast('لا توجد سجلات في الفترة المختارة','error'); return; }
   const numIdx = d.numIdx || new Set(), nosum = d.nosum || [];
   const tot = d.head.map((h,j)=>numIdx.has(j) ? Math.round(d.body.reduce((a,r,ri)=>a + (!nosum[ri] && typeof r[j]==='number' ? r[j] : 0),0)*1000)/1000 : '');
-  const totRow = d.noTotal ? null : (tot.some(v=>v!=='') ? d.head.map((h,j)=> j===0 ? 'المجموع' : tot[j]) : null);
+  const totRow = d.totRow || (d.noTotal ? null : (tot.some(v=>v!=='') ? d.head.map((h,j)=> j===0 ? 'المجموع' : tot[j]) : null));
   const company = d.company==null ? qyCompanyName() : d.company;
   if(fmt==='csv'){
     const q = v => { const t = String(v==null?'':v); return /[",\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t; };
@@ -21948,13 +21989,10 @@ async function qyExportData(fmt, d){
   }
   if(fmt==='xlsx'){
     let X; try{ X = await qylLoadXlsx(); }catch(e){ showToast('تعذّر تحميل أداة Excel، جرّب CSV','error'); return; }
-    const aoa = [[d.title], [company + (d.period ? ' · الفترة: ' + d.period : '')], [], d.head, ...d.body, ...(totRow ? [totRow] : [])];
-    const ws = X.utils.aoa_to_sheet(aoa);
-    const r0 = 3, nRows = d.body.length + (totRow ? 1 : 0);
-    for(let r=r0+1; r<=r0+nRows; r++) numIdx.forEach(j=>{ const c = ws[X.utils.encode_cell({r, c:j})]; if(c && c.t==='n') c.z = '#,##0.000;[Red](#,##0.000)'; });
-    ws['!cols'] = d.head.map((h,j)=>({wch: Math.min(60, Math.max(String(h).length+2, ...d.body.slice(0,200).map(r=>String(r[j]==null?'':r[j]).length+2), numIdx.has(j)?14:8))}));
-    ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:Math.max(0,d.head.length-1)}}, {s:{r:1,c:0}, e:{r:1,c:Math.max(0,d.head.length-1)}}];
-    const wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
+    const flags = d.flags || [];
+    const ws = qyXlsSheet(X, {title:d.title, sub: company + (d.period ? ' · الفترة: ' + d.period : ''), head:d.head, numIdx,
+      rows: d.body.map((r,i)=>({cells:r, v:!!(flags[i]||{}).v, sub:!!(flags[i]||{}).sub, open:!!(flags[i]||{}).open})), tot: totRow});
+    const wb = qyXlsBook(X);
     X.utils.book_append_sheet(wb, ws, 'البيانات');
     X.writeFile(wb, qylFileName(d)+'.xlsx');
     return;
@@ -21963,9 +22001,11 @@ async function qyExportData(fmt, d){
   let box = document.getElementById('qylPrintSheet'); if(box) box.remove();
   box = document.createElement('div'); box.id = 'qylPrintSheet'; box.dir = 'rtl';
   const cell = (v,j) => numIdx.has(j) ? `<td class="qp-n">${v===''||v==null ? '' : fmtKWDHtml(v)}</td>` : `<td>${escH(String(v==null?'':v))}</td>`;
+  const fl = d.flags || []; let band = 0;
+  const trCls = i => { const f = fl[i]||{}; return [f.v ? 'qp-void' : '', f.sub ? 'qp-sub2' : f.open ? 'qp-open' : (band++ % 2 ? 'qp-b' : '')].filter(Boolean).join(' '); };
   box.innerHTML = `<h1>${escH(d.title)}</h1><div class="qp-sub">${escH(company)}${d.period ? ' · الفترة: '+escH(d.period) : ''} · طُبع ${dmyStr(qylToday())} · ${d.body.length} سجل</div>
-    <table><thead><tr>${d.head.map(h=>`<th>${escH(h)}</th>`).join('')}</tr></thead><tbody>${d.body.map(r=>`<tr>${r.map(cell).join('')}</tr>`).join('')}</tbody>
-    ${totRow ? `<tfoot><tr>${totRow.map((v,j)=> j===0 ? '<td><b>المجموع</b></td>' : cell(v,j)).join('')}</tr></tfoot>` : ''}</table>`;
+    <table><thead><tr>${d.head.map(h=>`<th>${escH(h)}</th>`).join('')}</tr></thead><tbody>${d.body.map((r,i)=>`<tr class="${trCls(i)}">${r.map(cell).join('')}</tr>`).join('')}</tbody>
+    ${totRow ? `<tfoot><tr>${totRow.map((v,j)=> j===0 ? `<td>${escH(String(v))}</td>` : cell(v,j)).join('')}</tr></tfoot>` : ''}</table>`;
   document.body.appendChild(box); document.body.classList.add('printing-qyl');
   const t0 = document.title; document.title = qylFileName(d);
   const done = () => { document.body.classList.remove('printing-qyl'); const b = document.getElementById('qylPrintSheet'); if(b) b.remove(); document.title = t0; window.removeEventListener('afterprint', done); };
@@ -22347,16 +22387,15 @@ async function glExportMonth(){
   const g = glSt(), rows = g.journal||[]; if(!rows.length){ showToast('لا حركات في هذا الشهر','error'); return; }
   let X; try{ X = await qylLoadXlsx(); }catch(e){ showToast('تعذّر تحميل أداة Excel','error'); return; }
   const s = glSummary(rows), co = currentCompanyName(), ml = glMonthLabel(g.month);
-  const num = (ws, cols, r0, n) => { for(let r=r0; r<r0+n; r++) cols.forEach(c=>{ const cell = ws[X.utils.encode_cell({r, c})]; if(cell && cell.t==='n') cell.z = '#,##0.000;[Red](#,##0.000)'; }); };
   const head1 = ['التاريخ','المرجع','المصدر','البيان','رقم الحساب','اسم الحساب','مدين','دائن','ملاحظة'];
-  const b1 = rows.map(r=>[dmyStr(r.entry_date).replace(/[⁦-⁩‏]/g,''), r.ref||'', r.source||'', r.description||'', r.account_code||'', r.account_code ? (r.account_name||'') : 'بلا حساب', Number(r.debit)||0, Number(r.credit)||0, r.flag||'']);
-  const ws1 = X.utils.aoa_to_sheet([['كشف الحركات الشهري — ' + ml], [co + ' · ' + s.entries + ' قيد'], [], head1, ...b1, ['المجموع','','','','','', s.dr, s.cr, '']]);
-  num(ws1, [6,7], 4, b1.length+1); ws1['!cols'] = [{wch:12},{wch:16},{wch:16},{wch:48},{wch:12},{wch:34},{wch:14},{wch:14},{wch:16}];
+  const b1 = rows.map(r=>({cells:[dmyStr(r.entry_date).replace(/[⁦-⁩‏]/g,''), r.ref||'', r.source||'', r.description||'', r.account_code||'', r.account_code ? (r.account_name||'') : 'بلا حساب', Number(r.debit)||0, Number(r.credit)||0, r.flag||'']}));
+  const ws1 = qyXlsSheet(X, {title:'كشف الحركات الشهري — ' + ml, sub: co + ' · ' + s.entries + ' قيد', head:head1, rows:b1, numIdx:new Set([6,7]), tot:['المجموع','','','','','', s.dr, s.cr, '']});
+  ws1['!cols'] = [{wch:12},{wch:16},{wch:16},{wch:48},{wch:12},{wch:34},{wch:15},{wch:15},{wch:16}];
   const head2 = ['رقم الحساب','اسم الحساب','مدين','دائن','الصافي'];
-  const b2 = s.accts.map(a=>[a.code, a.code ? a.name : 'بلا حساب', Math.round(a.dr*1000)/1000, Math.round(a.cr*1000)/1000, Math.round((a.dr-a.cr)*1000)/1000]);
-  const ws2 = X.utils.aoa_to_sheet([['مجاميع الحسابات — ' + ml], [co], [], head2, ...b2, ['المجموع','', s.dr, s.cr, Math.round((s.dr-s.cr)*1000)/1000]]);
-  num(ws2, [2,3,4], 4, b2.length+1); ws2['!cols'] = [{wch:12},{wch:36},{wch:14},{wch:14},{wch:14}];
-  const wb = X.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
+  const b2 = s.accts.map(a=>({cells:[a.code, a.code ? a.name : 'بلا حساب', Math.round(a.dr*1000)/1000, Math.round(a.cr*1000)/1000, Math.round((a.dr-a.cr)*1000)/1000]}));
+  const ws2 = qyXlsSheet(X, {title:'مجاميع الحسابات — ' + ml, sub: co, head:head2, rows:b2, numFrom:2, tot:['المجموع','', s.dr, s.cr, Math.round((s.dr-s.cr)*1000)/1000]});
+  ws2['!cols'] = [{wch:12},{wch:36},{wch:15},{wch:15},{wch:15}];
+  const wb = qyXlsBook(X);
   X.utils.book_append_sheet(wb, ws1, 'القيود'); X.utils.book_append_sheet(wb, ws2, 'مجاميع الحسابات');
   X.writeFile(wb, `كشف الحركات ${ml} - ${co}.xlsx`.replace(/[\\/:*?"<>|]+/g,' '));
   const {error} = await db.rpc('qy_gl_mark_exported', {p_company:glCid(), p_month:g.month+'-01', p_entries:s.entries, p_total:s.dr, p_unlinked:s.unlE});

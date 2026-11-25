@@ -2183,6 +2183,7 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     /* بطاقة الحركة: التاريخ والصافي أعلى، ثم البيان والدافع، ثم المبالغ */
     #app.cxv table.cx-ledger tr{grid-template-columns:repeat(3,minmax(0,1fr));}
     #app.cxv table.cx-ledger td:nth-child(1){order:1;grid-column:span 2;}
+    #app.cxv table.cx-ledger td[data-label="تاريخ الفاتورة"]{order:1;}
     #app.cxv table.cx-ledger td[data-label="الصافي"]{order:2;}
     #app.cxv table.cx-ledger td.cx-desc{order:3;}
     #app.cxv table.cx-ledger td.cx-payer{order:4;grid-column:1 / -1;}
@@ -2302,10 +2303,17 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
     body.printing-qyl #qylPrintSheet{display:block !important;color:#000;background:var(--card);font-size:12px;direction:rtl;text-align:right;}
     #qylPrintSheet h1{font-size:18px;margin:0 0 4px;} #qylPrintSheet .qp-sub{color:var(--text);margin-bottom:10px;}
     #qylPrintSheet table{width:100%;border-collapse:collapse;}
-    #qylPrintSheet th,#qylPrintSheet td{border:1px solid var(--muted);padding:4px 6px;text-align:right;vertical-align:top;}
-    #qylPrintSheet th{background:var(--line);font-size:13px;}
-    #qylPrintSheet .qp-n{white-space:nowrap;text-align:right;}
-    #qylPrintSheet tfoot td{font-weight:700;background:var(--paper-2);}
+    #qylPrintSheet{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    #qylPrintSheet h1{color:#1F3A5F;}
+    #qylPrintSheet th,#qylPrintSheet td{border:1px solid #D6DCE4;padding:4px 6px;text-align:right;vertical-align:top;}
+    #qylPrintSheet th{background:#1F3A5F;color:#fff;font-weight:700;font-size:12.5px;text-align:center;vertical-align:middle;}
+    #qylPrintSheet tr.qp-b td{background:#EEF3F9;}
+    #qylPrintSheet tr.qp-sub2 td{background:#E3EAF3;color:#1F3A5F;font-weight:700;}
+    #qylPrintSheet tr.qp-open td{background:#FFF4D6;font-weight:700;}
+    #qylPrintSheet tr.qp-void td{color:#8A8A8A;text-decoration:line-through;}
+    #qylPrintSheet tr{break-inside:avoid;}
+    #qylPrintSheet .qp-n{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums;}
+    #qylPrintSheet tfoot td{font-weight:700;font-size:13px;background:#D9E3F0;border-top:2px solid #1F3A5F;}
     #qylPrintSheet thead{display:table-header-group;}
   }
   @media (max-width:699px){
@@ -3712,6 +3720,6 @@ input.dtx{position:relative;} input.dtx::-webkit-calendar-picker-indicator{posit
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js"></script>
-<script src="app.js?v=x"></script>
+<script src="app.js?v=e20c05a1ad"></script>
 </body>
 </html>
